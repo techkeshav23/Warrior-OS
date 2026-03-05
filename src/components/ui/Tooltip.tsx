@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -39,15 +39,16 @@ export function Tooltip({
   className,
 }: TooltipProps) {
   const [show, setShow] = useState(false);
-  const [timeout, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   const handleEnter = () => {
-    const id = setTimeout(() => setShow(true), delay);
-    setTimeoutId(id);
+    timerRef.current = setTimeout(() => setShow(true), delay);
   };
 
   const handleLeave = () => {
-    if (timeout) clearTimeout(timeout);
+    clearTimeout(timerRef.current);
     setShow(false);
   };
 

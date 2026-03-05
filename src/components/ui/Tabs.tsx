@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useState, useId, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +31,7 @@ export function Tabs({
   variant = 'underline',
 }: TabsProps) {
   const [active, setActive] = useState(defaultTab || tabs[0]?.id);
+  const instanceId = useId();
 
   const handleChange = (id: string) => {
     setActive(id);
@@ -68,7 +69,7 @@ export function Tabs({
           {/* Active indicator */}
           {active === tab.id && variant === 'underline' && (
             <motion.div
-              layoutId="tab-indicator"
+              layoutId={`${instanceId}-tab-indicator`}
               className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent-primary"
               style={{
                 boxShadow: '0 0 8px var(--accent-primary)',
@@ -78,7 +79,7 @@ export function Tabs({
           )}
           {active === tab.id && variant === 'pills' && (
             <motion.div
-              layoutId="tab-pill"
+              layoutId={`${instanceId}-tab-pill`}
               className="absolute inset-0 bg-white/5 rounded-[var(--radius-sm)]"
               style={{ zIndex: -1 }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}

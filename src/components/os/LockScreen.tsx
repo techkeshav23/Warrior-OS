@@ -5,13 +5,12 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Shield, Zap } from 'lucide-react';
 import { useParallax } from '@/hooks/useParallax';
 import { useClock } from '@/hooks/useClock';
 import { GlitchText } from '@/components/ui/GlitchText';
-import { GlassPanel } from '@/components/ui/GlassPanel';
 import { getQuoteOfDay } from '@/data/quotes';
 import { useXPStore } from '@/stores/useXPStore';
 import { cn } from '@/lib/utils';
@@ -31,6 +30,17 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
   const level = useXPStore((s) => s.level);
   const levelTitle = useXPStore((s) => s.getLevelTitle());
   const quote = getQuoteOfDay();
+
+  // Memoize particle positions to prevent re-randomization on every render
+  const particles = useMemo(() =>
+    Array.from({ length: 30 }).map((_, i) => ({
+      size: Math.random() * 3 + 1,
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      duration: 6 + Math.random() * 8,
+      delay: Math.random() * 5,
+    })), []
+  );
 
   const handleUnlock = useCallback(() => {
     setIsUnlocking(true);
@@ -82,17 +92,17 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
               transform: `translate(${parallax.x * -5}px, ${parallax.y * -5}px)`,
             }}
           >
-            {Array.from({ length: 30 }).map((_, i) => (
+            {particles.map((p, i) => (
               <div
                 key={i}
                 className="absolute rounded-full bg-accent-primary/20"
                 style={{
-                  width: Math.random() * 3 + 1,
-                  height: Math.random() * 3 + 1,
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  animation: `particle-float ${6 + Math.random() * 8}s ease-in-out infinite`,
-                  animationDelay: `${Math.random() * 5}s`,
+                  width: p.size,
+                  height: p.size,
+                  left: `${p.left}%`,
+                  top: `${p.top}%`,
+                  animation: `particle-float ${p.duration}s ease-in-out infinite`,
+                  animationDelay: `${p.delay}s`,
                 }}
               />
             ))}

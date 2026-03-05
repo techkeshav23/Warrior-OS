@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, Bell, Clock } from 'lucide-react';
+import { Volume2, Bell } from 'lucide-react';
 import { useAudioStore } from '@/stores/useAudioStore';
 import { useNotificationStore } from '@/stores/useNotificationStore';
 import { cn } from '@/lib/utils';

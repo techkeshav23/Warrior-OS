@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -37,11 +37,14 @@ export function Modal({
   showClose = true,
   className,
 }: ModalProps) {
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
+
   // Lock body scroll & close on Escape
   useEffect(() => {
     if (!isOpen) return;
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     document.addEventListener('keydown', handleEsc);
     document.body.style.overflow = 'hidden';
@@ -49,7 +52,7 @@ export function Modal({
       document.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = '';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   return (
     <AnimatePresence>
@@ -70,6 +73,9 @@ export function Modal({
 
           {/* Panel */}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={title ? 'modal-title' : undefined}
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -91,13 +97,14 @@ export function Modal({
             {(title || showClose) && (
               <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
                 {title && (
-                  <h3 className="text-sm font-display font-bold text-text-primary uppercase tracking-wider">
+                  <h3 id="modal-title" className="text-sm font-display font-bold text-text-primary uppercase tracking-wider">
                     {title}
                   </h3>
                 )}
                 {showClose && (
                   <button
                     onClick={onClose}
+                    aria-label="Close"
                     className="w-7 h-7 flex items-center justify-center rounded-[var(--radius-sm)] text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
                   >
                     <X className="w-4 h-4" />

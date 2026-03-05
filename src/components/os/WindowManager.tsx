@@ -9,6 +9,7 @@ import { useWindowStore } from '@/stores/useWindowStore';
 import { useAppStore } from '@/stores/useAppStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { Window } from './Window';
+import { AnimatePresence } from 'framer-motion';
 
 export function WindowManager() {
   const windows = useWindowStore((s) => s.windows);
@@ -22,18 +23,20 @@ export function WindowManager() {
 
   return (
     <div className="absolute inset-0" style={{ zIndex: 'var(--z-window)' }}>
-      {visibleWindows.map((windowState) => {
-        const app = registeredApps.find((a) => a.id === windowState.appId);
-        if (!app) return null;
+      <AnimatePresence>
+        {visibleWindows.map((windowState) => {
+          const app = registeredApps.find((a) => a.id === windowState.appId);
+          if (!app) return null;
 
-        const AppComponent = app.component;
+          const AppComponent = app.component;
 
-        return (
-          <Window key={windowState.id} windowState={windowState}>
-            <AppComponent />
-          </Window>
-        );
-      })}
+          return (
+            <Window key={windowState.id} windowState={windowState}>
+              <AppComponent />
+            </Window>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }

@@ -5,7 +5,7 @@
 
 'use client';
 
-import { type ButtonHTMLAttributes, type ReactNode, forwardRef, useState, useCallback } from 'react';
+import { type ButtonHTMLAttributes, type ReactNode, forwardRef, useState, useCallback, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -33,6 +33,9 @@ const sizeStyles = {
 export const GlowButton = forwardRef<HTMLButtonElement, GlowButtonProps>(
   ({ children, variant = 'primary', size = 'md', loading, icon, className, disabled, onClick, type, ...props }, ref) => {
     const [ripple, setRipple] = useState<{ x: number; y: number } | null>(null);
+    const rippleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+    useEffect(() => () => clearTimeout(rippleTimer.current), []);
 
     const handleClick = useCallback(
       (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -43,7 +46,8 @@ export const GlowButton = forwardRef<HTMLButtonElement, GlowButtonProps>(
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         setRipple({ x, y });
-        setTimeout(() => setRipple(null), 600);
+        clearTimeout(rippleTimer.current);
+        rippleTimer.current = setTimeout(() => setRipple(null), 600);
 
         onClick?.(e);
       },

@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 interface TypewriterTextProps {
@@ -30,6 +30,11 @@ export function TypewriterText({
   const [displayed, setDisplayed] = useState('');
   const [isComplete, setIsComplete] = useState(false);
   const [started, setStarted] = useState(false);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  });
 
   useEffect(() => {
     const delayTimer = setTimeout(() => setStarted(true), delay);
@@ -50,12 +55,12 @@ export function TypewriterText({
       } else {
         setIsComplete(true);
         clearInterval(interval);
-        onComplete?.();
+        onCompleteRef.current?.();
       }
     }, speed);
 
     return () => clearInterval(interval);
-  }, [text, speed, started, onComplete]);
+  }, [text, speed, started]);
 
   return (
     <span className={cn('font-mono', className)}>

@@ -109,13 +109,13 @@ export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps)
                       transition={{ delay: i * 0.03 }}
                       onClick={() => markAsRead(notif.id)}
                       className={cn(
-                        'relative mx-2 mb-1 p-3 rounded-[var(--radius-md)]',
+                        'group relative mx-2 mb-1 p-3 rounded-[var(--radius-md)]',
                         'border-l-2 cursor-pointer',
                         'transition-colors duration-150',
                         TYPE_COLORS[notif.type],
                         notif.read
-                          ? 'bg-transparent hover:bg-white/3'
-                          : 'bg-white/3 hover:bg-white/5'
+                          ? 'bg-transparent hover:bg-white/[0.03]'
+                          : 'bg-white/[0.03] hover:bg-white/5'
                       )}
                     >
                       {/* Unread dot */}

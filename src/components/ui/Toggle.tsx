@@ -48,7 +48,7 @@ export function Toggle({
           checked ? 'bg-accent-primary/30' : 'bg-white/10'
         )}
         style={{
-          boxShadow: checked ? '0 0 10px var(--accent-primary)40' : 'none',
+          boxShadow: checked ? '0 0 10px color-mix(in srgb, var(--accent-primary) 25%, transparent)' : 'none',
           border: `1px solid ${checked ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)'}`,
         }}
       >

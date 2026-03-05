@@ -28,10 +28,7 @@ interface NotificationStore {
 export const useNotificationStore = create<NotificationStore>()(
   immer((set, get) => ({
     notifications: [],
-
-    get unreadCount() {
-      return get().notifications.filter((n) => !n.read).length;
-    },
+    unreadCount: 0,
 
     addNotification: (config) => {
       const id = generateId('notif');
@@ -50,6 +47,7 @@ export const useNotificationStore = create<NotificationStore>()(
         if (state.notifications.length > 50) {
           state.notifications = state.notifications.slice(0, 50);
         }
+        state.unreadCount = state.notifications.filter((n) => !n.read).length;
       });
       return id;
     },
@@ -57,22 +55,28 @@ export const useNotificationStore = create<NotificationStore>()(
     removeNotification: (id) =>
       set((state) => {
         state.notifications = state.notifications.filter((n) => n.id !== id);
+        state.unreadCount = state.notifications.filter((n) => !n.read).length;
       }),
 
     markAsRead: (id) =>
       set((state) => {
         const notif = state.notifications.find((n) => n.id === id);
-        if (notif) notif.read = true;
+        if (notif) {
+          notif.read = true;
+          state.unreadCount = state.notifications.filter((n) => !n.read).length;
+        }
       }),
 
     markAllAsRead: () =>
       set((state) => {
         state.notifications.forEach((n) => { n.read = true; });
+        state.unreadCount = 0;
       }),
 
     clearAll: () =>
       set((state) => {
         state.notifications = [];
+        state.unreadCount = 0;
       }),
   }))
 );

@@ -2,7 +2,7 @@
 // WARRIOR OS — Notification Types
 // ═══════════════════════════════════════════════════════════
 
-export type NotificationType = 'info' | 'success' | 'warning' | 'error' | 'achievement';
+export type NotificationType = 'info' | 'success' | 'warning' | 'error' | 'achievement' | 'system';
 
 export interface Notification {
   id: string;

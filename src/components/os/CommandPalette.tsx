@@ -65,7 +65,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   // Reset selection on filter change
   useEffect(() => {
     setSelectedIndex(0);
-  }, [filtered.length]);
+  }, [query]);
 
   // Focus input on open
   useEffect(() => {

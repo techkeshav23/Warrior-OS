@@ -37,7 +37,7 @@ export function ProgressBar({
   animated = true,
   className,
 }: ProgressBarProps) {
-  const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
+  const percentage = max > 0 ? Math.min(Math.max((value / max) * 100, 0), 100) : 0;
 
   return (
     <div className={cn('w-full', className)}>
@@ -62,8 +62,8 @@ export function ProgressBar({
         <motion.div
           className="h-full rounded-full"
           style={{
-            background: `linear-gradient(90deg, ${color}, ${color}cc)`,
-            boxShadow: glow ? `0 0 8px ${color}40` : undefined,
+            background: `linear-gradient(90deg, ${color}, color-mix(in srgb, ${color} 80%, transparent))`,
+            boxShadow: glow ? `0 0 8px color-mix(in srgb, ${color} 25%, transparent)` : undefined,
           }}
           initial={animated ? { width: 0 } : { width: `${percentage}%` }}
           animate={{ width: `${percentage}%` }}

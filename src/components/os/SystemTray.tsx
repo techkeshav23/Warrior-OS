@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, VolumeX, Wifi, Battery, Sun, Moon } from 'lucide-react';
+import { Volume2, VolumeX, Wifi, Battery } from 'lucide-react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useClock } from '@/hooks/useClock';
 import { cn } from '@/lib/utils';

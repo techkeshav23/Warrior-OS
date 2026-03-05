@@ -69,8 +69,8 @@ export function NeonBadge({
         className
       )}
       style={{
-        boxShadow: `0 0 6px ${v.glow}40, inset 0 0 6px ${v.glow}20`,
-        border: `1px solid ${v.glow}30`,
+        boxShadow: `0 0 6px color-mix(in srgb, ${v.glow} 25%, transparent), inset 0 0 6px color-mix(in srgb, ${v.glow} 12%, transparent)`,
+        border: `1px solid color-mix(in srgb, ${v.glow} 19%, transparent)`,
       }}
     >
       {children}

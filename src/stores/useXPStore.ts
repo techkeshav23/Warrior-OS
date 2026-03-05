@@ -72,7 +72,6 @@ export const useXPStore = create<XPStore>()(
           state.xp += amount;
           const newLevel = calculateLevel(state.xp);
           if (newLevel > state.level) {
-            state.level = newLevel;
             // Level up event can be handled by subscribers
           }
           state.level = newLevel;

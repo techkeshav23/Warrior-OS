@@ -45,6 +45,7 @@ export const GlassPanel = forwardRef<HTMLDivElement, GlassPanelProps>(
       children,
       variant = 'default',
       padding = 'md',
+      blur,
       rounded = 'lg',
       border = true,
       hoverGlow = false,
@@ -65,7 +66,10 @@ export const GlassPanel = forwardRef<HTMLDivElement, GlassPanelProps>(
           hoverGlow && 'transition-shadow duration-300 hover:shadow-[var(--shadow-glow)]',
           className
         )}
-        style={style}
+        style={{
+          ...style,
+          ...(blur !== undefined && { backdropFilter: `blur(${blur}px)`, WebkitBackdropFilter: `blur(${blur}px)` }),
+        }}
         {...props}
       >
         {children}

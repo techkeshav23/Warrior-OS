@@ -29,9 +29,10 @@ export function ProgressRing({
   showValue = true,
   className,
 }: ProgressRingProps) {
+  const clampedValue = Math.min(Math.max(value, 0), 100);
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (Math.min(Math.max(value, 0), 100) / 100) * circumference;
+  const offset = circumference - (clampedValue / 100) * circumference;
 
   return (
     <div className={cn('relative inline-flex items-center justify-center', className)}>
@@ -68,7 +69,7 @@ export function ProgressRing({
             className="text-sm font-mono font-bold"
             style={{ color }}
           >
-            {Math.round(value)}%
+            {Math.round(clampedValue)}%
           </span>
           {label && (
             <span className="text-[8px] font-mono text-text-muted mt-0.5">

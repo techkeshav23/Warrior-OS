@@ -7,7 +7,7 @@
 
 import { useCallback, useRef, type ReactNode } from 'react';
 import { Rnd } from 'react-rnd';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Minus, Maximize2, Minimize2, X } from 'lucide-react';
 import { useWindowStore } from '@/stores/useWindowStore';
 import { cn } from '@/lib/utils';
@@ -99,8 +99,8 @@ export function Window({ windowState, children }: WindowProps) {
       onDragStop={(_e, d) => updatePosition(id, { x: d.x, y: d.y })}
       onResizeStop={(_e, _dir, ref, _delta, pos) => {
         updateSize(id, {
-          width: parseInt(ref.style.width),
-          height: parseInt(ref.style.height),
+          width: parseFloat(ref.style.width) || ref.offsetWidth,
+          height: parseFloat(ref.style.height) || ref.offsetHeight,
         });
         updatePosition(id, pos);
       }}

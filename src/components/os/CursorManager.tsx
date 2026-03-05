@@ -24,6 +24,9 @@ export function CursorManager() {
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
+    // Hide native cursor when custom cursor is active
+    document.body.style.cursor = 'none';
+
     const handleMouseMove = (e: MouseEvent) => {
       cursorX.set(e.clientX);
       cursorY.set(e.clientY);
@@ -51,6 +54,7 @@ export function CursorManager() {
     document.addEventListener('mouseenter', handleMouseEnter);
 
     return () => {
+      document.body.style.cursor = '';
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseleave', handleMouseLeave);
       document.removeEventListener('mouseenter', handleMouseEnter);

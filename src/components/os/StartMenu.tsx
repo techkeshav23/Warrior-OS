@@ -31,16 +31,23 @@ export function StartMenu({ isOpen, onClose }: StartMenuProps) {
   // Close on click outside
   useEffect(() => {
     if (!isOpen) return;
+    let listenerAdded = false;
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
     // Delay to prevent immediate close on open click
-    setTimeout(() => {
+    const timerId = setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside);
+      listenerAdded = true;
     }, 100);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      clearTimeout(timerId);
+      if (listenerAdded) {
+        document.removeEventListener('mousedown', handleClickOutside);
+      }
+    };
   }, [isOpen, onClose]);
 
   // Close on Escape

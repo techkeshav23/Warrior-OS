@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TypewriterText } from '@/components/ui/TypewriterText';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -25,6 +25,8 @@ export function BootScreen({ onComplete }: BootScreenProps) {
   const [progress, setProgress] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; });
 
   // ─── Phase 0: Void → Particle Assembly ───
   useEffect(() => {
@@ -135,6 +137,7 @@ export function BootScreen({ onComplete }: BootScreenProps) {
   // ─── System Log Phase ───
   useEffect(() => {
     if (phase !== 'log') return;
+    let flashTimer: ReturnType<typeof setTimeout>;
 
     const interval = setInterval(() => {
       setLogIndex((prev) => {
@@ -142,13 +145,16 @@ export function BootScreen({ onComplete }: BootScreenProps) {
         setProgress(Math.round((next / BOOT_MESSAGES.length) * 100));
         if (next >= BOOT_MESSAGES.length) {
           clearInterval(interval);
-          setTimeout(() => setPhase('flash'), 400);
+          flashTimer = setTimeout(() => setPhase('flash'), 400);
         }
         return next;
       });
     }, 120);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(flashTimer);
+    };
   }, [phase]);
 
   // ─── Flash Transition ───
@@ -156,10 +162,10 @@ export function BootScreen({ onComplete }: BootScreenProps) {
     if (phase !== 'flash') return;
     const timer = setTimeout(() => {
       setPhase('done');
-      onComplete();
+      onCompleteRef.current();
     }, 600);
     return () => clearTimeout(timer);
-  }, [phase, onComplete]);
+  }, [phase]);
 
   return (
     <motion.div
