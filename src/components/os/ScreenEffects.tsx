@@ -26,6 +26,8 @@ export function ScreenEffects() {
   const crtEffect = useSettingsStore((s) => s.crtEffect);
 
   useEffect(() => {
+    if (!crtEffect) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -51,6 +53,7 @@ export function ScreenEffects() {
       maxLife: Math.random() * 300 + 200,
     });
 
+    particlesRef.current = [];
     for (let i = 0; i < 40; i++) {
       const p = createParticle();
       p.life = Math.random() * p.maxLife; // random initial life
@@ -94,7 +97,9 @@ export function ScreenEffects() {
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener('resize', resize);
     };
-  }, []);
+  }, [crtEffect]);
+
+  if (!crtEffect) return null;
 
   return (
     <canvas

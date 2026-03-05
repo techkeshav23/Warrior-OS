@@ -5,6 +5,7 @@
 
 'use client';
 
+import { useEffect } from 'react';
 import { useWindowStore } from '@/stores/useWindowStore';
 import { useAppStore } from '@/stores/useAppStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
@@ -15,6 +16,11 @@ export function WindowManager() {
   const windows = useWindowStore((s) => s.windows);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const registeredApps = useAppStore((s) => s.registeredApps);
+  const syncRunningAppsFromWindows = useAppStore((s) => s.syncRunningAppsFromWindows);
+
+  useEffect(() => {
+    syncRunningAppsFromWindows(windows);
+  }, [windows, syncRunningAppsFromWindows]);
 
   // Only show windows for the active workspace
   const visibleWindows = windows.filter(

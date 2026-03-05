@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { useWindowStore } from './useWindowStore';
 import type { AppDefinition } from '@/types/app';
+import type { WindowState } from '@/types/window';
 
 interface AppStore {
   registeredApps: AppDefinition[];
@@ -17,6 +18,7 @@ interface AppStore {
   registerApps: (apps: AppDefinition[]) => void;
   launchApp: (appId: string, workspaceId: string) => void;
   closeApp: (appId: string) => void;
+  syncRunningAppsFromWindows: (windows: WindowState[]) => void;
   getApp: (appId: string) => AppDefinition | undefined;
   getRunningApps: () => AppDefinition[];
   isRunning: (appId: string) => boolean;
@@ -39,7 +41,7 @@ export const useAppStore = create<AppStore>()(
       if (!app) return;
 
       // If singleton and already running, just focus it
-      if (app.singleton !== false && state.runningAppIds.includes(appId)) {
+      if (app.singleton && state.runningAppIds.includes(appId)) {
         const windowStore = useWindowStore.getState();
         const existingWindow = windowStore.windows.find((w) => w.appId === appId);
         if (existingWindow) {
@@ -80,6 +82,16 @@ export const useAppStore = create<AppStore>()(
         }
       });
     },
+
+    syncRunningAppsFromWindows: (windows) =>
+      set((state) => {
+        const runningAppIdSet = new Set(windows.map((w) => w.appId));
+        state.runningAppIds = state.runningAppIds.filter((id) => runningAppIdSet.has(id));
+
+        if (state.focusedAppId && !runningAppIdSet.has(state.focusedAppId)) {
+          state.focusedAppId = null;
+        }
+      }),
 
     getApp: (appId) => get().registeredApps.find((a) => a.id === appId),
 
