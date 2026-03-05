@@ -1,65 +1,170 @@
-import Image from "next/image";
+// ═══════════════════════════════════════════════════════════
+// WARRIOR OS v4.0 — Main Entry Point
+// State Machine: boot → lock → desktop
+// ═══════════════════════════════════════════════════════════
 
-export default function Home() {
+'use client';
+
+import { useEffect, useCallback, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useOSStore } from '@/stores/useOSStore';
+import { useAppStore } from '@/stores/useAppStore';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { APP_REGISTRY } from '@/data/app-registry';
+
+// OS Components
+import { BootScreen } from '@/components/os/BootScreen';
+import { LockScreen } from '@/components/os/LockScreen';
+import { Desktop } from '@/components/os/Desktop';
+import { Taskbar } from '@/components/os/Taskbar';
+import { WindowManager } from '@/components/os/WindowManager';
+import { StartMenu } from '@/components/os/StartMenu';
+import { DynamicIsland } from '@/components/os/DynamicIsland';
+import { CommandPalette } from '@/components/os/CommandPalette';
+import { NotificationCenter } from '@/components/os/NotificationCenter';
+import { ToastContainer } from '@/components/os/ToastNotification';
+import { CursorManager } from '@/components/os/CursorManager';
+import { ScreenEffects } from '@/components/os/ScreenEffects';
+import { ScanlineOverlay } from '@/components/ui/ScanlineOverlay';
+
+// Notification store for toasts
+import { useNotificationStore } from '@/stores/useNotificationStore';
+
+export default function WarriorOS() {
+  const phase = useOSStore((s) => s.phase);
+  const nextPhase = useOSStore((s) => s.nextPhase);
+  const registerApps = useAppStore((s) => s.registerApps);
+
+  // UI state
+  const [startMenuOpen, setStartMenuOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
+
+  // Notifications for toasts
+  const notifications = useNotificationStore((s) => s.notifications);
+  const markAsRead = useNotificationStore((s) => s.markAsRead);
+
+  // Register all apps on mount
+  useEffect(() => {
+    registerApps(APP_REGISTRY);
+  }, [registerApps]);
+
+  // Boot complete → advance to lock screen
+  const handleBootComplete = useCallback(() => {
+    nextPhase(); // boot → lock
+  }, [nextPhase]);
+
+  // Lock screen unlock → advance to desktop
+  const handleUnlock = useCallback(() => {
+    nextPhase(); // lock → desktop
+  }, [nextPhase]);
+
+  // Toggle start menu
+  const toggleStartMenu = useCallback(() => {
+    setStartMenuOpen((prev) => !prev);
+  }, []);
+
+  // Global keyboard shortcuts
+  useKeyboardShortcuts({
+    'ctrl+k': () => setCommandPaletteOpen(true),
+    escape: () => {
+      setStartMenuOpen(false);
+      setCommandPaletteOpen(false);
+      setNotificationCenterOpen(false);
+    },
+  });
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="relative w-screen h-screen overflow-hidden bg-bg-void select-none">
+      <AnimatePresence mode="wait">
+        {/* ═══ BOOT PHASE ═══ */}
+        {phase === 'boot' && (
+          <motion.div
+            key="boot"
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="absolute inset-0"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+            <BootScreen onComplete={handleBootComplete} />
+          </motion.div>
+        )}
+
+        {/* ═══ LOCK PHASE ═══ */}
+        {phase === 'lock' && (
+          <motion.div
+            key="lock"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="absolute inset-0"
+          >
+            <LockScreen onUnlock={handleUnlock} />
+          </motion.div>
+        )}
+
+        {/* ═══ DESKTOP PHASE ═══ */}
+        {phase === 'desktop' && (
+          <motion.div
+            key="desktop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+            className="absolute inset-0 flex flex-col"
+          >
+            {/* Background effects */}
+            <ScreenEffects />
+
+            {/* Dynamic Island (top center) */}
+            <DynamicIsland />
+
+            {/* Desktop area (fills remaining space above taskbar) */}
+            <div className="flex-1 relative overflow-hidden">
+              {/* Desktop Grid */}
+              <Desktop />
+
+              {/* Window Manager */}
+              <WindowManager />
+            </div>
+
+            {/* Taskbar (fixed bottom) */}
+            <Taskbar
+              onStartClick={toggleStartMenu}
+              onNotificationClick={() => setNotificationCenterOpen(true)}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+
+            {/* Start Menu */}
+            <StartMenu
+              isOpen={startMenuOpen}
+              onClose={() => setStartMenuOpen(false)}
+            />
+
+            {/* Command Palette */}
+            <CommandPalette
+              isOpen={commandPaletteOpen}
+              onClose={() => setCommandPaletteOpen(false)}
+            />
+
+            {/* Notification Center */}
+            <NotificationCenter
+              isOpen={notificationCenterOpen}
+              onClose={() => setNotificationCenterOpen(false)}
+            />
+
+            {/* Toast Notifications */}
+            <ToastContainer
+              notifications={notifications}
+              onDismiss={markAsRead}
+            />
+
+            {/* CRT Scanline overlay */}
+            <ScanlineOverlay />
+
+            {/* Custom cursor */}
+            <CursorManager />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

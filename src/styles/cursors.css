@@ -1,0 +1,54 @@
+/* ═══════════════════════════════════════════════════════════
+   WARRIOR OS — Cursor Styles
+   ═══════════════════════════════════════════════════════════ */
+
+/* Default crosshair */
+.cursor-warrior {
+  cursor: crosshair;
+}
+
+/* Pointer for interactive elements */
+.cursor-warrior-pointer {
+  cursor: pointer;
+}
+
+/* Text cursor */
+.cursor-warrior-text {
+  cursor: text;
+}
+
+/* Grab for draggable */
+.cursor-warrior-grab {
+  cursor: grab;
+}
+
+.cursor-warrior-grabbing {
+  cursor: grabbing;
+}
+
+/* Resize cursors */
+.cursor-warrior-resize-ns {
+  cursor: ns-resize;
+}
+
+.cursor-warrior-resize-ew {
+  cursor: ew-resize;
+}
+
+.cursor-warrior-resize-nwse {
+  cursor: nwse-resize;
+}
+
+.cursor-warrior-resize-nesw {
+  cursor: nesw-resize;
+}
+
+/* Not allowed */
+.cursor-warrior-not-allowed {
+  cursor: not-allowed;
+}
+
+/* Loading */
+.cursor-warrior-loading {
+  cursor: wait;
+}
