@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useOSStore } from '@/stores/useOSStore';
 import { useAppStore } from '@/stores/useAppStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useAdaptiveWallpaper } from '@/hooks/useAdaptiveWallpaper';
 import { APP_REGISTRY } from '@/data/app-registry';
 
 // OS Components
@@ -26,14 +27,20 @@ import { ToastContainer } from '@/components/os/ToastNotification';
 import { CursorManager } from '@/components/os/CursorManager';
 import { ScreenEffects } from '@/components/os/ScreenEffects';
 import { ScanlineOverlay } from '@/components/ui/ScanlineOverlay';
+import { WorkspaceManager, WorkspaceDots } from '@/components/os/WorkspaceManager';
+import { WallpaperEngine } from '@/components/wallpapers/WallpaperEngine';
+import { AudioReactive } from '@/components/effects/AudioReactive';
+import { CursorTrail } from '@/components/effects/CursorTrail';
 
 // Notification store for toasts
 import { useNotificationStore } from '@/stores/useNotificationStore';
+import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 
 export default function WarriorOS() {
   const phase = useOSStore((s) => s.phase);
   const nextPhase = useOSStore((s) => s.nextPhase);
   const registerApps = useAppStore((s) => s.registerApps);
+  const switchWorkspace = useWorkspaceStore((s) => s.switchWorkspace);
 
   // UI state
   const [startMenuOpen, setStartMenuOpen] = useState(false);
@@ -43,6 +50,9 @@ export default function WarriorOS() {
   // Notifications for toasts
   const notifications = useNotificationStore((s) => s.notifications);
   const markAsRead = useNotificationStore((s) => s.markAsRead);
+
+  // Adaptive wallpaper (auto-switch by time of day)
+  useAdaptiveWallpaper();
 
   // Register all apps on mount
   useEffect(() => {
@@ -67,6 +77,9 @@ export default function WarriorOS() {
   // Global keyboard shortcuts
   useKeyboardShortcuts({
     'ctrl+k': () => setCommandPaletteOpen(true),
+    'ctrl+1': () => switchWorkspace('study'),
+    'ctrl+2': () => switchWorkspace('build'),
+    'ctrl+3': () => switchWorkspace('chill'),
     escape: () => {
       setStartMenuOpen(false);
       setCommandPaletteOpen(false);
@@ -112,20 +125,35 @@ export default function WarriorOS() {
             transition={{ duration: 0.8, ease: 'easeOut' }}
             className="absolute inset-0 flex flex-col"
           >
+            {/* Audio-reactive CSS variables */}
+            <AudioReactive />
+
+            {/* Shader/Canvas wallpaper behind everything */}
+            <WallpaperEngine />
+
             {/* Background effects */}
             <ScreenEffects />
 
             {/* Dynamic Island (top center) */}
             <DynamicIsland />
 
-            {/* Desktop area (fills remaining space above taskbar) */}
+            {/* Desktop area with workspace management */}
             <div className="flex-1 relative overflow-hidden">
-              {/* Desktop Grid */}
-              <Desktop />
+              <WorkspaceManager>
+                {() => (
+                  <>
+                    {/* Desktop Grid */}
+                    <Desktop />
 
-              {/* Window Manager */}
-              <WindowManager />
+                    {/* Window Manager */}
+                    <WindowManager />
+                  </>
+                )}
+              </WorkspaceManager>
             </div>
+
+            {/* Workspace indicator dots */}
+            <WorkspaceDots className="absolute bottom-14 left-1/2 -translate-x-1/2 z-10" />
 
             {/* Taskbar (fixed bottom) */}
             <Taskbar
@@ -162,6 +190,9 @@ export default function WarriorOS() {
 
             {/* Custom cursor */}
             <CursorManager />
+
+            {/* Cursor trail effect */}
+            <CursorTrail />
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,14 +1,13 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Type Barrel Export
+// WARRIOR OS — Wallpaper Types
+// Shared interface for all wallpaper components
 // ═══════════════════════════════════════════════════════════
 
-export * from './window';
-export * from './app';
-export * from './user';
-export * from './workspace';
-export * from './achievement';
-export * from './gate';
-export * from './project';
-export * from './nexus';
-export * from './notification';
-export * from './wallpaper';
+export interface WallpaperProps {
+  mouseX: number;    // -1 to 1
+  mouseY: number;    // -1 to 1
+  bassLevel: number; // 0-1 (audio frequency band)
+  midsLevel: number; // 0-1
+  highsLevel: number; // 0-1
+  overallLevel: number; // 0-1
+}

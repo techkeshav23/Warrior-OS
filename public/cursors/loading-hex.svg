@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <g fill="none" stroke-width="1.5">
+    <!-- Hexagon spinner -->
+    <polygon points="12,3 19.8,7.5 19.8,16.5 12,21 4.2,16.5 4.2,7.5" 
+             stroke="rgba(0,240,255,0.6)" 
+             stroke-dasharray="8 4">
+      <animateTransform attributeName="transform" 
+                        type="rotate" 
+                        from="0 12 12" to="360 12 12" 
+                        dur="1.5s" 
+                        repeatCount="indefinite"/>
+    </polygon>
+    <!-- Inner hexagon -->
+    <polygon points="12,7 16,9.5 16,14.5 12,17 8,14.5 8,9.5" 
+             stroke="rgba(0,240,255,0.3)">
+      <animateTransform attributeName="transform" 
+                        type="rotate" 
+                        from="360 12 12" to="0 12 12" 
+                        dur="2s" 
+                        repeatCount="indefinite"/>
+    </polygon>
+    <!-- Center dot -->
+    <circle cx="12" cy="12" r="1" fill="rgba(0,240,255,0.8)"/>
+  </g>
+</svg>

@@ -4,9 +4,10 @@
 // ═══════════════════════════════════════════════════════════
 
 import type { AppDefinition } from '@/types';
+import { MusicApp } from '@/components/apps/music-player/MusicApp';
 
 // Placeholder component for apps not yet built
-// Each app will get its own component in Phase 2-6
+// Each app will get its own component in Phase 3-6
 const PlaceholderApp = () => null;
 
 /**
@@ -142,7 +143,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     id: 'music-player',
     name: 'WarBeats',
     icon: '🎵',
-    component: PlaceholderApp,
+    component: MusicApp,
     defaultSize: { width: 400, height: 500 },
     minSize: { width: 300, height: 350 },
     category: 'chill',
