@@ -50,6 +50,44 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       });
     });
 
+    // Quick actions
+    cmds.push({
+      id: 'action-quiz',
+      label: 'Start GATE Quiz',
+      category: 'Quick Action',
+      action: () => { launchApp('gate-prep', activeWorkspaceId); onClose(); },
+    });
+    cmds.push({
+      id: 'action-notes',
+      label: 'New Note',
+      category: 'Quick Action',
+      action: () => { launchApp('notes', activeWorkspaceId); onClose(); },
+    });
+    cmds.push({
+      id: 'action-mock',
+      label: 'Start Mock Test',
+      category: 'Quick Action',
+      action: () => { launchApp('gate-prep', activeWorkspaceId); onClose(); },
+    });
+    cmds.push({
+      id: 'action-stats',
+      label: 'View Stats & XP',
+      category: 'Quick Action',
+      action: () => { launchApp('warrior-profile', activeWorkspaceId); onClose(); },
+    });
+    cmds.push({
+      id: 'action-terminal',
+      label: 'Open Terminal',
+      category: 'Quick Action',
+      action: () => { launchApp('terminal', activeWorkspaceId); onClose(); },
+    });
+    cmds.push({
+      id: 'action-settings',
+      label: 'Open Settings',
+      category: 'Quick Action',
+      action: () => { launchApp('settings', activeWorkspaceId); onClose(); },
+    });
+
     return cmds;
   }, [registeredApps, launchApp, activeWorkspaceId, onClose]);
 

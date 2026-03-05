@@ -5,9 +5,15 @@
 
 import type { AppDefinition } from '@/types';
 import { MusicApp } from '@/components/apps/music-player/MusicApp';
+import { GateArenaApp } from '@/components/apps/gate-arena/GateArenaApp';
+import { NotesApp } from '@/components/apps/notes-archive/NotesApp';
+import { HabitForgeApp } from '@/components/apps/habit-forge/HabitForgeApp';
+import { StatsCenterApp } from '@/components/apps/stats-center/StatsCenterApp';
+import { SettingsApp } from '@/components/apps/settings/SettingsApp';
+import { TerminalApp } from '@/components/apps/terminal/TerminalApp';
 
 // Placeholder component for apps not yet built
-// Each app will get its own component in Phase 3-6
+// Remaining apps will get their components in Phase 4-6
 const PlaceholderApp = () => null;
 
 /**
@@ -21,7 +27,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     id: 'gate-prep',
     name: 'GATE Prep',
     icon: '🎯',
-    component: PlaceholderApp,
+    component: GateArenaApp,
     defaultSize: { width: 900, height: 650 },
     minSize: { width: 600, height: 400 },
     category: 'study',
@@ -30,19 +36,19 @@ export const APP_REGISTRY: AppDefinition[] = [
   },
   {
     id: 'study-planner',
-    name: 'Study Planner',
-    icon: '📋',
-    component: PlaceholderApp,
+    name: 'Habit Forge',
+    icon: '🔥',
+    component: HabitForgeApp,
     defaultSize: { width: 800, height: 600 },
     minSize: { width: 500, height: 350 },
     category: 'study',
-    description: 'AI-generated study schedules and progress tracking',
+    description: 'Daily habit tracking, routines, and streak system',
   },
   {
     id: 'flashcards',
     name: 'Flashcards',
     icon: '🃏',
-    component: PlaceholderApp,
+    component: GateArenaApp,
     defaultSize: { width: 700, height: 500 },
     minSize: { width: 400, height: 300 },
     category: 'study',
@@ -52,7 +58,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     id: 'notes',
     name: 'Notes',
     icon: '📝',
-    component: PlaceholderApp,
+    component: NotesApp,
     defaultSize: { width: 750, height: 550 },
     minSize: { width: 400, height: 300 },
     category: 'study',
@@ -85,7 +91,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     id: 'terminal',
     name: 'Terminal',
     icon: '⚡',
-    component: PlaceholderApp,
+    component: TerminalApp,
     defaultSize: { width: 700, height: 450 },
     minSize: { width: 400, height: 250 },
     category: 'build',
@@ -110,7 +116,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     id: 'settings',
     name: 'Settings',
     icon: '⚙️',
-    component: PlaceholderApp,
+    component: SettingsApp,
     defaultSize: { width: 700, height: 500 },
     minSize: { width: 450, height: 350 },
     category: 'utility',
@@ -166,7 +172,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     id: 'warrior-profile',
     name: 'Profile',
     icon: '🛡️',
-    component: PlaceholderApp,
+    component: StatsCenterApp,
     defaultSize: { width: 600, height: 500 },
     minSize: { width: 400, height: 350 },
     category: 'chill',
