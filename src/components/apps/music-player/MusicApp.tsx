@@ -75,6 +75,7 @@ const PLAYLISTS: Playlist[] = [
 
 function MusicAppInner() {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   const [activePlaylist, setActivePlaylist] = useState<Playlist>(PLAYLISTS[0]);
   const [activeTrackIdx, setActiveTrackIdx] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -91,8 +92,15 @@ function MusicAppInner() {
 
   const activeTrack = activePlaylist.tracks[activeTrackIdx];
 
-  // Connect to audio analyzer
-  useAudioAnalyzer(audioRef.current);
+  // Connect to audio analyzer (uses state-captured element, not null ref)
+  useAudioAnalyzer(audioEl);
+
+  // Capture audio element after mount
+  useEffect(() => {
+    if (audioRef.current) {
+      setAudioEl(audioRef.current);
+    }
+  }, []);
 
   // Update progress
   useEffect(() => {

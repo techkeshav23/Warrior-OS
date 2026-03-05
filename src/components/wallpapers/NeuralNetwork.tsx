@@ -9,7 +9,7 @@
 import { memo, useEffect, useRef, useCallback } from 'react';
 import type { WallpaperProps } from '@/types/wallpaper';
 
-const NODE_COUNT = 200;
+const NODE_COUNT = 150;
 const CONNECTION_DIST = 120;
 const MOUSE_RADIUS = 150;
 
@@ -48,6 +48,10 @@ function NeuralNetworkInner({ mouseX, mouseY, bassLevel, overallLevel }: Wallpap
   const nodesRef = useRef<Node[]>([]);
   const animRef = useRef<number>(0);
   const mouseRef = useRef({ x: 0, y: 0 });
+  const bassRef = useRef(0);
+  const overallRef = useRef(0);
+  bassRef.current = bassLevel;
+  overallRef.current = overallLevel;
 
   // Convert -1..1 to pixel coords
   useEffect(() => {
@@ -89,7 +93,7 @@ function NeuralNetworkInner({ mouseX, mouseY, bassLevel, overallLevel }: Wallpap
       node.y = Math.max(0, Math.min(h, node.y));
 
       // Audio: increase movement with bass
-      const bassVelocity = 1 + bassLevel * 1.5;
+      const bassVelocity = 1 + bassRef.current * 1.5;
       node.x += node.vx * bassVelocity * 0.3;
       node.y += node.vy * bassVelocity * 0.3;
 
@@ -112,11 +116,11 @@ function NeuralNetworkInner({ mouseX, mouseY, bassLevel, overallLevel }: Wallpap
 
       // Pulse
       const pulse = Math.sin(t * node.pulseSpeed + node.pulsePhase) * 0.3 + 0.7;
-      const alpha = node.brightness * pulse * (1 + overallLevel * 0.5);
+      const alpha = node.brightness * pulse * (1 + overallRef.current * 0.5);
 
       // Draw node
       ctx.beginPath();
-      ctx.arc(node.x, node.y, node.size * (1 + bassLevel * 0.5), 0, Math.PI * 2);
+      ctx.arc(node.x, node.y, node.size * (1 + bassRef.current * 0.5), 0, Math.PI * 2);
       ctx.fillStyle = node.connected
         ? `rgba(0, 220, 255, ${alpha})`
         : `rgba(60, 120, 200, ${alpha * 0.6})`;
@@ -131,7 +135,7 @@ function NeuralNetworkInner({ mouseX, mouseY, bassLevel, overallLevel }: Wallpap
       }
     }
 
-    // Draw connections
+    // Draw connections (with Manhattan distance pre-filter)
     ctx.lineWidth = 0.5;
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
@@ -139,6 +143,10 @@ function NeuralNetworkInner({ mouseX, mouseY, bassLevel, overallLevel }: Wallpap
         const b = nodes[j];
         const dx = a.x - b.x;
         const dy = a.y - b.y;
+
+        // Fast reject: skip if Manhattan distance exceeds threshold
+        if (Math.abs(dx) > CONNECTION_DIST || Math.abs(dy) > CONNECTION_DIST) continue;
+
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist < CONNECTION_DIST) {
@@ -177,7 +185,7 @@ function NeuralNetworkInner({ mouseX, mouseY, bassLevel, overallLevel }: Wallpap
     }
 
     animRef.current = requestAnimationFrame(draw);
-  }, [bassLevel, overallLevel]);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;

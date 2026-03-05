@@ -1,12 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Wallpapers Barrel Export
+// Only export WallpaperEngine — individual wallpapers are lazy-loaded
+// to preserve code-splitting. Do NOT re-export them here.
 // ═══════════════════════════════════════════════════════════
 
 export { WallpaperEngine } from './WallpaperEngine';
-export { VoidMinimal } from './VoidMinimal';
-export { StarField } from './StarField';
-export { NebulaShader } from './NebulaShader';
-export { AuroraShader } from './AuroraShader';
-export { FluidSimulation } from './FluidSimulation';
-export { CyberpunkRain } from './CyberpunkRain';
-export { NeuralNetwork } from './NeuralNetwork';

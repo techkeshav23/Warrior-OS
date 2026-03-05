@@ -139,35 +139,40 @@ const fragmentShader = /* glsl */ `
 function FluidMesh(props: WallpaperProps) {
   const mouseRef = useRef({ x: 0.5, y: 0.5 });
   const prevMouseRef = useRef({ x: 0.5, y: 0.5 });
+  const propsRef = useRef(props);
+  propsRef.current = props;
 
   const uniforms = useMemo(
     () => ({
       u_time: { value: 0 },
       u_mouse: { value: new THREE.Vector2(0.5, 0.5) },
       u_prevMouse: { value: new THREE.Vector2(0.5, 0.5) },
-      u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+      u_resolution: { value: new THREE.Vector2(1, 1) },
       u_bass: { value: 0 },
       u_energy: { value: 0 },
     }),
     []
   );
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock, size }) => {
+    const { mouseX, mouseY, bassLevel, overallLevel } = propsRef.current;
+
     // Store prev before updating
     prevMouseRef.current.x = mouseRef.current.x;
     prevMouseRef.current.y = mouseRef.current.y;
 
     // Smooth mouse
-    const targetX = (props.mouseX + 1) * 0.5;
-    const targetY = (props.mouseY + 1) * 0.5;
+    const targetX = (mouseX + 1) * 0.5;
+    const targetY = (mouseY + 1) * 0.5;
     mouseRef.current.x += (targetX - mouseRef.current.x) * 0.08;
     mouseRef.current.y += (targetY - mouseRef.current.y) * 0.08;
 
     uniforms.u_time.value = clock.getElapsedTime();
     uniforms.u_mouse.value.set(mouseRef.current.x, mouseRef.current.y);
     uniforms.u_prevMouse.value.set(prevMouseRef.current.x, prevMouseRef.current.y);
-    uniforms.u_bass.value = props.bassLevel;
-    uniforms.u_energy.value = props.overallLevel;
+    uniforms.u_resolution.value.set(size.width, size.height);
+    uniforms.u_bass.value = bassLevel;
+    uniforms.u_energy.value = overallLevel;
   });
 
   return (

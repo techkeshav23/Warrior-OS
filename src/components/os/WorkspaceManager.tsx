@@ -6,7 +6,7 @@
 
 'use client';
 
-import { memo, useCallback, useEffect, useState, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
@@ -37,9 +37,10 @@ function WorkspaceManagerInner({ children }: WorkspaceManagerProps) {
   const setWallpaper = useSettingsStore((s) => s.setWallpaper);
   const setAccentColor = useSettingsStore((s) => s.setAccentColor);
 
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const prevWorkspaceRef = useRef(activeWorkspaceId);
-  const [rotation, setRotation] = useState(0);
+
+  // Compute rotation direction during render (before effect updates prev ref)
+  const rotation = getRotation(prevWorkspaceRef.current, activeWorkspaceId);
 
   // Update wallpaper and accent color when workspace changes
   useEffect(() => {
@@ -48,23 +49,11 @@ function WorkspaceManagerInner({ children }: WorkspaceManagerProps) {
 
     // Only apply workspace-specific settings if this is a workspace switch
     if (prevWorkspaceRef.current !== activeWorkspaceId) {
-      const rot = getRotation(prevWorkspaceRef.current, activeWorkspaceId);
-      setRotation(rot);
-      setIsTransitioning(true);
+      prevWorkspaceRef.current = activeWorkspaceId;
 
       // Update settings for new workspace
       setWallpaper(workspace.wallpaper);
       setAccentColor(workspace.accentColor);
-
-      prevWorkspaceRef.current = activeWorkspaceId;
-
-      // End transition
-      const timer = setTimeout(() => {
-        setIsTransitioning(false);
-        setRotation(0);
-      }, 600);
-
-      return () => clearTimeout(timer);
     }
   }, [activeWorkspaceId, workspaces, setWallpaper, setAccentColor]);
 

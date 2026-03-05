@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface ParallaxValues {
   x: number;  // -1 to 1
@@ -14,6 +14,8 @@ interface ParallaxValues {
   rotateY: number; // degrees
 }
 
+const THROTTLE_MS = 32; // ~30fps — prevents excessive re-renders
+
 export function useParallax(intensity: number = 1): ParallaxValues {
   const [values, setValues] = useState<ParallaxValues>({
     x: 0,
@@ -21,9 +23,14 @@ export function useParallax(intensity: number = 1): ParallaxValues {
     rotateX: 0,
     rotateY: 0,
   });
+  const lastTimeRef = useRef(0);
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
+      const now = performance.now();
+      if (now - lastTimeRef.current < THROTTLE_MS) return;
+      lastTimeRef.current = now;
+
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;
 

@@ -139,23 +139,30 @@ const fragmentShader = /* glsl */ `
 
 function AuroraMesh(props: WallpaperProps) {
   const mouseRef = useRef({ x: 0.5, y: 0.5 });
-  mouseRef.current.x += (((props.mouseX + 1) * 0.5) - mouseRef.current.x) * 0.05;
-  mouseRef.current.y += (((props.mouseY + 1) * 0.5) - mouseRef.current.y) * 0.05;
+  const propsRef = useRef(props);
+  propsRef.current = props;
 
   const uniforms = useMemo(
     () => ({
       u_time: { value: 0 },
       u_mouse: { value: new THREE.Vector2(0.5, 0.5) },
-      u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+      u_resolution: { value: new THREE.Vector2(1, 1) },
       u_bass: { value: 0 },
     }),
     []
   );
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock, size }) => {
+    const { mouseX, mouseY, bassLevel } = propsRef.current;
+
+    // Smooth mouse interpolation (runs at frame rate)
+    mouseRef.current.x += (((mouseX + 1) * 0.5) - mouseRef.current.x) * 0.05;
+    mouseRef.current.y += (((mouseY + 1) * 0.5) - mouseRef.current.y) * 0.05;
+
     uniforms.u_time.value = clock.getElapsedTime();
     uniforms.u_mouse.value.set(mouseRef.current.x, mouseRef.current.y);
-    uniforms.u_bass.value = props.bassLevel;
+    uniforms.u_resolution.value.set(size.width, size.height);
+    uniforms.u_bass.value = bassLevel;
   });
 
   return (

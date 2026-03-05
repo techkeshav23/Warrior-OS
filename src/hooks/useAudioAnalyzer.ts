@@ -13,6 +13,8 @@ import {
   getFrequencyBands,
 } from '@/lib/audio-engine';
 
+const THROTTLE_MS = 33; // ~30fps — reduces Zustand store updates
+
 /**
  * Connects a media element to the Web Audio API analyser
  * and continuously updates the audio store with frequency data.
@@ -24,6 +26,7 @@ export function useAudioAnalyzer(
   const setFrequencyData = useAudioStore((s) => s.setFrequencyData);
   const animRef = useRef<number>(0);
   const disconnectRef = useRef<(() => void) | null>(null);
+  const lastUpdateRef = useRef(0);
 
   // Connect media element to analyser
   useEffect(() => {
@@ -37,10 +40,13 @@ export function useAudioAnalyzer(
     };
   }, [mediaElement]);
 
-  // Animation loop for frequency data
-  const updateFrequency = useCallback(() => {
-    const { bass, mids, highs } = getFrequencyBands();
-    setFrequencyData(bass, mids, highs);
+  // Animation loop for frequency data (throttled to ~30fps)
+  const updateFrequency = useCallback((time: number) => {
+    if (time - lastUpdateRef.current >= THROTTLE_MS) {
+      const { bass, mids, highs } = getFrequencyBands();
+      setFrequencyData(bass, mids, highs);
+      lastUpdateRef.current = time;
+    }
     animRef.current = requestAnimationFrame(updateFrequency);
   }, [setFrequencyData]);
 

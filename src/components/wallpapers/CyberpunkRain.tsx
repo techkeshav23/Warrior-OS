@@ -62,12 +62,14 @@ function createRainDrops(width: number): RainDrop[] {
   return drops;
 }
 
-function CyberpunkRainInner({ mouseX, bassLevel }: WallpaperProps) {
+function CyberpunkRainInner({ bassLevel }: WallpaperProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const columnsRef = useRef<MatrixColumn[]>([]);
   const dropsRef = useRef<RainDrop[]>([]);
   const animRef = useRef<number>(0);
   const frameRef = useRef(0);
+  const bassRef = useRef(0);
+  bassRef.current = bassLevel;
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -87,7 +89,7 @@ function CyberpunkRainInner({ mouseX, bassLevel }: WallpaperProps) {
     // ─── Matrix columns ───
     ctx.font = `${COLUMN_WIDTH - 2}px monospace`;
     const cols = columnsRef.current;
-    const bassBoost = 1 + bassLevel * 0.5;
+    const bassBoost = 1 + bassRef.current * 0.5;
 
     for (let i = 0; i < cols.length; i++) {
       const col = cols[i];
@@ -144,8 +146,8 @@ function CyberpunkRainInner({ mouseX, bassLevel }: WallpaperProps) {
     const reflectH = h * 0.08;
     const grad = ctx.createLinearGradient(0, h - reflectH, 0, h);
     grad.addColorStop(0, 'rgba(0, 80, 60, 0.0)');
-    grad.addColorStop(0.5, `rgba(0, ${Math.floor(100 + bassLevel * 100)}, 80, 0.04)`);
-    grad.addColorStop(1, `rgba(0, ${Math.floor(60 + bassLevel * 80)}, 120, 0.08)`);
+    grad.addColorStop(0.5, `rgba(0, ${Math.floor(100 + bassRef.current * 100)}, 80, 0.04)`);
+    grad.addColorStop(1, `rgba(0, ${Math.floor(60 + bassRef.current * 80)}, 120, 0.08)`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, h - reflectH, w, reflectH);
 
@@ -153,12 +155,12 @@ function CyberpunkRainInner({ mouseX, bassLevel }: WallpaperProps) {
     ctx.beginPath();
     ctx.moveTo(0, h - reflectH);
     ctx.lineTo(w, h - reflectH);
-    ctx.strokeStyle = `rgba(0, 200, 150, ${0.1 + bassLevel * 0.15})`;
+    ctx.strokeStyle = `rgba(0, 200, 150, ${0.1 + bassRef.current * 0.15})`;
     ctx.lineWidth = 1;
     ctx.stroke();
 
     animRef.current = requestAnimationFrame(draw);
-  }, [bassLevel]);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
