@@ -1,5 +1,14 @@
 # ⚔️ WARRIOR OS v4.0 — MASTER TASK LIST (THE LIVING WORLD)
 
+## Direction update (overrides anything below that conflicts)
+
+Warrior OS is **Keshav Upadhyay's personal OS and portfolio showcase**, not an exam-prep product. The GATE exam-prep focus was added by mistake and has been replaced.
+
+- **Core feel, all four at once:** my digital home (it knows me: my creature, my NEXUS), a sci-fi command center (Jarvis vibes, 3D, cinematic), a discipline machine (habits, focus, streaks, decay) and a creative playground (music, Code Lab, experiments).
+- **Learn anything:** the study hub is **Training Grounds** (`training-grounds`, formerly `gate-prep`): quiz engine, flashcards, spaced repetition, skill tree, mock test and planner over the user's **own decks** (`types/learning.ts`, `stores/useLearningStore.ts`, sample decks in `data/learning/`).
+- **Fixed app names:** Training Grounds (`training-grounds`), Quest Planner (`study-planner`), Flashcards (`flashcards`). Owner details live in `src/config/owner.ts`; visitors get **Explore as Guest** on the lock screen.
+- **Shipping:** CI in `.github/workflows/ci.yml`, Playwright smoke test in `tests/e2e/`, deploy steps in `DEPLOY.md`.
+
 > **Ye file project ka single source of truth hai.**  
 > Har task numbered hai, dependency clear hai, estimated time hai.  
 > Koi task skip mat karna. Order follow karna. Har task ke baad verify karna.  
@@ -71,7 +80,7 @@
 | 1.19 | Create `types/user.ts` — UserProfile (uid, displayName, email, avatar, level, xp, streak, createdAt) | 10 min | 1.1 | ⬜ | Type exports without TS errors |
 | 1.20 | Create `types/workspace.ts` — Workspace (id, name, accentColor, wallpaper, openWindows[]) | 10 min | 1.1 | ⬜ | Type exports without TS errors |
 | 1.21 | Create `types/achievement.ts` — Achievement (id, title, description, icon, category, condition, xpReward, unlockedAt?) | 10 min | 1.1 | ⬜ | Type exports without TS errors |
-| 1.22 | Create `types/gate.ts` — Question (id, subject, topic, type, question, options, answer, explanation, difficulty, year?) | 10 min | 1.1 | ⬜ | Type exports without TS errors |
+| 1.22 | Create `types/learning.ts` — Deck → Topic → Card (kind: mcq / multi-select / numeric / flashcard; prompt, options, answer, explanation, difficulty, tags), CardAttempt, spaced-repetition review state | 10 min | 1.1 | ⬜ | Type exports without TS errors |
 | 1.23 | Create `types/project.ts` — Project (id, name, description, techStack[], status, progress, tasks[], githubUrl?, deployUrl?, createdAt) | 10 min | 1.1 | ⬜ | Type exports without TS errors |
 | 1.24 | Create `types/nexus.ts` — NexusMessage (role, content, timestamp), NexusContext (openApps, currentWorkspace, userStats, timeOfDay) | 10 min | 1.1 | ⬜ | Type exports without TS errors |
 
@@ -236,24 +245,24 @@
 
 ## 📱 PHASE 3: CORE APPS (Week 5-8)
 
-### 3A. GATE Arena
+### 3A. Training Grounds (Learn anything)
 
 | # | Task | Est. Time | Depends On | Status | Verify |
 |---|------|-----------|------------|--------|--------|
-| 3.1 | Create `data/gate-questions/os.json` — 30+ OS questions (MCQ/NAT) with options, answer, explanation, topic, difficulty | 2 hrs | 1.22 | ⬜ | JSON parses correctly, covers 5+ OS topics |
-| 3.2 | Create `data/gate-questions/dbms.json` — 30+ DBMS questions | 2 hrs | 1.22 | ⬜ | JSON valid, covers normalization, SQL, ER, transactions |
-| 3.3 | Create `data/gate-questions/cn.json` — 30+ CN questions | 2 hrs | 1.22 | ⬜ | JSON valid, covers layers, protocols, subnetting |
-| 3.4 | Create `data/gate-questions/toc.json` — 20+ TOC questions | 1.5 hrs | 1.22 | ⬜ | JSON valid, covers DFA, NFA, CFG, PDA, TM |
-| 3.5 | Create question JSONs for remaining subjects — DS, Algo, Discrete Math, Compiler Design, Digital Logic, Aptitude (15-20 each) | 4 hrs | 1.22 | ⬜ | All subject JSONs valid |
-| 3.6 | Create `data/formulas/` — formula card data per subject (array of {topic, formula, explanation}) | 2 hrs | 1.1 | ⬜ | Formula data exists for all subjects |
-| 3.7 | Create `components/apps/gate-arena/GateArenaApp.tsx` — main app with sidebar navigation: Skill Tree, Quiz, PYQ, Mock Test, Formulas, Study Planner | 1.5 hrs | 1.59 | ⬜ | App opens as window with nav sidebar |
-| 3.8 | Create `components/apps/gate-arena/QuizEngine.tsx` — select subject+topic → show questions one by one, MCQ selection, NAT number input, next/prev, submit, timer (optional), results screen with score + grade (S/A+/A/B/C) + explanation for wrong answers. Awards XP | 3 hrs | 3.1-3.5, 1.30 | ⬜ | Can take full quiz, get graded, see explanations, XP awarded |
-| 3.9 | Create `components/apps/gate-arena/SkillTree3D.tsx` — force-directed graph (D3 or custom canvas): subjects as nodes, connections as edges, node color = mastery level (red→yellow→green), click node → opens quiz for that topic | 3 hrs | 3.8 | ⬜ | 3D-ish node graph renders, nodes are colored by mastery, click opens quiz |
-| 3.10 | Create `components/apps/gate-arena/PYQBrowser.tsx` — filter by year + subject, question list, click to attempt, show answer + explanation | 1.5 hrs | 3.1-3.5 | ⬜ | Can filter PYQs, attempt them, see answers |
-| 3.11 | Create `components/apps/gate-arena/MockTest.tsx` — timed full-length test (65 questions, 3 hours), GATE marking scheme (+2/-0.67 or +1/-0.33), auto-submit on timer end, detailed result analysis | 3 hrs | 3.8 | ⬜ | Full mock test with timer, negative marking, auto-submit |
-| 3.12 | Create `components/apps/gate-arena/FormulaCards.tsx` — swipeable cards (touch/mouse), flip animation (front=formula, back=explanation), bookmark, filter by subject | 2 hrs | 3.6 | ⬜ | Cards swipe, flip, bookmark works |
-| 3.13 | Create `components/apps/gate-arena/SpacedRepetition.tsx` — tracks which topics were last revised, calculates next review date, shows "due for revision" list, sorted by urgency | 1.5 hrs | 1.37 | ⬜ | Due topics show correctly based on last revision dates |
-| 3.14 | Create `components/apps/gate-arena/StudyPlanner.tsx` — input exam date, auto-generate daily plan distributing subjects, show today's tasks, mark done | 2 hrs | 1.37 | ⬜ | Plan generates with even subject distribution |
+| 3.1 | Create `data/learning/` sample deck ("Warrior OS Basics") — cards of every kind (MCQ, multi-select, numeric, flashcard) with options, answer, explanation, topic, difficulty | 2 hrs | 1.22 | ⬜ | Deck validates, seeds on first run, covers every card kind |
+| 3.2 | Create `stores/useLearningStore.ts` — the user's decks → topics → cards, per-card review state, capped attempt log, mastery; seeds sample decks once, never over user edits | 2 hrs | 1.22 | ⬜ | Decks persist across reloads, sample deck appears once |
+| 3.3 | Deck editor — create/rename/delete decks and topics, add/edit cards on any subject | 2 hrs | 3.2 | ⬜ | A new deck can be built from scratch and quizzed |
+| 3.4 | Deck import/export as JSON (versioned format, validated on import) | 1.5 hrs | 3.2 | ⬜ | Export → import round-trips a deck; bad JSON shows a clear error |
+| 3.5 | Optional starter decks for other topics (languages, CS basics, music theory…) — 15-20 cards each | 4 hrs | 1.22 | ⬜ | Every starter deck validates |
+| 3.6 | Flashcard content — front/back cards (formula, definition, vocabulary) stored inside decks as `flashcard` cards | 2 hrs | 1.1 | ⬜ | Flashcards available for every deck that has them |
+| 3.7 | Create `components/apps/training-grounds/TrainingGroundsApp.tsx` — main app with sidebar navigation: Decks, Skill Tree, Quiz, Mock Test, Flashcards, Review, Planner | 1.5 hrs | 1.59 | ⬜ | App opens as window with nav sidebar |
+| 3.8 | Create `components/apps/training-grounds/QuizEngine.tsx` — select deck+topic → show cards one by one, MCQ / multi-select selection, numeric input, next/prev, submit, timer (optional), results screen with score + grade (S/A+/A/B/C) + explanation for wrong answers. Awards XP | 3 hrs | 3.1-3.5, 1.30 | ⬜ | Can take full quiz, get graded, see explanations, XP awarded |
+| 3.9 | Create `components/apps/training-grounds/SkillTree.tsx` — force-directed graph (D3 or custom canvas): decks and topics as nodes, connections as edges, node color = mastery level (red→yellow→green), click node → opens quiz for that topic | 3 hrs | 3.8 | ⬜ | 3D-ish node graph renders, nodes are colored by mastery, click opens quiz |
+| 3.10 | Create `components/apps/training-grounds/CardBrowser.tsx` — filter by deck, topic, difficulty and tag, card list, click to attempt, show answer + explanation | 1.5 hrs | 3.1-3.5 | ⬜ | Can filter cards, attempt them, see answers |
+| 3.11 | Create `components/apps/training-grounds/MockTest.tsx` — timed test drawn from the chosen decks (question count + duration configurable), optional negative marking, auto-submit on timer end, detailed result analysis | 3 hrs | 3.8 | ⬜ | Mock test with timer, optional negative marking, auto-submit |
+| 3.12 | Create `components/apps/training-grounds/FlashcardsApp.tsx` (the Flashcards app) — swipeable cards (touch/mouse), flip animation (front/back), bookmark, filter by deck and tag | 2 hrs | 3.6 | ⬜ | Cards swipe, flip, bookmark works |
+| 3.13 | Create `components/apps/training-grounds/SpacedRepetition.tsx` — per-card review state, next review date from past answers, "due for review" queue sorted by urgency | 1.5 hrs | 1.37 | ⬜ | Due cards show correctly based on review history |
+| 3.14 | Create `components/apps/training-grounds/Planner.tsx` — pick a target date and decks, auto-generate a daily plan across topics, show today's tasks, mark done | 2 hrs | 1.37 | ⬜ | Plan generates with even topic distribution |
 
 ### 3B. Notes Archive
 
@@ -300,7 +309,7 @@
 | # | Task | Est. Time | Depends On | Status | Verify |
 |---|------|-----------|------------|--------|--------|
 | 3.33 | Create `components/apps/terminal/TerminalApp.tsx` — black bg, green monospace text, command input with blinking cursor, output history scroll, matrix-style typing effect on output | 2 hrs | 1.59 | ⬜ | Terminal looks hacker-style, can type commands |
-| 3.34 | Create `components/apps/terminal/commands.ts` — command handler: help, clear, neofetch (ASCII art + stats), gate start <subject>, note create <title>, stats today, habit check, expense add, theme set <name>, whoami, uptime, echo | 2 hrs | 1.27, 1.37 | ⬜ | All commands work and produce correct output |
+| 3.34 | Create `components/apps/terminal/commands.ts` — command handler: help, clear, neofetch (ASCII art + stats), train [mode] [deck] (opens Training Grounds), note create <title>, stats today, habit check, expense add, theme set <name>, whoami, uptime, echo | 2 hrs | 1.27, 1.37 | ⬜ | All commands work and produce correct output |
 | 3.35 | Create `components/apps/terminal/easter-eggs.ts` — sudo rm -rf /, matrix, hack nasa, rickroll, konami detection, jarvis response | 1 hr | 3.34 | ⬜ | Each easter egg triggers its special effect |
 
 ### 3G. Command Palette Enhancement
@@ -325,13 +334,13 @@
 | # | Task | Est. Time | Depends On | Status | Verify |
 |---|------|-----------|------------|--------|--------|
 | 4.1 | Create `app/api/ai/route.ts` — API route that proxies to Gemini/OpenAI, sends system prompt + user message + OS context, returns AI response | 1 hr | 0.9, 1.35 | ⬜ | POST request returns AI response |
-| 4.2 | Create `data/nexus-personality.ts` — system prompt defining NEXUS personality: name, tone (direct, warrior-like, motivating), knowledge (CS, GATE), rules (always suggest action, be brief) | 30 min | 1.1 | ⬜ | System prompt is detailed, defines persona |
-| 4.3 | Create `components/nexus/NexusCore.tsx` — processes commands: parses natural language intent (open app, search, start quiz, etc.), maps to OS actions, executes. Falls back to AI chat for unknown commands | 2.5 hrs | 4.1, 1.27, 1.33 | ⬜ | "open notes" opens Notes, "start DBMS quiz" opens GATE Arena |
+| 4.2 | Create `data/nexus-personality.ts` — system prompt defining NEXUS personality: name, tone (direct, warrior-like, motivating), knowledge (CS, learning, the owner's projects), rules (always suggest action, be brief) | 30 min | 1.1 | ⬜ | System prompt is detailed, defines persona |
+| 4.3 | Create `components/nexus/NexusCore.tsx` — processes commands: parses natural language intent (open app, search, start quiz, etc.), maps to OS actions, executes. Falls back to AI chat for unknown commands | 2.5 hrs | 4.1, 1.27, 1.33 | ⬜ | "open notes" opens Notes, "quiz me on <deck>" opens Training Grounds |
 | 4.4 | Create `components/nexus/NexusSuggestions.tsx` — reads time, streak, last activity, open apps. Generates contextual suggestion. Shows in Dynamic Island or notification | 2 hrs | 1.33, 1.65, 1.31 | ⬜ | Suggestions appear at right moments (streak risk, break time, etc.) |
 | 4.5 | Create `components/nexus/NexusChat.tsx` — chat UI inside an app window: message bubbles, typing indicator, markdown rendering in responses, suggested actions as buttons | 2 hrs | 4.1, 1.59 | ⬜ | Can chat with NEXUS, responses render properly |
 | 4.6 | Create `components/nexus/NexusVoice.tsx` — Web Speech API: SpeechRecognition for input, SpeechSynthesis for output, activation phrase "Hey Warrior", shows listening indicator | 2 hrs | 1.1 | ⬜ | Voice input transcribes, "Hey Warrior" activates, speaks responses |
 | 4.7 | Integrate NexusCore with CommandPalette — typing natural language in Ctrl+K routes through NEXUS for intent parsing | 1 hr | 4.3, 1.67 | ⬜ | Natural language commands work in command palette |
-| 4.8 | Create smart modes — "study mode": opens GATE Arena + Notes, snaps left/right, starts pomodoro, changes wallpaper. "chill mode": closes study apps, opens music, aurora wallpaper | 1.5 hrs | 4.3, 1.26, 1.28 | ⬜ | Saying "study mode" in command bar triggers full mode setup |
+| 4.8 | Create smart modes — "study mode": opens Training Grounds + Notes, snaps left/right, starts pomodoro, changes wallpaper. "chill mode": closes study apps, opens music, aurora wallpaper | 1.5 hrs | 4.3, 1.26, 1.28 | ⬜ | Saying "study mode" in command bar triggers full mode setup |
 
 ### 4B. AI Assist App
 
@@ -375,7 +384,7 @@
 | # | Task | Est. Time | Depends On | Status | Verify |
 |---|------|-----------|------------|--------|--------|
 | 4.26 | Create `components/apps/calendar/CalendarApp.tsx` — month view grid, events as colored dots/bars, today highlighted, prev/next month navigation | 2 hrs | 1.59, 1.37 | ⬜ | Calendar renders current month, events show |
-| 4.27 | Create `components/apps/calendar/EventModal.tsx` — add/edit event: title, date, time, category (GATE/Project/Personal), color, recurring toggle | 1 hr | 1.49, 1.37 | ⬜ | Events create/edit/delete, persist |
+| 4.27 | Create `components/apps/calendar/EventModal.tsx` — add/edit event: title, date, time, category (Study/Project/Personal), color, recurring toggle | 1 hr | 1.49, 1.37 | ⬜ | Events create/edit/delete, persist |
 
 ### 4G. Phase 4 Finalization
 
@@ -518,7 +527,7 @@
 | # | Task | Est. Time | Depends On | Status | Verify |
 |---|------|-----------|------------|--------|--------|
 | 6.23 | Create `components/apps/memory-palace/MemoryPalaceApp.tsx` — React Three Fiber scene as app window, first-person camera with PointerLockControls, WASD movement (W=forward, S=back, A=left, D=right), mouse look, gravity + collision detection with floor/walls | 3 hrs | 1.59 | ⬜ | 3D scene renders in window, can walk around with WASD, mouse look works |
-| 6.24 | Create `components/apps/memory-palace/PalaceRoomGenerator.tsx` — procedural room generation per GATE subject: DBMS = dark library with wooden shelves + floating SQL, OS = server room with rack cabinets + blinking LEDs, CN = network lab with glowing cables + router models, TOC = abstract math space with floating automata, DS = warehouse with stacked data structures, Algo = laboratory with sorting tubes. Each room: textured walls, ambient lighting, subject-colored accent glow | 4 hrs | 6.23 | ⬜ | Each subject has visually distinct themed room |
+| 6.24 | Create `components/apps/memory-palace/PalaceRoomGenerator.tsx` — procedural room generation per note subject (any topic), themed from the subject: e.g. databases = dark library with wooden shelves + floating SQL, systems = server room with rack cabinets + blinking LEDs, networks = network lab with glowing cables + router models, theory = abstract math space with floating automata, data structures = warehouse with stacked data structures, algorithms = laboratory with sorting tubes, anything else = a themed study hall. Each room: textured walls, ambient lighting, subject-colored accent glow | 4 hrs | 6.23 | ⬜ | Each subject has visually distinct themed room |
 | 6.25 | Create `components/apps/memory-palace/KnowledgeObject.tsx` — 3D objects on room shelves representing notes. Object shape = note type (cube=concept, scroll=formula, sphere=question). Glow intensity = revision recency: bright cyan (revised today), medium (this week), dim orange (this month), almost dark + cobweb particles (never revised). Hover shows note title floating above | 2 hrs | 6.24, 1.37 | ⬜ | Objects render on shelves, glow based on revision dates, hover shows title |
 | 6.26 | Create `components/apps/memory-palace/PalaceNavigation.tsx` — corner minimap (top-down 2D view of all rooms), room labels floating above doorways, click room on minimap → teleport (camera flies through corridors to target room), breadcrumb trail showing visited rooms | 2 hrs | 6.24 | ⬜ | Minimap shows room layout, clicking teleports, breadcrumbs show path |
 | 6.27 | Create `components/apps/memory-palace/NoteHologram.tsx` — click a knowledge object → it lifts off shelf → rotates to face you → unfolds into a floating holographic glass panel showing the note content (markdown rendered). Close button dissolves it back to shelf. Can have multiple holograms open simultaneously | 2 hrs | 6.25, 3.17 | ⬜ | Clicking object opens floating note panel in 3D space |

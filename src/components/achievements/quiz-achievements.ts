@@ -1,11 +1,12 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Quiz Achievements
-// GATE quiz / mock test completion → first-quiz, quiz-streak-5,
-// perfect-quiz, all-subjects, quiz-master (+ history back-fill)
+// Training Grounds quiz / mock test completion → first-quiz,
+// quiz-streak-5, perfect-quiz, all-subjects (every deck),
+// quiz-master (+ history back-fill)
 // ═══════════════════════════════════════════════════════════
 
 import { useQuizHistoryStore, type QuizAttempt } from '@/stores/useQuizHistoryStore';
-import { getAvailableSubjects } from '@/data/gate-questions';
+import { isQuizCard, useLearningStore } from '@/stores/useLearningStore';
 import { checkStudyHourAchievements, unlock, type WiredAchievementId } from './award';
 import { useAchievementProgressStore } from './progress-store';
 import { recordStudyAction } from './study-streak';
@@ -16,14 +17,16 @@ export const ANSWER_STREAK_TARGET = 5;
 export const PERFECT_QUIZ_MIN_QUESTIONS = 10;
 /** "Quiz Grandmaster": quizzes + mock tests completed. */
 export const QUIZ_MASTER_TARGET = 100;
+/** "Renaissance Warrior" needs a quiz in every deck, and at least this many decks with quiz questions. */
+export const ALL_DECKS_MIN_DECKS = 3;
 
 /** QuizEngine records every row of one quiz within a few ms of each other. */
 const SAME_QUIZ_WINDOW_MS = 1000;
 
 export interface QuizCompletion {
   kind: 'quiz' | 'mock';
-  /** Subject of a single-subject quiz or mock; null for a mixed mock. */
-  subject: string | null;
+  /** Learning deck of a single-deck quiz or mock; null for a mixed mock. */
+  deckId: string | null;
   /** Per question, in the order shown: answered correctly? */
   results: readonly boolean[];
   /** Questions the user answered, right or wrong. */
@@ -76,13 +79,20 @@ export function groupAttemptsIntoQuizzes(attempts: readonly QuizAttempt[]): Hist
   return quizzes;
 }
 
-/** Every GATE subject in the question bank has at least one completed quiz. */
+/**
+ * Every deck with quiz questions (at least ALL_DECKS_MIN_DECKS of them)
+ * has a completed quiz or single-deck mock test.
+ */
 export function allSubjectsCovered(): boolean {
-  const required = getAvailableSubjects();
-  if (required.length === 0) return false;
+  const required = useLearningStore
+    .getState()
+    .decks.filter((d) => d.topics.some((t) => t.cards.some(isQuizCard)))
+    .map((d) => d.id);
+  if (required.length < ALL_DECKS_MIN_DECKS) return false;
+  // subjectsQuizzed holds deck ids (older saves: subject names, which match no deck).
   const seen = new Set<string>(useAchievementProgressStore.getState().subjectsQuizzed);
-  for (const a of useQuizHistoryStore.getState().attempts) seen.add(a.subject);
-  return required.every((s) => seen.has(s));
+  for (const a of useQuizHistoryStore.getState().attempts) if (a.deckId) seen.add(a.deckId);
+  return required.every((id) => seen.has(id));
 }
 
 /**
@@ -104,7 +114,7 @@ export function recordQuizCompletion(completion: QuizCompletion): void {
     completed = progress.quizzesCompleted + 1;
   }
   progress.setQuizzesCompleted(completed);
-  if (completion.subject) progress.addQuizSubject(completion.subject);
+  if (completion.deckId) progress.addQuizSubject(completion.deckId);
 
   unlock('first-quiz');
   if (longestCorrectRun(completion.results) >= ANSWER_STREAK_TARGET) unlock('quiz-streak-5');

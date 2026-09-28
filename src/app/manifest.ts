@@ -10,10 +10,10 @@ import type { MetadataRoute } from 'next';
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: '/',
-    name: 'WARRIOR OS — The Living World',
+    name: 'Warrior OS — Sci-Fi Command Center',
     short_name: 'Warrior OS',
     description:
-      'An OS-in-browser for GATE exam preparation and project management.',
+      'A personal sci-fi OS in the browser: command center, discipline machine and creative playground. Works offline.',
     start_url: '/',
     scope: '/',
     display: 'standalone',
@@ -22,7 +22,7 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: '#050508',
     lang: 'en-IN',
     dir: 'ltr',
-    categories: ['education', 'productivity'],
+    categories: ['productivity', 'personalization', 'education'],
     prefer_related_applications: false,
     // Re-launching the installed app focuses the open window instead of
     // starting a second OS session.

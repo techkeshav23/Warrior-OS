@@ -15,12 +15,12 @@ const MusicApp = dynamic(
   () => import('@/components/apps/music-player/MusicApp').then((m) => m.MusicApp),
   { ssr: false, loading: AppLoading }
 );
-const GateArenaApp = dynamic(
-  () => import('@/components/apps/gate-arena/GateArenaApp').then((m) => m.GateArenaApp),
+const TrainingGroundsApp = dynamic(
+  () => import('@/components/apps/training-grounds/TrainingGroundsApp').then((m) => m.TrainingGroundsApp),
   { ssr: false, loading: AppLoading }
 );
 const FlashcardsApp = dynamic(
-  () => import('@/components/apps/gate-arena/FlashcardsApp').then((m) => m.FlashcardsApp),
+  () => import('@/components/apps/training-grounds/FlashcardsApp').then((m) => m.FlashcardsApp),
   { ssr: false, loading: AppLoading }
 );
 const NotesApp = dynamic(
@@ -95,25 +95,26 @@ const ResumeApp = dynamic(
 export const APP_REGISTRY: AppDefinition[] = [
   // ─── STUDY APPS ───
   {
-    id: 'gate-prep',
-    name: 'GATE Prep',
+    id: 'training-grounds',
+    name: 'Training Grounds',
     icon: '🎯',
-    component: GateArenaApp,
+    component: TrainingGroundsApp,
     defaultSize: { width: 900, height: 650 },
     minSize: { width: 600, height: 400 },
     category: 'study',
-    description: 'GATE CS/IT exam preparation with AI-powered quizzes',
+    description: 'Learn anything: your own decks, quizzes, flashcards, skill tree and mock tests',
     shortcut: 'ctrl+g',
   },
   {
+    // id kept as 'study-planner' (saved state and older links use it).
     id: 'study-planner',
-    name: 'Habit Forge',
+    name: 'Quest Planner',
     icon: '🔥',
     component: HabitForgeApp,
     defaultSize: { width: 800, height: 600 },
     minSize: { width: 500, height: 350 },
     category: 'study',
-    description: 'Daily habit tracking, routines, and streak system',
+    description: 'Daily quests, habits, routines and streaks',
   },
   {
     id: 'flashcards',
@@ -123,7 +124,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     defaultSize: { width: 700, height: 500 },
     minSize: { width: 400, height: 300 },
     category: 'study',
-    description: 'Spaced repetition flashcard system',
+    description: 'Spaced-repetition review of your decks',
   },
   {
     id: 'notes',
@@ -310,10 +311,24 @@ export const APP_REGISTRY: AppDefinition[] = [
 ];
 
 /**
- * Get app definition by ID
+ * Retired app ids → their current id. Saved state (achievement progress,
+ * NEXUS chat buttons, links) may still hold an old id.
+ */
+export const LEGACY_APP_IDS: Readonly<Record<string, string>> = {
+  'gate-prep': 'training-grounds',
+};
+
+/** Current id for an app id that may be a retired one. */
+export function resolveAppId(id: string): string {
+  return Object.prototype.hasOwnProperty.call(LEGACY_APP_IDS, id) ? LEGACY_APP_IDS[id] : id;
+}
+
+/**
+ * Get app definition by ID (retired ids resolve to their replacement)
  */
 export function getAppById(id: string): AppDefinition | undefined {
-  return APP_REGISTRY.find((app) => app.id === id);
+  const current = resolveAppId(id);
+  return APP_REGISTRY.find((app) => app.id === current);
 }
 
 /**

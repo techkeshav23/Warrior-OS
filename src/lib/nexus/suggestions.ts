@@ -12,7 +12,6 @@ import { useWindowStore } from '@/stores/useWindowStore';
 import { useDecayStore } from '@/stores/useDecayStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useNexusStore, nexusDayKey } from '@/stores/useNexusStore';
-import { NEXUS_GATE_SUBJECTS } from '@/lib/nexus-intent';
 import {
   computeHabitStreak,
   formatHour,
@@ -119,11 +118,16 @@ function openAppButton(s: SuggestionSnapshot, appId: string, label: string): Nex
   return app ? commandButton(label, { type: 'open_app', appId: app.id, appName: app.name }) : undefined;
 }
 
-/** Weakest attempted subject, or a day-rotating subject when there is no history. */
-function focusSubject(s: SuggestionSnapshot): string {
-  if (s.quiz.weakest) return s.quiz.weakest.subject;
-  const dayIndex = Math.floor(s.now / (24 * HOUR));
-  return NEXUS_GATE_SUBJECTS[dayIndex % NEXUS_GATE_SUBJECTS.length];
+/** Weakest attempted deck, or null without enough quiz history. */
+function focusSubject(s: SuggestionSnapshot): string | null {
+  return s.quiz.weakest?.subject ?? null;
+}
+
+/** Quiz on a deck, or a quick quiz when there is none to point at. */
+function quizButton(subject: string | null): NexusActionButton {
+  return subject
+    ? commandButton(`${subject} quiz`, { type: 'start_quiz', mode: 'quiz', subject })
+    : commandButton('Quick quiz', { type: 'start_quiz', mode: 'quiz' });
 }
 
 function breakButton(s: SuggestionSnapshot, label: string): NexusActionButton | undefined {
@@ -144,7 +148,7 @@ const RULES: Rule[] = [
           tone: 'warning',
           priority: 100,
           cooldownMs: 3 * HOUR,
-          action: openAppButton(s, 'study-planner', 'Open Habit Forge'),
+          action: openAppButton(s, 'study-planner', 'Open Quest Planner'),
         }
       : null,
 
@@ -215,11 +219,11 @@ const RULES: Rule[] = [
     const subject = focusSubject(s);
     return {
       id: 'bio-focus-peak',
-      text: `Tera focus ${formatHour(peak)} ke aas-paas peak karta hai. Hard topics isi window mein — ${subject} abhi utha.`,
+      text: `Tera focus ${formatHour(peak)} ke aas-paas peak karta hai. Hard topics isi window mein — ${subject ?? 'sabse tough deck'} abhi utha.`,
       tone: 'info',
       priority: 70,
       cooldownMs: 20 * HOUR,
-      action: commandButton(`${subject} quiz`, { type: 'start_quiz', mode: 'quiz', subject }),
+      action: quizButton(subject),
     };
   },
 
@@ -235,13 +239,13 @@ const RULES: Rule[] = [
         }
       : null,
 
-  // Bad recent quiz → revise formulas for that subject.
+  // Bad recent quiz → flashcards for that deck.
   (s) => {
     const last = s.quiz.last;
     if (!last || last.totalQuestions < 3 || last.pct >= 50 || s.now - last.timestamp > 30 * MIN) return null;
     return {
       id: 'weak-subject',
-      text: `${last.subject} mein ${last.pct}% — tough round. Formulas revise kar, fir dobara try.`,
+      text: `${last.subject} mein ${last.pct}% — tough round. Flashcards se revise kar, fir dobara try.`,
       tone: 'info',
       priority: 60,
       cooldownMs: 2 * HOUR,
@@ -260,7 +264,7 @@ const RULES: Rule[] = [
     }
     return {
       id: 'morning-plan',
-      text: `Subah ka dimaag sabse tez hota hai. Hard topic pehle — ${focusSubject(s)} se shuru, 25 min pomodoro ke saath.`,
+      text: `Subah ka dimaag sabse tez hota hai. Hard topic pehle — ${focusSubject(s) ?? 'sabse tough deck'} se shuru, 25 min pomodoro ke saath.`,
       tone: 'info',
       priority: 55,
       cooldownMs: 20 * HOUR,
@@ -271,13 +275,13 @@ const RULES: Rule[] = [
   // No quiz in a day (or never).
   (s) => {
     const subject = focusSubject(s);
-    const action = commandButton(`${subject} quiz`, { type: 'start_quiz', mode: 'quiz', subject });
+    const action = quizButton(subject);
     if (s.quiz.last) {
       const hours = Math.floor((s.now - s.quiz.last.timestamp) / HOUR);
       if (hours < 24) return null;
       return {
         id: 'quiz-stale',
-        text: `${hours}h se koi quiz nahi hua. 10 min ka ${subject} quiz — chal.`,
+        text: `${hours}h se koi quiz nahi hua. 10 min ka ${subject ? `${subject} ` : ''}quiz — chal.`,
         tone: 'info',
         priority: 50,
         cooldownMs: 6 * HOUR,
@@ -287,7 +291,7 @@ const RULES: Rule[] = [
     if (s.sessionMinutes < 15) return null;
     return {
       id: 'quiz-stale',
-      text: `Abhi tak ek bhi quiz nahi diya. ${subject} se shuru kar — pehla step sabse bhaari hota hai.`,
+      text: `Abhi tak ek bhi quiz nahi diya. ${subject ?? 'Kisi bhi deck'} se shuru kar — pehla step sabse bhaari hota hai.`,
       tone: 'info',
       priority: 50,
       cooldownMs: 6 * HOUR,
@@ -300,7 +304,7 @@ const RULES: Rule[] = [
     s.windowCount === 0 && s.desktopEmptyMinutes >= 5
       ? {
           id: 'idle-desktop',
-          text: 'Desktop khaali hai. Study mode on karun? GATE + Notes side by side, pomodoro ready.',
+          text: 'Desktop khaali hai. Study mode on karun? Training Grounds + Notes side by side, pomodoro ready.',
           tone: 'info',
           priority: 40,
           cooldownMs: 2 * HOUR,

@@ -1,5 +1,13 @@
 # ⚔️ WARRIOR OS v4.0 — THE LIVING WORLD
 
+## Direction update (overrides anything below that conflicts)
+
+Warrior OS is **Keshav Upadhyay's personal OS and portfolio showcase**, not an exam-prep product. The GATE exam-prep focus was added by mistake and has been replaced.
+
+- **Core feel, all four at once:** my digital home (it knows me: my creature, my NEXUS), a sci-fi command center (Jarvis vibes, 3D, cinematic), a discipline machine (habits, focus, streaks, decay) and a creative playground (music, Code Lab, experiments).
+- **Learn anything:** the study hub is **Training Grounds** (app id `training-grounds`): quiz engine, flashcards, spaced repetition, skill tree, mock test and planner over the user's **own decks**.
+- **Fixed app names:** Training Grounds (`training-grounds`), Quest Planner (`study-planner`), Flashcards (`flashcards`). Visitors can **Explore as Guest** from the lock screen.
+
 > **Pehle version mein OS banaya. Phir use ALIVE kiya. Ab use SENTIENT bana rahe hain.**  
 > Ye sirf browser mein OS nahi hai. Ye ek **living, breathing, thinking, evolving digital world** hai.  
 > Jarvis + Sci-fi Command Center + 3D Spatial Computing + AI Sentient System + **8 features jo duniya mein exist nahi karte.**  
@@ -41,7 +49,7 @@ Version 4.0  →  THE LIVING WORLD — 8 God-Level     (Level ∞²)
 | Simple music player | **Audio-reactive wallpaper** — desktop pulses with beat |
 | Normal cursor | **Custom context-aware cursor** — changes shape per area |
 | Single desktop | **Multiple workspaces** — swipe between "Study" / "Build" / "Chill" |
-| No voice | **Voice commands** — "Hey Warrior, open GATE Arena" |
+| No voice | **Voice commands** — "Hey Warrior, open Training Grounds" |
 | No webcam | **Ambient light detection** — auto dark/light based on room |
 
 ---
@@ -394,7 +402,7 @@ This is what makes it **truly alien.** The OS has its own AI personality called 
 │                                                      │
 │  Understanding...                                    │
 │  ✓ Opening Notes Archive → filtering "OS"           │
-│  ✓ Launching GATE Arena → DBMS → Random Quiz        │
+│  ✓ Launching Training Grounds → DBMS → Quiz         │
 │  ✓ Arranging windows side-by-side                   │
 │                                                      │
 │  Two windows appeared, auto-snapped left/right.     │
@@ -416,7 +424,7 @@ NEXUS **learns your patterns:**
 > "study mode"
 
 NEXUS response:
-→ Opens GATE Arena (left half)
+→ Opens Training Grounds (left half)
 → Opens Notes Archive (right half)  
 → Minimizes everything else
 → Starts Pomodoro timer
@@ -445,7 +453,7 @@ NEXUS reads the current state of the OS and reacts:
 | Completed all daily targets | "All targets crushed! You're a machine. 🏆" + XP bonus |
 | Late night (past midnight) | Wallpaper shifts to dark red, NEXUS: "Night warrior mode." |
 | Weekend morning | "No study planned today. Want to work on a project? 📡" |
-| Exam in 7 days | Red alert mode — priority shifts to exam prep |
+| Deadline in 7 days (exam, launch, interview) | Red alert mode — priority shifts to that goal |
 
 #### 5. Voice Interface (Optional)
 ```
@@ -454,7 +462,7 @@ NEXUS:  "This week you completed 34 quizzes with 78% accuracy.
          Your weakest area was TOC — specifically, pumping lemma.
          Shall I create a focused revision session?"
 YOU:    "Yes"
-NEXUS:  *opens GATE Arena → TOC → Pumping Lemma quiz*
+NEXUS:  *opens Training Grounds → TOC deck → Pumping Lemma quiz*
 ```
 
 **Tech:** Web Speech API (built into browsers) — no external service needed.
@@ -473,9 +481,9 @@ Not just one desktop. **Three themed workspaces** you can swipe between:
 │  📚 STUDY   │ │  🔨 BUILD   │ │  🌙 CHILL   │
 │  WORKSPACE  │ │  WORKSPACE  │ │  WORKSPACE  │
 │             │ │  (Active)   │ │             │
-│  GATE Arena │ │  Projects   │ │  Music      │
+│  Training   │ │  Projects   │ │  Music      │
 │  Notes      │ │  Algo Lab   │ │  Journal    │
-│  Formulas   │ │  Terminal   │ │  Settings   │
+│  Flashcards │ │  Terminal   │ │  Settings   │
 │             │ │  Code       │ │             │
 └─────────────┘ └─────────────┘ └─────────────┘
       ○               ●               ○
@@ -517,7 +525,7 @@ Frame 2: Grid shards fly inward and ASSEMBLE:
          └──┴──┴──┴──┴──┘
 
 Frame 3: Assembled → window materializes:
-         ┌─ ⚔️ GATE Arena ────── ─ □ ✕ ─┐
+         ┌─ ⚔️ Training Grounds ── □ ✕ ─┐
          │                                │
          │      Content fades in          │
          │      with slight blur→sharp    │
@@ -708,9 +716,9 @@ Not boring badges. **Cinematic unlocks:**
 ```
 "First Page"           → Create first note
 "Author"               → 100 notes written
-"Encyclopedia"         → Notes in every GATE subject
+"Encyclopedia"         → Notes in 10+ different subjects
 "Connected Mind"       → Use 50 wiki-links between notes
-"The Formula"          → Review all formula cards in one subject
+"The Formula"          → Review every flashcard in one deck
 "Deep Diver"           → Study one topic for 3+ hours  
 ```
 
@@ -861,14 +869,14 @@ warrior-os/
 │   │   └── nexus-prompts.ts         # System prompts for AI personality
 │   │
 │   ├── apps/                         # 📱 ALL 14 APPS
-│   │   ├── gate-arena/
-│   │   │   ├── GateArenaApp.tsx
+│   │   ├── training-grounds/        # Learn anything, over your own decks
+│   │   │   ├── TrainingGroundsApp.tsx
 │   │   │   ├── SkillTree3D.tsx      # 3D force-directed node graph
 │   │   │   ├── QuizEngine.tsx
-│   │   │   ├── PYQBrowser.tsx
+│   │   │   ├── CardBrowser.tsx
 │   │   │   ├── MockTest.tsx
-│   │   │   ├── FormulaCards.tsx     # Swipeable + bookmarkable
-│   │   │   ├── StudyPlanner.tsx
+│   │   │   ├── FlashcardsApp.tsx    # Swipeable + bookmarkable
+│   │   │   ├── Planner.tsx
 │   │   │   └── SpacedRepetition.tsx
 │   │   ├── project-forge/
 │   │   │   ├── ProjectForgeApp.tsx
@@ -1083,7 +1091,7 @@ warrior-os/
 │   └── useGhostPresence.ts          # 👻 Firebase presence hook
 │
 ├── data/
-│   ├── gate-questions/
+│   ├── learning/                    # Sample decks (seeded on first run)
 │   ├── algorithms/
 │   ├── formulas/
 │   ├── achievements.ts              # All badges + unlock conditions
@@ -1130,7 +1138,7 @@ warrior-os/
 │   ├── workspace.ts
 │   ├── achievement.ts
 │   ├── nexus.ts
-│   ├── gate.ts
+│   ├── learning.ts                  # Decks, topics, cards, review state
 │   ├── project.ts
 │   ├── user.ts
 │   ├── creature.ts                  # 🐉 Creature state, evolution, forms
@@ -1181,9 +1189,9 @@ warrior-os/
 - [ ] Cursor trail effect
 
 ### Phase 3 — Core Apps (Week 5-8)
-- [ ] **GATE Arena** — quiz engine, PYQ bank, mock tests
-- [ ] **GATE Arena** — 3D skill tree (force-directed graph)
-- [ ] **GATE Arena** — spaced repetition + formula cards
+- [ ] **Training Grounds** — quiz engine over your own decks, mock tests
+- [ ] **Training Grounds** — 3D skill tree (force-directed graph)
+- [ ] **Training Grounds** — spaced repetition + Flashcards
 - [ ] **Notes Archive** — markdown editor + wiki links + search
 - [ ] **Habit Forge** — daily tracker + streaks
 - [ ] **Stats Center** — radar chart, heatmap, XP system
@@ -1200,7 +1208,7 @@ warrior-os/
 - [ ] **Algo Lab** — sorting + graph + tree visualizers
 - [ ] **Project Forge** — kanban + time tracker
 - [ ] **Expense Vault** — tracker + charts + budget alerts
-- [ ] **Calendar** — events + GATE plan integration
+- [ ] **Calendar** — events + Training Grounds planner integration
 
 ### Phase 5 — Polish & Legendary Details (Week 10-12)
 - [ ] **Achievement system** — cinematic unlock animations

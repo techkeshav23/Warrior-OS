@@ -99,12 +99,12 @@ function CalendarAppInner() {
 
   // Per-category counts for the month on screen (hidden categories included).
   const monthCounts = useMemo(() => {
-    const counts: Record<CalendarEventCategory, number> = { gate: 0, project: 0, personal: 0 };
+    const counts: Record<CalendarEventCategory, number> = { study: 0, project: 0, personal: 0 };
     const lastDay = toDateKey(endOfMonth(monthStart(viewMonth)));
     for (const occ of expandOccurrences(events, `${viewMonth}-01`, lastDay)) counts[occ.event.category] += 1;
     return counts;
   }, [events, viewMonth]);
-  const monthTotal = monthCounts.gate + monthCounts.project + monthCounts.personal;
+  const monthTotal = monthCounts.study + monthCounts.project + monthCounts.personal;
 
   const editingEventId = modal?.mode === 'edit' ? modal.eventId : null;
   const modalEvent = editingEventId ? (events.find((e) => e.id === editingEventId) ?? null) : null;

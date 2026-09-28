@@ -4,7 +4,7 @@
 // revision or planner task, a habit or routine check-off, a note
 // written or edited, or 10+ tracked study minutes.
 // Drives the streak achievements and the daily streak XP bonus.
-// (Every Habit Forge day counts, so it is never below the habit streak.)
+// (Every habit check-off day counts, so it is never below the habit streak.)
 // ═══════════════════════════════════════════════════════════
 
 import { useQuizHistoryStore } from '@/stores/useQuizHistoryStore';
@@ -115,7 +115,7 @@ export function checkStudyStreak(): StudyStreakCheck {
 }
 
 /**
- * For GATE study actions whose own storage keeps no per-day history
+ * For study actions whose own storage keeps no per-day history
  * (quiz / mock test completed, topic revised, planner task done): mark
  * today as a study day, then run the streak check.
  */

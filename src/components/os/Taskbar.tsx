@@ -8,7 +8,7 @@
 // Desktop-phase shortcuts owned here (the taskbar only exists on the
 // desktop): Ctrl/Cmd+L lock · Ctrl/Cmd+, Settings · Super/Cmd+D show
 // desktop (Windows reserves Win+D for itself; use the sliver there),
-// plus every app's registry `shortcut` (e.g. Ctrl+G → GATE Prep).
+// plus every app's registry `shortcut` (e.g. Ctrl+` → Terminal).
 // Combos are built exactly like useKeyboardShortcuts, and page-level
 // shortcuts win because that hook stops propagation at `document`.
 // ═══════════════════════════════════════════════════════════

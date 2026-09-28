@@ -12,10 +12,40 @@ import { GlitchText } from '@/components/ui/GlitchText';
 import { BOOT_MESSAGES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { ParticleAssembly } from '@/components/effects/ParticleAssembly';
+import { OWNER } from '@/config/owner';
 
 interface BootScreenProps {
   onComplete: () => void;
 }
+
+interface BootLine {
+  time: string;
+  message: string;
+  status: string;
+}
+
+// ─── Boot log: the system messages plus the owner's signature, slotted
+// in just before the final READY line. ───
+function buildBootLog(): BootLine[] {
+  const lines: BootLine[] = [...BOOT_MESSAGES];
+  const last = lines.length - 1;
+  if (last < 1) return lines;
+  const time = ((parseFloat(lines[last - 1].time) + parseFloat(lines[last].time)) / 2).toFixed(3);
+  lines.splice(last, 0, {
+    time,
+    message: `Owner signature: ${OWNER.name} (@${OWNER.handle})`,
+    status: 'VERIFIED',
+  });
+  return lines;
+}
+
+const BOOT_LOG = buildBootLog();
+
+// The log takes the same total time as before the owner line was added.
+const LOG_TICK_MS = Math.floor((120 * BOOT_MESSAGES.length) / BOOT_LOG.length);
+
+// Lines that fit the log panel; older lines scroll off the top.
+const VISIBLE_LOG_LINES = 12;
 
 type BootPhase = 'void' | 'particle' | 'log' | 'flash' | 'done';
 
@@ -40,14 +70,14 @@ export function BootScreen({ onComplete }: BootScreenProps) {
     const interval = setInterval(() => {
       setLogIndex((prev) => {
         const next = prev + 1;
-        setProgress(Math.round((next / BOOT_MESSAGES.length) * 100));
-        if (next >= BOOT_MESSAGES.length) {
+        setProgress(Math.round((next / BOOT_LOG.length) * 100));
+        if (next >= BOOT_LOG.length) {
           clearInterval(interval);
           flashTimer = setTimeout(() => setPhase('flash'), 400);
         }
         return next;
       });
-    }, 120);
+    }, LOG_TICK_MS);
 
     return () => {
       clearInterval(interval);
@@ -133,9 +163,9 @@ export function BootScreen({ onComplete }: BootScreenProps) {
             {/* System Log */}
             <div className="glass rounded-[var(--radius-md)] p-4 mb-4 h-64 overflow-hidden">
               <div className="font-mono text-xs space-y-0.5">
-                {BOOT_MESSAGES.slice(0, logIndex).map((msg, i) => (
+                {BOOT_LOG.slice(Math.max(0, logIndex - VISIBLE_LOG_LINES), logIndex).map((msg) => (
                   <motion.div
-                    key={i}
+                    key={msg.time + msg.message}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="flex items-center gap-2"
@@ -148,6 +178,7 @@ export function BootScreen({ onComplete }: BootScreenProps) {
                       className={cn(
                         'font-bold',
                         msg.status === 'OK' && 'text-accent-success',
+                        msg.status === 'VERIFIED' && 'text-accent-secondary text-glow-sm',
                         msg.status === 'READY' && 'text-accent-primary text-glow'
                       )}
                     >
@@ -171,7 +202,7 @@ export function BootScreen({ onComplete }: BootScreenProps) {
             {/* Status Text */}
             <div className="text-center">
               <span className="text-xs font-mono text-text-muted">
-                {progress < 100 ? 'Loading components...' : 'System ready.'}
+                {progress < 100 ? 'Loading components...' : `${OWNER.shortName}'s system ready.`}
               </span>
             </div>
           </motion.div>

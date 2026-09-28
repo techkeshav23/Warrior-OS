@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Event Modal
 // Add / edit / delete a calendar event: title, date, time (or
-// all-day), category (GATE / Project / Personal), colour, repeat
+// all-day), category (Study / Project / Personal), colour, repeat
 // (none / daily / weekly / monthly, optional end), reminder, notes.
 // Editing one day of a recurring series can split that day out.
 // ═══════════════════════════════════════════════════════════
@@ -104,8 +104,8 @@ function EventModalInner({ state, event, onClose, onSaved }: EventModalProps) {
   const [date, setDate] = useState(() => (event ? event.date : occurrenceDate));
   const [allDay, setAllDay] = useState(() => (event ? event.time === null : false));
   const [time, setTime] = useState(() => event?.time ?? DEFAULT_TIME);
-  const [category, setCategory] = useState<CalendarEventCategory>(() => event?.category ?? 'gate');
-  const [color, setColor] = useState(() => event?.color ?? CALENDAR_CATEGORY_COLORS.gate);
+  const [category, setCategory] = useState<CalendarEventCategory>(() => event?.category ?? 'study');
+  const [color, setColor] = useState(() => event?.color ?? CALENDAR_CATEGORY_COLORS.study);
   const [colorTouched, setColorTouched] = useState(() =>
     event ? event.color !== CALENDAR_CATEGORY_COLORS[event.category] : false
   );
@@ -298,7 +298,7 @@ function EventModalInner({ state, event, onClose, onSaved }: EventModalProps) {
                 maxLength={MAX_EVENT_TITLE_LENGTH}
                 autoFocus
                 autoComplete="off"
-                placeholder="Mock test, sprint review, gym..."
+                placeholder="Deep-work block, sprint review, gym..."
                 aria-invalid={visible.title ? true : undefined}
                 className={cn(fieldBase, 'px-3 py-2 text-base', visible.title ? 'border-red-500/50' : 'border-white/10')}
               />
@@ -526,7 +526,7 @@ function EventModalInner({ state, event, onClose, onSaved }: EventModalProps) {
                 onChange={(e) => setNotes(e.target.value)}
                 maxLength={MAX_EVENT_NOTES_LENGTH}
                 rows={2}
-                placeholder="Syllabus, links, what to bring..."
+                placeholder="Agenda, links, what to bring..."
                 className={cn(fieldBase, 'resize-none px-3 py-2', visible.notes ? 'border-red-500/50' : 'border-white/10')}
               />
               {visible.notes && <p className="mt-1 text-[11px] text-red-300">{visible.notes}</p>}

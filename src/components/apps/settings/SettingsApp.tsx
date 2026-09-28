@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Settings App
-// 7 tabs: Appearance, Living World, Sounds, Account, Workspaces, Nexus, About
+// 8 tabs: Appearance, Living World, Performance, Sounds, Account,
+// Workspaces, Nexus, About
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -15,12 +16,22 @@ import { WorkspacesTab } from './WorkspacesTab';
 import { NexusTab } from './NexusTab';
 import { AboutTab } from './AboutTab';
 import { LivingWorldTab } from './LivingWorldTab';
+import { PerformanceTab } from './PerformanceTab';
 
-type SettingsTab = 'appearance' | 'living' | 'sounds' | 'account' | 'workspaces' | 'nexus' | 'about';
+type SettingsTab =
+  | 'appearance'
+  | 'living'
+  | 'performance'
+  | 'sounds'
+  | 'account'
+  | 'workspaces'
+  | 'nexus'
+  | 'about';
 
 const TABS: { id: SettingsTab; label: string; icon: string }[] = [
   { id: 'appearance', label: 'Appearance', icon: '🎨' },
   { id: 'living', label: 'Living World', icon: '🌱' },
+  { id: 'performance', label: 'Performance', icon: '⚡' },
   { id: 'sounds', label: 'Sounds', icon: '🔊' },
   { id: 'account', label: 'Account', icon: '👤' },
   { id: 'workspaces', label: 'Workspaces', icon: '🖥️' },
@@ -66,6 +77,7 @@ function SettingsAppInner() {
           >
             {activeTab === 'appearance' && <AppearanceTab />}
             {activeTab === 'living' && <LivingWorldTab />}
+            {activeTab === 'performance' && <PerformanceTab />}
             {activeTab === 'sounds' && <SoundsTab />}
             {activeTab === 'account' && <AccountTab />}
             {activeTab === 'workspaces' && <WorkspacesTab />}

@@ -11,7 +11,7 @@ const BASE_ACHIEVEMENTS: Achievement[] = [
   {
     id: 'first-quiz',
     title: 'Quiz Initiate',
-    description: 'Complete your first GATE quiz',
+    description: 'Complete your first quiz in Training Grounds',
     category: 'study',
     icon: '📝',
     xpReward: 50,
@@ -41,7 +41,7 @@ const BASE_ACHIEVEMENTS: Achievement[] = [
   {
     id: 'all-subjects',
     title: 'Renaissance Warrior',
-    description: 'Attempt quizzes in all 12 GATE subjects',
+    description: 'Take a quiz in every subject in Training Grounds',
     category: 'study',
     icon: '🎓',
     xpReward: 300,

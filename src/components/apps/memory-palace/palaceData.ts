@@ -1,24 +1,38 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Memory Palace: data layer
-// Notes (warrior-notes) → palace objects with inferred subject, GATE
+// Notes (warrior-notes) → palace objects with inferred subject room,
 // topic and object type; spaced-repetition review state (palace log +
-// GATE Arena's warrior-revisions); palace progress + achievements.
+// the legacy topic schedule in warrior-revisions); palace progress +
+// achievements.
 // Pure TypeScript — no React, no three.js (the dream engine uses it).
 // ═══════════════════════════════════════════════════════════
 
-import type { GateSubject } from '@/types/gate';
-import { getTopicsForSubject } from '@/data/gate-questions';
 import { unlockPhase6Achievement } from '@/components/creature/osBridge';
 
 // ─────────────────────────────────────────────────────────────
 // Subjects + room themes
 // ─────────────────────────────────────────────────────────────
 
-/** Rooms are GATE subjects, plus a General archive for unmatched notes. */
-export type PalaceSubject = GateSubject | 'General';
+/** Themed rooms for core CS subjects a note can belong to. */
+export type PalaceRoomSubject =
+  | 'DBMS'
+  | 'OS'
+  | 'CN'
+  | 'TOC'
+  | 'COA'
+  | 'DAA'
+  | 'Compiler Design'
+  | 'Digital Logic'
+  | 'Discrete Math'
+  | 'Engineering Math'
+  | 'C Programming'
+  | 'Data Structures';
+
+/** Subject rooms, plus a General archive for unmatched notes. */
+export type PalaceSubject = PalaceRoomSubject | 'General';
 export type NoteObjectType = 'concept' | 'formula' | 'question';
 
-export const GATE_SUBJECTS: GateSubject[] = [
+export const ROOM_SUBJECTS: PalaceRoomSubject[] = [
   'DBMS',
   'OS',
   'CN',
@@ -85,7 +99,7 @@ export const ROOM_THEMES: Record<PalaceSubject, RoomTheme> = {
 // Subject / topic / type inference
 // ─────────────────────────────────────────────────────────────
 
-const SUBJECT_TAG_ALIASES: Record<GateSubject, string[]> = {
+const SUBJECT_TAG_ALIASES: Record<PalaceRoomSubject, string[]> = {
   DBMS: ['dbms', 'db', 'database', 'databases', 'sql'],
   OS: ['os', 'operating-system', 'operating system', 'operating systems'],
   CN: ['cn', 'network', 'networks', 'networking', 'computer networks'],
@@ -100,7 +114,7 @@ const SUBJECT_TAG_ALIASES: Record<GateSubject, string[]> = {
   'Data Structures': ['ds', 'dsa', 'data structure', 'data structures'],
 };
 
-const SUBJECT_KEYWORDS: Record<GateSubject, string[]> = {
+const SUBJECT_KEYWORDS: Record<PalaceRoomSubject, string[]> = {
   DBMS: ['database', 'sql', 'normalization', 'normal form', 'bcnf', '3nf', 'transaction', 'acid', 'serializab', 'er model', 'er diagram', 'relational', 'b+ tree', 'indexing', 'functional dependenc', 'foreign key', 'primary key'],
   OS: ['operating system', 'process', 'thread', 'scheduling', 'deadlock', 'semaphore', 'mutex', 'paging', 'page fault', 'virtual memory', 'segmentation', 'banker', 'critical section', 'context switch', 'disk scheduling', 'file system', 'tlb'],
   CN: ['network', 'tcp', 'udp', 'ip address', 'ipv4', 'ipv6', 'routing', 'router', 'osi', 'subnet', 'dns', 'http', 'congestion', 'sliding window', 'data link', 'mac address', 'ethernet', 'packet', 'handshake', 'csma'],
@@ -115,19 +129,24 @@ const SUBJECT_KEYWORDS: Record<GateSubject, string[]> = {
   'Data Structures': ['data structure', 'stack', 'queue', 'linked list', 'binary tree', 'bst', 'avl', 'heap', 'hashing', 'hash table', 'trie', 'graph traversal', 'bfs', 'dfs'],
 };
 
-const topicCache = new Map<GateSubject, string[]>();
+/** Topic names a note is matched against inside each room. */
+const ROOM_TOPICS: Record<PalaceRoomSubject, string[]> = {
+  DBMS: ['ER Model', 'Indexing', 'Normalization', 'Recovery', 'Relational Algebra', 'SQL', 'Transactions'],
+  OS: ['CPU Scheduling', 'Deadlock', 'Disk Scheduling', 'File Systems', 'Memory Management', 'Process Management', 'Process Synchronization', 'Threads', 'Virtual Memory'],
+  CN: ['Application Layer', 'Data Link Layer', 'Network Layer', 'OSI Model', 'Routing', 'Subnetting', 'TCP/IP'],
+  TOC: ['Chomsky Hierarchy', 'Context-Free Grammars', 'Finite Automata', 'Pumping Lemma', 'Pushdown Automata', 'Regular Languages', 'Turing Machines'],
+  COA: ['CPU Architecture', 'I/O Systems', 'Memory Hierarchy', 'Number Representation'],
+  DAA: ['Backtracking', 'Complexity Classes', 'Divide and Conquer', 'Dynamic Programming', 'Graph Algorithms', 'Greedy Algorithms', 'Sorting'],
+  'Compiler Design': ['Code Generation', 'Code Optimization', 'Intermediate Code', 'Lexical Analysis', 'Parsing', 'Syntax Directed Translation'],
+  'Digital Logic': ['Boolean Algebra', 'Combinational Circuits', 'Minimization', 'Number Systems', 'Sequential Circuits'],
+  'Discrete Math': ['Combinatorics', 'Functions', 'Graph Theory', 'Group Theory', 'Propositional Logic', 'Recurrence Relations', 'Sets & Relations'],
+  'Engineering Math': ['Calculus', 'Linear Algebra', 'Probability'],
+  'C Programming': ['Arrays', 'Functions', 'Memory', 'Operators', 'Pointers', 'Preprocessor', 'Recursion', 'Strings', 'Structures'],
+  'Data Structures': ['Arrays & Linked Lists', 'BST', 'Graphs', 'Hashing', 'Heaps', 'Stacks & Queues', 'Trees'],
+};
 
-function topicsFor(subject: GateSubject): string[] {
-  let topics = topicCache.get(subject);
-  if (!topics) {
-    try {
-      topics = getTopicsForSubject(subject);
-    } catch {
-      topics = [];
-    }
-    topicCache.set(subject, topics);
-  }
-  return topics;
+function topicsFor(subject: PalaceRoomSubject): string[] {
+  return ROOM_TOPICS[subject];
 }
 
 function hasWord(haystack: string, word: string): boolean {
@@ -142,7 +161,7 @@ export interface NoteLike {
 }
 
 /**
- * Best-matching GATE subject + topic for a note. Tags weigh most, then
+ * Best-matching subject room + topic for a note. Tags weigh most, then
  * the title, then the body. Notes with no clear signal go to 'General'
  * (never an arbitrary subject).
  */
@@ -151,11 +170,11 @@ export function inferNoteSubject(note: NoteLike): { subject: PalaceSubject; topi
   const content = (note.content ?? '').toLowerCase().slice(0, 6000);
   const tags = (note.tags ?? []).map((t) => t.toLowerCase().trim().replace(/^#/, ''));
 
-  let best: GateSubject | null = null;
+  let best: PalaceRoomSubject | null = null;
   let bestScore = 0;
   let bestTopic: string | null = null;
 
-  for (const subject of GATE_SUBJECTS) {
+  for (const subject of ROOM_SUBJECTS) {
     let score = 0;
     if (tags.some((t) => SUBJECT_TAG_ALIASES[subject].includes(t))) score += 12;
     if (hasWord(title, subject.toLowerCase())) score += 6;
@@ -194,7 +213,7 @@ export function inferNoteType(note: NoteLike): NoteObjectType {
   if (
     title.endsWith('?') ||
     /^(q\s*[:.)\d]|question|pyq)/.test(title) ||
-    /\bpyq\b|\bgate\s?(19|20)\d\d\b/.test(title)
+    /\bpyq\b/.test(title)
   ) {
     return 'question';
   }
@@ -303,7 +322,7 @@ export interface PalaceRevisionEntry {
 
 export type PalaceRevisionLog = Record<string, PalaceRevisionEntry>;
 
-/** GATE Arena topic revision entry (read-only here). */
+/** Legacy topic revision entry from the old topic schedule (read-only here). */
 export interface GateRevisionEntry {
   subject: string;
   topic: string;
@@ -347,7 +366,7 @@ export function saveRevisionLog(log: PalaceRevisionLog): void {
   }
 }
 
-/** GATE Arena's topic schedule (subject + topic → last revised + interval). */
+/** The legacy topic schedule (subject + topic → last revised + interval); no longer written. */
 export function loadGateRevisions(): GateRevisionEntry[] {
   const data = readJSONKey(GATE_REVISIONS_KEY);
   if (!Array.isArray(data)) return [];
@@ -365,7 +384,7 @@ export function loadGateRevisions(): GateRevisionEntry[] {
 export type RecencyBucket = 'today' | 'week' | 'month' | 'stale';
 
 export interface NoteReview {
-  /** Most recent touch: note edit, palace revision or GATE topic revision. */
+  /** Most recent touch: note edit, palace revision or legacy topic revision. */
   lastTouched: number;
   intervalDays: number;
   dueAt: number;
@@ -385,8 +404,8 @@ function findGateEntry(note: PalaceNote, gate: GateRevisionEntry[]): GateRevisio
 
 /**
  * Review state of a note. Writing/editing a note counts as a touch;
- * the first review is due one day later (same rule as GATE Arena's
- * spaced repetition), and each revision doubles the interval (max 30d).
+ * the first review is due one day later, and each revision doubles the
+ * interval (max 30d).
  */
 export function computeNoteReview(
   note: PalaceNote,
@@ -450,7 +469,7 @@ export interface PalaceProgress {
   v: 1;
   /** Room keys already built (new keys animate brick by brick). */
   builtRooms: string[];
-  /** GATE subjects whose room was ever visited. */
+  /** Subject rooms ever visited. */
   visitedSubjects: string[];
   /** Revisions counted toward "Curator". */
   revisions: number;
@@ -499,7 +518,7 @@ export function reconcilePalaceAchievements(progress: PalaceProgress, objectCoun
   if (progress.entered) unlockPhase6Achievement(PALACE_ACHIEVEMENT_IDS.architect);
   if (objectCount >= GRAND_LIBRARY_OBJECTS) unlockPhase6Achievement(PALACE_ACHIEVEMENT_IDS.grandLibrary);
   if (progress.revisions >= CURATOR_REVISIONS) unlockPhase6Achievement(PALACE_ACHIEVEMENT_IDS.curator);
-  if (GATE_SUBJECTS.every((s) => progress.visitedSubjects.includes(s))) {
+  if (ROOM_SUBJECTS.every((s) => progress.visitedSubjects.includes(s))) {
     unlockPhase6Achievement(PALACE_ACHIEVEMENT_IDS.wisdom);
   }
 }

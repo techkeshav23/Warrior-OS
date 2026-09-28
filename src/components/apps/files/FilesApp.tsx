@@ -29,19 +29,26 @@ const DEFAULT_FS: FSNode = {
       ],
     },
     {
-      id: 'gate-dir', name: 'GATE', type: 'folder', children: [
-        { id: 'plan', name: 'study-plan.txt', type: 'file', content: 'Week 1: OS + DBMS\nWeek 2: CN + TOC\nWeek 3: DSA + DAA' },
+      id: 'training-dir', name: 'Training', type: 'folder', children: [
+        { id: 'plan', name: 'learning-plan.txt', type: 'file', content: 'Week 1: Pick a topic. Build a deck in Training Grounds.\nWeek 2: Daily quiz reps. Review every miss.\nWeek 3: Teach it back: notes, a demo, a tiny project.' },
       ],
     },
     { id: 'readme', name: 'README.txt', type: 'file', content: 'Warrior OS virtual file system.\nEverything here is saved in your browser.' },
   ],
 };
 
+/** Older versions seeded an exam folder at the root; rename it while it keeps its seeded name. */
+function renameLegacySeedFolder(fs: FSNode): FSNode {
+  const isLegacy = (c: FSNode) => c.id === 'gate-dir' && c.name === 'GATE';
+  if (!Array.isArray(fs?.children) || !fs.children.some(isLegacy)) return fs;
+  return { ...fs, children: fs.children.map((c) => (isLegacy(c) ? { ...c, name: 'Training' } : c)) };
+}
+
 function loadFS(): FSNode {
   if (typeof window === 'undefined') return DEFAULT_FS;
   try {
     const raw = localStorage.getItem(FS_KEY);
-    return raw ? JSON.parse(raw) : DEFAULT_FS;
+    return raw ? renameLegacySeedFolder(JSON.parse(raw)) : DEFAULT_FS;
   } catch { return DEFAULT_FS; }
 }
 

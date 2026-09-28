@@ -13,6 +13,15 @@ export const STUDY_HISTORY_DAYS = 120;
 /** Study-action days kept for the study streak (enough for a 365-day streak). */
 export const ACTIVITY_DAYS_KEPT = 400;
 
+/** App ids renamed after progress was first saved → their current id. */
+const RENAMED_APP_IDS: ReadonlyMap<string, string> = new Map([['gate-prep', 'training-grounds']]);
+
+function renameAppIds(ids: readonly unknown[]): string[] {
+  const out = new Set<string>();
+  for (const id of ids) if (typeof id === 'string') out.add(RENAMED_APP_IDS.get(id) ?? id);
+  return [...out];
+}
+
 /** Ids rewarded on one UTC day ('YYYY-MM-DD'). */
 export interface DailyIds {
   day: string;
@@ -26,7 +35,7 @@ export interface DailyCount {
 }
 
 interface AchievementProgressState {
-  /** GATE quizzes + mock tests completed. null until back-filled from quiz history. */
+  /** Training Grounds quizzes + mock tests completed. null until back-filled from quiz history. */
   quizzesCompleted: number | null;
   /** Subjects with at least one completed subject quiz (never pruned, unlike quiz history). */
   subjectsQuizzed: string[];
@@ -43,7 +52,7 @@ interface AchievementProgressState {
   /** Minutes of active study, keyed by UTC day. */
   studyMinutesByDay: Record<string, number>;
   /**
-   * UTC days with a GATE study action whose own storage keeps no per-day
+   * UTC days with a study action whose own storage keeps no per-day
    * history: completed quizzes / mock tests, revisions, planner check-offs.
    */
   activityDays: string[];
@@ -70,7 +79,7 @@ interface AchievementProgressState {
   addSettingChanged: (key: string) => boolean;
   /** Adds one study minute to `day`; returns that day's new total. */
   addStudyMinute: (day: string) => number;
-  /** Records a day with a GATE study action. */
+  /** Records a day with a study action. */
   markActiveDay: (day: string) => void;
   setLastLoginDay: (day: string) => void;
   /** Claims the completion XP for a habit on `day`; false if already paid. */
@@ -208,6 +217,15 @@ export const useAchievementProgressStore = create<AchievementProgressState>()(
     })),
     {
       name: 'warrior-os-achievement-progress',
+      version: 1,
+      // v0 → v1: "App Explorer" progress follows renamed app ids.
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as Partial<AchievementProgressState>;
+        if (version < 1 && Array.isArray(state.appsOpened)) {
+          return { ...state, appsOpened: renameAppIds(state.appsOpened) };
+        }
+        return state;
+      },
       partialize: (state) => ({
         quizzesCompleted: state.quizzesCompleted,
         subjectsQuizzed: state.subjectsQuizzed,

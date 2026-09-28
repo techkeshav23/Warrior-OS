@@ -7,6 +7,18 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { persist } from 'zustand/middleware';
 
+/**
+ * Lite mode (Settings → Performance): 'auto' decides from the device
+ * (see src/lib/lite-mode.ts), 'on' always lite, 'off' always full effects.
+ */
+export type PerformanceMode = 'auto' | 'on' | 'off';
+
+export const PERFORMANCE_MODES: readonly PerformanceMode[] = ['auto', 'on', 'off'];
+
+function isPerformanceMode(value: unknown): value is PerformanceMode {
+  return typeof value === 'string' && (PERFORMANCE_MODES as readonly string[]).includes(value);
+}
+
 interface SettingsState {
   // Display
   wallpaper: string;
@@ -32,6 +44,9 @@ interface SettingsState {
   dreams: boolean;            // NEXUS cinematic recap on login
   biometricsEnabled: boolean; // typing biometrics tracking
 
+  // Performance
+  performanceMode: PerformanceMode; // lite mode: auto-detect / forced on / forced off
+
   // Actions
   setWallpaper: (id: string) => void;
   setAccentColor: (color: string) => void;
@@ -49,6 +64,7 @@ interface SettingsState {
   togglePhantomWindows: () => void;
   toggleDreams: () => void;
   toggleBiometrics: () => void;
+  setPerformanceMode: (mode: PerformanceMode) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -71,6 +87,7 @@ export const useSettingsStore = create<SettingsState>()(
       phantomWindows: true,
       dreams: true,
       biometricsEnabled: true,
+      performanceMode: 'auto',
 
       setWallpaper: (id) => set((s) => { s.wallpaper = id; }),
       setAccentColor: (color) => set((s) => { s.accentColor = color; }),
@@ -88,9 +105,20 @@ export const useSettingsStore = create<SettingsState>()(
       togglePhantomWindows: () => set((s) => { s.phantomWindows = !s.phantomWindows; }),
       toggleDreams: () => set((s) => { s.dreams = !s.dreams; }),
       toggleBiometrics: () => set((s) => { s.biometricsEnabled = !s.biometricsEnabled; }),
+      setPerformanceMode: (mode) => set((s) => { s.performanceMode = isPerformanceMode(mode) ? mode : 'auto'; }),
     })),
     {
       name: 'warrior-os-settings',
+      version: 1,
+      // v0 → v1: adds performanceMode. Existing installs start on 'auto',
+      // like new ones; anything unrecognised is reset to 'auto' too.
+      migrate: (persisted) => {
+        const state = (persisted ?? {}) as Partial<SettingsState>;
+        return {
+          ...state,
+          performanceMode: isPerformanceMode(state.performanceMode) ? state.performanceMode : 'auto',
+        } as SettingsState;
+      },
     }
   )
 );

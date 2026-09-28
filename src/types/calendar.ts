@@ -3,7 +3,7 @@
 // Calendar events, recurrence rules and expanded occurrences
 // ═══════════════════════════════════════════════════════════
 
-export type CalendarEventCategory = 'gate' | 'project' | 'personal';
+export type CalendarEventCategory = 'study' | 'project' | 'personal';
 
 export type CalendarRecurrence = 'none' | 'daily' | 'weekly' | 'monthly';
 

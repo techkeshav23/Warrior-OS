@@ -1,6 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Window Component
-// Draggable, resizable glassmorphism window with title bar
+// Draggable, resizable glassmorphism window with title bar.
+// The app inside runs under its own error boundary: a crash shows a
+// SYSTEM FAULT panel in this window (Restart app / Close) instead of
+// taking the OS down. Lite mode swaps the glass blur for a solid fill.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -10,6 +13,8 @@ import { Rnd } from 'react-rnd';
 import { motion } from 'framer-motion';
 import { Minus, Maximize2, Minimize2, X } from 'lucide-react';
 import { useWindowStore } from '@/stores/useWindowStore';
+import { useLiteMode } from '@/lib/lite-mode';
+import { AppErrorBoundary } from '@/components/showcase/AppErrorBoundary';
 import { cn } from '@/lib/utils';
 import type { WindowState } from '@/types/window';
 
@@ -18,9 +23,23 @@ interface WindowProps {
   children: ReactNode;
 }
 
+// Store actions never change, so they are read when needed instead of
+// subscribing every window to every window-store update.
+const windowActions = () => useWindowStore.getState();
+
+const GLASS_STYLE = {
+  background: 'rgba(15, 15, 25, 0.85)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+} as const;
+
+// Lite mode: backdrop blur is the costliest effect on integrated GPUs.
+const SOLID_STYLE = { background: 'rgba(12, 12, 20, 0.97)' } as const;
+
 export function Window({ windowState, children }: WindowProps) {
   const {
     id,
+    appId,
     title,
     position,
     size,
@@ -31,57 +50,48 @@ export function Window({ windowState, children }: WindowProps) {
     zIndex,
   } = windowState;
 
-  const {
-    closeWindow,
-    minimizeWindow,
-    maximizeWindow,
-    restoreWindow,
-    focusWindow,
-    updatePosition,
-    updateSize,
-  } = useWindowStore();
-
+  const lite = useLiteMode();
   const rndRef = useRef<Rnd>(null);
 
   const handleFocus = useCallback(() => {
-    if (!isFocused) focusWindow(id);
-  }, [id, isFocused, focusWindow]);
+    if (!isFocused) windowActions().focusWindow(id);
+  }, [id, isFocused]);
+
+  const closeSelf = useCallback(() => {
+    windowActions().closeWindow(id);
+  }, [id]);
 
   const handleClose = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      closeWindow(id);
+      closeSelf();
     },
-    [id, closeWindow]
+    [closeSelf]
   );
 
   const handleMinimize = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      minimizeWindow(id);
+      windowActions().minimizeWindow(id);
     },
-    [id, minimizeWindow]
+    [id]
   );
+
+  const toggleMaximize = useCallback(() => {
+    if (isMaximized) {
+      windowActions().restoreWindow(id);
+    } else {
+      windowActions().maximizeWindow(id);
+    }
+  }, [id, isMaximized]);
 
   const handleMaximize = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (isMaximized) {
-        restoreWindow(id);
-      } else {
-        maximizeWindow(id);
-      }
+      toggleMaximize();
     },
-    [id, isMaximized, maximizeWindow, restoreWindow]
+    [toggleMaximize]
   );
-
-  const handleDoubleClickTitle = useCallback(() => {
-    if (isMaximized) {
-      restoreWindow(id);
-    } else {
-      maximizeWindow(id);
-    }
-  }, [id, isMaximized, maximizeWindow, restoreWindow]);
 
   if (isMinimized) return null;
 
@@ -96,8 +106,9 @@ export function Window({ windowState, children }: WindowProps) {
       enableResizing={!isMaximized}
       dragHandleClassName="window-drag-handle"
       onDragStart={handleFocus}
-      onDragStop={(_e, d) => updatePosition(id, { x: d.x, y: d.y })}
+      onDragStop={(_e, d) => windowActions().updatePosition(id, { x: d.x, y: d.y })}
       onResizeStop={(_e, _dir, ref, _delta, pos) => {
+        const { updateSize, updatePosition } = windowActions();
         updateSize(id, {
           width: parseFloat(ref.style.width) || ref.offsetWidth,
           height: parseFloat(ref.style.height) || ref.offsetHeight,
@@ -113,6 +124,8 @@ export function Window({ windowState, children }: WindowProps) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        data-window-id={id}
+        data-app-id={appId}
         className={cn(
           'w-full h-full flex flex-col rounded-[var(--radius-lg)] overflow-hidden',
           'border transition-shadow duration-200',
@@ -120,11 +133,7 @@ export function Window({ windowState, children }: WindowProps) {
             ? 'border-accent-primary/20 shadow-[0_0_30px_rgba(0,240,255,0.08)]'
             : 'border-white/5 shadow-lg'
         )}
-        style={{
-          background: 'rgba(15, 15, 25, 0.85)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-        }}
+        style={lite ? SOLID_STYLE : GLASS_STYLE}
       >
         {/* ─── Title Bar ─── */}
         <div
@@ -135,7 +144,7 @@ export function Window({ windowState, children }: WindowProps) {
               : 'transparent',
             borderBottom: '1px solid rgba(255,255,255,0.04)',
           }}
-          onDoubleClick={handleDoubleClickTitle}
+          onDoubleClick={toggleMaximize}
         >
           {/* Left: Title */}
           <div className="flex items-center gap-2 min-w-0">
@@ -177,9 +186,11 @@ export function Window({ windowState, children }: WindowProps) {
           </div>
         </div>
 
-        {/* ─── Window Content ─── */}
+        {/* ─── Window Content (crash-isolated) ─── */}
         <div className="flex-1 overflow-auto">
-          {children}
+          <AppErrorBoundary appName={title} onClose={closeSelf}>
+            {children}
+          </AppErrorBoundary>
         </div>
       </motion.div>
     </Rnd>

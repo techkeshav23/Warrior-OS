@@ -3,19 +3,31 @@
 // State Machine: dream|boot → lock → desktop
 // (first-ever boot → boot; returning users → dream when NEXUS Dreams
 //  are on, else straight to lock)
+//
+// Reliability: the whole OS runs under a SystemErrorBoundary (cinematic
+// recovery screen → Reboot), every app under its own boundary inside its
+// window (Window.tsx), and each optional layer below under a
+// LayerBoundary that drops only that layer if it fails.
+// Performance: this bundle carries just the shell that boot, lock and the
+// desktop need. The dream intro, the living-world overlays and the effects
+// are lazy client-only chunks, fetched when first shown. Lite mode
+// (Settings → Performance, src/lib/lite-mode.ts) skips the decorative
+// canvases, the custom cursor, glass blur and the unlock transitions.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { useEffect, useCallback, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useOSStore } from '@/stores/useOSStore';
 import { useAppStore } from '@/stores/useAppStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useAdaptiveWallpaper } from '@/hooks/useAdaptiveWallpaper';
 import { APP_REGISTRY } from '@/data/app-registry';
+import { useLiteMode } from '@/lib/lite-mode';
 
-// OS Components
+// OS Components (bundled: boot, lock and the first desktop frame need them)
 import { BootScreen } from '@/components/os/BootScreen';
 import { LockScreen } from '@/components/os/LockScreen';
 import { Desktop } from '@/components/os/Desktop';
@@ -26,43 +38,122 @@ import { DynamicIsland } from '@/components/os/DynamicIsland';
 import { CommandPalette } from '@/components/os/CommandPalette';
 import { NotificationCenter } from '@/components/os/NotificationCenter';
 import { ToastContainer } from '@/components/os/ToastNotification';
-import { CursorManager } from '@/components/os/CursorManager';
 import { ScreenEffects } from '@/components/os/ScreenEffects';
 import { ScanlineOverlay } from '@/components/ui/ScanlineOverlay';
 import { WorkspaceManager, WorkspaceDots } from '@/components/os/WorkspaceManager';
 import { WallpaperEngine } from '@/components/wallpapers/WallpaperEngine';
 import { AudioReactive } from '@/components/effects/AudioReactive';
-import { CursorTrail } from '@/components/effects/CursorTrail';
+import { DesktopWidgets } from '@/components/widgets/DesktopWidgets';
+import { useDreamBootPhase } from '@/components/dream/useDreamBoot';
 
-// Phase 6 global overlays
-import { WarriorCreature } from '@/components/creature';
-import { GhostLayer } from '@/components/ghost';
-import { RealityDecay } from '@/components/decay';
-import { PhantomLayer } from '@/components/phantom';
-import { BiometricsLayer } from '@/components/biometrics';
-import { DreamSequence, useDreamBootPhase } from '@/components/dream';
-import { NexusLayer } from '@/components/nexus';
-import { ProceduralMusicHost } from '@/components/music';
-import { CalendarReminders } from '@/components/apps/calendar/CalendarReminders';
+// Achievement routing: these seed the catalogue and announce unlocks and
+// level-ups, so they mount with the page rather than lazily.
+import { AchievementCinematic } from '@/components/effects/AchievementCinematic';
+import { LevelUpEffect } from '@/components/effects/LevelUpEffect';
+import { ServiceWorkerRegistrar } from '@/components/pwa/ServiceWorkerRegistrar';
 
-// Achievements, effects, widgets, PWA
-import { AchievementTriggers } from '@/components/achievements';
-import {
-  AchievementCinematic,
-  LevelUpEffect,
-  GlitchTransition,
-  ScreenShatterLayer,
-  DisintegrateEffect,
-} from '@/components/effects';
-import { DesktopWidgets } from '@/components/widgets';
-import { ServiceWorkerRegistrar } from '@/components/pwa';
+// Crash isolation
+import { LayerBoundary, SystemErrorBoundary } from '@/components/showcase/AppErrorBoundary';
 
 // Notification store for toasts
 import { useNotificationStore } from '@/stores/useNotificationStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 
-export default function WarriorOS() {
+// ─── Lazy layers ───
+// Client-only chunks, fetched the first time they render: the dream intro
+// on dream boots only, everything else once the desktop is up. Keeps
+// recharts (creature stats, biometrics history), the DOM rasteriser and
+// the other effect code out of the bundle that paints the boot screen.
+const DreamSequence = dynamic(
+  () => import('@/components/dream/DreamSequence').then((m) => m.DreamSequence),
+  { ssr: false }
+);
+const AchievementTriggers = dynamic(
+  () => import('@/components/achievements/AchievementTriggers').then((m) => m.AchievementTriggers),
+  { ssr: false }
+);
+const BiometricsLayer = dynamic(
+  () => import('@/components/biometrics/BiometricsLayer').then((m) => m.BiometricsLayer),
+  { ssr: false }
+);
+const ProceduralMusicHost = dynamic(
+  () => import('@/components/music/ProceduralMusicHost').then((m) => m.ProceduralMusicHost),
+  { ssr: false }
+);
+const CalendarReminders = dynamic(
+  () => import('@/components/apps/calendar/CalendarReminders').then((m) => m.CalendarReminders),
+  { ssr: false }
+);
+const RealityDecay = dynamic(
+  () => import('@/components/decay/DecayEngine').then((m) => m.DecayEngine),
+  { ssr: false }
+);
+const WarriorCreature = dynamic(
+  () => import('@/components/creature/WarriorCreature').then((m) => m.WarriorCreature),
+  { ssr: false }
+);
+const NexusLayer = dynamic(
+  () => import('@/components/nexus/NexusLayer').then((m) => m.NexusLayer),
+  { ssr: false }
+);
+const GhostLayer = dynamic(
+  () => import('@/components/ghost/GhostLayer').then((m) => m.GhostLayer),
+  { ssr: false }
+);
+// Lite-mode Ghost Warriors: presence, war cries and the leaderboard only.
+const GhostPresenceEngine = dynamic(
+  () => import('@/components/ghost/GhostPresenceEngine').then((m) => m.GhostPresenceEngine),
+  { ssr: false }
+);
+const WarCryBubbles = dynamic(
+  () => import('@/components/ghost/WarCrySystem').then((m) => m.WarCryBubbles),
+  { ssr: false }
+);
+const WarriorLeaderboard = dynamic(
+  () => import('@/components/ghost/WarriorLeaderboard').then((m) => m.WarriorLeaderboard),
+  { ssr: false }
+);
+// Decorative — never loaded in lite mode.
+const PhantomLayer = dynamic(
+  () => import('@/components/phantom/PhantomLayer').then((m) => m.PhantomLayer),
+  { ssr: false }
+);
+const DisintegrateEffect = dynamic(
+  () => import('@/components/effects/DisintegrateEffect').then((m) => m.DisintegrateEffect),
+  { ssr: false }
+);
+const CursorManager = dynamic(
+  () => import('@/components/os/CursorManager').then((m) => m.CursorManager),
+  { ssr: false }
+);
+const CursorTrail = dynamic(
+  () => import('@/components/effects/CursorTrail').then((m) => m.CursorTrail),
+  { ssr: false }
+);
+const GlitchTransition = dynamic(
+  () => import('@/components/effects/GlitchTransition').then((m) => m.GlitchTransition),
+  { ssr: false }
+);
+const ScreenShatterLayer = dynamic(
+  () => import('@/components/effects/ScreenShatter').then((m) => m.ScreenShatterLayer),
+  { ssr: false }
+);
+
+// Lite mode: no backdrop blur anywhere. On integrated GPUs it is the most
+// expensive effect in the OS (every glass panel re-blurs what is behind it).
+const LITE_MODE_CSS =
+  'html[data-lite-mode] *,html[data-lite-mode] *::before,html[data-lite-mode] *::after{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}';
+
+export default function WarriorOSPage() {
+  return (
+    <SystemErrorBoundary>
+      <WarriorOS />
+    </SystemErrorBoundary>
+  );
+}
+
+function WarriorOS() {
   const phase = useOSStore((s) => s.phase);
   const nextPhase = useOSStore((s) => s.nextPhase);
   const setPhase = useOSStore((s) => s.setPhase);
@@ -72,6 +163,9 @@ export default function WarriorOS() {
   // Phase 6 feature toggles
   const ghostWarriors = useSettingsStore((s) => s.ghostWarriors);
   const phantomWindows = useSettingsStore((s) => s.phantomWindows);
+
+  // Lite mode (auto on low-memory / low-core / reduced-motion devices)
+  const lite = useLiteMode();
 
   // Decides the first phase (boot / dream / lock) on the first client paint.
   const bootReady = useDreamBootPhase();
@@ -92,6 +186,13 @@ export default function WarriorOS() {
   useEffect(() => {
     registerApps(APP_REGISTRY);
   }, [registerApps]);
+
+  // Expose lite mode to CSS and non-React code: html[data-lite-mode]
+  useEffect(() => {
+    const root = document.documentElement;
+    root.toggleAttribute('data-lite-mode', lite);
+    return () => root.removeAttribute('data-lite-mode');
+  }, [lite]);
 
   // Dream complete → go straight to lock (returning-user flow: dream → lock → desktop)
   const handleDreamComplete = useCallback(() => {
@@ -128,6 +229,8 @@ export default function WarriorOS() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-bg-void select-none">
+      {lite && <style>{LITE_MODE_CSS}</style>}
+
       {bootReady && (
         <AnimatePresence mode="wait">
           {/* ═══ DREAM PHASE (returning users only) ═══ */}
@@ -180,14 +283,18 @@ export default function WarriorOS() {
               {/* Audio-reactive CSS variables */}
               <AudioReactive />
 
-              {/* Shader/Canvas wallpaper behind everything */}
+              {/* Shader/Canvas wallpaper behind everything (CSS-only in lite mode) */}
               <WallpaperEngine />
 
-              {/* Background effects */}
-              <ScreenEffects />
+              {/* Background particles (off in lite mode) */}
+              <LayerBoundary name="Screen effects">
+                <ScreenEffects />
+              </LayerBoundary>
 
               {/* Dynamic Island (top center) */}
-              <DynamicIsland />
+              <LayerBoundary name="Dynamic Island">
+                <DynamicIsland />
+              </LayerBoundary>
 
               {/* Desktop area with workspace management */}
               <div className="flex-1 relative overflow-hidden">
@@ -199,7 +306,9 @@ export default function WarriorOS() {
 
                       {/* Clock / streak / daily-target desktop widgets —
                           inside the workspace so they stack below windows */}
-                      <DesktopWidgets />
+                      <LayerBoundary name="Desktop widgets">
+                        <DesktopWidgets />
+                      </LayerBoundary>
 
                       {/* Window Manager */}
                       <WindowManager />
@@ -241,46 +350,107 @@ export default function WarriorOS() {
                 onDismiss={markAsRead}
               />
 
-              {/* CRT Scanline overlay */}
-              <ScanlineOverlay />
+              {/* CRT Scanline overlay (off in lite mode) */}
+              {!lite && (
+                <LayerBoundary name="Scanlines">
+                  <ScanlineOverlay />
+                </LayerBoundary>
+              )}
 
               {/* ─── Phase 6 global overlays ─── */}
+              {/* Lazy chunks, each behind its own LayerBoundary: a layer
+                  that fails to load or crashes just disappears. */}
               {/* Achievement triggers (first boot, daily login, catch-up, events) */}
-              <AchievementTriggers />
+              <LayerBoundary name="Achievement triggers">
+                <AchievementTriggers />
+              </LayerBoundary>
               {/* Typing biometrics tracker + vitals HUD + optional cloud sync */}
-              <BiometricsLayer />
+              <LayerBoundary name="Biometrics">
+                <BiometricsLayer />
+              </LayerBoundary>
               {/* Procedural music engine (survives Music window close) */}
-              <ProceduralMusicHost />
+              <LayerBoundary name="Procedural music">
+                <ProceduralMusicHost />
+              </LayerBoundary>
               {/* Calendar reminders while the Calendar window is closed */}
-              <CalendarReminders />
-              {/* Window close disintegration (off by default) */}
-              <DisintegrateEffect />
+              <LayerBoundary name="Calendar reminders">
+                <CalendarReminders />
+              </LayerBoundary>
+              {/* Window close disintegration (off by default; skipped in lite mode) */}
+              {!lite && (
+                <LayerBoundary name="Disintegrate effect">
+                  <DisintegrateEffect />
+                </LayerBoundary>
+              )}
               {/* Reality Decay engine + stage/break/repair overlays */}
-              <RealityDecay />
-              {/* Phantom Windows — ghosts of closed apps */}
-              {phantomWindows && <PhantomLayer />}
-              {/* Ghost Warriors — anonymous multiplayer presence */}
-              <GhostLayer enabled={ghostWarriors} showFloatingCounter={false} />
+              <LayerBoundary name="Reality Decay">
+                <RealityDecay />
+              </LayerBoundary>
+              {/* Phantom Windows — ghosts of closed apps (skipped in lite mode) */}
+              {phantomWindows && !lite && (
+                <LayerBoundary name="Phantom Windows">
+                  <PhantomLayer />
+                </LayerBoundary>
+              )}
+              {/* Ghost Warriors — anonymous multiplayer presence. Lite mode
+                  keeps presence, war cries and the leaderboard, and skips
+                  the walking avatars and the animated campfire. */}
+              <LayerBoundary name="Ghost Warriors">
+                {lite ? (
+                  <>
+                    <GhostPresenceEngine enabled={ghostWarriors} />
+                    {ghostWarriors && <WarCryBubbles />}
+                    {ghostWarriors && <WarriorLeaderboard anchor="bottom" />}
+                  </>
+                ) : (
+                  <GhostLayer enabled={ghostWarriors} showFloatingCounter={false} />
+                )}
+              </LayerBoundary>
               {/* Warrior Creature — digital pet (self-positioned) */}
-              <WarriorCreature />
+              <LayerBoundary name="Warrior Creature">
+                <WarriorCreature />
+              </LayerBoundary>
               {/* NEXUS — suggestions, voice indicator, pomodoro */}
-              <NexusLayer />
+              <LayerBoundary name="NEXUS">
+                <NexusLayer />
+              </LayerBoundary>
 
-              {/* Custom cursor */}
-              <CursorManager />
-
-              {/* Cursor trail effect */}
-              <CursorTrail />
+              {/* Custom cursor + cursor trail (lite mode keeps the system cursor) */}
+              {!lite && (
+                <LayerBoundary name="Custom cursor">
+                  <CursorManager />
+                </LayerBoundary>
+              )}
+              {!lite && (
+                <LayerBoundary name="Cursor trail">
+                  <CursorTrail />
+                </LayerBoundary>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
       )}
 
       {/* ═══ Always-mounted layers (watch the OS phase themselves) ═══ */}
-      <GlitchTransition />
-      <ScreenShatterLayer />
-      <AchievementCinematic />
-      <LevelUpEffect />
+      {/* Phase-change glitch + unlock shatter: pure spectacle, and the
+          heaviest moment on a slow machine (full-screen SVG filter, DOM
+          capture), so they load on the client and sit out lite mode. */}
+      {bootReady && !lite && (
+        <>
+          <LayerBoundary name="Glitch transition">
+            <GlitchTransition />
+          </LayerBoundary>
+          <LayerBoundary name="Screen shatter">
+            <ScreenShatterLayer />
+          </LayerBoundary>
+        </>
+      )}
+      <LayerBoundary name="Achievement cinematic">
+        <AchievementCinematic />
+      </LayerBoundary>
+      <LayerBoundary name="Level-up effect">
+        <LevelUpEffect />
+      </LayerBoundary>
       <ServiceWorkerRegistrar />
     </div>
   );

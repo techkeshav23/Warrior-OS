@@ -40,13 +40,13 @@ export interface CalendarCategoryMeta {
 }
 
 export const CALENDAR_CATEGORY_MAP: Record<CalendarEventCategory, CalendarCategoryMeta> = {
-  gate: { id: 'gate', label: 'GATE', color: CALENDAR_CATEGORY_COLORS.gate, Icon: GraduationCap },
+  study: { id: 'study', label: 'Study', color: CALENDAR_CATEGORY_COLORS.study, Icon: GraduationCap },
   project: { id: 'project', label: 'Project', color: CALENDAR_CATEGORY_COLORS.project, Icon: FolderKanban },
   personal: { id: 'personal', label: 'Personal', color: CALENDAR_CATEGORY_COLORS.personal, Icon: User },
 };
 
 export const CALENDAR_CATEGORIES: readonly CalendarCategoryMeta[] = [
-  CALENDAR_CATEGORY_MAP.gate,
+  CALENDAR_CATEGORY_MAP.study,
   CALENDAR_CATEGORY_MAP.project,
   CALENDAR_CATEGORY_MAP.personal,
 ];

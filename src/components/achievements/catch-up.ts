@@ -30,7 +30,7 @@ function hasStoredNotes(): boolean {
 export function collectCatchUpAchievements(): WiredAchievementId[] {
   const ids: WiredAchievementId[] = [];
 
-  // GATE Arena (also back-fills the quiz counter the first time)
+  // Training Grounds quizzes (also back-fills the quiz counter the first time)
   ids.push(...quizAchievementsFromHistory());
 
   // Study streaks — the best streak in the history counts as "maintained"

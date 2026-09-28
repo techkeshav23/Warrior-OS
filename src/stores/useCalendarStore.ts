@@ -25,12 +25,12 @@ export const REMINDER_OPTIONS: readonly number[] = [0, 5, 10, 15, 30, 60, 1440];
 
 /** Default colour per category (also the first swatches in the picker). */
 export const CALENDAR_CATEGORY_COLORS: Record<CalendarEventCategory, string> = {
-  gate: '#00f0ff',
+  study: '#00f0ff',
   project: '#7b61ff',
   personal: '#ff3d71',
 };
 
-const CATEGORY_IDS: readonly CalendarEventCategory[] = ['gate', 'project', 'personal'];
+const CATEGORY_IDS: readonly CalendarEventCategory[] = ['study', 'project', 'personal'];
 const RECURRENCE_IDS: readonly CalendarRecurrence[] = ['none', 'daily', 'weekly', 'monthly'];
 const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -101,7 +101,25 @@ function sanitizeEvent(raw: unknown): CalendarEvent | null {
   };
 }
 
+// ─── Persisted-state migration ───
+
+/** v1: the old exam category became 'study'. */
+const STORE_VERSION = 1;
+/** Category ids written by older versions → their current id. */
+const LEGACY_CATEGORY_IDS: ReadonlyMap<string, CalendarEventCategory> = new Map([['gate', 'study']]);
+
+function migrateLegacyCategories(events: unknown): unknown {
+  if (!Array.isArray(events)) return events;
+  return events.map((raw: unknown) => {
+    if (!isRecord(raw) || typeof raw.category !== 'string') return raw;
+    const renamed = LEGACY_CATEGORY_IDS.get(raw.category);
+    return renamed ? { ...raw, category: renamed } : raw;
+  });
+}
+
 // ─── Store ───
+
+type CalendarPersisted = Pick<CalendarStore, 'events' | 'eventsPlanned' | 'weekStartsOn' | 'remindedKeys'>;
 
 interface CalendarStore {
   events: CalendarEvent[];
@@ -209,7 +227,13 @@ export const useCalendarStore = create<CalendarStore>()(
     })),
     {
       name: 'warrior-os-calendar',
-      partialize: (state) => ({
+      version: STORE_VERSION,
+      // v0 → v1 renames legacy categories; `merge` below validates everything else.
+      migrate: (persisted, version) =>
+        (version < 1 && isRecord(persisted)
+          ? { ...persisted, events: migrateLegacyCategories(persisted.events) }
+          : persisted) as CalendarPersisted,
+      partialize: (state): CalendarPersisted => ({
         events: state.events,
         eventsPlanned: state.eventsPlanned,
         weekStartsOn: state.weekStartsOn,

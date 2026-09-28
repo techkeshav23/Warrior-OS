@@ -2,7 +2,7 @@
 // WARRIOR OS — NEXUS Local Intent Parser
 //
 // Fast deterministic path that maps English + Hinglish commands
-// ("open notes", "DBMS quiz", "notes on deadlock", "study mode",
+// ("open notes", "javascript quiz", "notes on deadlock", "study mode",
 // "pomodoro 50", "wallpaper aurora", "terminal band karo") to
 // executable NexusCommands WITHOUT a Gemini round-trip. Anything
 // conversational returns { type: 'none' } and falls through to AI.
@@ -14,7 +14,6 @@
 
 import { WALLPAPER_OPTIONS } from '@/lib/constants';
 import type { ExpenseCategory } from '@/types/expense';
-import type { GateSubject } from '@/types/gate';
 import type {
   NexusActionButton,
   NexusCommand,
@@ -35,21 +34,6 @@ export type LocalIntent =
   | { type: 'help' }
   | { type: 'easter_egg'; reply: string }
   | { type: 'none' }; // means: hand off to AI
-
-export const NEXUS_GATE_SUBJECTS: readonly GateSubject[] = [
-  'DBMS',
-  'OS',
-  'CN',
-  'TOC',
-  'COA',
-  'DAA',
-  'Compiler Design',
-  'Digital Logic',
-  'Discrete Math',
-  'Engineering Math',
-  'C Programming',
-  'Data Structures',
-];
 
 const JARVIS_REPLY = 'I prefer NEXUS. But I appreciate the compliment.';
 
@@ -96,12 +80,19 @@ const APP_ALIASES: Record<string, readonly string[]> = {
   notes: ['notes'],
   notebook: ['notes'],
   'notes archive': ['notes'],
-  gate: ['gate-prep'],
-  'gate arena': ['gate-prep'],
-  'gate prep': ['gate-prep'],
-  arena: ['gate-prep'],
-  pyq: ['gate-prep'],
-  pyqs: ['gate-prep'],
+  training: ['training-grounds'],
+  'training grounds': ['training-grounds'],
+  grounds: ['training-grounds'],
+  train: ['training-grounds'],
+  learn: ['training-grounds'],
+  learning: ['training-grounds'],
+  deck: ['training-grounds'],
+  decks: ['training-grounds'],
+  'skill tree': ['training-grounds'],
+  'question bank': ['training-grounds'],
+  quest: ['study-planner'],
+  quests: ['study-planner'],
+  'quest planner': ['study-planner'],
   habit: ['study-planner'],
   habits: ['study-planner'],
   'habit forge': ['study-planner'],
@@ -249,96 +240,19 @@ function matchAppExact(phrase: string, apps: readonly NexusAppRef[]): NexusAppRe
   return null;
 }
 
-// ─── GATE subjects ───
+// ─── Training subjects ───
 
-const SUBJECT_ALIASES: ReadonlyArray<readonly [string, GateSubject]> = [
-  ['design and analysis of algorithms', 'DAA'],
-  ['theory of computation', 'TOC'],
-  ['database management system', 'DBMS'],
-  ['database management', 'DBMS'],
-  ['computer organization', 'COA'],
-  ['computer organisation', 'COA'],
-  ['computer architecture', 'COA'],
-  ['engineering mathematics', 'Engineering Math'],
-  ['discrete mathematics', 'Discrete Math'],
-  ['digital electronics', 'Digital Logic'],
-  ['operating systems', 'OS'],
-  ['operating system', 'OS'],
-  ['computer networks', 'CN'],
-  ['computer network', 'CN'],
-  ['engineering maths', 'Engineering Math'],
-  ['engineering math', 'Engineering Math'],
-  ['programming in c', 'C Programming'],
-  ['data structures', 'Data Structures'],
-  ['data structure', 'Data Structures'],
-  ['compiler design', 'Compiler Design'],
-  ['discrete maths', 'Discrete Math'],
-  ['discrete math', 'Discrete Math'],
-  ['digital logic', 'Digital Logic'],
-  ['c programming', 'C Programming'],
-  ['c language', 'C Programming'],
-  ['c lang', 'C Programming'],
-  ['architecture', 'COA'],
-  ['networking', 'CN'],
-  ['networks', 'CN'],
-  ['network', 'CN'],
-  ['databases', 'DBMS'],
-  ['database', 'DBMS'],
-  ['automata', 'TOC'],
-  ['algorithms', 'DAA'],
-  ['algorithm', 'DAA'],
-  ['compilers', 'Compiler Design'],
-  ['compiler', 'Compiler Design'],
-  ['discrete', 'Discrete Math'],
-  ['digital', 'Digital Logic'],
-  ['maths', 'Engineering Math'],
-  ['math', 'Engineering Math'],
-  ['rdbms', 'DBMS'],
-  ['dbms', 'DBMS'],
-  ['sql', 'DBMS'],
-  ['toc', 'TOC'],
-  ['coa', 'COA'],
-  ['daa', 'DAA'],
-  ['algo', 'DAA'],
-  ['dsa', 'Data Structures'],
-  ['dld', 'Digital Logic'],
-  ['os', 'OS'],
-  ['cn', 'CN'],
-  ['co', 'COA'],
-  ['cd', 'Compiler Design'],
-  ['dl', 'Digital Logic'],
-  ['dm', 'Discrete Math'],
-  ['em', 'Engineering Math'],
-  ['ds', 'Data Structures'],
-];
+/** Words that make a phrase a question, not a command ("how do i practice"). */
+const QUESTION_WORD_RE =
+  /^(?:what|whats|why|how|when|where|which|who|is|are|does|do|did|can|could|should|would|explain|define|kya|kaise|kyu|kyun|kaun|kab)$/;
 
-const SUBJECT_MATCHERS: ReadonlyArray<{ re: RegExp; subject: GateSubject }> = [
-  // Canonical names first, then aliases (already ordered longest → shortest).
-  ...NEXUS_GATE_SUBJECTS.map((subject) => ({
-    re: new RegExp(`\\b${escapeRegExp(subject.toLowerCase())}\\b`),
-    subject,
-  })),
-  ...SUBJECT_ALIASES.map(([alias, subject]) => ({
-    re: new RegExp(`\\b${escapeRegExp(alias)}\\b`),
-    subject,
-  })),
-];
-
-/** Find a GATE subject mentioned anywhere in the text. */
-function findSubject(text: string): { subject: GateSubject; rest: string } | null {
-  const lower = text.toLowerCase();
-  for (const { re, subject } of SUBJECT_MATCHERS) {
-    if (re.test(lower)) return { subject, rest: lower.replace(re, ' ') };
-  }
-  return null;
-}
-
-/** Resolve a free-text subject (from AI targets) to a canonical GATE subject. */
-export function matchSubject(phrase: string): GateSubject | null {
-  const p = phrase.trim().toLowerCase();
-  if (!p) return null;
-  if (p === 'c') return 'C Programming';
-  return findSubject(p)?.subject ?? null;
+/** Deck/topic text from an AI target ("JavaScript quiz" → "JavaScript"); Training Grounds resolves it. */
+function subjectFromTarget(target: string): string {
+  return target
+    .replace(/\b(?:quiz(?:zes)?|mock(?:\s+tests?)?|tests?|flash\s*cards?|practice|decks?)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 60);
 }
 
 // ─── Wallpapers ───
@@ -571,11 +485,11 @@ function parseStats(text: string): NexusCommand | null {
   return null;
 }
 
-function parseGate(text: string): NexusCommand | null {
+function parseTraining(text: string): NexusCommand | null {
   const mock = /\bmock(?:\s+tests?)?\b/;
-  const flash = /\b(?:flash\s*cards?|formula\s*cards?|formulas?|formulae|revision\s+cards?)\b/;
-  const planner = /\b(?:gate\s+planner|study\s+plan(?:ner)?)\b/;
-  const quiz = /\b(?:quiz|quizzes|test\s+me|practice|practise|pyqs?|mcqs?)\b/;
+  const flash = /\b(?:flash\s*cards?|revision\s+cards?|review\s+cards?|spaced\s+repetition)\b/;
+  const planner = /\bstudy\s+plan(?:ner)?\b/;
+  const quiz = /\b(?:quiz|quizzes|test\s+me|practice|practise|mcqs?)\b/;
 
   let mode: NexusGateMode | null = null;
   let keyword: RegExp | null = null;
@@ -594,16 +508,15 @@ function parseGate(text: string): NexusCommand | null {
   }
   if (!mode || !keyword) return null;
 
-  const found = findSubject(text);
-  const base = found ? found.rest : text;
-  const leftovers = leftoverWords(base, [new RegExp(keyword.source, 'g'), /\bgate\b/g, /\barena\b/g]);
-  let subject: string | undefined = found?.subject;
-  if (!subject && leftovers.length === 1 && leftovers[0] === 'c') {
-    subject = 'C Programming';
-    leftovers.length = 0;
-  }
+  // Whatever is left names a deck or topic ("javascript quiz", "quiz me on react hooks").
+  const leftovers = leftoverWords(text, [
+    new RegExp(keyword.source, 'g'),
+    /\btraining(?:\s+grounds?)?\b/g,
+    /\bdecks?\b/g,
+  ]);
   // Must look like a command, not a question that happens to contain "practice".
-  if (leftovers.length > 2) return null;
+  if (leftovers.length > 3 || leftovers.some((w) => QUESTION_WORD_RE.test(w))) return null;
+  const subject = leftovers.join(' ');
   return subject ? { type: 'start_quiz', mode, subject } : { type: 'start_quiz', mode };
 }
 
@@ -741,7 +654,7 @@ function parseSingle(text: string, apps: readonly NexusAppRef[], habits: readonl
     parseWorkspace(text) ??
     parseNotesSearch(text) ??
     parseStats(text) ??
-    parseGate(text) ??
+    parseTraining(text) ??
     parseCloseAll(text) ??
     parseAppCommand(text, apps) ??
     parseHabit(text, habits) ?? { type: 'none' }
@@ -757,7 +670,7 @@ export function isCommandIntent(intent: LocalIntent): intent is NexusCommand {
 
 /**
  * Pure synchronous parser. Returns a command, a multi-command list
- * ("open notes and start a DBMS quiz"), help/easter-egg replies, or
+ * ("open notes and start a javascript quiz"), help/easter-egg replies, or
  * { type: 'none' } when the caller should ask the AI instead.
  */
 export function parseLocalIntent(
@@ -811,8 +724,8 @@ export function describeCommand(command: NexusCommand): string {
       const subject = command.subject ? `${command.subject} ` : '';
       if (command.mode === 'mock') return `${subject}mock test`.trim().replace(/^./, (c) => c.toUpperCase());
       if (command.mode === 'flashcards') return `${subject}flashcards`.trim().replace(/^./, (c) => c.toUpperCase());
-      if (command.mode === 'planner') return 'GATE study planner';
-      return command.subject ? `${command.subject} quiz` : 'GATE quiz';
+      if (command.mode === 'planner') return 'Study planner';
+      return command.subject ? `${command.subject} quiz` : 'Quick quiz';
     }
     case 'study_mode':
       return 'Study mode';
@@ -872,7 +785,7 @@ export function resolveWireCommand(wire: NexusWireAction, apps: readonly NexusAp
     case 'open_flashcards': {
       const mode: NexusGateMode =
         wire.type === 'start_mock_test' ? 'mock' : wire.type === 'open_flashcards' ? 'flashcards' : 'quiz';
-      const subject = target ? matchSubject(target) : null;
+      const subject = target ? subjectFromTarget(target) : '';
       return subject ? { type: 'start_quiz', mode, subject } : { type: 'start_quiz', mode };
     }
     case 'study_mode':

@@ -266,7 +266,7 @@ function ExpenseEntryInner({ className, editing, todayKey, onSaved, onCancelEdit
         onChange={(e) => setNote(e.target.value)}
         maxLength={MAX_EXPENSE_NOTE_LENGTH}
         autoComplete="off"
-        placeholder="Canteen thali, metro card, GATE guide..."
+        placeholder="Masala chai, metro card, sci-fi paperback..."
         aria-invalid={visibleErrors.note ? true : undefined}
         className={cn(inputBase, 'mt-1 px-2.5 py-2 text-sm', visibleErrors.note ? 'border-red-500/50' : 'border-white/10')}
       />

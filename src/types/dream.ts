@@ -3,14 +3,27 @@
 // NEXUS Dreams: daily cinematic recap of yesterday's activity
 // ═══════════════════════════════════════════════════════════
 
-import type { GateSubject } from './gate';
+/** Study subjects with a dream theme of their own (a deck or topic named like one gets it). */
+export type DreamSubjectKey =
+  | 'DBMS'
+  | 'OS'
+  | 'CN'
+  | 'TOC'
+  | 'COA'
+  | 'DAA'
+  | 'Compiler Design'
+  | 'Digital Logic'
+  | 'Discrete Math'
+  | 'Engineering Math'
+  | 'C Programming'
+  | 'Data Structures';
 
 /**
- * All theme keys a dream can resolve to. Real GATE subjects plus
+ * All theme keys a dream can resolve to. Themed study subjects plus
  * synthetic edge-case keys for non-study activity and empty days.
  */
 export type DreamThemeKey =
-  | GateSubject
+  | DreamSubjectKey
   | 'project' // shipped/worked on projects
   | 'code' // code-lab / building
   | 'exam' // heavy mixed study (exam-prep vibe)
@@ -124,7 +137,7 @@ export interface DreamElement {
 export interface DreamActivity {
   /** UTC day key being recapped. */
   recapDay: string;
-  /** GATE subjects touched yesterday (quizzes + notes), strongest first. */
+  /** Study subjects (quiz decks + note subjects) touched yesterday, strongest first. */
   subjects: { subject: string; count: number }[];
   /** Quiz submissions yesterday. */
   quizzesTaken: number;
@@ -181,7 +194,7 @@ export interface DreamScene {
   elements: DreamElement[];
   /** Intensity 0..1 — scales element count, glow, particle density. */
   intensity: number;
-  /** GATE subjects represented in this dream. */
+  /** Study subjects represented in this dream. */
   subjects: string[];
   /** The raw activity snapshot this scene was derived from. */
   activity: DreamActivity;
@@ -205,7 +218,7 @@ export interface DreamJournal {
   v: 1;
   /** UTC day keys on which a dream was seen (unique). */
   dreamDays: string[];
-  /** Distinct GATE subjects that appeared in dreams. */
+  /** Distinct study subjects that appeared in dreams. */
   subjects: string[];
   /** Distinct theme keys seen. */
   themes: string[];

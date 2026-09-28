@@ -10,7 +10,7 @@ import type { Achievement } from '@/types/achievement';
 
 /** Every achievement id unlocked by the Phase 1-3 trigger map. */
 export type WiredAchievementId =
-  // GATE Arena
+  // Training Grounds quizzes
   | 'first-quiz'
   | 'quiz-streak-5'
   | 'perfect-quiz'
@@ -21,7 +21,7 @@ export type WiredAchievementId =
   | 'study-marathon'
   | 'early-bird'
   | 'night-owl'
-  // Habit Forge streaks
+  // Study streaks
   | 'streak-3'
   | 'streak-7'
   | 'streak-30'

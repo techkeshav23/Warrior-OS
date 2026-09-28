@@ -3,7 +3,7 @@
 //
 // The brain. Takes natural language, resolves it locally first
 // (lib/nexus-intent), executes real OS actions (open/close/focus
-// apps, notes search, GATE quizzes, smart modes, wallpaper,
+// apps, notes search, Training Grounds quizzes, smart modes, wallpaper,
 // pomodoro, breaks) and only falls back to Gemini (/api/ai) for
 // what the parser cannot map. AI replies may carry one command
 // (auto-run when safe) plus suggested action buttons.
@@ -22,6 +22,9 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useNexusStore } from '@/stores/useNexusStore';
 import { useXPStore } from '@/stores/useXPStore';
 import { useDecayStore } from '@/stores/useDecayStore';
+import { useLearningStore } from '@/stores/useLearningStore';
+import { resolveAppId } from '@/data/app-registry';
+import { resolveDeckTarget } from '@/components/apps/training-grounds/deep-link';
 import {
   commandKey,
   describeCommand,
@@ -212,7 +215,7 @@ function runSearchNotes(query: string): NexusCommandResult {
     return {
       ok: true,
       reply: `Notes mein "${q}" ka koi match nahi. Naya note bana de — likha hua concept yaad rehta hai.`,
-      followUps: [{ kind: 'ask', label: `Explain ${q.length > 18 ? `${q.slice(0, 17)}…` : q}`, prompt: `Explain ${q} for GATE — short and sharp.` }],
+      followUps: [{ kind: 'ask', label: `Explain ${q.length > 18 ? `${q.slice(0, 17)}…` : q}`, prompt: `Explain ${q} — short and sharp.` }],
     };
   }
   const titles = matches
@@ -225,11 +228,30 @@ function runSearchNotes(query: string): NexusCommandResult {
   };
 }
 
+/** "Deck" or "Deck · Topic" for free text naming a deck/topic, null when nothing matches. */
+function deckLabel(subject: string): string | null {
+  const decks = useLearningStore.getState().decks;
+  const target = resolveDeckTarget(subject, decks);
+  const deck = target ? decks.find((d) => d.id === target.deckId) : undefined;
+  if (!target || !deck) return null;
+  const topic = target.topicId ? deck.topics.find((t) => t.id === target.topicId) : undefined;
+  return topic ? `${deck.name} · ${topic.name}` : deck.name;
+}
+
 function runStartQuiz(mode: NexusGateMode, subject?: string): NexusCommandResult {
-  const opened = openOrFocusApp('gate-prep');
-  if (!opened) return { ok: false, reply: 'GATE Prep app registered nahi hai.' };
+  const opened = openOrFocusApp('training-grounds');
+  if (!opened) return { ok: false, reply: 'Training Grounds app registered nahi hai.' };
   const detail: WarriorGateStartQuizDetail = subject ? { mode, subject } : { mode };
   emitWarriorEvent(WARRIOR_EVENTS.gateStartQuiz, detail);
+
+  // Training Grounds resolves the same text against the same decks.
+  const label = subject ? deckLabel(subject) : null;
+  if (subject && !label) {
+    return {
+      ok: true,
+      reply: `"${subject}" naam ka koi deck nahi mila. Training Grounds khol diya — deck chun le, ya naya bana.`,
+    };
+  }
 
   const pomodoroIdle = useNexusStore.getState().pomodoro.phase === 'idle';
   const followUps: NexusActionButton[] = [];
@@ -240,19 +262,19 @@ function runStartQuiz(mode: NexusGateMode, subject?: string): NexusCommandResult
     case 'mock':
       return {
         ok: true,
-        reply: `Mock test${subject ? ` (${subject})` : ''} ready. Full exam conditions — timer on, koi googling nahi.`,
+        reply: `Mock test${label ? ` (${label})` : ''} ready. Full exam conditions — timer on, koi googling nahi.`,
         followUps,
       };
     case 'flashcards':
-      return { ok: true, reply: `${subject ?? 'Formula'} flashcards khol diye. Ek ek karke revise kar.`, followUps };
+      return { ok: true, reply: `${label ? `${label} flashcards` : 'Flashcards'} khol diye. Ek ek karke revise kar.`, followUps };
     case 'planner':
-      return { ok: true, reply: 'GATE study planner khol diya. Aaj ka target set kar.', followUps };
+      return { ok: true, reply: 'Study planner khol diya. Aaj ka target set kar.', followUps };
     case 'quiz':
       return {
         ok: true,
-        reply: subject
-          ? `GATE Arena: ${subject} quiz ready. Focus, no googling.`
-          : 'GATE Arena khol diya — subject chun aur quiz shuru kar.',
+        reply: label
+          ? `Training Grounds: ${label} quiz ready. Focus, no googling.`
+          : 'Training Grounds khol diya — deck chun aur quiz shuru kar.',
         followUps,
       };
   }
@@ -316,17 +338,17 @@ function runStudyMode(): NexusCommandResult {
   if (switched) workspaceStore.switchWorkspace('study');
 
   // Distractions off: minimise everything else in the study workspace.
-  const keep = new Set(['gate-prep', 'notes', 'nexus-ai']);
+  const keep = new Set(['training-grounds', 'notes', 'nexus-ai']);
   const windowStore = useWindowStore.getState();
   const distractions = windowStore.windows.filter(
     (w) => w.workspaceId === 'study' && !w.isMinimized && !keep.has(w.appId)
   );
   distractions.forEach((w) => windowStore.minimizeWindow(w.id));
 
-  // GATE Arena left, Notes right.
-  const gate = openOrFocusApp('gate-prep');
+  // Training Grounds left, Notes right.
+  const training = openOrFocusApp('training-grounds');
   const notes = openOrFocusApp('notes');
-  if (gate) snapWindow(gate.windowId, 'left');
+  if (training) snapWindow(training.windowId, 'left');
   if (notes) snapWindow(notes.windowId, 'right');
 
   // Pomodoro.
@@ -347,7 +369,7 @@ function runStudyMode(): NexusCommandResult {
   unlockNexusAchievement(NEXUS_ACHIEVEMENTS.smartMode);
 
   const layout = [
-    gate ? `${appLabel('gate-prep', 'GATE Prep')} left` : null,
+    training ? `${appLabel('training-grounds', 'Training Grounds')} left` : null,
     notes ? `${appLabel('notes', 'Notes')} right` : null,
   ].filter((part): part is string => part !== null);
   const pieces = [
@@ -478,12 +500,13 @@ function runCheckHabit(habit: string): NexusCommandResult {
 export function executeNexusCommand(command: NexusCommand): NexusCommandResult {
   try {
     switch (command.type) {
+      // resolveAppId: buttons saved in older chats may carry a retired app id.
       case 'open_app':
-        return runOpenApp(command.appId, command.appName, command.newWindow === true);
+        return runOpenApp(resolveAppId(command.appId), command.appName, command.newWindow === true);
       case 'focus_app':
-        return runFocusApp(command.appId, command.appName);
+        return runFocusApp(resolveAppId(command.appId), command.appName);
       case 'close_app':
-        return runCloseApp(command.appId, command.appName);
+        return runCloseApp(resolveAppId(command.appId), command.appName);
       case 'close_all':
         return runCloseAll();
       case 'switch_workspace':
@@ -532,7 +555,7 @@ export function executeNexusCommand(command: NexusCommand): NexusCommandResult {
 
 const HELP_ACTIONS: NexusActionButton[] = [
   button({ type: 'study_mode' }),
-  button({ type: 'start_quiz', mode: 'quiz', subject: 'DBMS' }),
+  button({ type: 'start_quiz', mode: 'quiz' }),
   button({ type: 'start_pomodoro' }),
 ];
 

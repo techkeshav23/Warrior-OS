@@ -7,7 +7,7 @@ import { useAppStore } from '@/stores/useAppStore';
 import { useWindowStore } from '@/stores/useWindowStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 
-/** GATE Prep, Flashcards, Notes, Habit Forge, Memory Palace — any app registered as 'study'. */
+/** Training Grounds, Flashcards, Notes, Quest Planner, Memory Palace — any app registered as 'study'. */
 export function isStudyApp(appId: string): boolean {
   return useAppStore.getState().getApp(appId)?.category === 'study';
 }

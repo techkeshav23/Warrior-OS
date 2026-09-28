@@ -1,10 +1,11 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Pending Cross-Feature Events
-// Delivery rule for 'warrior:gate-start-quiz', 'warrior:notes-search'
-// and 'warrior:nexus-say': the sender stores the detail as JSON in
-// sessionStorage under 'warrior:pending:<event>', then dispatches a
-// window CustomEvent. A window that mounts later consumes the pending
-// copy; a mounted window reacts to the live event.
+// Delivery rule for the cross-app deep links (Training Grounds
+// start-quiz, 'warrior:notes-search', 'warrior:nexus-say'): the sender
+// stores the detail as JSON in sessionStorage under
+// 'warrior:pending:<event>', then dispatches a window CustomEvent. A
+// window that mounts later consumes the pending copy; a mounted window
+// reacts to the live event.
 // ═══════════════════════════════════════════════════════════
 
 'use client';

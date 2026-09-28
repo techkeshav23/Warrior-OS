@@ -101,8 +101,8 @@ function DesktopWidgetsInner() {
     return () => cleanups.forEach((cleanup) => cleanup());
   }, [current]);
 
-  const openHabitForge = useCallback(() => launch('study-planner'), []);
-  const openGatePrep = useCallback(() => launch('gate-prep'), []);
+  const openQuestPlanner = useCallback(() => launch('study-planner'), []);
+  const openTrainingGrounds = useCallback(() => launch('training-grounds'), []);
 
   if (!isClient || !(enabled.clock || enabled.streak || enabled.target)) return null;
 
@@ -132,8 +132,8 @@ function DesktopWidgetsInner() {
           height={WIDGET_SIZES.streak.height}
           defaultPosition={slots.streak}
           hidden={covered}
-          onOpen={openHabitForge}
-          openHint="Double-click to open Habit Forge"
+          onOpen={openQuestPlanner}
+          openHint="Double-click to open Quest Planner"
         >
           <StreakWidget current={current} longest={longest} doneToday={doneToday} />
         </DraggableWidget>
@@ -146,8 +146,8 @@ function DesktopWidgetsInner() {
           height={WIDGET_SIZES.target.height}
           defaultPosition={slots.target}
           hidden={covered}
-          onOpen={openGatePrep}
-          openHint="Double-click to open GATE Prep"
+          onOpen={openTrainingGrounds}
+          openHint="Double-click to open Training Grounds"
         >
           <TargetWidget habits={habits} dayKey={dayKey} />
         </DraggableWidget>
