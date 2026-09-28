@@ -4,13 +4,14 @@
 // ═══════════════════════════════════════════════════════════
 
 import type { Achievement, AchievementCategory } from '@/types';
+import { withPhase6Achievements } from './achievements-phase6';
 
-export const ACHIEVEMENTS: Achievement[] = [
+const BASE_ACHIEVEMENTS: Achievement[] = [
   // ─── STUDY ACHIEVEMENTS ───
   {
     id: 'first-quiz',
     title: 'Quiz Initiate',
-    description: 'Complete your first GATE quiz',
+    description: 'Complete your first quiz in Training Grounds',
     category: 'study',
     icon: '📝',
     xpReward: 50,
@@ -20,7 +21,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'quiz-streak-5',
     title: 'Knowledge Streak',
-    description: 'Get 5 correct answers in a row',
+    description: 'Get 5 correct answers in a row in one quiz',
     category: 'study',
     icon: '🔥',
     xpReward: 100,
@@ -40,7 +41,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'all-subjects',
     title: 'Renaissance Warrior',
-    description: 'Attempt quizzes in all 12 GATE subjects',
+    description: 'Take a quiz in every deck in Training Grounds (3+ decks)',
     category: 'study',
     icon: '🎓',
     xpReward: 300,
@@ -50,7 +51,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'quiz-master',
     title: 'Quiz Grandmaster',
-    description: 'Complete 100 quizzes',
+    description: 'Complete 100 quizzes or mock tests',
     category: 'study',
     icon: '👑',
     xpReward: 500,
@@ -254,6 +255,98 @@ export const ACHIEVEMENTS: Achievement[] = [
     unlockedAt: null,
   },
 
+  // ─── PHASE 6 FEATURE ACHIEVEMENTS (exploration) ───
+  {
+    id: 'palace-architect',
+    title: 'Palace Architect',
+    description: 'Entered your Memory Palace and walked through a themed knowledge room for the first time.',
+    category: 'exploration',
+    icon: '🏛️',
+    xpReward: 150,
+    rarity: 'rare',
+    unlockedAt: null,
+  },
+  {
+    id: 'memory-cartographer',
+    title: 'Memory Cartographer',
+    description: 'Visited 5 or more rooms in a single Memory Palace session.',
+    category: 'exploration',
+    icon: '🗺️',
+    xpReward: 250,
+    rarity: 'epic',
+    unlockedAt: null,
+  },
+  {
+    id: 'ghost-first-cry',
+    title: 'War Cry',
+    description: 'Send your first anonymous war cry to the warriors around the campfire.',
+    category: 'exploration',
+    icon: '📣',
+    xpReward: 50,
+    rarity: 'uncommon',
+    unlockedAt: null,
+  },
+  {
+    id: 'ghost-campfire-bonfire',
+    title: 'Bonfire Gathering',
+    description: 'Be online when 10 or more warriors are studying at the same time.',
+    category: 'exploration',
+    icon: '🔥',
+    xpReward: 100,
+    rarity: 'rare',
+    unlockedAt: null,
+  },
+  {
+    id: 'ghost-not-alone',
+    title: 'Never Alone',
+    description: 'Discover the Ghost Warriors — open the leaderboard for the first time.',
+    category: 'exploration',
+    icon: '👻',
+    xpReward: 40,
+    rarity: 'common',
+    unlockedAt: null,
+  },
+  {
+    id: 'os-composer',
+    title: 'The OS Composer',
+    description: 'Let Warrior OS compose procedural music for you across all four moods.',
+    category: 'exploration',
+    icon: '🎵',
+    xpReward: 150,
+    rarity: 'rare',
+    unlockedAt: null,
+  },
+  {
+    id: 'phantom-first-ghost',
+    title: 'Ghost in the Machine',
+    description: 'Watch a phantom of a closed window drift across your desktop for the first time.',
+    category: 'exploration',
+    icon: '👻',
+    xpReward: 50,
+    rarity: 'common',
+    unlockedAt: null,
+  },
+  {
+    id: 'phantom-resurrect',
+    title: 'Necromancer',
+    description: 'Resurrect a closed app by clicking its phantom before it dissolves.',
+    category: 'exploration',
+    icon: '🪄',
+    xpReward: 100,
+    rarity: 'uncommon',
+    unlockedAt: null,
+  },
+  {
+    id: 'biometrics-first-read',
+    title: 'Self-Aware',
+    description: 'The OS read your mental state from your typing for the first time.',
+    category: 'exploration',
+    icon: '🧠',
+    xpReward: 50,
+    rarity: 'common',
+    unlockedAt: null,
+  },
+
   // ─── SPECIAL ACHIEVEMENTS ───
   {
     id: 'level-5',
@@ -315,7 +408,94 @@ export const ACHIEVEMENTS: Achievement[] = [
     rarity: 'legendary',
     unlockedAt: null,
   },
+
+  // ─── PHASE 6 FEATURE ACHIEVEMENTS (special) ───
+  {
+    id: 'first-pet',
+    title: 'First Pet',
+    description: 'Your Warrior Creature hatched from its egg. A companion for the journey ahead.',
+    category: 'special',
+    icon: '🥚',
+    xpReward: 100,
+    rarity: 'uncommon',
+    unlockedAt: null,
+  },
+  {
+    id: 'ghost-of-knowledge',
+    title: 'Ghost of Knowledge',
+    description: 'Revived a note that had gone dark with cobwebs (unrevised for 30+ days) by opening its hologram.',
+    category: 'special',
+    icon: '🕸️',
+    xpReward: 300,
+    rarity: 'legendary',
+    unlockedAt: null,
+  },
+  {
+    id: 'decay-first-break',
+    title: 'Know When to Rest',
+    description: 'Complete your first NEXUS-forced recovery break.',
+    category: 'special',
+    icon: '🛡️',
+    xpReward: 50,
+    rarity: 'rare',
+    unlockedAt: null,
+  },
+  {
+    id: 'decay-legendary-focus',
+    title: 'Mortal Body, Legendary Focus',
+    description: 'Push continuous study into Stage 5 reality decay.',
+    category: 'special',
+    icon: '💀',
+    xpReward: 100,
+    rarity: 'epic',
+    unlockedAt: null,
+  },
+  {
+    id: 'biometrics-in-the-zone',
+    title: 'In The Zone',
+    description: 'Reached 90%+ focus while typing.',
+    category: 'special',
+    icon: '🎯',
+    xpReward: 150,
+    rarity: 'rare',
+    unlockedAt: null,
+  },
 ];
+
+/**
+ * Achievements unlocked by Phase 4-6 apps (Algo Lab, Calendar, Expense
+ * Vault, Project Forge, Resume Builder, NEXUS, Reality Decay) that are
+ * not part of the Phase 6 spec list. Ids match the feature code exactly.
+ */
+const INTEGRATION_ACHIEVEMENTS: Achievement[] = [
+  // ─── ALGO LAB ───
+  { id: 'algo-first-run', title: 'Algorithm Awakens', description: 'Run your first visualization in Algo Lab', category: 'study', icon: '📊', xpReward: 50, rarity: 'common', unlockedAt: null },
+  { id: 'algo-all-sorts', title: 'Sorting Sensei', description: 'Visualize every sorting algorithm in Algo Lab', category: 'study', icon: '🧮', xpReward: 200, rarity: 'rare', unlockedAt: null },
+  { id: 'algo-race-finished', title: 'Algorithm Race', description: 'Finish a side-by-side algorithm race', category: 'study', icon: '🏁', xpReward: 75, rarity: 'uncommon', unlockedAt: null },
+  { id: 'algo-dijkstra-path', title: 'Shortest Path', description: "Trace a full shortest path with Dijkstra's algorithm", category: 'study', icon: '🗺️', xpReward: 100, rarity: 'uncommon', unlockedAt: null },
+  { id: 'algo-avl-rotation', title: 'Balanced Mind', description: 'Trigger an AVL tree rotation', category: 'study', icon: '🌳', xpReward: 100, rarity: 'uncommon', unlockedAt: null },
+  // ─── CALENDAR ───
+  { id: 'calendar-ten-events', title: 'Master Planner', description: 'Plan 10 events in the Calendar', category: 'exploration', icon: '📅', xpReward: 100, rarity: 'uncommon', unlockedAt: null },
+  // ─── EXPENSE VAULT ───
+  { id: 'expense-first-log', title: 'Money Tracker', description: 'Log your first expense in Expense Vault', category: 'exploration', icon: '💰', xpReward: 50, rarity: 'common', unlockedAt: null },
+  { id: 'expense-month-under-budget', title: 'Budget Guardian', description: 'Finish a month under budget', category: 'special', icon: '🛡️', xpReward: 200, rarity: 'rare', unlockedAt: null },
+  // ─── PROJECT FORGE / RESUME ───
+  { id: 'forge-10-hours', title: 'Deep Work Smith', description: 'Track 10 hours in Project Forge', category: 'build', icon: '⏱️', xpReward: 150, rarity: 'uncommon', unlockedAt: null },
+  { id: 'forge-open-source', title: 'Open Source Warrior', description: 'Link a GitHub repo to a Forge project', category: 'build', icon: '🌐', xpReward: 75, rarity: 'common', unlockedAt: null },
+  { id: 'resume-first-export', title: 'Paper Trail', description: 'Export your resume as PDF', category: 'build', icon: '📄', xpReward: 100, rarity: 'uncommon', unlockedAt: null },
+  // ─── NEXUS ───
+  { id: 'nexus-voice-command', title: 'Voice of Command', description: 'Give NEXUS your first voice command', category: 'exploration', icon: '🎙️', xpReward: 50, rarity: 'common', unlockedAt: null },
+  { id: 'nexus-wake-word', title: 'Hey Warrior', description: 'Wake NEXUS with "Hey Warrior"', category: 'exploration', icon: '👂', xpReward: 75, rarity: 'uncommon', unlockedAt: null },
+  { id: 'nexus-smart-mode', title: 'Mode Shifter', description: 'Activate study or chill mode through NEXUS', category: 'exploration', icon: '🔀', xpReward: 50, rarity: 'common', unlockedAt: null },
+  { id: 'nexus-pomodoro', title: 'Tomato Timer', description: 'Finish your first NEXUS pomodoro', category: 'study', icon: '🍅', xpReward: 75, rarity: 'common', unlockedAt: null },
+  // ─── REALITY DECAY ───
+  { id: 'decay-legendary-focus', title: 'Legendary Focus', description: 'Study long enough to reach decay stage 5', category: 'special', icon: '🌀', xpReward: 200, rarity: 'epic', unlockedAt: null },
+];
+
+export const ACHIEVEMENTS: Achievement[] = withPhase6Achievements([
+  ...BASE_ACHIEVEMENTS,
+  ...INTEGRATION_ACHIEVEMENTS.filter((a) => !BASE_ACHIEVEMENTS.some((b) => b.id === a.id)),
+]);
 
 /**
  * Get achievements by category

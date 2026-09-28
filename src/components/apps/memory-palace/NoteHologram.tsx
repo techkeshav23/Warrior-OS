@@ -1,0 +1,468 @@
+// ═══════════════════════════════════════════════════════════
+// WARRIOR OS — Memory Palace: Hologram (spec 6.27)
+// Click a knowledge object → it lifts off the shelf → flies to you and
+// turns to face you → unfolds into a floating holographic glass panel:
+//   • note    → the note as markdown · Mark revised · Open in Notes
+//   • card    → the prompt · Reveal answer · Forgot / Recalled (graded
+//               into Training Grounds spaced repetition) · Open deck
+//   • project → description, stage, tasks, stack · Open in Project Forge
+// Close folds it back up and it drifts home to its shelf. Any number
+// can be open at once.
+// ═══════════════════════════════════════════════════════════
+
+'use client';
+
+import { memo, useMemo, useRef, useState } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
+import * as THREE from 'three';
+import { BookOpen, CheckCircle2, ExternalLink, Eye, Hammer, Layers, RotateCcw, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import type { PalaceItem, PalaceReview } from './palaceData';
+import { DUE_COLOR, KIND_LABELS, NEW_COLOR, RECENCY_STYLES, ShapeGeometry } from './KnowledgeObject';
+
+// ─────────────────────────────────────────────────────────────
+// Safe markdown → React (no dangerouslySetInnerHTML)
+// ─────────────────────────────────────────────────────────────
+
+function inline(text: string, keyBase: string): React.ReactNode[] {
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[\[[^\]]+\]\]|\$[^$]+\$|\*[^*\s][^*]*\*|_[^_\s][^_]*_)/g).filter(Boolean);
+  return parts.map((p, i) => {
+    const key = `${keyBase}-${i}`;
+    if (p.startsWith('**') && p.endsWith('**')) return <strong key={key} className="font-semibold text-white">{p.slice(2, -2)}</strong>;
+    if (p.startsWith('`') && p.endsWith('`')) return <code key={key} className="rounded bg-white/10 px-1 font-mono text-[11px] text-accent-primary">{p.slice(1, -1)}</code>;
+    if (p.startsWith('[[') && p.endsWith(']]')) return <span key={key} className="text-accent-secondary underline decoration-dotted">{p.slice(2, -2)}</span>;
+    if (p.startsWith('$') && p.endsWith('$') && p.length > 2) return <span key={key} className="font-mono italic text-amber-200">{p.slice(1, -1)}</span>;
+    if ((p.startsWith('*') && p.endsWith('*')) || (p.startsWith('_') && p.endsWith('_'))) return <em key={key}>{p.slice(1, -1)}</em>;
+    return <span key={key}>{p}</span>;
+  });
+}
+
+export function renderNoteMarkdown(md: string): React.ReactNode[] {
+  const lines = md.replace(/\r\n/g, '\n').split('\n');
+  const out: React.ReactNode[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    const k = `l${i}`;
+    if (trimmed.startsWith('```')) {
+      const code: string[] = [];
+      i += 1;
+      while (i < lines.length && !lines[i].trim().startsWith('```')) {
+        code.push(lines[i]);
+        i += 1;
+      }
+      i += 1;
+      out.push(
+        <pre key={k} className="my-1 overflow-x-auto rounded-md border border-white/10 bg-black/60 p-2 font-mono text-[10.5px] leading-snug text-emerald-200">
+          {code.join('\n')}
+        </pre>
+      );
+      continue;
+    }
+    if (!trimmed) {
+      out.push(<div key={k} className="h-1.5" />);
+    } else if (/^#{1,6}\s/.test(trimmed)) {
+      const level = trimmed.match(/^#+/)?.[0].length ?? 1;
+      const text = trimmed.replace(/^#+\s*/, '');
+      out.push(
+        <div
+          key={k}
+          className={cn(
+            'font-display font-bold tracking-wide',
+            level === 1 ? 'mt-1 text-[15px] text-white' : level === 2 ? 'mt-1 text-[13px] text-accent-primary' : 'text-[12px] text-accent-primary/80'
+          )}
+        >
+          {inline(text, k)}
+        </div>
+      );
+    } else if (/^[-*+]\s+\[( |x|X)\]\s/.test(trimmed)) {
+      const done = /^[-*+]\s+\[(x|X)\]/.test(trimmed);
+      out.push(
+        <div key={k} className="flex items-start gap-1.5 text-[12px] text-white/80">
+          <span className={cn('mt-0.5 inline-block h-2.5 w-2.5 shrink-0 rounded-sm border', done ? 'border-accent-success bg-accent-success/60' : 'border-white/40')} />
+          <span className={cn(done && 'line-through opacity-60')}>{inline(trimmed.replace(/^[-*+]\s+\[.\]\s/, ''), k)}</span>
+        </div>
+      );
+    } else if (/^[-*+]\s/.test(trimmed)) {
+      out.push(
+        <div key={k} className="flex gap-1.5 pl-1 text-[12px] text-white/80">
+          <span className="text-accent-primary">•</span>
+          <span>{inline(trimmed.slice(2), k)}</span>
+        </div>
+      );
+    } else if (/^\d+[.)]\s/.test(trimmed)) {
+      const num = trimmed.match(/^\d+/)?.[0];
+      out.push(
+        <div key={k} className="flex gap-1.5 pl-1 text-[12px] text-white/80">
+          <span className="font-mono text-accent-primary">{num}.</span>
+          <span>{inline(trimmed.replace(/^\d+[.)]\s/, ''), k)}</span>
+        </div>
+      );
+    } else if (trimmed.startsWith('>')) {
+      out.push(
+        <div key={k} className="border-l-2 border-accent-primary/50 pl-2 text-[12px] italic text-white/60">
+          {inline(trimmed.replace(/^>\s?/, ''), k)}
+        </div>
+      );
+    } else if (/^(-{3,}|\*{3,})$/.test(trimmed)) {
+      out.push(<hr key={k} className="my-1 border-white/10" />);
+    } else {
+      out.push(
+        <p key={k} className="text-[12px] leading-relaxed text-white/80">
+          {inline(trimmed, k)}
+        </p>
+      );
+    }
+    i += 1;
+  }
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Hologram
+// ─────────────────────────────────────────────────────────────
+
+const OPEN_S = 1.0;
+const CLOSE_S = 0.8;
+const DAY_MS = 86_400_000;
+
+function ease(t: number): number {
+  const x = Math.min(1, Math.max(0, t));
+  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}
+
+function seg(p: number, a: number, b: number): number {
+  return Math.min(1, Math.max(0, (p - a) / (b - a)));
+}
+
+export interface NoteHologramProps {
+  item: PalaceItem;
+  review: PalaceReview;
+  /** World position of the object on its shelf. */
+  origin: [number, number, number];
+  /** World position the panel floats at (in front of the player). */
+  target: [number, number, number];
+  /** Current time (ms), ticked by the app. */
+  now: number;
+  /** Folding back to the shelf. */
+  closing: boolean;
+  onRequestClose: (id: string) => void;
+  /** Fired when the close animation finished (remove it then). */
+  onClosed: (id: string) => void;
+  /** Notes: mark revised in the palace. */
+  onRevise: (item: PalaceItem) => void;
+  /** Cards: self-graded recall, recorded in Training Grounds. */
+  onGrade: (item: PalaceItem, recalled: boolean) => void;
+  /** Open the note / deck / project in its own app. */
+  onOpenSource: (item: PalaceItem) => void;
+}
+
+const _tmp = new THREE.Vector3();
+const _look = new THREE.Object3D();
+
+const OPEN_LABEL: Record<PalaceItem['kind'], string> = {
+  note: 'Open in Notes',
+  card: 'Open deck',
+  project: 'Open in Project Forge',
+};
+
+function KindIcon({ kind, color }: { kind: PalaceItem['kind']; color: string }) {
+  const cls = 'h-3.5 w-3.5 shrink-0';
+  if (kind === 'card') return <Layers className={cls} style={{ color }} />;
+  if (kind === 'project') return <Hammer className={cls} style={{ color }} />;
+  return <BookOpen className={cls} style={{ color }} />;
+}
+
+function ScheduleLabel({ item, review, now }: { item: PalaceItem; review: PalaceReview; now: number }) {
+  if (item.kind === 'project') {
+    return <span className="text-white/50">{item.project?.onHold ? 'parked' : `${item.project?.progress ?? 0}% done`}</span>;
+  }
+  if (review.isNew) return <span className="font-semibold text-amber-300">new · not studied yet</span>;
+  const word = item.kind === 'card' ? 'review' : 'revision';
+  if (review.isDue) {
+    return (
+      <span className="font-semibold text-accent-danger">
+        {review.overdueDays > 0 ? `${word} ${review.overdueDays}d overdue` : `${word} due`}
+      </span>
+    );
+  }
+  const dueIn = Math.max(1, Math.ceil((review.dueAt - now) / DAY_MS));
+  return <span className="text-white/50">next {word} in {dueIn}d</span>;
+}
+
+function CardBody({ item, revealed }: { item: PalaceItem; revealed: boolean }) {
+  const card = item.card;
+  const prompt = useMemo(() => renderNoteMarkdown(item.body), [item.body]);
+  if (!card) return null;
+  return (
+    <>
+      {prompt}
+      {card.options && (
+        <div className="space-y-0.5 pt-1">
+          {card.options.map((o, i) => {
+            const right = revealed && (card.correct?.includes(i) ?? false);
+            return (
+              <div
+                key={`${i}:${o}`}
+                className={cn('flex gap-1.5 rounded px-1.5 py-0.5 text-[11.5px]', right ? 'bg-accent-success/15 text-accent-success' : 'text-white/70')}
+              >
+                <span className="font-mono text-white/40">{String.fromCharCode(65 + i)}</span>
+                <span>{o}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {revealed && (
+        <div className="mt-2 rounded-md border border-accent-success/25 bg-accent-success/[0.07] px-2 py-1.5">
+          <div className="text-[9.5px] uppercase tracking-wider text-accent-success/80">Answer</div>
+          <div className="text-[12px] font-semibold text-white">{card.answer || '—'}</div>
+          {card.explanation && <div className="mt-1 text-[11px] leading-relaxed text-white/60">{card.explanation}</div>}
+        </div>
+      )}
+    </>
+  );
+}
+
+function ProjectBody({ item }: { item: PalaceItem }) {
+  const project = item.project;
+  const description = useMemo(
+    () => renderNoteMarkdown(item.body.trim() ? item.body : '*No description yet.*'),
+    [item.body]
+  );
+  if (!project) return null;
+  return (
+    <>
+      {description}
+      <div className="pt-2">
+        <div className="flex items-center justify-between text-[10px] text-white/50">
+          <span>Progress</span>
+          <span className="font-mono">
+            {project.tasksTotal > 0 ? `${project.tasksDone}/${project.tasksTotal} tasks · ` : ''}
+            {project.progress}%
+          </span>
+        </div>
+        <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10">
+          <div className="h-full rounded-full bg-accent-success" style={{ width: `${project.progress}%` }} />
+        </div>
+      </div>
+      {project.techStack.length > 0 && (
+        <div className="flex flex-wrap gap-1 pt-2">
+          {project.techStack.map((t) => (
+            <span key={t} className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/70">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function NoteHologramInner({
+  item,
+  review,
+  origin,
+  target,
+  now,
+  closing,
+  onRequestClose,
+  onClosed,
+  onRevise,
+  onGrade,
+  onOpenSource,
+}: NoteHologramProps) {
+  const { camera } = useThree();
+  const groupRef = useRef<THREE.Group | null>(null);
+  const tokenRef = useRef<THREE.Mesh | null>(null);
+  const panelRef = useRef<THREE.Group | null>(null);
+  const progress = useRef(0);
+  const closedFired = useRef(false);
+  const [panelVisible, setPanelVisible] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [graded, setGraded] = useState<'recalled' | 'forgot' | null>(null);
+  const style = RECENCY_STYLES[review.recency];
+  const color = review.isDue ? DUE_COLOR : review.isNew ? NEW_COLOR : style.color === '#4a3f33' ? '#b0bec5' : style.color;
+  const noteBody = useMemo(
+    () => (item.kind === 'note' ? renderNoteMarkdown(item.body.trim() ? item.body : '*This note is empty.*') : null),
+    [item.kind, item.body]
+  );
+
+  useFrame((_, dt) => {
+    const g = groupRef.current;
+    if (!g) return;
+    const d = Math.min(dt, 0.05);
+    progress.current = closing
+      ? Math.max(0, progress.current - d / CLOSE_S)
+      : Math.min(1, progress.current + d / OPEN_S);
+    const p = progress.current;
+
+    // 0 → 0.3 lift, 0.3 → 0.75 travel (with an arc), 0.7 → 1 unfold.
+    const lift = ease(seg(p, 0, 0.3));
+    const travel = ease(seg(p, 0.3, 0.75));
+    const unfold = ease(seg(p, 0.7, 1));
+    const sx = origin[0];
+    const sy = origin[1] + lift * 0.45;
+    const sz = origin[2];
+    g.position.set(
+      sx + (target[0] - sx) * travel,
+      sy + (target[1] - sy) * travel + Math.sin(travel * Math.PI) * 0.35,
+      sz + (target[2] - sz) * travel
+    );
+
+    // Turn to face the player (continuously, so it stays readable).
+    _look.position.copy(g.position);
+    _look.lookAt(camera.getWorldPosition(_tmp));
+    g.quaternion.slerp(_look.quaternion, Math.min(1, d * (travel > 0 ? 6 : 2)));
+
+    if (tokenRef.current) {
+      tokenRef.current.scale.setScalar(Math.max(0.001, 1 - unfold));
+      tokenRef.current.rotation.y += d * (2 + travel * 6);
+    }
+    if (panelRef.current) {
+      panelRef.current.scale.set(0.35 + 0.65 * unfold, Math.max(0.02, unfold), 1);
+    }
+    const shouldShow = unfold > 0.04;
+    if (shouldShow !== panelVisible) setPanelVisible(shouldShow);
+
+    if (closing && p <= 0 && !closedFired.current) {
+      closedFired.current = true;
+      onClosed(item.id);
+    }
+  });
+
+  const lastTouched = review.lastTouched > 0 ? new Date(review.lastTouched) : null;
+  const grade = (recalled: boolean) => {
+    setGraded(recalled ? 'recalled' : 'forgot');
+    onGrade(item, recalled);
+  };
+
+  return (
+    <group ref={groupRef} position={origin}>
+      {/* The object itself, carried to you */}
+      <mesh ref={tokenRef}>
+        <ShapeGeometry type={item.shape} />
+        <meshBasicMaterial color={color} toneMapped={false} />
+      </mesh>
+
+      <group ref={panelRef} scale={[0.35, 0.02, 1]}>
+        {/* Holographic glass slab behind the DOM panel */}
+        <mesh position={[0, 0, -0.02]}>
+          <planeGeometry args={[1.75, 1.95]} />
+          <meshBasicMaterial color={color} transparent opacity={0.07} toneMapped={false} side={THREE.DoubleSide} depthWrite={false} />
+        </mesh>
+        {panelVisible && (
+          <Html transform distanceFactor={2} zIndexRange={[60, 0]} style={{ pointerEvents: 'auto' }}>
+            <div
+              className="w-[340px] select-text overflow-hidden rounded-xl border bg-black/75 text-left backdrop-blur-md"
+              style={{ borderColor: `${color}66`, boxShadow: `0 0 36px ${color}40, inset 0 0 24px ${color}14` }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onWheel={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 border-b border-white/10 bg-white/5 px-3 py-2">
+                <KindIcon kind={item.kind} color={color} />
+                <span className="flex-1 truncate font-display text-[12px] font-bold tracking-wide text-white">{item.title}</span>
+                <button
+                  onClick={() => onRequestClose(item.id)}
+                  className="rounded p-0.5 text-white/50 transition-colors hover:bg-white/10 hover:text-accent-danger"
+                  aria-label="Close hologram"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 border-b border-white/5 px-3 py-1.5 text-[9.5px] uppercase tracking-wider">
+                <span className="max-w-[190px] truncate rounded px-1.5 py-0.5" style={{ backgroundColor: `${color}22`, color }}>
+                  {item.context}
+                </span>
+                <span className="text-white/40">{KIND_LABELS[item.kind]}</span>
+                <span className="text-white/25">·</span>
+                <ScheduleLabel item={item} review={review} now={now} />
+              </div>
+
+              <div className="max-h-[300px] space-y-1 overflow-y-auto px-3 py-2">
+                {item.kind === 'note' && noteBody}
+                {item.kind === 'card' && <CardBody item={item} revealed={revealed || graded !== null} />}
+                {item.kind === 'project' && <ProjectBody item={item} />}
+                {item.kind !== 'project' && item.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-2">
+                    {item.tags.map((t) => (
+                      <span key={t} className="rounded bg-accent-secondary/20 px-1.5 py-0.5 text-[10px] text-accent-secondary">
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 border-t border-white/10 bg-white/[0.03] px-3 py-2">
+                {item.kind === 'note' && (
+                  <button
+                    onClick={() => onRevise(item)}
+                    disabled={review.revisedToday}
+                    className={cn(
+                      'flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors',
+                      review.revisedToday
+                        ? 'cursor-default bg-accent-success/15 text-accent-success/80'
+                        : 'bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25'
+                    )}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {review.revisedToday ? 'Revised today' : 'Mark revised'}
+                  </button>
+                )}
+                {item.kind === 'card' &&
+                  (graded ? (
+                    <span className={cn('flex items-center gap-1 text-[11px] font-semibold', graded === 'recalled' ? 'text-accent-success' : 'text-amber-300')}>
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {graded === 'recalled' ? 'Recalled' : 'Back in the queue'}
+                    </span>
+                  ) : !revealed ? (
+                    <button
+                      onClick={() => setRevealed(true)}
+                      className="flex items-center gap-1 rounded-md bg-accent-primary/15 px-2 py-1 text-[11px] font-semibold text-accent-primary transition-colors hover:bg-accent-primary/25"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Reveal answer
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => grade(false)}
+                        className="flex items-center gap-1 rounded-md bg-amber-400/15 px-2 py-1 text-[11px] font-semibold text-amber-300 transition-colors hover:bg-amber-400/25"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Forgot
+                      </button>
+                      <button
+                        onClick={() => grade(true)}
+                        className="flex items-center gap-1 rounded-md bg-accent-success/15 px-2 py-1 text-[11px] font-semibold text-accent-success transition-colors hover:bg-accent-success/25"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Recalled
+                      </button>
+                    </>
+                  ))}
+                <button
+                  onClick={() => onOpenSource(item)}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  {OPEN_LABEL[item.kind]}
+                </button>
+                <span className="ml-auto text-[9.5px] text-white/35">
+                  {lastTouched ? `touched ${lastTouched.toLocaleDateString()}` : ''}
+                </span>
+              </div>
+            </div>
+          </Html>
+        )}
+      </group>
+    </group>
+  );
+}
+
+export const NoteHologram = memo(NoteHologramInner);

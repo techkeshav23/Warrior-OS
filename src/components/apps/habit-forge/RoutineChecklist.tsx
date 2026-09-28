@@ -8,13 +8,16 @@
 import { useState, useCallback, memo } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { checkStudyStreak } from '@/components/achievements/study-streak';
 import type { RoutineItem } from './HabitForgeApp';
 
 interface Props {
   routines: RoutineItem[];
+  /** Called after every check / uncheck has been saved (e.g. to refresh a streak counter). */
+  onProgress?: () => void;
 }
 
-function RoutineChecklistInner({ routines }: Props) {
+function RoutineChecklistInner({ routines, onProgress }: Props) {
   const today = new Date().toISOString().split('T')[0];
 
   const [completed, setCompleted] = useState<Set<string>>(() => {
@@ -26,16 +29,23 @@ function RoutineChecklistInner({ routines }: Props) {
   });
 
   const toggle = useCallback((id: string) => {
-    setCompleted((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      // Save
-      const allData = JSON.parse(localStorage.getItem('warrior-routine-done') || '{}');
+    const next = new Set(completed);
+    const nowDone = !next.has(id);
+    if (nowDone) next.add(id);
+    else next.delete(id);
+    setCompleted(next);
+    // Save (outside the state updater, so it runs exactly once)
+    try {
+      const allData = JSON.parse(localStorage.getItem('warrior-routine-done') || '{}') as Record<string, string[]>;
       allData[today] = [...next];
       localStorage.setItem('warrior-routine-done', JSON.stringify(allData));
-      return next;
-    });
-  }, [today]);
+    } catch {
+      /* storage blocked or corrupt — the checklist still works for this session */
+    }
+    // A routine check-off is study activity for the day's streak.
+    if (nowDone) checkStudyStreak();
+    onProgress?.();
+  }, [completed, today, onProgress]);
 
   const categories: { key: RoutineItem['category']; label: string; icon: string }[] = [
     { key: 'morning', label: 'Morning', icon: '🌅' },

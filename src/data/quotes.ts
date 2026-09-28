@@ -38,7 +38,7 @@ export const WARRIOR_QUOTES = [
   "Warriors are not born. They are forged.",
   "The code compiles. The warrior rises.",
   "One line of code at a time. One step closer to greatness.",
-  "Your GATE score is waiting. Go earn it.",
+  "Every skill you master is a new module installed.",
   "Today's struggle is tomorrow's strength.",
   "Bugs are just puzzles waiting to be solved.",
   "The algorithm of success: try, fail, learn, repeat.",

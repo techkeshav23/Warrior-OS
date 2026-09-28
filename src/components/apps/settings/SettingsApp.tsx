@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Settings App
-// 6 tabs: Appearance, Sounds, Account, Workspaces, Nexus, About
+// 9 tabs: Appearance, Living World, Performance, Sounds, Account,
+// Workspaces, Nexus, Showcase, About
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -14,15 +15,30 @@ import { AccountTab } from './AccountTab';
 import { WorkspacesTab } from './WorkspacesTab';
 import { NexusTab } from './NexusTab';
 import { AboutTab } from './AboutTab';
+import { LivingWorldTab } from './LivingWorldTab';
+import { PerformanceTab } from './PerformanceTab';
+import { ShowcaseTab } from './ShowcaseTab';
 
-type SettingsTab = 'appearance' | 'sounds' | 'account' | 'workspaces' | 'nexus' | 'about';
+type SettingsTab =
+  | 'appearance'
+  | 'living'
+  | 'performance'
+  | 'sounds'
+  | 'account'
+  | 'workspaces'
+  | 'nexus'
+  | 'showcase'
+  | 'about';
 
 const TABS: { id: SettingsTab; label: string; icon: string }[] = [
   { id: 'appearance', label: 'Appearance', icon: '🎨' },
+  { id: 'living', label: 'Living World', icon: '🌱' },
+  { id: 'performance', label: 'Performance', icon: '⚡' },
   { id: 'sounds', label: 'Sounds', icon: '🔊' },
   { id: 'account', label: 'Account', icon: '👤' },
   { id: 'workspaces', label: 'Workspaces', icon: '🖥️' },
   { id: 'nexus', label: 'Nexus AI', icon: '🤖' },
+  { id: 'showcase', label: 'Showcase', icon: '🧭' },
   { id: 'about', label: 'About', icon: 'ℹ️' },
 ];
 
@@ -63,10 +79,13 @@ function SettingsAppInner() {
             className="h-full"
           >
             {activeTab === 'appearance' && <AppearanceTab />}
+            {activeTab === 'living' && <LivingWorldTab />}
+            {activeTab === 'performance' && <PerformanceTab />}
             {activeTab === 'sounds' && <SoundsTab />}
             {activeTab === 'account' && <AccountTab />}
             {activeTab === 'workspaces' && <WorkspacesTab />}
             {activeTab === 'nexus' && <NexusTab />}
+            {activeTab === 'showcase' && <ShowcaseTab />}
             {activeTab === 'about' && <AboutTab />}
           </motion.div>
         </AnimatePresence>

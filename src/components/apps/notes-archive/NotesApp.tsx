@@ -7,10 +7,18 @@
 
 import { useState, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { usePendingEventListener } from '@/components/achievements/pending-events';
 import { NotesList } from './NotesList';
 import { MarkdownEditor } from './MarkdownEditor';
 import { SearchPanel } from './SearchPanel';
+import { rewardNoteCreated } from './note-rewards';
+import { NOTES_APP_IDS, NOTES_SEARCH_EVENT, parseNotesSearch } from './deep-link';
+
+/** A search opened from outside (NEXUS deep link); nonce remounts the panel. */
+interface SearchRequest {
+  query: string;
+  nonce: number;
+}
 
 export interface Note {
   id: string;
@@ -36,8 +44,25 @@ function NotesAppInner() {
   const [notes, setNotes] = useState<Note[]>(loadNotes);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [showSearch, setShowSearch] = useState(false);
+  const [searchRequest, setSearchRequest] = useState<SearchRequest | null>(null);
+
+  // 'warrior:notes-search' (e.g. from NEXUS): open search pre-filled with the query.
+  usePendingEventListener({
+    eventName: NOTES_SEARCH_EVENT,
+    parse: parseNotesSearch,
+    appIds: NOTES_APP_IDS,
+    onEvent: ({ query }) => {
+      setSearchRequest((prev) => ({ query, nonce: (prev?.nonce ?? 0) + 1 }));
+      setShowSearch(true);
+    },
+  });
 
   const activeNote = notes.find((n) => n.id === activeNoteId) || null;
+
+  const closeSearch = () => {
+    setShowSearch(false);
+    setSearchRequest(null);
+  };
 
   const createNote = () => {
     const note: Note = {
@@ -52,6 +77,7 @@ function NotesAppInner() {
     setNotes(updated);
     saveNotes(updated);
     setActiveNoteId(note.id);
+    rewardNoteCreated();
   };
 
   const updateNote = (id: string, changes: Partial<Note>) => {
@@ -89,6 +115,7 @@ function NotesAppInner() {
       setNotes(updated);
       saveNotes(updated);
       setActiveNoteId(note.id);
+      rewardNoteCreated();
     }
   };
 
@@ -100,7 +127,7 @@ function NotesAppInner() {
           <h2 className="text-sm font-bold text-amber-400">📒 Notes</h2>
           <div className="flex gap-1">
             <button
-              onClick={() => setShowSearch(!showSearch)}
+              onClick={() => (showSearch ? closeSearch() : setShowSearch(true))}
               className="w-7 h-7 rounded flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 text-xs"
               title="Search"
             >
@@ -118,10 +145,12 @@ function NotesAppInner() {
 
         {showSearch && (
           <SearchPanel
+            key={searchRequest?.nonce ?? 0}
+            initialQuery={searchRequest?.query ?? ''}
             notes={notes}
             onSelect={(id) => {
               setActiveNoteId(id);
-              setShowSearch(false);
+              closeSearch();
             }}
           />
         )}

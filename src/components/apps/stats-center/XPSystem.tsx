@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — XP System Widget
-// Shows total XP and recent XP gains
+// Shows total XP and the XP still needed for the next level
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -8,11 +8,14 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { useXPStore } from '@/stores/useXPStore';
+import { MAX_LEVEL, levelTitle, xpToNextLevel } from '@/components/effects/effects-utils';
 
 function XPSystemInner() {
-  const { xp, level } = useXPStore();
-  const getLevelTitle = useXPStore((s) => s.getLevelTitle);
-  const getXPForNextLevel = useXPStore((s) => s.getXPForNextLevel);
+  // Derive from primitives: store getter calls during render can be
+  // memoised into stale values by the React Compiler.
+  const xp = useXPStore((s) => s.xp);
+  const level = useXPStore((s) => s.level);
+  const toNext = xpToNextLevel(xp, level);
 
   return (
     <div className="p-4 rounded-xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-purple-500/10">
@@ -26,10 +29,10 @@ function XPSystemInner() {
         {xp.toLocaleString()}
       </motion.p>
       <p className="text-xs text-white/40 mt-1">
-        {getXPForNextLevel() - xp} XP to next level
+        {level >= MAX_LEVEL ? 'Max level reached' : `${toNext.toLocaleString()} XP to next level`}
       </p>
       <p className="text-[10px] text-white/30 mt-0.5">
-        Lv.{level} — {getLevelTitle()}
+        Lv.{level} — {levelTitle(level)}
       </p>
     </div>
   );

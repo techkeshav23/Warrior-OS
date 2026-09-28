@@ -1,33 +1,67 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Search Panel for Notes
+// Full-text search over title, content and tags with highlights
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { useState, useMemo, memo } from 'react';
-import { cn } from '@/lib/utils';
 import type { Note } from './NotesApp';
 
 interface Props {
   notes: Note[];
   onSelect: (id: string) => void;
+  /** Query to start with, e.g. from a NEXUS deep link. */
+  initialQuery?: string;
 }
 
-function SearchPanelInner({ notes, onSelect }: Props) {
-  const [query, setQuery] = useState('');
+const SNIPPET_RADIUS = 28;
+
+interface Snippet {
+  before: string;
+  match: string;
+  after: string;
+}
+
+/** Text around the first case-insensitive match of `q`, or null when absent. */
+function snippetAround(text: string, q: string): Snippet | null {
+  const index = text.toLowerCase().indexOf(q);
+  if (index === -1) return null;
+  const start = Math.max(0, index - SNIPPET_RADIUS);
+  const end = Math.min(text.length, index + q.length + SNIPPET_RADIUS);
+  return {
+    before: (start > 0 ? '…' : '') + text.slice(start, index),
+    match: text.slice(index, index + q.length),
+    after: text.slice(index + q.length, end) + (end < text.length ? '…' : ''),
+  };
+}
+
+function Highlighted({ snippet }: { snippet: Snippet }) {
+  return (
+    <>
+      {snippet.before}
+      <mark className="bg-amber-400/30 text-amber-200 rounded-sm px-0.5">{snippet.match}</mark>
+      {snippet.after}
+    </>
+  );
+}
+
+function SearchPanelInner({ notes, onSelect, initialQuery = '' }: Props) {
+  const [query, setQuery] = useState(initialQuery);
+
+  const q = query.trim().toLowerCase();
 
   const results = useMemo(() => {
-    if (!query.trim()) return [];
-    const q = query.toLowerCase();
+    if (!q) return [];
     return notes
       .filter(
         (n) =>
           n.title.toLowerCase().includes(q) ||
           n.content.toLowerCase().includes(q) ||
-          n.tags.some((t) => t.includes(q))
+          n.tags.some((t) => t.toLowerCase().includes(q))
       )
       .slice(0, 20);
-  }, [query, notes]);
+  }, [q, notes]);
 
   return (
     <div className="border-b border-white/10 p-2 space-y-2">
@@ -40,22 +74,34 @@ function SearchPanelInner({ notes, onSelect }: Props) {
       />
       {results.length > 0 && (
         <div className="max-h-40 overflow-y-auto space-y-1">
-          {results.map((note) => (
-            <button
-              key={note.id}
-              onClick={() => onSelect(note.id)}
-              className="w-full text-left p-2 rounded hover:bg-white/5 transition-all"
-            >
-              <p className="text-xs text-white/80 truncate">{note.title}</p>
-              <p className="text-[10px] text-white/30 truncate">
-                {note.content.slice(0, 60)}
-              </p>
-            </button>
-          ))}
+          {results.map((note) => {
+            const titleHit = snippetAround(note.title, q);
+            const contentHit = snippetAround(note.content, q);
+            return (
+              <button
+                key={note.id}
+                onClick={() => onSelect(note.id)}
+                className="w-full text-left p-2 rounded hover:bg-white/5 transition-all"
+              >
+                <p className="text-xs text-white/80 truncate">
+                  {titleHit ? <Highlighted snippet={titleHit} /> : note.title || 'Untitled'}
+                </p>
+                <p className="text-[10px] text-white/40 truncate">
+                  {contentHit ? (
+                    <Highlighted snippet={contentHit} />
+                  ) : note.tags.length > 0 ? (
+                    note.tags.map((t) => `#${t}`).join(' ')
+                  ) : (
+                    note.content.slice(0, 60)
+                  )}
+                </p>
+              </button>
+            );
+          })}
         </div>
       )}
-      {query && results.length === 0 && (
-        <p className="text-[10px] text-white/30 text-center py-2">No results</p>
+      {q && results.length === 0 && (
+        <p className="text-[10px] text-white/40 text-center py-2">No results</p>
       )}
     </div>
   );

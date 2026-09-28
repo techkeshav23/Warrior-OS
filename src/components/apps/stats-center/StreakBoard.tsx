@@ -1,95 +1,102 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Streak Board
-// Current streak counter with flame animation
+// Study streak with a flame: a UTC day counts when you studied at
+// all (cards, quizzes, habits, routines, notes, focused time), the
+// same rule the streak achievements and the terminal use. The habit
+// streak from the desktop widget sits beside it.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useMemo, memo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { collectStudyDays } from '@/components/achievements/study-streak';
+import { currentStreak, longestStreak } from '@/components/achievements/day-streak';
+import { useAchievementProgressStore } from '@/components/achievements/progress-store';
+import { useLearningStore } from '@/stores/useLearningStore';
+import { useQuizHistoryStore } from '@/stores/useQuizHistoryStore';
+import { useHabits, useNow } from '@/components/widgets/hooks';
+import { computeStreak, utcDayKey } from '@/components/widgets/widget-data';
+
+/** Habits, routines and notes live in localStorage: re-read on this beat too. */
+const STREAK_REFRESH_MS = 30_000;
+
+interface StudyStreak {
+  current: number;
+  longest: number;
+}
+
+function readStudyStreak(): StudyStreak {
+  const days = collectStudyDays();
+  const current = currentStreak(days);
+  return { current, longest: Math.max(current, longestStreak(days)) };
+}
+
+/** The OS-wide study streak, kept fresh while the board is open. */
+function useStudyStreak(): StudyStreak {
+  const [streak, setStreak] = useState(readStudyStreak);
+
+  useEffect(() => {
+    const refresh = () => {
+      const next = readStudyStreak();
+      setStreak((prev) => (prev.current === next.current && prev.longest === next.longest ? prev : next));
+    };
+    const unsubscribers = [
+      useQuizHistoryStore.subscribe(refresh),
+      useAchievementProgressStore.subscribe(refresh),
+      useLearningStore.subscribe((state, prev) => {
+        if (state.attempts !== prev.attempts) refresh();
+      }),
+    ];
+    const timer = window.setInterval(refresh, STREAK_REFRESH_MS);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+
+  return streak;
+}
 
 function StreakBoardInner() {
-  // Compute streak from habit data in localStorage
-  const { currentStreak, longestStreak } = useMemo(() => {
-    if (typeof window === 'undefined') return { currentStreak: 0, longestStreak: 0 };
-    try {
-      const habits = JSON.parse(localStorage.getItem('warrior-habits') || '[]');
-      if (habits.length === 0) return { currentStreak: 0, longestStreak: 0 };
-
-      // Collect all dates where at least one habit was completed
-      const activeDays = new Set<string>();
-      for (const h of habits) {
-        for (const d of (h.completions || [])) {
-          activeDays.add(d);
-        }
-      }
-
-      // Calculate current streak from today
-      let current = 0;
-      const now = new Date();
-      for (let i = 0; i < 365; i++) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
-        if (activeDays.has(dateStr)) {
-          current++;
-        } else {
-          if (i === 0) continue; // today might not be completed yet
-          break;
-        }
-      }
-
-      // Calculate longest streak
-      const sorted = [...activeDays].sort();
-      let longest = 0;
-      let run = 0;
-      let prev = '';
-      for (const d of sorted) {
-        if (prev) {
-          const diff = (new Date(d).getTime() - new Date(prev).getTime()) / 86400000;
-          if (diff === 1) {
-            run++;
-          } else {
-            longest = Math.max(longest, run);
-            run = 1;
-          }
-        } else {
-          run = 1;
-        }
-        prev = d;
-      }
-      longest = Math.max(longest, run);
-
-      return { currentStreak: current, longestStreak: longest };
-    } catch {
-      return { currentStreak: 0, longestStreak: 0 };
-    }
-  }, []);
+  const { current, longest } = useStudyStreak();
+  const habits = useHabits();
+  const now = useNow(60_000);
+  const dayKey = utcDayKey(now);
+  const habitStreak = useMemo(
+    () => computeStreak(habits, Date.parse(`${dayKey}T12:00:00Z`)).current,
+    [habits, dayKey]
+  );
 
   return (
     <div className="p-4 rounded-xl border border-orange-500/20 bg-gradient-to-r from-orange-500/10 to-red-500/10">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-orange-400/60">Current Streak</p>
+          <p className="text-xs text-orange-400/60">Study streak</p>
           <div className="flex items-baseline gap-2">
             <motion.span
               className="text-4xl font-black text-orange-300"
-              key={currentStreak}
+              key={current}
               initial={{ scale: 1.2 }}
               animate={{ scale: 1 }}
             >
-              {currentStreak}
+              {current}
             </motion.span>
-            <span className="text-sm text-orange-400/60">days</span>
+            <span className="text-sm text-orange-400/60">{current === 1 ? 'day' : 'days'}</span>
           </div>
         </div>
         <div className="text-right">
           <p className="text-xs text-white/40">Best</p>
-          <p className="text-lg font-bold text-white/60">{longestStreak}d</p>
+          <p className="text-lg font-bold text-white/60">{longest}d</p>
+          <p className="text-[10px] text-white/35">Habits {habitStreak}d</p>
         </div>
         <motion.span
           className="text-4xl"
+          aria-hidden="true"
           animate={{
             scale: [1, 1.1, 1],
             rotate: [0, 5, -5, 0],
@@ -99,11 +106,11 @@ function StreakBoardInner() {
           🔥
         </motion.span>
       </div>
-      {currentStreak > 0 && (
-        <p className="text-[10px] text-orange-400/40 mt-2">
-          Keep going! Every day counts.
-        </p>
-      )}
+      <p className="text-[10px] text-orange-400/40 mt-2">
+        {current > 0
+          ? 'Keep going! Every day counts.'
+          : 'Answer a card, tick a habit or write a note to light it up.'}
+      </p>
     </div>
   );
 }

@@ -5,7 +5,7 @@
 
 'use client';
 
-import { memo, useRef, useMemo } from 'react';
+import { memo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { WallpaperProps } from '@/types/wallpaper';
@@ -142,27 +142,30 @@ function AuroraMesh(props: WallpaperProps) {
   const propsRef = useRef(props);
   propsRef.current = props;
 
-  const uniforms = useMemo(
-    () => ({
-      u_time: { value: 0 },
-      u_mouse: { value: new THREE.Vector2(0.5, 0.5) },
-      u_resolution: { value: new THREE.Vector2(1, 1) },
-      u_bass: { value: 0 },
-    }),
-    []
-  );
+  // useState initializer pattern — stable identity, R3F-friendly mutation in useFrame.
+  const [uniforms] = useState(() => ({
+    u_time: { value: 0 },
+    u_mouse: { value: new THREE.Vector2(0.5, 0.5) },
+    u_resolution: { value: new THREE.Vector2(1, 1) },
+    u_bass: { value: 0 },
+  }));
 
   useFrame(({ clock, size }) => {
     const { mouseX, mouseY, bassLevel } = propsRef.current;
 
-    // Smooth mouse interpolation (runs at frame rate)
     mouseRef.current.x += (((mouseX + 1) * 0.5) - mouseRef.current.x) * 0.05;
     mouseRef.current.y += (((mouseY + 1) * 0.5) - mouseRef.current.y) * 0.05;
 
+    // Canonical R3F pattern: useFrame mutates uniform `.value` each frame.
+    // React Compiler flags the useState-stored container as immutable, but
+    // shaderMaterial expects in-place mutation — the entire R3F ecosystem
+    // relies on this idiom. Disable is intentional and scoped.
+    /* eslint-disable react-hooks/immutability */
     uniforms.u_time.value = clock.getElapsedTime();
     uniforms.u_mouse.value.set(mouseRef.current.x, mouseRef.current.y);
     uniforms.u_resolution.value.set(size.width, size.height);
     uniforms.u_bass.value = bassLevel;
+    /* eslint-enable react-hooks/immutability */
   });
 
   return (

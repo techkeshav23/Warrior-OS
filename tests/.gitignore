@@ -1,0 +1,2 @@
+# Playwright reports, traces and failure screenshots (see playwright.config.ts)
+.results/

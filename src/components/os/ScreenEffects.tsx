@@ -1,12 +1,14 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — ScreenEffects Component
-// Ambient particle effects and background animations
+// Ambient particle effects and background animations.
+// Part of the CRT look: off when CRT is off, and always off in lite mode.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { useEffect, useRef } from 'react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useLiteMode } from '@/lib/lite-mode';
 
 interface Particle {
   x: number;
@@ -24,9 +26,11 @@ export function ScreenEffects() {
   const rafRef = useRef<number>(0);
   const particlesRef = useRef<Particle[]>([]);
   const crtEffect = useSettingsStore((s) => s.crtEffect);
+  const lite = useLiteMode();
+  const enabled = crtEffect && !lite;
 
   useEffect(() => {
-    if (!crtEffect) return;
+    if (!enabled) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -97,9 +101,9 @@ export function ScreenEffects() {
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener('resize', resize);
     };
-  }, [crtEffect]);
+  }, [enabled]);
 
-  if (!crtEffect) return null;
+  if (!enabled) return null;
 
   return (
     <canvas

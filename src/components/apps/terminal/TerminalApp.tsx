@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { useXPStore } from '@/stores/useXPStore';
 import { COMMANDS } from './commands';
 import { EASTER_EGGS } from './easter-eggs';
+import { discoverEasterEgg, recordTerminalCommand } from './terminal-achievements';
 
 interface TerminalLine {
   id: number;
@@ -21,6 +22,11 @@ const WELCOME = `Welcome to Warrior Terminal v1.0
 Type 'help' for available commands.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
+/** Own-property lookup, so names like "constructor" aren't treated as commands. */
+function lookup<T>(table: Record<string, T>, name: string): T | undefined {
+  return Object.prototype.hasOwnProperty.call(table, name) ? table[name] : undefined;
+}
+
 function TerminalAppInner() {
   const [lines, setLines] = useState<TerminalLine[]>([
     { id: 0, type: 'info', content: WELCOME },
@@ -31,7 +37,6 @@ function TerminalAppInner() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const idRef = useRef(1);
-  const addXP = useXPStore((s) => s.addXP);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -58,15 +63,20 @@ function TerminalAppInner() {
       const name = parts[0].toLowerCase();
       const args = parts.slice(1);
 
-      let resultLines: TerminalLine[] = [inputLine];
+      const resultLines: TerminalLine[] = [inputLine];
 
       if (name === 'clear') {
+        recordTerminalCommand();
         setLines([]);
         setInput('');
         setHistory((h) => [...h, trimmed]);
         setHistoryIndex(-1);
         return;
       }
+
+      const command = lookup(COMMANDS, name);
+      const egg = lookup(EASTER_EGGS, name);
+      let recognized = true;
 
       if (name === 'history') {
         resultLines.push({
@@ -83,22 +93,46 @@ function TerminalAppInner() {
           type: 'success',
           content: `XP: ${xp} | Level: ${level} | Title: ${getLevelTitle()}`,
         });
-      } else if (COMMANDS[name]) {
-        const result = COMMANDS[name](args);
+      } else if (command) {
+        try {
+          const result = command(args);
+          resultLines.push({
+            id: idRef.current++,
+            type: result.type,
+            content: result.output,
+          });
+        } catch (err) {
+          resultLines.push({
+            id: idRef.current++,
+            type: 'error',
+            content: `${name}: ${err instanceof Error ? err.message : 'command failed'}`,
+          });
+        }
+      } else if (egg) {
+        const result = egg(args);
         resultLines.push({
           id: idRef.current++,
           type: result.type,
           content: result.output,
         });
-      } else if (EASTER_EGGS[name]) {
-        const result = EASTER_EGGS[name](args);
-        resultLines.push({
-          id: idRef.current++,
-          type: result.type,
-          content: result.output,
-        });
-        addXP(5, 'easter-egg');
+        // XP once per egg; secret eggs unlock the hidden-easter-egg achievement.
+        const discovery = discoverEasterEgg(result.eggId, result.secret === true);
+        if (discovery.xp > 0) {
+          resultLines.push({
+            id: idRef.current++,
+            type: 'success',
+            content: `✦ Easter egg discovered · +${discovery.xp} XP`,
+          });
+        }
+        if (discovery.achievementUnlocked) {
+          resultLines.push({
+            id: idRef.current++,
+            type: 'success',
+            content: '🥚 You found a hidden easter egg. Achievement unlocked!',
+          });
+        }
       } else {
+        recognized = false;
         resultLines.push({
           id: idRef.current++,
           type: 'error',
@@ -106,12 +140,15 @@ function TerminalAppInner() {
         });
       }
 
+      // Terminal Warrior counts recognised commands only.
+      if (recognized) recordTerminalCommand();
+
       setLines((prev) => [...prev, ...resultLines]);
       setHistory((h) => [...h, trimmed]);
       setHistoryIndex(-1);
       setInput('');
     },
-    [history, addXP]
+    [history]
   );
 
   const handleKeyDown = useCallback(

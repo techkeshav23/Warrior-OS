@@ -7,13 +7,33 @@
 'use client';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, Bell } from 'lucide-react';
 import { useAudioStore } from '@/stores/useAudioStore';
 import { useNotificationStore } from '@/stores/useNotificationStore';
+import { useCreatureStore } from '@/stores/useCreatureStore';
+import type { CreatureMood } from '@/types/creature';
 import { cn } from '@/lib/utils';
 
+// The creature sprite (canvas painters) is a lazy client-only chunk; the
+// creature barrel would also drag the stats popup and recharts into the
+// boot bundle.
+const CreatureIslandBadge = dynamic(
+  () => import('@/components/creature/CreatureStatusBadges').then((m) => m.CreatureIslandBadge),
+  { ssr: false }
+);
+
 type IslandState = 'compact' | 'expanded';
+
+/**
+ * Moods the island surfaces, the same rule as useCreatureIslandSignal():
+ * sad → amber warning (until fed), celebrating → a short success pulse.
+ * Read straight from the store so the island needs no creature code.
+ */
+function isIslandMood(mood: CreatureMood): boolean {
+  return mood === 'sad' || mood === 'dance' || mood === 'excited';
+}
 
 export function DynamicIsland() {
   const [state, setState] = useState<IslandState>('compact');
@@ -21,7 +41,9 @@ export function DynamicIsland() {
   const trackTitle = useAudioStore((s) => s.trackTitle);
   const unreadCount = useNotificationStore((s) => s.unreadCount);
 
-  const hasContent = isPlaying || unreadCount > 0;
+  const creatureVisible = useCreatureStore((s) => isIslandMood(s.mood));
+
+  const hasContent = isPlaying || unreadCount > 0 || creatureVisible;
 
   if (!hasContent) return null;
 
@@ -67,6 +89,9 @@ export function DynamicIsland() {
                 </div>
               )}
 
+              {/* Creature status (amber when sad) */}
+              <CreatureIslandBadge />
+
               {/* Right indicator */}
               {unreadCount > 0 && (
                 <div className="flex items-center gap-1">
@@ -109,6 +134,8 @@ export function DynamicIsland() {
                   </span>
                 </div>
               )}
+
+              <CreatureIslandBadge expanded />
             </motion.div>
           )}
         </AnimatePresence>

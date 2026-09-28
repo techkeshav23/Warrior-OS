@@ -8,12 +8,14 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { useXPStore } from '@/stores/useXPStore';
+import { levelProgress, levelTitle } from '@/components/effects/effects-utils';
 
 function LevelProgressInner() {
-  const { level } = useXPStore();
-  const getLevelProgress = useXPStore((s) => s.getLevelProgress);
-  const getLevelTitle = useXPStore((s) => s.getLevelTitle);
-  const progress = getLevelProgress();
+  // Derive from primitives: store getter calls during render can be
+  // memoised into stale values by the React Compiler.
+  const xp = useXPStore((s) => s.xp);
+  const level = useXPStore((s) => s.level);
+  const progress = levelProgress(xp, level);
 
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
@@ -52,7 +54,7 @@ function LevelProgressInner() {
           <span className="text-[9px] text-white/40">LEVEL</span>
         </div>
       </div>
-      <p className="text-xs text-white/60 mt-2">{getLevelTitle()}</p>
+      <p className="text-xs text-white/60 mt-2">{levelTitle(level)}</p>
       <p className="text-[10px] text-white/30">{Math.round(progress)}% complete</p>
     </div>
   );

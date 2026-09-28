@@ -6,7 +6,7 @@
 
 'use client';
 
-import { memo, useEffect, useRef, useCallback } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import type { WallpaperProps } from '@/types/wallpaper';
 
 const NODE_COUNT = 150;
@@ -50,8 +50,12 @@ function NeuralNetworkInner({ mouseX, mouseY, bassLevel, overallLevel }: Wallpap
   const mouseRef = useRef({ x: 0, y: 0 });
   const bassRef = useRef(0);
   const overallRef = useRef(0);
-  bassRef.current = bassLevel;
-  overallRef.current = overallLevel;
+
+  // Sync latest audio levels into refs for the animation loop to consume.
+  useEffect(() => {
+    bassRef.current = bassLevel;
+    overallRef.current = overallLevel;
+  }, [bassLevel, overallLevel]);
 
   // Convert -1..1 to pixel coords
   useEffect(() => {
@@ -61,157 +65,135 @@ function NeuralNetworkInner({ mouseX, mouseY, bassLevel, overallLevel }: Wallpap
     mouseRef.current.y = ((mouseY + 1) / 2) * canvas.height;
   }, [mouseX, mouseY]);
 
-  const draw = useCallback((time: number) => {
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const w = canvas.width;
-    const h = canvas.height;
-    const t = time * 0.001;
-    const mx = mouseRef.current.x;
-    const my = mouseRef.current.y;
-    const nodes = nodesRef.current;
-
-    // Clear
-    ctx.fillStyle = 'rgba(2, 3, 12, 0.15)';
-    ctx.fillRect(0, 0, w, h);
-
-    // Update nodes
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
-
-      // Move
-      node.x += node.vx;
-      node.y += node.vy;
-
-      // Bounce off edges
-      if (node.x < 0 || node.x > w) node.vx *= -1;
-      if (node.y < 0 || node.y > h) node.vy *= -1;
-      node.x = Math.max(0, Math.min(w, node.x));
-      node.y = Math.max(0, Math.min(h, node.y));
-
-      // Audio: increase movement with bass
-      const bassVelocity = 1 + bassRef.current * 1.5;
-      node.x += node.vx * bassVelocity * 0.3;
-      node.y += node.vy * bassVelocity * 0.3;
-
-      // Mouse proximity
-      const dx = node.x - mx;
-      const dy = node.y - my;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      node.connected = dist < MOUSE_RADIUS;
-
-      // Gentle push away from mouse
-      if (dist < MOUSE_RADIUS && dist > 0) {
-        const force = (MOUSE_RADIUS - dist) / MOUSE_RADIUS * 0.02;
-        node.vx += (dx / dist) * force;
-        node.vy += (dy / dist) * force;
-      }
-
-      // Dampen velocity
-      node.vx *= 0.998;
-      node.vy *= 0.998;
-
-      // Pulse
-      const pulse = Math.sin(t * node.pulseSpeed + node.pulsePhase) * 0.3 + 0.7;
-      const alpha = node.brightness * pulse * (1 + overallRef.current * 0.5);
-
-      // Draw node
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, node.size * (1 + bassRef.current * 0.5), 0, Math.PI * 2);
-      ctx.fillStyle = node.connected
-        ? `rgba(0, 220, 255, ${alpha})`
-        : `rgba(60, 120, 200, ${alpha * 0.6})`;
-      ctx.fill();
-
-      // Glow for connected nodes
-      if (node.connected) {
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, node.size * 4, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0, 180, 255, ${alpha * 0.08})`;
-        ctx.fill();
-      }
-    }
-
-    // Draw connections (with Manhattan distance pre-filter)
-    ctx.lineWidth = 0.5;
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const a = nodes[i];
-        const b = nodes[j];
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-
-        // Fast reject: skip if Manhattan distance exceeds threshold
-        if (Math.abs(dx) > CONNECTION_DIST || Math.abs(dy) > CONNECTION_DIST) continue;
-
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < CONNECTION_DIST) {
-          const alpha = (1 - dist / CONNECTION_DIST) * 0.15;
-          const isHot = a.connected || b.connected;
-
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.strokeStyle = isHot
-            ? `rgba(0, 220, 255, ${alpha * 2})`
-            : `rgba(40, 80, 160, ${alpha})`;
-          ctx.stroke();
-
-          // Pulse along connection (rare)
-          if (isHot && Math.random() < 0.003) {
-            const px = a.x + (b.x - a.x) * Math.random();
-            const py = a.y + (b.y - a.y) * Math.random();
-            ctx.beginPath();
-            ctx.arc(px, py, 2, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0, 255, 220, 0.6)';
-            ctx.fill();
-          }
-        }
-      }
-    }
-
-    // Random pulse (neuron firing)
-    if (Math.random() < 0.01) {
-      const idx = Math.floor(Math.random() * nodes.length);
-      const n = nodes[idx];
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, 8, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(0, 255, 200, 0.15)';
-      ctx.fill();
-    }
-
-    animRef.current = requestAnimationFrame(draw);
-  }, []);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
     const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       nodesRef.current = createNodes(canvas.width, canvas.height);
-
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = '#02030c';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
+      ctx.fillStyle = '#02030c';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     };
-
     resize();
     window.addEventListener('resize', resize);
+
+    const draw = (time: number) => {
+      const w = canvas.width;
+      const h = canvas.height;
+      const t = time * 0.001;
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+      const nodes = nodesRef.current;
+
+      ctx.fillStyle = 'rgba(2, 3, 12, 0.15)';
+      ctx.fillRect(0, 0, w, h);
+
+      for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+
+        node.x += node.vx;
+        node.y += node.vy;
+
+        if (node.x < 0 || node.x > w) node.vx *= -1;
+        if (node.y < 0 || node.y > h) node.vy *= -1;
+        node.x = Math.max(0, Math.min(w, node.x));
+        node.y = Math.max(0, Math.min(h, node.y));
+
+        const bassVelocity = 1 + bassRef.current * 1.5;
+        node.x += node.vx * bassVelocity * 0.3;
+        node.y += node.vy * bassVelocity * 0.3;
+
+        const dx = node.x - mx;
+        const dy = node.y - my;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        node.connected = dist < MOUSE_RADIUS;
+
+        if (dist < MOUSE_RADIUS && dist > 0) {
+          const force = (MOUSE_RADIUS - dist) / MOUSE_RADIUS * 0.02;
+          node.vx += (dx / dist) * force;
+          node.vy += (dy / dist) * force;
+        }
+
+        node.vx *= 0.998;
+        node.vy *= 0.998;
+
+        const pulse = Math.sin(t * node.pulseSpeed + node.pulsePhase) * 0.3 + 0.7;
+        const alpha = node.brightness * pulse * (1 + overallRef.current * 0.5);
+
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.size * (1 + bassRef.current * 0.5), 0, Math.PI * 2);
+        ctx.fillStyle = node.connected
+          ? `rgba(0, 220, 255, ${alpha})`
+          : `rgba(60, 120, 200, ${alpha * 0.6})`;
+        ctx.fill();
+
+        if (node.connected) {
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, node.size * 4, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(0, 180, 255, ${alpha * 0.08})`;
+          ctx.fill();
+        }
+      }
+
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const a = nodes[i];
+          const b = nodes[j];
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+
+          if (Math.abs(dx) > CONNECTION_DIST || Math.abs(dy) > CONNECTION_DIST) continue;
+
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < CONNECTION_DIST) {
+            const alpha = (1 - dist / CONNECTION_DIST) * 0.15;
+            const isHot = a.connected || b.connected;
+
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.strokeStyle = isHot
+              ? `rgba(0, 220, 255, ${alpha * 2})`
+              : `rgba(40, 80, 160, ${alpha})`;
+            ctx.stroke();
+
+            if (isHot && Math.random() < 0.003) {
+              const px = a.x + (b.x - a.x) * Math.random();
+              const py = a.y + (b.y - a.y) * Math.random();
+              ctx.beginPath();
+              ctx.arc(px, py, 2, 0, Math.PI * 2);
+              ctx.fillStyle = 'rgba(0, 255, 220, 0.6)';
+              ctx.fill();
+            }
+          }
+        }
+      }
+
+      if (Math.random() < 0.01) {
+        const idx = Math.floor(Math.random() * nodes.length);
+        const n = nodes[idx];
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 255, 200, 0.15)';
+        ctx.fill();
+      }
+
+      animRef.current = requestAnimationFrame(draw);
+    };
+
     animRef.current = requestAnimationFrame(draw);
 
     return () => {
       window.removeEventListener('resize', resize);
       cancelAnimationFrame(animRef.current);
     };
-  }, [draw]);
+  }, []);
 
   return (
     <canvas
