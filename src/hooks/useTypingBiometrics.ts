@@ -1,139 +1,226 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — useTypingBiometrics Hook
-// Global keystroke listener → rolling typing metrics → store.
-// Efficient: cheap listeners push timestamps into a ref buffer;
-// a 5s interval does the (light) aggregation + store write.
+// Global keydown/keyup listeners → rolling typing metrics → store.
+//
+// Privacy: keystrokes inside password / payment / one-time-code and
+// other sensitive fields are ignored completely. For everything else
+// only a timestamp and a coarse class (printable / correction) is kept
+// in memory for 60 s — never which key, never any text.
+//
+// Efficiency: listeners are passive and only push into a queue; a
+// requestAnimationFrame flush batches them into the rolling buffer,
+// and the store is written once every 5 seconds.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useBiometricsStore } from '@/stores/useBiometricsStore';
-import { calcBiometricState } from '@/lib/biometric-calculator';
-import type { TypingMetrics } from '@/types/biometrics';
+import { useDecayStore } from '@/stores/useDecayStore';
+import {
+  calcBiometricState,
+  computeTypingMetrics,
+  TYPING_WINDOW_MS,
+  type KeystrokeSample,
+} from '@/lib/biometric-calculator';
+import { evaluateBiometricAchievements } from '@/components/biometrics/achievements';
 
-const ROLLING_WINDOW_MS = 60_000; // 60s rolling window for WPM
-const UPDATE_INTERVAL_MS = 5_000; // aggregate + write every 5s
-const CHARS_PER_WORD = 5; // standard WPM definition
-const LONG_PAUSE_MS = 1_500; // gap counted as an interruption
-const MAX_BUFFER = 4_000; // hard cap on retained keystroke events
+/** Store write cadence. */
+export const BIOMETRIC_UPDATE_MS = 5_000;
+/** Only publish a reading if the user typed within this long. */
+const ACTIVE_TYPING_MS = 10_000;
+/** A typing gap this long starts a new tracker session (fatigue clock). */
+const SESSION_RESET_MS = 20 * 60_000;
+/** Hard cap on retained samples (well above 60 s of fast typing). */
+const MAX_BUFFER = 2_000;
+/** Recent printable keystroke times kept for the music rhythm bus. */
+const MAX_RECENT_TIMES = 32;
 
-interface KeyEvent {
-  t: number; // timestamp
-  correction: boolean; // Backspace / Delete
-  printable: boolean; // counts toward WPM
+// ─── Timing-only keystroke bus (read by the typing-rhythm generator) ───
+
+type KeystrokeListener = (t: number) => void;
+
+const keystrokeListeners = new Set<KeystrokeListener>();
+const recentKeystrokeTimes: number[] = [];
+let lastKeystrokeAt: number | null = null;
+let activeTrackers = 0;
+
+/** Subscribe to keystroke *timestamps* (epoch ms). Returns an unsubscribe. */
+export function onTypingKeystroke(listener: KeystrokeListener): () => void {
+  keystrokeListeners.add(listener);
+  return () => {
+    keystrokeListeners.delete(listener);
+  };
 }
 
-function isEditableTarget(target: EventTarget | null): boolean {
-  // We still track typing globally (that is the point), so we do NOT skip
-  // inputs — every keystroke anywhere is a signal. This helper is kept for
-  // potential future filtering but currently always returns false.
-  void target;
+/** Timestamps (epoch ms) of the most recent printable keystrokes. */
+export function getRecentKeystrokeTimes(): readonly number[] {
+  return recentKeystrokeTimes;
+}
+
+/** Epoch ms of the last tracked keystroke, or null. */
+export function getLastKeystrokeAt(): number | null {
+  return lastKeystrokeAt;
+}
+
+/** True while at least one enabled TypingTracker is listening. */
+export function isTypingTrackerActive(): boolean {
+  return activeTrackers > 0;
+}
+
+// ─── Sensitive-field filter ───
+
+const SENSITIVE_AUTOCOMPLETE = /(password|cc-|one-time-code|otp)/i;
+const SENSITIVE_LABEL =
+  /(pass(word|phrase|code)?|pwd|secret|token|otp|\bpin\b|cvv|cvc|card.?number|ssn|iban|api.?key)/i;
+
+/** True if the keystroke target must never be measured. */
+export function isSensitiveTarget(target: EventTarget | null): boolean {
+  if (typeof Element === 'undefined' || !(target instanceof Element)) return false;
+  if (target.closest('[data-private],[data-sensitive],[data-biometrics="off"]')) {
+    return true;
+  }
+  if (target instanceof HTMLInputElement) {
+    const type = (target.type || '').toLowerCase();
+    if (type === 'password' || type === 'hidden') return true;
+    if (SENSITIVE_AUTOCOMPLETE.test(target.autocomplete || '')) return true;
+    const label = [
+      target.name,
+      target.id,
+      target.getAttribute('aria-label') ?? '',
+      target.placeholder,
+    ].join(' ');
+    if (SENSITIVE_LABEL.test(label)) return true;
+  }
   return false;
 }
 
-export function useTypingBiometrics(): void {
-  const updateMetrics = useBiometricsStore((s) => s.updateMetrics);
+type KeyClass = 'printable' | 'correction' | null;
 
-  const bufferRef = useRef<KeyEvent[]>([]);
-  const sessionStartRef = useRef<number>(Date.now());
-  const lastKeyTimeRef = useRef<number | null>(null);
+/** Classify a key without retaining it. Modifier chords / nav keys → null. */
+function classify(e: KeyboardEvent): KeyClass {
+  if (e.isComposing) return null;
+  if (e.ctrlKey || e.metaKey || e.altKey) return null;
+  const key = e.key;
+  if (key === 'Backspace' || key === 'Delete') return 'correction';
+  if (key === 'Enter' || (typeof key === 'string' && key.length === 1)) return 'printable';
+  return null;
+}
 
+/**
+ * Mount once (via <TypingTracker />). When `enabled` is false nothing is
+ * attached and no data is collected.
+ */
+export function useTypingBiometrics(enabled = true): void {
   useEffect(() => {
-    sessionStartRef.current = Date.now();
+    if (!enabled || typeof window === 'undefined') return;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.repeat) return; // ignore auto-repeat held keys
-      if (isEditableTarget(e.target)) return;
+    activeTrackers++;
+    const buffer: KeystrokeSample[] = [];
+    let queue: KeystrokeSample[] = [];
+    const awaitingKeyUp: KeystrokeSample[] = [];
+    let rafId = 0;
+    let sessionStart: number | null = null;
+
+    const flush = () => {
+      rafId = 0;
+      if (queue.length === 0) return;
+      const batch = queue;
+      queue = [];
+      for (const sample of batch) {
+        buffer.push(sample);
+        if (sample.printable) {
+          recentKeystrokeTimes.push(sample.t);
+          if (recentKeystrokeTimes.length > MAX_RECENT_TIMES) {
+            recentKeystrokeTimes.splice(0, recentKeystrokeTimes.length - MAX_RECENT_TIMES);
+          }
+        }
+        keystrokeListeners.forEach((listener) => {
+          try {
+            listener(sample.t);
+          } catch {
+            /* a listener failing must not break tracking */
+          }
+        });
+      }
+      // Prune to the rolling window + hard cap.
+      const cutoff = Date.now() - TYPING_WINDOW_MS;
+      let drop = 0;
+      while (drop < buffer.length && buffer[drop].t < cutoff) drop++;
+      if (drop > 0) buffer.splice(0, drop);
+      if (buffer.length > MAX_BUFFER) buffer.splice(0, buffer.length - MAX_BUFFER);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      if (isSensitiveTarget(e.target)) return;
+      const cls = classify(e);
+      if (cls === null) return;
 
       const t = Date.now();
-      const key = e.key;
-      const correction = key === 'Backspace' || key === 'Delete';
-      // Printable = single-char keys (letters, digits, punctuation, space).
-      const printable = key.length === 1 || key === 'Enter';
-
-      const buf = bufferRef.current;
-      buf.push({ t, correction, printable });
-      if (buf.length > MAX_BUFFER) {
-        buf.splice(0, buf.length - MAX_BUFFER);
+      if (sessionStart === null || (lastKeystrokeAt !== null && t - lastKeystrokeAt > SESSION_RESET_MS)) {
+        sessionStart = t;
       }
-      lastKeyTimeRef.current = t;
+      lastKeystrokeAt = t;
+
+      const sample: KeystrokeSample = {
+        t,
+        correction: cls === 'correction',
+        printable: cls === 'printable',
+        dwell: null,
+      };
+      queue.push(sample);
+      awaitingKeyUp.push(sample);
+      if (awaitingKeyUp.length > 12) awaitingKeyUp.shift();
+      if (rafId === 0) rafId = window.requestAnimationFrame(flush);
     };
 
-    window.addEventListener('keydown', handleKeyDown, { passive: true });
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (isSensitiveTarget(e.target)) return;
+      if (classify(e) === null) return;
+      // Pair with the oldest pending keydown (FIFO) — no key identity needed.
+      const sample = awaitingKeyUp.shift();
+      if (!sample) return;
+      const dwell = Date.now() - sample.t;
+      if (dwell >= 0 && dwell < 2_000) sample.dwell = dwell;
+    };
 
-    const interval = setInterval(() => {
+    const listenerOpts: AddEventListenerOptions = { capture: true, passive: true };
+    window.addEventListener('keydown', onKeyDown, listenerOpts);
+    window.addEventListener('keyup', onKeyUp, listenerOpts);
+
+    const interval = window.setInterval(() => {
+      flush();
       const now = Date.now();
-      const cutoff = now - ROLLING_WINDOW_MS;
-      const buf = bufferRef.current;
+      if (lastKeystrokeAt === null || now - lastKeystrokeAt > ACTIVE_TYPING_MS) return;
 
-      // Drop events outside the rolling window.
-      let firstInWindow = 0;
-      while (firstInWindow < buf.length && buf[firstInWindow].t < cutoff) {
-        firstInWindow++;
-      }
-      if (firstInWindow > 0) buf.splice(0, firstInWindow);
+      const result = computeTypingMetrics(buffer, now);
+      if (!result) return;
 
-      const events = buf;
-      if (events.length < 2) {
-        // Not enough signal this window — skip to avoid noisy snapshots.
-        return;
-      }
+      // Fatigue clock: continuous study time from the decay engine when it
+      // is running (breaks reset it); otherwise this tracker's own session.
+      const decay = useDecayStore.getState();
+      const ownSession = sessionStart === null ? 0 : (now - sessionStart) / 60_000;
+      const sessionMinutes =
+        decay.enabled && decay.continuousStudyMinutes > 0
+          ? decay.continuousStudyMinutes
+          : ownSession;
 
-      // ── WPM (printable chars in window / 5, scaled to per-minute) ──
-      const printableCount = events.reduce(
-        (n, ev) => (ev.printable ? n + 1 : n),
-        0
-      );
-      const windowSpanMs = now - events[0].t || ROLLING_WINDOW_MS;
-      const minutes = Math.max(windowSpanMs / 60_000, 1 / 60);
-      const wpm = printableCount / CHARS_PER_WORD / minutes;
-
-      // ── Error rate (corrections per 100 keystrokes) ──
-      const corrections = events.reduce(
-        (n, ev) => (ev.correction ? n + 1 : n),
-        0
-      );
-      const errorRate = (corrections / events.length) * 100;
-
-      // ── Inter-keystroke intervals ──
-      const intervals: number[] = [];
-      for (let i = 1; i < events.length; i++) {
-        intervals.push(events[i].t - events[i - 1].t);
-      }
-      const pauseAvg =
-        intervals.reduce((a, b) => a + b, 0) / (intervals.length || 1);
-
-      // Std-dev of intervals → rhythm consistency.
-      const mean = pauseAvg;
-      const variance =
-        intervals.reduce((a, b) => a + (b - mean) ** 2, 0) /
-        (intervals.length || 1);
-      const rhythmScore = Math.sqrt(variance);
-
-      // Long-pause frequency (interruptions per minute).
-      const longPauses = intervals.reduce(
-        (n, gap) => (gap >= LONG_PAUSE_MS ? n + 1 : n),
-        0
-      );
-      const pauseFrequency = longPauses / minutes;
-
-      const metrics: TypingMetrics = {
-        wpm: Math.round(wpm),
-        errorRate: Math.round(errorRate),
-        pauseAvg: Math.round(pauseAvg),
-        rhythmScore: Math.round(rhythmScore),
-      };
-
-      const sessionMinutes = (now - sessionStartRef.current) / 60_000;
-      const state = calcBiometricState(metrics, sessionMinutes, pauseFrequency);
-
-      updateMetrics(state, metrics);
-    }, UPDATE_INTERVAL_MS);
+      const state = calcBiometricState(result.metrics, sessionMinutes, result.pauseFrequency);
+      useBiometricsStore.getState().updateMetrics(state, result.metrics);
+      evaluateBiometricAchievements(now);
+    }, BIOMETRIC_UPDATE_MS);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      clearInterval(interval);
+      window.removeEventListener('keydown', onKeyDown, listenerOpts);
+      window.removeEventListener('keyup', onKeyUp, listenerOpts);
+      window.clearInterval(interval);
+      if (rafId !== 0) window.cancelAnimationFrame(rafId);
+      buffer.length = 0;
+      queue = [];
+      awaitingKeyUp.length = 0;
+      activeTrackers = Math.max(0, activeTrackers - 1);
+      if (activeTrackers === 0) recentKeystrokeTimes.length = 0;
     };
-  }, [updateMetrics]);
+  }, [enabled]);
 }

@@ -1,108 +1,402 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — NEXUS AI Proxy Route (Gemini)
+// WARRIOR OS — NEXUS AI Proxy Route (Gemini, free AI Studio tier)
 //
-// Why a server route at all? Two reasons:
-// 1. Hides the Gemini API key from the browser (NEXT_PUBLIC_* would leak it).
-// 2. Lets us inject the system prompt + OS context server-side so the client
-//    can't tamper with NEXUS's personality.
+// Why a server route at all?
+// 1. Keeps the Gemini API key on the server (read per request, sent to
+//    Google in a header, never echoed in a response or a log line).
+// 2. Injects the NEXUS persona + output protocol server-side so the
+//    client cannot tamper with NEXUS's personality.
+// 3. Hardens the endpoint: body validation, size caps, per-IP rate
+//    limit, upstream timeout and structured JSON output.
+//
+// POST /api/ai  { message, history?, context? }
+//   200 { reply, command, actions, model }
+//   400 { error, reply }            malformed / oversized body
+//   429 { error, reply, retryAfter } local or Gemini rate limit
+//   502 { error, reply }            upstream failure / timeout
+//   503 { error, reply }            no API key configured
+// GET  /api/ai → { configured, model }  (never includes the key)
 // ═══════════════════════════════════════════════════════════
 
 import { NextResponse } from 'next/server';
 import {
+  NEXUS_OUTPUT_PROTOCOL,
   NEXUS_SYSTEM_PROMPT,
   renderContextBlock,
 } from '@/data/nexus-personality';
-import type { NexusContext } from '@/types/nexus';
+import {
+  NEXUS_GEMINI_MODEL,
+  NEXUS_LIMITS,
+  NEXUS_RESPONSE_SCHEMA,
+  sanitizeWireAction,
+  sanitizeWireActions,
+} from '@/lib/nexus/protocol';
+import type { NexusChatTurn, NexusContext, NexusWireAction } from '@/types/nexus';
 
 // Edge runtime — fast cold start, low latency for a chat endpoint.
 export const runtime = 'edge';
 
-// Free-tier fast model. Stable + cheap enough to leave on indefinitely.
-const GEMINI_MODEL = 'gemini-2.0-flash';
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${NEXUS_GEMINI_MODEL}:generateContent`;
+const UPSTREAM_TIMEOUT_MS = 20_000;
+const RATE_LIMIT_REQUESTS = 20;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_TRACKED = 5_000;
 
-interface ChatTurn {
-  role: 'user' | 'nexus';
-  content: string;
+// ─── Per-IP sliding-window rate limit (in-memory, per instance) ───
+
+const rateBuckets = new Map<string, number[]>();
+
+function clientKey(req: Request): string {
+  const forwarded = req.headers.get('x-forwarded-for');
+  const ip =
+    forwarded?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip')?.trim() ||
+    req.headers.get('cf-connecting-ip')?.trim() ||
+    'anonymous';
+  return ip.slice(0, 64);
 }
 
-interface RequestBody {
-  /** Most recent user message — required */
-  message: string;
-  /** Up to 8 previous turns for short-term context */
-  history?: ChatTurn[];
-  /** Live OS state */
-  context?: Partial<NexusContext>;
+function takeRateToken(key: string, now: number): { ok: true } | { ok: false; retryAfterSec: number } {
+  const cutoff = now - RATE_LIMIT_WINDOW_MS;
+  const recent = (rateBuckets.get(key) ?? []).filter((t) => t > cutoff);
+  if (recent.length >= RATE_LIMIT_REQUESTS) {
+    rateBuckets.set(key, recent);
+    const retryAfterSec = Math.max(1, Math.ceil((recent[0] + RATE_LIMIT_WINDOW_MS - now) / 1000));
+    return { ok: false, retryAfterSec };
+  }
+  recent.push(now);
+  rateBuckets.set(key, recent);
+  if (rateBuckets.size > RATE_LIMIT_MAX_TRACKED) {
+    for (const [k, stamps] of rateBuckets) {
+      if (stamps.every((t) => t <= cutoff)) rateBuckets.delete(k);
+    }
+  }
+  return { ok: true };
 }
 
-const DEFAULT_CONTEXT: NexusContext = {
-  openApps: [],
-  currentWorkspace: 'study',
-  timeOfDay: 'morning',
-  userLevel: 1,
-  currentStreak: 0,
-  idleMinutes: 0,
-  studyHoursToday: 0,
-};
+// ─── Responses ───
+
+function json(status: number, body: Record<string, unknown>, headers: Record<string, string> = {}) {
+  return NextResponse.json(body, {
+    status,
+    headers: { 'Cache-Control': 'no-store', ...headers },
+  });
+}
+
+function badRequest(error: string, reply: string) {
+  return json(400, { error, reply });
+}
+
+/** Treat empty values and `.env` placeholders ("your_...") as "no key". */
+function usableKey(raw: string | undefined): string | null {
+  const key = raw?.trim();
+  if (!key || key.toLowerCase().startsWith('your_')) return null;
+  return key;
+}
+
+/** Remove anything key-shaped from upstream text before it reaches a response. */
+function scrubSecrets(text: string, apiKey: string): string {
+  return text
+    .split(apiKey)
+    .join('[redacted]')
+    .replace(/AIza[0-9A-Za-z_-]{20,}/g, '[redacted]')
+    .replace(/key=[^&\s"']+/gi, 'key=[redacted]')
+    .slice(0, 240);
+}
+
+// ─── Request validation ───
+
+type ParsedBody =
+  | { ok: true; message: string; history: NexusChatTurn[]; context: Partial<NexusContext> | null }
+  | { ok: false; error: string; reply: string };
+
+const TIMES_OF_DAY: ReadonlyArray<NexusContext['timeOfDay']> = [
+  'morning',
+  'afternoon',
+  'evening',
+  'night',
+  'late-night',
+];
+
+function finiteNumber(value: unknown, min: number, max: number): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  return Math.min(max, Math.max(min, value));
+}
+
+function shortString(value: unknown, max: number): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, max) : undefined;
+}
+
+function sanitizeContext(raw: Record<string, unknown>): Partial<NexusContext> {
+  const ctx: Partial<NexusContext> = {};
+  if (Array.isArray(raw.openApps)) {
+    ctx.openApps = raw.openApps
+      .filter((a): a is string => typeof a === 'string')
+      .map((a) => a.slice(0, 40))
+      .slice(0, 12);
+  }
+  const workspace = shortString(raw.currentWorkspace, 20);
+  if (workspace) ctx.currentWorkspace = workspace;
+  if (typeof raw.timeOfDay === 'string' && (TIMES_OF_DAY as readonly string[]).includes(raw.timeOfDay)) {
+    ctx.timeOfDay = raw.timeOfDay as NexusContext['timeOfDay'];
+  }
+  const level = finiteNumber(raw.userLevel, 1, 100);
+  if (level !== undefined) ctx.userLevel = Math.round(level);
+  const streak = finiteNumber(raw.currentStreak, 0, 10_000);
+  if (streak !== undefined) ctx.currentStreak = Math.round(streak);
+  const idle = finiteNumber(raw.idleMinutes, 0, 100_000);
+  if (idle !== undefined) ctx.idleMinutes = Math.round(idle);
+  const hours = finiteNumber(raw.studyHoursToday, 0, 24);
+  if (hours !== undefined) ctx.studyHoursToday = hours;
+  const lastQuiz = finiteNumber(raw.lastQuizScore, 0, 100);
+  if (lastQuiz !== undefined) ctx.lastQuizScore = lastQuiz;
+  const localTime = shortString(raw.localTime, 16);
+  if (localTime) ctx.localTime = localTime;
+  const summary = shortString(raw.summary, NEXUS_LIMITS.contextChars);
+  if (summary) ctx.summary = summary;
+  return ctx;
+}
+
+function parseBody(raw: unknown): ParsedBody {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ok: false, error: 'invalid_body', reply: 'Request ka format galat hai.' };
+  }
+  const body = raw as Record<string, unknown>;
+
+  if (typeof body.message !== 'string' || body.message.trim().length === 0) {
+    return { ok: false, error: 'missing_message', reply: 'Kuch likh to sahi.' };
+  }
+  const message = body.message.trim();
+  if (message.length > NEXUS_LIMITS.messageChars) {
+    return {
+      ok: false,
+      error: 'message_too_long',
+      reply: `Message bahut lamba hai — max ${NEXUS_LIMITS.messageChars} characters.`,
+    };
+  }
+
+  let history: NexusChatTurn[] = [];
+  if (body.history !== undefined) {
+    if (!Array.isArray(body.history)) {
+      return { ok: false, error: 'invalid_history', reply: 'Chat history ka format galat hai.' };
+    }
+    for (const turn of body.history) {
+      if (
+        !turn ||
+        typeof turn !== 'object' ||
+        ((turn as NexusChatTurn).role !== 'user' && (turn as NexusChatTurn).role !== 'nexus') ||
+        typeof (turn as NexusChatTurn).content !== 'string'
+      ) {
+        return { ok: false, error: 'invalid_history', reply: 'Chat history ka format galat hai.' };
+      }
+    }
+    history = (body.history as NexusChatTurn[])
+      .slice(-NEXUS_LIMITS.historyTurns)
+      .map((t) => ({ role: t.role, content: t.content.slice(0, NEXUS_LIMITS.historyTurnChars) }))
+      .filter((t) => t.content.trim().length > 0);
+  }
+
+  let context: Partial<NexusContext> | null = null;
+  if (body.context !== undefined && body.context !== null) {
+    if (typeof body.context !== 'object' || Array.isArray(body.context)) {
+      return { ok: false, error: 'invalid_context', reply: 'OS context ka format galat hai.' };
+    }
+    if (JSON.stringify(body.context).length > NEXUS_LIMITS.contextChars) {
+      return {
+        ok: false,
+        error: 'context_too_large',
+        reply: `OS context ${NEXUS_LIMITS.contextChars} characters se bada hai.`,
+      };
+    }
+    context = sanitizeContext(body.context as Record<string, unknown>);
+  }
+
+  return { ok: true, message, history, context };
+}
+
+// ─── Gemini payload + response ───
+
+interface GeminiPart {
+  text?: string;
+  thought?: boolean;
+}
+
+interface GeminiContent {
+  role: 'user' | 'model';
+  parts: GeminiPart[];
+}
+
+interface GeminiResponse {
+  candidates?: Array<{ content?: { parts?: GeminiPart[] }; finishReason?: string }>;
+  promptFeedback?: { blockReason?: string };
+}
+
+function buildContents(history: NexusChatTurn[], message: string, contextBlock: string): GeminiContent[] {
+  const contents: GeminiContent[] = [];
+  for (const turn of history) {
+    const role: GeminiContent['role'] = turn.role === 'nexus' ? 'model' : 'user';
+    if (contents.length === 0 && role === 'model') continue; // conversations must open with the user
+    const last = contents[contents.length - 1];
+    if (last && last.role === role) last.parts.push({ text: turn.content });
+    else contents.push({ role, parts: [{ text: turn.content }] });
+  }
+  const finalParts: GeminiPart[] = contextBlock ? [{ text: contextBlock }, { text: message }] : [{ text: message }];
+  const last = contents[contents.length - 1];
+  if (last && last.role === 'user') last.parts.push(...finalParts);
+  else contents.push({ role: 'user', parts: finalParts });
+  return contents;
+}
+
+interface StructuredReply {
+  reply: string;
+  command: NexusWireAction | null;
+  actions: NexusWireAction[];
+}
+
+function clipReply(text: string): string {
+  const trimmed = text.trim();
+  return trimmed.length > NEXUS_LIMITS.replyChars ? `${trimmed.slice(0, NEXUS_LIMITS.replyChars - 1)}…` : trimmed;
+}
+
+/** Recover the "reply" string from JSON that was cut off (MAX_TOKENS). */
+function salvageReply(text: string): string | null {
+  const match = /"reply"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(text);
+  if (!match) return null;
+  let body = match[1];
+  for (let i = 0; i < 3; i++) {
+    try {
+      return JSON.parse(`"${body}"`) as string;
+    } catch {
+      body = body.slice(0, -1); // drop a dangling escape and retry
+    }
+  }
+  return null;
+}
+
+function extractStructuredReply(data: GeminiResponse): StructuredReply {
+  const empty: StructuredReply = { reply: '', command: null, actions: [] };
+  const candidate = data.candidates?.[0];
+  if (!candidate) {
+    return {
+      ...empty,
+      reply: data.promptFeedback?.blockReason
+        ? 'Ye message safety filter mein atak gaya. Dusre shabdon mein pooch.'
+        : 'NEXUS chup ho gaya. Dobara pooch.',
+    };
+  }
+
+  const text = (candidate.content?.parts ?? [])
+    .filter((p) => typeof p.text === 'string' && !p.thought)
+    .map((p) => p.text)
+    .join('')
+    .trim();
+
+  if (!text) {
+    return {
+      ...empty,
+      reply:
+        candidate.finishReason === 'SAFETY'
+          ? 'Iska jawab safety filter ne rok diya. Sawaal rephrase kar.'
+          : 'NEXUS chup ho gaya. Dobara pooch.',
+    };
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const record = parsed as Record<string, unknown>;
+      const reply = typeof record.reply === 'string' ? clipReply(record.reply) : '';
+      if (reply) {
+        return {
+          reply,
+          command: sanitizeWireAction(record.command),
+          actions: sanitizeWireActions(record.actions),
+        };
+      }
+    }
+  } catch {
+    const salvaged = salvageReply(text);
+    if (salvaged) return { ...empty, reply: clipReply(`${salvaged}…`) };
+    // Model ignored JSON mode — show the raw text rather than nothing.
+    if (!text.startsWith('{')) return { ...empty, reply: clipReply(text) };
+  }
+  return { ...empty, reply: 'NEXUS ka jawab samajh nahi aaya. Dobara pooch.' };
+}
+
+// ─── Handlers ───
+
+export async function GET() {
+  // Key read at request time, inside the handler; only a boolean leaves the server.
+  const apiKey = usableKey(process.env.GEMINI_API_KEY ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+  return json(200, { configured: apiKey !== null, model: NEXUS_GEMINI_MODEL });
+}
 
 export async function POST(req: Request) {
-  // Read key at request time (Edge env semantics) instead of module init,
-  // so a swapped .env doesn't require a server restart.
-  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-  if (!apiKey || apiKey === 'your_gemini_key') {
-    return NextResponse.json(
+  const now = Date.now();
+
+  // 1. Rate limit (cheap, before any work).
+  const limit = takeRateToken(clientKey(req), now);
+  if (!limit.ok) {
+    return json(
+      429,
       {
-        error: 'gemini_key_missing',
-        reply:
-          'NEXUS offline hai. .env.local mein NEXT_PUBLIC_GEMINI_API_KEY set kar — aistudio.google.com se free key mil jaayegi.',
+        error: 'rate_limited',
+        retryAfter: limit.retryAfterSec,
+        reply: `Thoda ruk — ek minute mein max ${RATE_LIMIT_REQUESTS} messages. ${limit.retryAfterSec}s baad try kar.`,
       },
-      { status: 503 }
+      { 'Retry-After': String(limit.retryAfterSec) }
     );
   }
 
-  let body: RequestBody;
+  // 2. Key — read inside the handler so a swapped env needs no rebuild of module state.
+  const apiKey = usableKey(process.env.GEMINI_API_KEY ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+  if (!apiKey) {
+    return json(503, {
+      error: 'gemini_key_missing',
+      reply:
+        'NEXUS AI offline hai — server pe GEMINI_API_KEY set nahi hai (aistudio.google.com se free key milti hai). Local commands phir bhi chalte hain: study mode, open notes, DBMS quiz, pomodoro.',
+    });
+  }
+
+  // 3. Body: size cap, JSON parse, schema validation.
+  const declaredLength = Number(req.headers.get('content-length') ?? '0');
+  if (Number.isFinite(declaredLength) && declaredLength > NEXUS_LIMITS.bodyChars) {
+    return badRequest('body_too_large', 'Request bahut badi hai.');
+  }
+  let rawText: string;
   try {
-    body = await req.json();
+    rawText = await req.text();
   } catch {
-    return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
+    return badRequest('invalid_body', 'Request body padh nahi paaya.');
   }
-
-  if (!body.message || typeof body.message !== 'string') {
-    return NextResponse.json({ error: 'missing_message' }, { status: 400 });
+  if (rawText.length > NEXUS_LIMITS.bodyChars) {
+    return badRequest('body_too_large', 'Request bahut badi hai.');
   }
+  let rawBody: unknown;
+  try {
+    rawBody = JSON.parse(rawText);
+  } catch {
+    return badRequest('invalid_json', 'Request JSON galat hai.');
+  }
+  const parsed = parseBody(rawBody);
+  if (!parsed.ok) return badRequest(parsed.error, parsed.reply);
 
-  // Cap message + history length to keep call cost predictable.
-  const message = body.message.slice(0, 2000);
-  const history = (body.history ?? []).slice(-8);
-  const context: NexusContext = { ...DEFAULT_CONTEXT, ...(body.context ?? {}) };
-
-  // Gemini's `contents` array is an alternating user/model conversation.
-  // System instruction goes in its own top-level field, not in contents.
-  const contents = [
-    ...history.map((t) => ({
-      role: t.role === 'nexus' ? 'model' : 'user',
-      parts: [{ text: t.content }],
-    })),
-    {
-      role: 'user',
-      parts: [
-        { text: renderContextBlock(context) },
-        { text: message },
-      ],
-    },
-  ];
-
+  // 4. Upstream call with a hard timeout.
+  const contextBlock = parsed.context ? renderContextBlock(parsed.context) : '';
   const payload = {
-    system_instruction: { parts: [{ text: NEXUS_SYSTEM_PROMPT }] },
-    contents,
+    systemInstruction: { parts: [{ text: `${NEXUS_SYSTEM_PROMPT}\n\n${NEXUS_OUTPUT_PROTOCOL}` }] },
+    contents: buildContents(parsed.history, parsed.message, contextBlock),
     generationConfig: {
       temperature: 0.7,
-      topK: 40,
       topP: 0.95,
-      maxOutputTokens: 512,
+      maxOutputTokens: 2048,
+      responseMimeType: 'application/json',
+      responseSchema: NEXUS_RESPONSE_SCHEMA,
+      // Flash: no hidden "thinking" tokens — faster replies, whole budget for the answer.
+      thinkingConfig: { thinkingBudget: 0 },
     },
-    // Loosen safety only to the standard "block none of the obvious harms"
-    // baseline — NEXUS is a study assistant, not a content moderator.
     safetySettings: [
       { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
       { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
@@ -111,51 +405,82 @@ export async function POST(req: Request) {
     ],
   };
 
-  let geminiResp: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
   try {
-    geminiResp = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    let upstream: Response;
+    try {
+      upstream = await fetch(GEMINI_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } catch {
+      const timedOut = controller.signal.aborted;
+      return json(502, {
+        error: timedOut ? 'upstream_timeout' : 'upstream_unreachable',
+        reply: timedOut
+          ? 'Gemini ne 20 second mein jawab nahi diya. Dobara try kar.'
+          : 'Gemini tak pahunch nahi paaya. Network check kar.',
+      });
+    }
+
+    if (!upstream.ok) {
+      const errorText = await upstream.text().catch(() => '');
+      let upstreamMessage = '';
+      try {
+        const parsedError = JSON.parse(errorText) as { error?: { message?: string } };
+        upstreamMessage = parsedError.error?.message ?? '';
+      } catch {
+        upstreamMessage = errorText;
+      }
+      const detail = scrubSecrets(upstreamMessage, apiKey);
+
+      if (upstream.status === 429) {
+        return json(
+          429,
+          {
+            error: 'upstream_rate_limited',
+            retryAfter: 60,
+            reply: 'Gemini free-tier limit hit ho gayi. Ek minute ruk, fir pooch.',
+          },
+          { 'Retry-After': '60' }
+        );
+      }
+      const keyProblem =
+        upstream.status === 401 || upstream.status === 403 || /api key/i.test(upstreamMessage);
+      return json(502, {
+        error: 'upstream_error',
+        status: upstream.status,
+        detail,
+        reply: keyProblem
+          ? 'Gemini ne API key reject kar di. Server ka GEMINI_API_KEY check kar.'
+          : 'NEXUS abhi reply nahi de paaya. Dobara try kar.',
+      });
+    }
+
+    let data: GeminiResponse;
+    try {
+      data = (await upstream.json()) as GeminiResponse;
+    } catch {
+      const timedOut = controller.signal.aborted;
+      return json(502, {
+        error: timedOut ? 'upstream_timeout' : 'upstream_bad_response',
+        reply: timedOut
+          ? 'Gemini ne 20 second mein jawab nahi diya. Dobara try kar.'
+          : 'Gemini ka response toota hua aaya. Dobara try kar.',
+      });
+    }
+
+    const structured = extractStructuredReply(data);
+    return json(200, {
+      reply: structured.reply,
+      command: structured.command,
+      actions: structured.actions,
+      model: NEXUS_GEMINI_MODEL,
     });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'unknown';
-    return NextResponse.json(
-      { error: 'fetch_failed', detail: msg, reply: 'Network gir gaya. Thodi der mein try kar.' },
-      { status: 502 }
-    );
+  } finally {
+    clearTimeout(timer);
   }
-
-  if (!geminiResp.ok) {
-    const text = await geminiResp.text().catch(() => '');
-    return NextResponse.json(
-      {
-        error: 'gemini_error',
-        status: geminiResp.status,
-        detail: text.slice(0, 500),
-        reply:
-          geminiResp.status === 429
-            ? 'Free tier rate limit hit. 1 min wait kar.'
-            : 'NEXUS abhi reply nahi de paaya. Dobara try kar.',
-      },
-      { status: geminiResp.status === 429 ? 429 : 502 }
-    );
-  }
-
-  const data: unknown = await geminiResp.json().catch(() => ({}));
-  const reply = extractReply(data);
-
-  return NextResponse.json({ reply });
-}
-
-/**
- * Gemini's response envelope is verbose. Pull out the first text candidate
- * defensively — schemas drift across SDK versions.
- */
-function extractReply(data: unknown): string {
-  if (!data || typeof data !== 'object') return 'NEXUS chup ho gaya.';
-  const d = data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-  const text = d.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (typeof text !== 'string' || text.trim().length === 0) return 'NEXUS chup ho gaya.';
-  return text.trim();
 }

@@ -10,8 +10,15 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { FORMULA_CARDS, getFormulaSubjects, getFormulasBySubject } from '@/data/formulas';
 
-function FormulaCardsInner() {
-  const [subject, setSubject] = useState<string | null>(null);
+interface FormulaCardsProps {
+  /** Subject to filter by on open, e.g. from a NEXUS deep link (ignored if it has no cards). */
+  initialSubject?: string | null;
+}
+
+function FormulaCardsInner({ initialSubject = null }: FormulaCardsProps) {
+  const [subject, setSubject] = useState<string | null>(() =>
+    initialSubject && getFormulasBySubject(initialSubject).length > 0 ? initialSubject : null
+  );
   const [cardIndex, setCardIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
 

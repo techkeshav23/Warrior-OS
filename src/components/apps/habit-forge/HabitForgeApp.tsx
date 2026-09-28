@@ -5,17 +5,21 @@
 
 'use client';
 
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, useEffect, memo } from 'react';
 import { cn } from '@/lib/utils';
+import { utcDayKey } from '@/components/achievements/award';
+import { currentStreak } from '@/components/achievements/day-streak';
+import { collectStudyDays } from '@/components/achievements/study-streak';
 import { HabitGrid } from './HabitGrid';
 import { RoutineChecklist } from './RoutineChecklist';
+import { rewardHabitCompletion } from './streak';
 
 export interface Habit {
   id: string;
   name: string;
   icon: string;
   color: string;
-  completions: string[]; // ISO date strings
+  completions: string[]; // UTC day keys ('YYYY-MM-DD')
 }
 
 export interface RoutineItem {
@@ -59,11 +63,33 @@ const PRESET_HABITS: { name: string; icon: string; color: string }[] = [
   { name: 'Drank 3L water', icon: '💧', color: 'sky' },
 ];
 
+/** How long the "+XP" line stays visible after checking a habit. */
+const REWARD_VISIBLE_MS = 3500;
+
 type Tab = 'habits' | 'routine';
+
+interface RewardNotice {
+  text: string;
+  nonce: number;
+}
 
 function HabitForgeAppInner() {
   const [habits, setHabits] = useState<Habit[]>(loadHabits);
   const [activeTab, setActiveTab] = useState<Tab>('habits');
+  const [reward, setReward] = useState<RewardNotice | null>(null);
+  // Study streak (habits, routines, quizzes, notes, study time) — refreshed on each check-off.
+  const [streak, setStreak] = useState(() => currentStreak(collectStudyDays()));
+
+  // Hide the reward line after a moment (cleared from a timer, never synchronously).
+  useEffect(() => {
+    if (!reward) return;
+    const id = setTimeout(() => setReward(null), REWARD_VISIBLE_MS);
+    return () => clearTimeout(id);
+  }, [reward]);
+
+  const refreshStreak = useCallback(() => {
+    setStreak(currentStreak(collectStudyDays()));
+  }, []);
 
   const addHabit = useCallback((preset: typeof PRESET_HABITS[0]) => {
     const habit: Habit = {
@@ -79,26 +105,49 @@ function HabitForgeAppInner() {
   }, [habits]);
 
   const toggleHabitToday = useCallback((habitId: string) => {
-    const today = new Date().toISOString().split('T')[0];
-    const updated = habits.map((h) => {
-      if (h.id !== habitId) return h;
-      const has = h.completions.includes(today);
-      return {
-        ...h,
-        completions: has
-          ? h.completions.filter((d) => d !== today)
-          : [...h.completions, today],
-      };
-    });
+    const today = utcDayKey();
+    const target = habits.find((h) => h.id === habitId);
+    if (!target) return;
+    const wasDone = target.completions.includes(today);
+    const updated = habits.map((h) =>
+      h.id !== habitId
+        ? h
+        : {
+            ...h,
+            completions: wasDone
+              ? h.completions.filter((d) => d !== today)
+              : [...h.completions, today],
+          }
+    );
     setHabits(updated);
     saveHabits(updated);
-  }, [habits]);
+
+    if (wasDone) {
+      refreshStreak();
+      return;
+    }
+    // Habit XP (once per habit per day), then the study streak: streak
+    // achievements + the once-a-day streak bonus.
+    const result = rewardHabitCompletion(habitId);
+    setStreak(result.streak);
+    const parts: string[] = [];
+    if (result.habitXp > 0) parts.push(`+${result.habitXp} XP`);
+    if (result.streakBonus > 0) {
+      parts.push(`🔥 ${result.streak}-day streak bonus +${result.streakBonus} XP`);
+    }
+    if (parts.length > 0) {
+      setReward((prev) => ({ text: parts.join(' · '), nonce: (prev?.nonce ?? 0) + 1 }));
+    }
+  }, [habits, refreshStreak]);
 
   const removeHabit = useCallback((habitId: string) => {
     const updated = habits.filter((h) => h.id !== habitId);
     setHabits(updated);
     saveHabits(updated);
-  }, [habits]);
+    refreshStreak();
+  }, [habits, refreshStreak]);
+
+  const today = utcDayKey();
 
   return (
     <div className="flex flex-col h-full bg-black/30">
@@ -126,7 +175,22 @@ function HabitForgeAppInner() {
           <>
             {/* Today's habits */}
             <div className="space-y-2">
-              <h3 className="text-sm font-bold text-white">Today&apos;s Habits</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white">Today&apos;s Habits</h3>
+                {streak > 0 && (
+                  <span
+                    className="text-xs font-semibold text-orange-300"
+                    title="Days in a row with study activity: quizzes, revisions, planner tasks, habits, routines, notes or 10+ minutes in study apps"
+                  >
+                    🔥 {streak}-day streak
+                  </span>
+                )}
+              </div>
+              {reward && (
+                <p key={reward.nonce} role="status" className="text-xs text-green-300">
+                  {reward.text}
+                </p>
+              )}
               {habits.length === 0 && (
                 <p className="text-xs text-white/40">
                   Add some habits to track!
@@ -134,31 +198,32 @@ function HabitForgeAppInner() {
               )}
               <div className="grid grid-cols-2 gap-2">
                 {habits.map((habit) => {
-                  const today = new Date().toISOString().split('T')[0];
                   const done = habit.completions.includes(today);
                   return (
-                    <button
-                      key={habit.id}
-                      onClick={() => toggleHabitToday(habit.id)}
-                      className={cn(
-                        'p-3 rounded-lg border text-left transition-all group relative',
-                        done
-                          ? 'bg-green-500/20 border-green-500/30'
-                          : 'bg-white/5 border-white/10 hover:bg-white/10'
-                      )}
-                    >
-                      <span className="text-lg">{habit.icon}</span>
-                      <p className={cn('text-xs mt-1', done ? 'text-green-300' : 'text-white/70')}>
-                        {habit.name}
-                      </p>
-                      {done && <span className="absolute top-2 right-2 text-green-400 text-xs">✓</span>}
+                    <div key={habit.id} className="relative group">
                       <button
-                        onClick={(e) => { e.stopPropagation(); removeHabit(habit.id); }}
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400/60 hover:text-red-400 text-xs"
+                        onClick={() => toggleHabitToday(habit.id)}
+                        className={cn(
+                          'w-full p-3 rounded-lg border text-left transition-all',
+                          done
+                            ? 'bg-green-500/20 border-green-500/30'
+                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                        )}
+                      >
+                        <span className="text-lg">{habit.icon}</span>
+                        <p className={cn('text-xs mt-1', done ? 'text-green-300' : 'text-white/70')}>
+                          {habit.name}
+                        </p>
+                        {done && <span className="absolute top-2 right-2 text-green-400 text-xs">✓</span>}
+                      </button>
+                      <button
+                        onClick={() => removeHabit(habit.id)}
+                        aria-label={`Remove ${habit.name}`}
+                        className="absolute top-1 right-1 w-5 h-5 rounded bg-black/60 opacity-0 group-hover:opacity-100 text-red-400/70 hover:text-red-400 text-xs"
                       >
                         ×
                       </button>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -188,7 +253,7 @@ function HabitForgeAppInner() {
         )}
 
         {activeTab === 'routine' && (
-          <RoutineChecklist routines={DEFAULT_ROUTINES} />
+          <RoutineChecklist routines={DEFAULT_ROUTINES} onProgress={refreshStreak} />
         )}
       </div>
     </div>

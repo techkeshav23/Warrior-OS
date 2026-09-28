@@ -8,6 +8,8 @@
 import { useState, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { usePendingEventListener } from '@/components/achievements/pending-events';
+import type { GateSubject } from '@/types/gate';
 import { QuizEngine } from './QuizEngine';
 import { PYQBrowser } from './PYQBrowser';
 import { MockTest } from './MockTest';
@@ -15,8 +17,16 @@ import { FormulaCards } from './FormulaCards';
 import { StudyPlanner } from './StudyPlanner';
 import { SkillTree } from './SkillTree';
 import { SpacedRepetition } from './SpacedRepetition';
+import {
+  GATE_APP_IDS,
+  GATE_START_QUIZ_EVENT,
+  parseGateStartQuiz,
+  resolveGateSubject,
+  tabForMode,
+  type GateArenaTab,
+} from './deep-link';
 
-type Tab = 'quiz' | 'pyq' | 'mock' | 'formulas' | 'planner' | 'skill-tree' | 'revision';
+type Tab = GateArenaTab;
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'quiz', label: 'Quiz', icon: '📝' },
@@ -28,8 +38,29 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'planner', label: 'Planner', icon: '📋' },
 ];
 
-function GateArenaAppInner() {
-  const [activeTab, setActiveTab] = useState<Tab>('quiz');
+interface GateArenaAppProps {
+  /** Tab to open on, e.g. 'formulas' for the Flashcards app entry. */
+  initialTab?: Tab;
+}
+
+function GateArenaAppInner({ initialTab = 'quiz' }: GateArenaAppProps) {
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+  // Subject a deep link asked for; preselected in Quiz, Mock Test and Formulas.
+  const [focusSubject, setFocusSubject] = useState<GateSubject | null>(null);
+  // Bumped per deep link so the target tab remounts with the new subject.
+  const [linkNonce, setLinkNonce] = useState(0);
+
+  // 'warrior:gate-start-quiz' (e.g. from NEXUS): jump to the requested mode + subject.
+  usePendingEventListener({
+    eventName: GATE_START_QUIZ_EVENT,
+    parse: parseGateStartQuiz,
+    appIds: GATE_APP_IDS,
+    onEvent: (detail) => {
+      setFocusSubject(resolveGateSubject(detail.subject));
+      setActiveTab(tabForMode(detail.mode));
+      setLinkNonce((n) => n + 1);
+    },
+  });
 
   return (
     <div className="flex h-full bg-black/30">
@@ -53,24 +84,39 @@ function GateArenaAppInner() {
             <span>{tab.label}</span>
           </button>
         ))}
+
+        {focusSubject && (
+          <div className="mt-auto flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-purple-500/30 bg-purple-500/10 text-[11px] text-purple-200">
+            <span className="truncate" title="Preselected by a deep link (NEXUS / terminal)">
+              Focus: {focusSubject}
+            </span>
+            <button
+              onClick={() => setFocusSubject(null)}
+              className="text-purple-300/70 hover:text-purple-100"
+              aria-label="Clear focus subject"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </nav>
 
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeTab}
+            key={`${activeTab}:${linkNonce}`}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
             className="h-full overflow-y-auto"
           >
-            {activeTab === 'quiz' && <QuizEngine />}
+            {activeTab === 'quiz' && <QuizEngine initialSubject={focusSubject} />}
             {activeTab === 'skill-tree' && <SkillTree />}
             {activeTab === 'pyq' && <PYQBrowser />}
-            {activeTab === 'mock' && <MockTest />}
-            {activeTab === 'formulas' && <FormulaCards />}
+            {activeTab === 'mock' && <MockTest initialSubject={focusSubject} />}
+            {activeTab === 'formulas' && <FormulaCards initialSubject={focusSubject} />}
             {activeTab === 'revision' && <SpacedRepetition />}
             {activeTab === 'planner' && <StudyPlanner />}
           </motion.div>

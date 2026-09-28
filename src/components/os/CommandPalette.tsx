@@ -1,146 +1,229 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — CommandPalette Component
-// Spotlight/Ctrl+K command palette
+// Spotlight/Ctrl+K command palette. Apps and quick actions first;
+// anything else is routed through NEXUS intent parsing (natural
+// language → OS actions, e.g. "study mode", "DBMS quiz", "notes on
+// paging", "close terminal", "pomodoro 50"), with "Ask NEXUS" as
+// the final fallback. Matching notes are listed too.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ArrowRight, Sparkles } from 'lucide-react';
+import { Search, ArrowRight, Sparkles, WandSparkles, FileText } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
-import { useNexusStore } from '@/stores/useNexusStore';
-import { useNexusCore } from '@/components/nexus/NexusCore';
+import { useNotificationStore } from '@/stores/useNotificationStore';
+import { commandKey, describeIntent, parseLocalIntent, type LocalIntent } from '@/lib/nexus-intent';
+import {
+  executeNexusCommand,
+  NEXUS_ACHIEVEMENTS,
+  openNexusWindow,
+  sendToNexus,
+  unlockNexusAchievement,
+  type NexusCommandResult,
+} from '@/components/nexus/NexusCore';
+import { findMatchingNotes, loadNotesLite, type NoteLite } from '@/lib/nexus/context';
+import { emitWarriorEvent, WARRIOR_EVENTS } from '@/lib/nexus/events';
+import { openOrFocusApp } from '@/lib/nexus/windows';
 import { cn } from '@/lib/utils';
+import type { NexusCommand } from '@/types/nexus';
 
 interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type CommandKind = 'app' | 'action' | 'nexus' | 'note' | 'ask';
+
 interface CommandItem {
   id: string;
   label: string;
   category: string;
+  kind: CommandKind;
   action: () => void;
-  isNexus?: boolean;
 }
+
+/** Show the outcome of palette-run NEXUS commands as a toast. */
+function toastResults(results: NexusCommandResult[]): void {
+  if (results.length === 0) return;
+  useNotificationStore.getState().addNotification({
+    type: results.every((r) => r.ok) ? 'info' : 'warning',
+    title: 'NEXUS',
+    message: results
+      .map((r) => r.reply)
+      .join(' ')
+      .slice(0, 300),
+    icon: '🧠',
+  });
+}
+
+const QUICK_ACTIONS: Array<{ id: string; label: string; command: NexusCommand }> = [
+  { id: 'study-mode', label: 'Study Mode (GATE + Notes, pomodoro)', command: { type: 'study_mode' } },
+  { id: 'chill-mode', label: 'Chill Mode (music, aurora)', command: { type: 'chill_mode' } },
+  { id: 'quiz', label: 'Start GATE Quiz', command: { type: 'start_quiz', mode: 'quiz' } },
+  { id: 'mock', label: 'Start Mock Test', command: { type: 'start_quiz', mode: 'mock' } },
+  { id: 'flashcards', label: 'Formula Flashcards', command: { type: 'start_quiz', mode: 'flashcards' } },
+  { id: 'pomodoro', label: 'Start Pomodoro (25 min)', command: { type: 'start_pomodoro' } },
+  { id: 'pomodoro-stop', label: 'Stop Pomodoro', command: { type: 'stop_pomodoro' } },
+  { id: 'notes-search', label: 'Search Notes', command: { type: 'search_notes', query: '' } },
+  { id: 'stats', label: 'View Stats & XP', command: { type: 'show_stats' } },
+  { id: 'break', label: 'Take a Break (breathing)', command: { type: 'take_break' } },
+];
 
 export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [notes, setNotes] = useState<NoteLite[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const registeredApps = useAppStore((s) => s.registeredApps);
   const launchApp = useAppStore((s) => s.launchApp);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
-  const addNexusMessage = useNexusStore((s) => s.addMessage);
-  const setNexusProcessing = useNexusStore((s) => s.setProcessing);
-  const { ask } = useNexusCore();
 
-  /**
-   * Hand off the current query to NEXUS: open the AI Assist window,
-   * post the user message, fire the request, post the reply.
-   */
-  const askNexusWith = useCallback(
-    (text: string) => {
-      const q = text.trim();
-      if (!q) return;
-      launchApp('nexus-ai', activeWorkspaceId);
-      addNexusMessage('user', q);
-      setNexusProcessing(true);
-      void (async () => {
-        try {
-          const { reply } = await ask(q);
-          addNexusMessage('nexus', reply);
-        } finally {
-          setNexusProcessing(false);
-        }
-      })();
-      onClose();
-    },
-    [launchApp, activeWorkspaceId, addNexusMessage, setNexusProcessing, ask, onClose]
-  );
-
-  // Build command list
+  // Build the static command list (apps + quick actions).
   const commands = useMemo<CommandItem[]>(() => {
-    const cmds: CommandItem[] = [];
+    const markUsed = () => unlockNexusAchievement(NEXUS_ACHIEVEMENTS.commandPalette);
+    const cmds: CommandItem[] = registeredApps.map((app): CommandItem => ({
+      id: `launch-${app.id}`,
+      label: `Open ${app.name}`,
+      category: 'Applications',
+      kind: 'app',
+      action: () => {
+        markUsed();
+        launchApp(app.id, activeWorkspaceId);
+        onClose();
+      },
+    }));
 
-    // App launch commands
-    registeredApps.forEach((app) => {
+    QUICK_ACTIONS.forEach((qa) => {
       cmds.push({
-        id: `launch-${app.id}`,
-        label: `Open ${app.name}`,
-        category: 'Applications',
+        id: `action-${qa.id}`,
+        label: qa.label,
+        category: 'Quick Action',
+        kind: 'action',
         action: () => {
-          launchApp(app.id, activeWorkspaceId);
+          markUsed();
+          toastResults([executeNexusCommand(qa.command)]);
           onClose();
         },
       });
     });
 
-    // Quick actions
     cmds.push({
-      id: 'action-quiz',
-      label: 'Start GATE Quiz',
-      category: 'Quick Action',
-      action: () => { launchApp('gate-prep', activeWorkspaceId); onClose(); },
-    });
-    cmds.push({
-      id: 'action-notes',
+      id: 'action-new-note',
       label: 'New Note',
       category: 'Quick Action',
-      action: () => { launchApp('notes', activeWorkspaceId); onClose(); },
+      kind: 'action',
+      action: () => {
+        markUsed();
+        launchApp('notes', activeWorkspaceId);
+        onClose();
+      },
     });
     cmds.push({
-      id: 'action-mock',
-      label: 'Start Mock Test',
-      category: 'Quick Action',
-      action: () => { launchApp('gate-prep', activeWorkspaceId); onClose(); },
-    });
-    cmds.push({
-      id: 'action-stats',
-      label: 'View Stats & XP',
-      category: 'Quick Action',
-      action: () => { launchApp('warrior-profile', activeWorkspaceId); onClose(); },
-    });
-    cmds.push({
-      id: 'action-terminal',
-      label: 'Open Terminal',
-      category: 'Quick Action',
-      action: () => { launchApp('terminal', activeWorkspaceId); onClose(); },
-    });
-    cmds.push({
-      id: 'action-settings',
-      label: 'Open Settings',
-      category: 'Quick Action',
-      action: () => { launchApp('settings', activeWorkspaceId); onClose(); },
+      id: 'action-nexus',
+      label: 'Ask NEXUS (open chat)',
+      category: 'NEXUS',
+      kind: 'action',
+      action: () => {
+        markUsed();
+        openNexusWindow();
+        onClose();
+      },
     });
 
     return cmds;
   }, [registeredApps, launchApp, activeWorkspaceId, onClose]);
 
-  // Filter
-  const filtered = useMemo(() => {
+  // Filter + NEXUS intent + note matches + Ask fallback.
+  const filtered = useMemo<CommandItem[]>(() => {
     const q = query.trim();
     if (!q) return commands;
     const lower = q.toLowerCase();
+    const markUsed = () => unlockNexusAchievement(NEXUS_ACHIEVEMENTS.commandPalette);
+
     const matches = commands.filter(
       (c) => c.label.toLowerCase().includes(lower) || c.category.toLowerCase().includes(lower)
     );
 
-    // Always offer "Ask NEXUS" as the last option when there's a query, so
-    // any free-form question reaches the AI without leaving the palette.
-    const askEntry: CommandItem = {
+    const askItem: CommandItem = {
       id: 'nexus-ask',
-      label: `Ask NEXUS: ${q.length > 60 ? q.slice(0, 60) + '…' : q}`,
+      label: `Ask NEXUS: ${q.length > 60 ? `${q.slice(0, 60)}…` : q}`,
       category: 'NEXUS',
-      action: () => askNexusWith(q),
-      isNexus: true,
+      kind: 'ask',
+      action: () => {
+        markUsed();
+        openNexusWindow();
+        void sendToNexus(q, { via: 'palette' });
+        onClose();
+      },
     };
-    return [...matches, askEntry];
-  }, [commands, query, askNexusWith]);
+
+    // Natural language → NEXUS intent (skip when an app row already covers it).
+    const intent: LocalIntent = parseLocalIntent(q, registeredApps);
+    const singleKey =
+      intent.type !== 'none' && intent.type !== 'multi' && intent.type !== 'help' && intent.type !== 'easter_egg'
+        ? commandKey(intent)
+        : null;
+    const redundant =
+      (intent.type === 'open_app' && !intent.newWindow && matches.some((m) => m.id === `launch-${intent.appId}`)) ||
+      (singleKey !== null &&
+        QUICK_ACTIONS.some(
+          (qa) => commandKey(qa.command) === singleKey && matches.some((m) => m.id === `action-${qa.id}`)
+        ));
+    let intentItem: CommandItem | null = null;
+    if (intent.type !== 'none' && !redundant) {
+      const showInChat = intent.type === 'help' || intent.type === 'easter_egg';
+      intentItem = {
+        id: 'nexus-intent',
+        label: `NEXUS: ${showInChat ? `ask "${q}"` : describeIntent(intent)}`,
+        category: 'NEXUS',
+        kind: 'nexus',
+        action: () => {
+          markUsed();
+          if (showInChat) {
+            openNexusWindow();
+            void sendToNexus(q, { via: 'palette' });
+          } else if (intent.type === 'multi') {
+            toastResults(intent.commands.map(executeNexusCommand));
+          } else if (intent.type !== 'help' && intent.type !== 'easter_egg' && intent.type !== 'none') {
+            toastResults([executeNexusCommand(intent)]);
+          }
+          onClose();
+        },
+      };
+    }
+
+    const noteItems: CommandItem[] =
+      q.length >= 2
+        ? findMatchingNotes(q, notes)
+            .slice(0, 3)
+            .map((note): CommandItem => ({
+              id: `note-${note.id || note.title}`,
+              label: `Note: ${note.title}`,
+              category: 'Notes',
+              kind: 'note',
+              action: () => {
+                markUsed();
+                openOrFocusApp('notes');
+                emitWarriorEvent(WARRIOR_EVENTS.notesSearch, { query: note.title });
+                onClose();
+              },
+            }))
+        : [];
+
+    const items: CommandItem[] = [];
+    if (intentItem) items.push(intentItem);
+    items.push(...matches);
+    // Nothing matched: asking NEXUS becomes the default (first) choice.
+    if (!intentItem && matches.length === 0) items.push(askItem);
+    items.push(...noteItems);
+    if (intentItem || matches.length > 0) items.push(askItem);
+    return items;
+  }, [commands, query, registeredApps, notes, onClose]);
 
   // Reset selectedIndex when the filter query changes — using the "store info from
   // previous render" pattern instead of setState-in-effect to avoid an extra render.
@@ -157,12 +240,22 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     if (isOpen) setQuery('');
   }
 
-  // Focus input on open — useEffect only for the imperative DOM call
+  // On open: focus the input and refresh the note index (async, not in render).
   useEffect(() => {
     if (!isOpen) return;
-    const id = setTimeout(() => inputRef.current?.focus(), 50);
+    const id = setTimeout(() => {
+      inputRef.current?.focus();
+      setNotes(loadNotesLite());
+    }, 50);
     return () => clearTimeout(id);
   }, [isOpen]);
+
+  // Keep the highlighted row visible while arrowing through results.
+  useEffect(() => {
+    if (!isOpen) return;
+    const row = listRef.current?.querySelector<HTMLElement>(`[data-index="${selectedIndex}"]`);
+    row?.scrollIntoView({ block: 'nearest' });
+  }, [isOpen, selectedIndex]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -178,6 +271,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
           setSelectedIndex((i) => Math.max(i - 1, 0));
           break;
         case 'Enter':
+          if (e.isComposing) return;
           e.preventDefault();
           filtered[selectedIndex]?.action();
           break;
@@ -212,7 +306,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.98 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-lg rounded-[var(--radius-lg)] overflow-hidden"
+            className="relative w-full max-w-lg rounded-[var(--radius-lg)] overflow-hidden mx-4"
             style={{
               background: 'rgba(12, 12, 20, 0.95)',
               backdropFilter: 'blur(20px)',
@@ -227,7 +321,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search commands, apps..."
+                placeholder='Search apps, or tell NEXUS: "study mode", "DBMS quiz", "notes on paging"…'
+                aria-label="Command palette"
                 className="flex-1 bg-transparent text-sm font-mono text-text-primary placeholder:text-text-muted outline-none"
               />
               <kbd className="text-[9px] font-mono text-text-muted bg-white/5 px-1.5 py-0.5 rounded">
@@ -236,41 +331,54 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             </div>
 
             {/* Results */}
-            <div className="max-h-[300px] overflow-y-auto py-2">
+            <div ref={listRef} className="max-h-[320px] overflow-y-auto py-2">
               {filtered.length === 0 ? (
                 <p className="text-center text-xs font-mono text-text-muted py-8">
                   No results found
                 </p>
               ) : (
-                filtered.map((cmd, i) => (
-                  <button
-                    key={cmd.id}
-                    onClick={cmd.action}
-                    onMouseEnter={() => setSelectedIndex(i)}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-4 py-2 text-left',
-                      'transition-colors duration-75',
-                      i === selectedIndex
-                        ? cmd.isNexus
-                          ? 'bg-cyan-500/10 text-cyan-300'
-                          : 'bg-accent-primary/10 text-accent-primary'
-                        : 'text-text-secondary hover:bg-white/5'
-                    )}
-                  >
-                    {cmd.isNexus ? (
-                      <Sparkles className="w-3 h-3 flex-shrink-0 opacity-80 text-cyan-400" />
-                    ) : (
-                      <ArrowRight className="w-3 h-3 flex-shrink-0 opacity-50" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-mono truncate">{cmd.label}</p>
-                    </div>
-                    <span className="text-[9px] font-mono text-text-muted">
-                      {cmd.category}
-                    </span>
-                  </button>
-                ))
+                filtered.map((cmd, i) => {
+                  const nexusRow = cmd.kind === 'nexus' || cmd.kind === 'ask';
+                  return (
+                    <button
+                      key={cmd.id}
+                      data-index={i}
+                      onClick={cmd.action}
+                      onMouseEnter={() => setSelectedIndex(i)}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-4 py-2 text-left',
+                        'transition-colors duration-75',
+                        i === selectedIndex
+                          ? nexusRow
+                            ? 'bg-cyan-500/10 text-cyan-300'
+                            : 'bg-accent-primary/10 text-accent-primary'
+                          : 'text-text-secondary hover:bg-white/5'
+                      )}
+                    >
+                      {cmd.kind === 'ask' ? (
+                        <Sparkles className="w-3 h-3 flex-shrink-0 opacity-80 text-cyan-400" />
+                      ) : cmd.kind === 'nexus' ? (
+                        <WandSparkles className="w-3 h-3 flex-shrink-0 opacity-90 text-cyan-300" />
+                      ) : cmd.kind === 'note' ? (
+                        <FileText className="w-3 h-3 flex-shrink-0 opacity-70" />
+                      ) : (
+                        <ArrowRight className="w-3 h-3 flex-shrink-0 opacity-50" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-mono truncate">{cmd.label}</p>
+                      </div>
+                      <span className="text-[9px] font-mono text-text-muted">
+                        {cmd.category}
+                      </span>
+                    </button>
+                  );
+                })
               )}
+            </div>
+
+            <div className="flex items-center justify-between border-t border-white/5 px-4 py-1.5 text-[9px] font-mono text-text-muted">
+              <span>↑↓ navigate · Enter run · Esc close</span>
+              <span className="text-cyan-300/60">NEXUS understands English + Hinglish</span>
             </div>
           </motion.div>
         </div>

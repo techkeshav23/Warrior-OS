@@ -1,25 +1,34 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Campfire Widget
-// Canvas campfire whose flame scales with the online warrior count.
-// Warrior silhouettes sit around it. Draggable on the desktop.
-// Optional ambient crackle when sound is enabled.
+// Pixel-art campfire (drawn into an 80×64 buffer, scaled ×2.5 with
+// image-rendering: pixelated). Flame size/brightness follows the online
+// count: 1 = ember, 5 = campfire, 10 = bonfire, 20+ = inferno with
+// sparks. Warrior silhouettes sit around it. Draggable (position is
+// remembered). Procedural crackle via Web Audio when sound is enabled.
+// War cry button opens the composer.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo, useEffect, useRef, useState, useCallback } from 'react';
-import { motion, useDragControls } from 'framer-motion';
-import { Flame, GripVertical } from 'lucide-react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useDragControls } from 'framer-motion';
+import { Flame, GripVertical, Megaphone, Minus, Plus } from 'lucide-react';
 import { useGhostStore } from '@/stores/useGhostStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { getAudioContext } from '@/lib/audio-engine';
 import type { CampfireStage } from '@/types/ghost';
 import { cn } from '@/lib/utils';
+import { WarCryComposer } from './WarCrySystem';
 
-const W = 200;
-const H = 160;
+const PX_W = 80;
+const PX_H = 64;
+const SCALE = 2.5;
+const W = PX_W * SCALE; // 200 css px
+const H = PX_H * SCALE; // 160 css px
 const STORAGE_KEY = 'warrior-campfire-pos';
+const FRAME_MS = 1000 / 20; // pixel art reads best at a low frame rate
 
-function stageFor(count: number): CampfireStage {
+export function campfireStageFor(count: number): CampfireStage {
   if (count >= 20) return 'inferno';
   if (count >= 10) return 'bonfire';
   if (count >= 5) return 'fire';
@@ -35,178 +44,278 @@ const STAGE_LABEL: Record<CampfireStage, string> = {
   inferno: 'Inferno',
 };
 
-interface Particle {
+// Flame palette from white-hot core to smoke.
+const PALETTE = ['#fff8e1', '#ffe082', '#ffca28', '#ffa000', '#ff6f00', '#e64a19', '#b71c1c', '#4e342e', '#3e2723'];
+
+interface Ember {
   x: number;
   y: number;
+  vx: number;
   vy: number;
   life: number;
-  maxLife: number;
-  size: number;
+  max: number;
   spark: boolean;
 }
 
 function loadPos(): { x: number; y: number } {
-  if (typeof window === 'undefined') return { x: 40, y: 200 };
+  const fallback =
+    typeof window === 'undefined' ? { x: 40, y: 90 } : { x: Math.max(16, window.innerWidth - W - 40), y: 90 };
+  if (typeof window === 'undefined') return fallback;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as { x: number; y: number };
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const p = JSON.parse(raw) as { x?: unknown; y?: unknown };
+      if (typeof p.x === 'number' && typeof p.y === 'number') {
+        // Keep it on screen if the viewport shrank.
+        return {
+          x: Math.min(Math.max(0, p.x), Math.max(0, window.innerWidth - W - 8)),
+          y: Math.min(Math.max(0, p.y), Math.max(0, window.innerHeight - H - 110)),
+        };
+      }
+    }
   } catch {
     /* ignore */
   }
-  return { x: 40, y: 200 };
+  return fallback;
+}
+
+/** Procedural crackle + low roar, scaled by the fire intensity. */
+function useCampfireCrackle(enabled: boolean, volume: number, intensityRef: React.RefObject<number>) {
+  useEffect(() => {
+    if (!enabled || typeof window === 'undefined') return;
+    let ctx: AudioContext;
+    try {
+      ctx = getAudioContext();
+    } catch {
+      return;
+    }
+    const master = ctx.createGain();
+    master.gain.value = Math.max(0, Math.min(1, volume)) * 0.35;
+    master.connect(ctx.destination);
+
+    // One second of white noise, reused by every pop + the roar bed.
+    const noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const data = noise.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+
+    const roar = ctx.createBufferSource();
+    roar.buffer = noise;
+    roar.loop = true;
+    const roarFilter = ctx.createBiquadFilter();
+    roarFilter.type = 'lowpass';
+    roarFilter.frequency.value = 380;
+    const roarGain = ctx.createGain();
+    roarGain.gain.value = 0;
+    roar.connect(roarFilter);
+    roarFilter.connect(roarGain);
+    roarGain.connect(master);
+    roar.start();
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const pop = () => {
+      const intensity = intensityRef.current ?? 0;
+      if (ctx.state === 'running') {
+        const t = ctx.currentTime;
+        roarGain.gain.setTargetAtTime(0.05 + intensity * 0.12, t, 0.5);
+        const src = ctx.createBufferSource();
+        src.buffer = noise;
+        const band = ctx.createBiquadFilter();
+        band.type = 'bandpass';
+        band.frequency.value = 1400 + Math.random() * 3600;
+        band.Q.value = 0.7 + Math.random() * 2.5;
+        const g = ctx.createGain();
+        const peak = (0.2 + Math.random() * 0.55) * (0.35 + intensity * 0.65);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(peak, t + 0.004);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03 + Math.random() * 0.09);
+        src.connect(band);
+        band.connect(g);
+        g.connect(master);
+        src.start(t, Math.random() * 0.85, 0.14);
+        src.stop(t + 0.16);
+      }
+      const gap = (70 + Math.random() * 420) / (0.45 + intensity * 1.6);
+      timer = setTimeout(pop, gap);
+    };
+    timer = setTimeout(pop, 400);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      try {
+        roar.stop();
+      } catch {
+        /* already stopped */
+      }
+      master.disconnect();
+    };
+  }, [enabled, volume, intensityRef]);
 }
 
 function CampfireWidgetInner() {
-  const onlineCount = useGhostStore((s) => s.getOnlineCount());
+  const warriors = useGhostStore((s) => s.onlineWarriors);
+  const mode = useGhostStore((s) => s.mode);
   const fireIntensity = useGhostStore((s) => s.campfireState.fireIntensity);
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
+  const soundVolume = useSettingsStore((s) => s.soundVolume);
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef<number>(0);
-  const particlesRef = useRef<Particle[]>([]);
+  const onlineCount = useMemo(() => warriors.filter((w) => w.isOnline).length, [warriors]);
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const intensityRef = useRef(fireIntensity);
   const countRef = useRef(onlineCount);
   const dragControls = useDragControls();
 
   const [pos] = useState(loadPos);
+  // Current drag position (the initial state never changes; drags accumulate).
+  const posRef = useRef(pos);
   const [collapsed, setCollapsed] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
 
   useEffect(() => {
     intensityRef.current = fireIntensity;
     countRef.current = onlineCount;
   }, [fireIntensity, onlineCount]);
 
-  const persistPos = useCallback((x: number, y: number) => {
-    if (typeof window === 'undefined') return;
+  useCampfireCrackle(soundEnabled && !collapsed && mode !== 'disabled', soundVolume, intensityRef);
+
+  const handleDragEnd = useCallback((dx: number, dy: number) => {
+    const next = { x: posRef.current.x + dx, y: posRef.current.y + dy };
+    posRef.current = next;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ x, y }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
       /* ignore */
     }
   }, []);
 
-  // ── Canvas animation loop ──
+  // ── Pixel-art render loop ──
   useEffect(() => {
     if (collapsed) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    canvas.width = PX_W;
+    canvas.height = PX_H;
+    ctx.imageSmoothingEnabled = false;
 
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    ctx.scale(dpr, dpr);
+    const cx = PX_W / 2;
+    const baseY = PX_H - 12;
+    let embers: Ember[] = [];
+    let raf = 0;
+    let last = 0;
 
-    const cx = W / 2;
-    const baseY = H - 30;
+    const px = (x: number, y: number, color: string, s = 1) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(Math.round(x), Math.round(y), s, s);
+    };
 
-    const render = () => {
+    const render = (now: number) => {
+      raf = requestAnimationFrame(render);
+      if (now - last < FRAME_MS) return;
+      last = now;
       const intensity = intensityRef.current;
       const count = countRef.current;
-      const flameScale = 0.4 + intensity * 1.6; // 0.4 .. 2.0
-      const emitRate = 1 + Math.round(intensity * 6);
+      const scale = 0.35 + intensity * 1.25; // flame size
+      const spread = 3 + intensity * 9;
+      const emit = 2 + Math.round(intensity * 9);
 
-      ctx.clearRect(0, 0, W, H);
+      ctx.clearRect(0, 0, PX_W, PX_H);
 
-      // ground glow
-      const glow = ctx.createRadialGradient(cx, baseY, 2, cx, baseY, 60 * flameScale);
-      glow.addColorStop(0, `rgba(255,150,40,${0.25 + intensity * 0.4})`);
+      // Ground glow (smooth gradient, pixelated by the upscale).
+      const glow = ctx.createRadialGradient(cx, baseY, 1, cx, baseY, 14 + 26 * scale);
+      glow.addColorStop(0, `rgba(255,140,40,${0.28 + intensity * 0.35})`);
       glow.addColorStop(1, 'rgba(255,80,0,0)');
       ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, W, H);
+      ctx.fillRect(0, 0, PX_W, PX_H);
 
-      // logs
-      ctx.strokeStyle = '#5a3a1e';
-      ctx.lineWidth = 5;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(cx - 16, baseY + 4);
-      ctx.lineTo(cx + 16, baseY - 2);
-      ctx.moveTo(cx - 16, baseY - 2);
-      ctx.lineTo(cx + 16, baseY + 4);
-      ctx.stroke();
+      // Stones ring.
+      for (let i = 0; i < 9; i++) {
+        const a = Math.PI + (i / 8) * Math.PI;
+        px(cx + Math.cos(a) * 9, baseY + 3 + Math.sin(a) * -2.2, i % 2 === 0 ? '#5d5d6b' : '#44444f', 2);
+      }
+      // Logs (crossed).
+      for (let i = -7; i <= 7; i++) {
+        px(cx + i, baseY + 1 + Math.round(i * 0.25), '#6d4c41');
+        px(cx + i, baseY + 1 - Math.round(i * 0.25), '#5d4037');
+      }
 
-      // spawn flame particles
-      for (let i = 0; i < emitRate; i++) {
-        const spread = 10 * flameScale;
-        particlesRef.current.push({
+      // Spawn flame pixels.
+      for (let i = 0; i < emit; i++) {
+        const inferno = intensity >= 0.99;
+        embers.push({
           x: cx + (Math.random() - 0.5) * spread,
-          y: baseY,
-          vy: -(0.6 + Math.random() * 1.4) * flameScale,
+          y: baseY - 1,
+          vx: (Math.random() - 0.5) * 0.25,
+          vy: -(0.45 + Math.random() * 0.9) * (0.6 + scale * 0.55),
           life: 0,
-          maxLife: 30 + Math.random() * 30,
-          size: (3 + Math.random() * 4) * flameScale,
-          spark: intensity > 0.9 && Math.random() < 0.15, // inferno sparks
+          max: 10 + Math.random() * (10 + scale * 14),
+          spark: inferno && Math.random() < 0.12,
         });
       }
 
-      // update + draw
-      const next: Particle[] = [];
-      for (const p of particlesRef.current) {
-        p.life += 1;
-        p.y += p.vy;
-        p.x += Math.sin(p.life * 0.2) * 0.6;
-        p.vy *= 0.99;
-        const t = p.life / p.maxLife;
-        if (t >= 1) continue;
-
-        if (p.spark) {
-          ctx.fillStyle = `rgba(255,240,180,${1 - t})`;
-          ctx.fillRect(p.x, p.y, 1.5, 1.5);
+      const next: Ember[] = [];
+      for (const e of embers) {
+        e.life += 1;
+        if (e.life >= e.max) continue;
+        e.x += e.vx + Math.sin((e.life + e.x) * 0.5) * (e.spark ? 0.4 : 0.15);
+        e.y += e.spark ? e.vy * 1.8 : e.vy;
+        // Pull the flame inward as it rises (teardrop silhouette).
+        if (!e.spark) e.x += (cx - e.x) * 0.04;
+        const t = e.life / e.max;
+        if (e.spark) {
+          px(e.x, e.y, t < 0.5 ? '#fff8e1' : '#ffca28');
         } else {
-          // color from white-hot core → orange → red → smoke
-          let color: string;
-          if (t < 0.3) color = `rgba(255,255,${200 - t * 300},${1 - t})`;
-          else if (t < 0.65) color = `rgba(255,${180 - t * 120},20,${1 - t})`;
-          else color = `rgba(${120 - t * 60},${60 - t * 40},40,${(1 - t) * 0.6})`;
-          const r = p.size * (1 - t * 0.4);
-          ctx.beginPath();
-          ctx.fillStyle = color;
-          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-          ctx.fill();
+          const idx = Math.min(PALETTE.length - 1, Math.floor(t * PALETTE.length));
+          px(e.x, e.y, PALETTE[idx], t < 0.35 ? 2 : 1);
         }
-        next.push(p);
+        next.push(e);
       }
-      // cap particle array
-      particlesRef.current = next.slice(-400);
+      embers = next.slice(-600);
 
-      // warrior silhouettes around the fire (up to 6)
-      const seats = Math.min(count, 6);
-      ctx.fillStyle = 'rgba(10,8,18,0.85)';
+      // Warrior silhouettes around the fire (max 8), back row smaller.
+      const seats = Math.min(count, 8);
       for (let i = 0; i < seats; i++) {
         const side = i % 2 === 0 ? -1 : 1;
-        const rank = Math.floor(i / 2);
-        const sx = cx + side * (36 + rank * 20);
-        const sy = baseY - 4 - rank * 2;
-        ctx.beginPath();
-        ctx.arc(sx, sy - 12, 4, 0, Math.PI * 2); // head
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(sx - 6, sy);
-        ctx.quadraticCurveTo(sx, sy - 14, sx + 6, sy); // hunched body
-        ctx.fill();
+        const row = Math.floor(i / 2);
+        const back = row >= 2;
+        const sx = Math.round(cx + side * (14 + (row % 2) * 9 + (back ? 4 : 0)));
+        const sy = Math.round(baseY + 2 - (back ? 7 : 0));
+        const body = back ? '#16121f' : '#0b0911';
+        // head
+        ctx.fillStyle = body;
+        ctx.fillRect(sx - 1, sy - 9, 3, 3);
+        // hunched torso facing the fire
+        ctx.fillRect(sx - 2, sy - 6, 5, 4);
+        ctx.fillRect(sx - 2 + (side < 0 ? 1 : -1), sy - 2, 5, 2);
+        // rim light from the fire
+        px(side < 0 ? sx + 1 : sx - 1, sy - 8, `rgba(255,160,60,${0.35 + intensity * 0.5})`);
       }
-
-      rafRef.current = requestAnimationFrame(render);
     };
-
-    render();
-    return () => cancelAnimationFrame(rafRef.current);
+    raf = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(raf);
   }, [collapsed]);
 
-  const stage = stageFor(onlineCount);
+  const stage = campfireStageFor(onlineCount);
+  const simulated = mode === 'simulated';
 
   return (
     <motion.div
-      className="glass-dark glass-border pointer-events-auto fixed rounded-xl shadow-2xl"
-      style={{ zIndex: 'var(--z-desktop)', width: W + 4 }}
+      className="glass-border pointer-events-auto fixed rounded-xl shadow-2xl"
+      style={{
+        left: 0,
+        top: 0,
+        zIndex: 'var(--z-desktop)',
+        width: W + 2,
+        background: 'rgba(8, 8, 14, 0.82)',
+        backdropFilter: 'blur(14px)',
+      }}
       drag
       dragControls={dragControls}
       dragListener={false}
       dragMomentum={false}
       initial={{ x: pos.x, y: pos.y }}
-      onDragEnd={(_, info) => persistPos(pos.x + info.offset.x, pos.y + info.offset.y)}
+      onDragEnd={(_, info) => handleDragEnd(info.offset.x, info.offset.y)}
     >
       {/* Drag handle / header */}
       <div
@@ -217,35 +326,66 @@ function CampfireWidgetInner() {
           <GripVertical size={11} className="text-text-muted" />
           <Flame size={11} className="text-accent-warning" />
           {STAGE_LABEL[stage]}
+          {simulated && <span className="rounded bg-accent-warning/15 px-1 text-[8px] text-accent-warning">SIM</span>}
         </span>
-        <button
-          onClick={() => setCollapsed((c) => !c)}
-          className="rounded px-1 text-[10px] text-text-muted transition-colors hover:text-text-primary focus-ring"
-          aria-label={collapsed ? 'Expand campfire' : 'Collapse campfire'}
-        >
-          {collapsed ? '▢' : '—'}
-        </button>
+        <span className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => setComposerOpen((o) => !o)}
+            className={cn(
+              'rounded p-1 transition-colors focus-ring',
+              composerOpen ? 'text-accent-secondary' : 'text-text-muted hover:text-text-primary'
+            )}
+            aria-label="Send a war cry"
+            title="Send a war cry"
+          >
+            <Megaphone size={11} />
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => setCollapsed((c) => !c)}
+            className="rounded p-1 text-text-muted transition-colors hover:text-text-primary focus-ring"
+            aria-label={collapsed ? 'Expand campfire' : 'Collapse campfire'}
+          >
+            {collapsed ? <Plus size={11} /> : <Minus size={11} />}
+          </button>
+        </span>
       </div>
 
       {!collapsed && (
         <div className="relative">
           <canvas
             ref={canvasRef}
-            style={{ width: W, height: H }}
-            className="block rounded-b-xl"
+            width={PX_W}
+            height={PX_H}
+            style={{ width: W, height: H, imageRendering: 'pixelated' }}
+            className="block"
+            aria-label={`${STAGE_LABEL[stage]}: ${onlineCount} warriors around the fire`}
           />
           <div className="pointer-events-none absolute bottom-1.5 left-0 right-0 text-center">
-            <span
-              className={cn(
-                'font-mono text-[10px]',
-                onlineCount > 0 ? 'text-accent-warning text-glow-sm' : 'text-text-muted'
-              )}
-            >
-              {onlineCount} around the fire{soundEnabled ? ' · 🔊' : ''}
+            <span className={cn('font-mono text-[10px]', onlineCount > 0 ? 'text-accent-warning text-glow-sm' : 'text-text-secondary')}>
+              {onlineCount} {simulated ? 'simulated ' : ''}around the fire
             </span>
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {composerOpen && (
+          <motion.div
+            className="border-t border-white/10 p-3"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.18 }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <WarCryComposer compact />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

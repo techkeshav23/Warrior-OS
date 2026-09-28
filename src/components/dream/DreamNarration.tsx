@@ -1,62 +1,44 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Dream Narration
-// NEXUS whisper text: Orbitron, ~50% opacity, fades in over 1s,
-// holds, fades out over 1s. Cycles through the scene's narration
-// lines across the dream duration.
+// NEXUS whisper at bottom-centre: Orbitron, 50% opacity. For a 5-second
+// dream the text fades in over 1s, stays 3s and fades out over 1s
+// (the envelope scales with longer/shorter dreams).
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface DreamNarrationProps {
+  /** Lines shown together (1–2 short sentences). */
   lines: string[];
-  /** Total dream duration in ms — narration is spread across this. */
+  /** Total dream duration in ms. */
   durationMs: number;
-  /** Accent color for a subtle text glow. */
+  /** Accent colour for a subtle text glow. */
   color?: string;
 }
 
 export function DreamNarration({ lines, durationMs, color = '#e4e4ef' }: DreamNarrationProps) {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    if (lines.length <= 1) return;
-    // Divide the dream evenly across the lines, leaving the last line to
-    // linger until the scene ends.
-    const per = durationMs / lines.length;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    for (let i = 1; i < lines.length; i++) {
-      timers.push(setTimeout(() => setIndex(i), per * i));
-    }
-    return () => timers.forEach(clearTimeout);
-  }, [lines, durationMs]);
-
-  const current = lines[index] ?? lines[0] ?? '';
+  const total = Math.max(1, durationMs / 1000);
+  const fade = Math.min(1, total * 0.2); // 1s of a 5s dream
+  const inEnd = fade / total;
+  const outStart = (total - fade) / total;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-[18%] z-10 flex justify-center px-8">
-      <AnimatePresence mode="wait">
-        <motion.p
-          key={index}
-          initial={{ opacity: 0, y: 12, filter: 'blur(6px)' }}
-          animate={{ opacity: 0.5, y: 0, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, y: -8, filter: 'blur(6px)' }}
-          transition={{
-            opacity: { duration: 1, ease: 'easeInOut' },
-            y: { duration: 1, ease: 'easeOut' },
-            filter: { duration: 1, ease: 'easeOut' },
-          }}
-          className="font-display max-w-2xl text-center text-lg tracking-wide sm:text-xl md:text-2xl"
-          style={{
-            color,
-            textShadow: `0 0 24px ${color}55, 0 0 8px ${color}44`,
-          }}
-        >
-          {current}
-        </motion.p>
-      </AnimatePresence>
+    <div className="pointer-events-none absolute inset-x-0 bottom-[16%] z-10 flex justify-center px-8">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: [0, 0.5, 0.5, 0], y: [10, 0, 0, -6] }}
+        transition={{ duration: total, times: [0, inEnd, outStart, 1], ease: 'easeInOut' }}
+        className="font-display max-w-3xl text-center tracking-wide"
+        style={{ color, textShadow: `0 0 24px ${color}66, 0 0 8px ${color}55` }}
+      >
+        {lines.map((line, i) => (
+          <p key={`${i}-${line}`} className={i === 0 ? 'text-lg sm:text-xl md:text-2xl' : 'mt-2 text-sm sm:text-base md:text-lg'}>
+            {line}
+          </p>
+        ))}
+      </motion.div>
     </div>
   );
 }

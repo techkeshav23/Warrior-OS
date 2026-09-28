@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useXPStore } from '@/stores/useXPStore';
 import { useQuizHistoryStore } from '@/stores/useQuizHistoryStore';
+import { recordQuizCompletion } from '@/components/achievements/quiz-achievements';
 import type { Question, GateSubject } from '@/types/gate';
 import {
   getAvailableSubjects,
@@ -17,15 +18,22 @@ import {
   getQuestionsBySubject,
   getQuestionsByTopic,
 } from '@/data/gate-questions';
+import { isAnswerCorrect, isAnswered, type UserAnswer } from './grading';
 
 type Phase = 'select' | 'quiz' | 'results';
 
 interface QuizState {
   questions: Question[];
   currentIndex: number;
-  answers: Record<string, number | string>;
+  answers: Record<string, UserAnswer>;
   startTime: number;
   endTime: number | null;
+  xpEarned: number;
+}
+
+interface QuizEngineProps {
+  /** Subject to preselect, e.g. from a NEXUS deep link. */
+  initialSubject?: GateSubject | null;
 }
 
 function getGrade(pct: number): { grade: string; color: string } {
@@ -37,9 +45,9 @@ function getGrade(pct: number): { grade: string; color: string } {
   return { grade: 'D', color: 'text-red-400' };
 }
 
-function QuizEngineInner() {
+function QuizEngineInner({ initialSubject = null }: QuizEngineProps) {
   const [phase, setPhase] = useState<Phase>('select');
-  const [selectedSubject, setSelectedSubject] = useState<GateSubject | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<GateSubject | null>(initialSubject);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [quiz, setQuiz] = useState<QuizState | null>(null);
   const addXP = useXPStore((s) => s.addXP);
@@ -65,12 +73,13 @@ function QuizEngineInner() {
       answers: {},
       startTime: Date.now(),
       endTime: null,
+      xpEarned: 0,
     });
     setPhase('quiz');
   }, [selectedSubject, selectedTopic]);
 
   const answerQuestion = useCallback(
-    (qId: string, answer: number | string) => {
+    (qId: string, answer: UserAnswer) => {
       if (!quiz) return;
       setQuiz((prev) =>
         prev ? { ...prev, answers: { ...prev.answers, [qId]: answer } } : prev
@@ -99,13 +108,17 @@ function QuizEngineInner() {
 
   const submitQuiz = useCallback(() => {
     if (!quiz) return;
+    // Per question, in the order shown — drives marks, XP and the answer-streak achievement.
+    const results = quiz.questions.map((q) => isAnswerCorrect(q, quiz.answers[q.id]));
+    let answered = 0;
     let correct = 0;
     let totalMarks = 0;
     let earnedMarks = 0;
-    for (const q of quiz.questions) {
+    for (let i = 0; i < quiz.questions.length; i++) {
+      const q = quiz.questions[i];
       totalMarks += q.marks;
-      const userAns = quiz.answers[q.id];
-      if (userAns !== undefined && String(userAns) === String(q.answer)) {
+      if (isAnswered(quiz.answers[q.id])) answered++;
+      if (results[i]) {
         correct++;
         earnedMarks += q.marks;
       }
@@ -128,13 +141,11 @@ function QuizEngineInner() {
         });
       } else {
         const buckets = new Map<string, { total: number; correct: number }>();
-        for (const q of quiz.questions) {
+        for (let i = 0; i < quiz.questions.length; i++) {
+          const q = quiz.questions[i];
           const bucket = buckets.get(q.topic) ?? { total: 0, correct: 0 };
           bucket.total += 1;
-          const userAns = quiz.answers[q.id];
-          if (userAns !== undefined && String(userAns) === String(q.answer)) {
-            bucket.correct += 1;
-          }
+          if (results[i]) bucket.correct += 1;
           buckets.set(q.topic, bucket);
         }
         for (const [topic, { total, correct: c }] of buckets) {
@@ -148,7 +159,13 @@ function QuizEngineInner() {
       }
     }
 
-    setQuiz((prev) => (prev ? { ...prev, endTime: Date.now() } : prev));
+    // Achievements (after the history write, which the creature also reacts to):
+    // first-quiz, quiz-streak-5, perfect-quiz, all-subjects, quiz-master,
+    // night-owl / early-bird, study streak.
+    recordQuizCompletion({ kind: 'quiz', subject: selectedSubject, results, answered });
+
+    const endTime = Date.now();
+    setQuiz((prev) => (prev ? { ...prev, endTime, xpEarned: xp } : prev));
     setPhase('results');
   }, [quiz, addXP, recordAttempt, selectedSubject, selectedTopic]);
 
@@ -335,7 +352,7 @@ function QuizEngineInner() {
                   'w-6 h-6 rounded text-[10px] transition-all',
                   i === quiz.currentIndex
                     ? 'bg-cyan-500 text-black'
-                    : quiz.answers[quiz.questions[i].id] !== undefined
+                    : isAnswered(quiz.answers[quiz.questions[i].id])
                     ? 'bg-cyan-500/30 text-cyan-300'
                     : 'bg-white/10 text-white/40'
                 )}
@@ -372,8 +389,7 @@ function QuizEngineInner() {
     let earnedMarks = 0;
     for (const q of quiz.questions) {
       totalMarks += q.marks;
-      const userAns = quiz.answers[q.id];
-      if (userAns !== undefined && String(userAns) === String(q.answer)) {
+      if (isAnswerCorrect(q, quiz.answers[q.id])) {
         correct++;
         earnedMarks += q.marks;
       }
@@ -401,6 +417,7 @@ function QuizEngineInner() {
             {correct}/{quiz.questions.length} correct • {Math.round(pct)}% •{' '}
             {Math.floor(timeTaken / 60)}m {timeTaken % 60}s
           </p>
+          <p className="text-xs font-semibold text-cyan-300">+{quiz.xpEarned} XP earned</p>
         </div>
 
         {/* Question Review */}
@@ -408,8 +425,7 @@ function QuizEngineInner() {
           <h4 className="text-sm font-semibold text-white/80">Review</h4>
           {quiz.questions.map((q, i) => {
             const userAns = quiz.answers[q.id];
-            const isCorrect =
-              userAns !== undefined && String(userAns) === String(q.answer);
+            const isCorrect = isAnswerCorrect(q, userAns);
 
             return (
               <details
@@ -431,7 +447,7 @@ function QuizEngineInner() {
                 <div className="mt-2 text-xs text-white/60 space-y-1">
                   <p>
                     <strong className="text-white/80">Your answer:</strong>{' '}
-                    {userAns !== undefined
+                    {isAnswered(userAns)
                       ? q.type === 'mcq'
                         ? q.options[Number(userAns)]
                         : String(userAns)

@@ -1,121 +1,179 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Procedural Music :: Typing Rhythm Generator
-// YOUR typing tempo = the beat. Reads BPM from the biometrics /
-// music-gen store (60-140). Lo-fi beat: kick on 1+3, snare-ish on
-// 2+4, hihat every 8th, bass follows pentatonic root. Stop typing
-// -> beat fades over 4s; resume typing -> it comes back.
+// YOUR typing tempo = the beat. Keystroke timestamps come from the
+// typing-biometrics bus; the average in-burst interval becomes the
+// tempo (one keystroke = one eighth note, clamped 60-140 BPM).
+// Lo-fi beat: kick on 1 + 3, snare on 2 + 4, hihat on every eighth,
+// bass walking pentatonic roots, soft chord on each bar. Stop typing
+// → the beat fades out over 4 s; type again → it comes right back.
+// If typing biometrics are switched off it plays a steady 90 BPM.
 // ═══════════════════════════════════════════════════════════
 
-import type { MusicGenerator, GeneratorContext } from './generator';
-import { PENTATONIC, makeRng, pick, noteToDegree } from './tone-setup';
-import { useBiometricsStore } from '@/stores/useBiometricsStore';
+import type { Loop } from 'tone';
+import {
+  type MusicGenerator,
+  type GeneratorContext,
+  clearTransportEvents,
+  reportNote,
+  transposeNote,
+} from './generator';
+import { makeRng, noteToDegree } from './tone-setup';
+import {
+  onTypingKeystroke,
+  getRecentKeystrokeTimes,
+  getLastKeystrokeAt,
+  isTypingTrackerActive,
+} from '@/hooks/useTypingBiometrics';
+import { recentKeystrokeInterval } from '@/lib/biometric-calculator';
 import { useMusicGenStore } from '@/stores/useMusicGenStore';
 
-const FADE_SECONDS = 4;
-// Biometrics updates ~every 5s, so require a longer gap before we treat
-// the warrior as "stopped typing" and fade the beat out.
-const IDLE_MS = 8000;
+export const TYPING_FALLBACK_BPM = 90;
+export const TYPING_MIN_BPM = 60;
+export const TYPING_MAX_BPM = 140;
+/** Spec: the beat fades over 4 s after typing stops. */
+export const TYPING_FADE_SECONDS = 4;
+/** A gap this long counts as "stopped typing". */
+const STOP_TYPING_MS = 1600;
+const BPM_UPDATE_MS = 400;
 
-/**
- * Read WPM from biometrics and convert to a musical BPM (60-140).
- * Reads via getState() so it is not a React subscription. Wrapped
- * defensively in case the store shape shifts.
- */
-function readTypingBPM(fallback: number): number {
-  try {
-    const raw = useBiometricsStore.getState() as unknown as Record<string, unknown>;
-    const metrics = raw.metrics as { wpm?: number } | undefined;
-    const wpm = typeof metrics?.wpm === 'number' ? metrics.wpm : undefined;
-    if (typeof wpm === 'number' && Number.isFinite(wpm) && wpm > 0) {
-      // ~1 word ≈ 5 keystrokes; scale WPM into a lo-fi tempo range.
-      const bpm = 60 + wpm * 1.6;
-      return Math.max(60, Math.min(140, bpm));
-    }
-  } catch { /* store missing / shape changed — fall through */ }
-  return fallback;
+/** Keystroke interval (ms) → tempo, treating each keystroke as an eighth note. */
+export function intervalToBpm(intervalMs: number): number {
+  const bpm = 60_000 / (intervalMs * 2);
+  return Math.max(TYPING_MIN_BPM, Math.min(TYPING_MAX_BPM, Math.round(bpm)));
 }
 
-/** Read the last-updated timestamp (proxy for last typing activity) for idle detection. */
-function readLastActivity(): number | null {
-  try {
-    const raw = useBiometricsStore.getState() as unknown as Record<string, unknown>;
-    const lu = typeof raw.lastUpdated === 'number' ? (raw.lastUpdated as number) : null;
-    return lu;
-  } catch { /* ignore */ }
-  return null;
-}
+// Four-bar root progressions drawn from C major pentatonic.
+const PROGRESSIONS: string[][] = [
+  ['C2', 'A1', 'E2', 'G1'],
+  ['A1', 'G1', 'C2', 'E2'],
+  ['C2', 'E2', 'A1', 'G1'],
+  ['E2', 'A1', 'D2', 'G1'],
+];
+// Soft pentatonic voicings (sixth / add9 colours) keyed by root letter.
+const VOICINGS: Record<string, string[]> = {
+  C: ['E4', 'G4', 'A4', 'D5'],
+  A: ['C4', 'E4', 'G4', 'D5'],
+  E: ['G4', 'A4', 'D5', 'E5'],
+  G: ['A4', 'D5', 'E5', 'G5'],
+  D: ['E4', 'A4', 'C5', 'G5'],
+};
 
 export function createTypingRhythmGenerator(): MusicGenerator {
   let ctx: GeneratorContext | null = null;
-  let beatLoop: import('tone').Loop | null = null;
-  let bpmPoll: ReturnType<typeof setInterval> | null = null;
-  let sixteenthStep = 0;
-  let bassPattern: string[] = [];
+  let loop: Loop | null = null;
+  let events: number[] = [];
+  let unsubKeys: (() => void) | null = null;
+  let step = 0;
+  let bar = 0;
+  let audible = false;
+  let steady = false;
+  let lastBpmUpdate = 0;
+
+  const setAudible = (next: boolean) => {
+    if (!ctx || audible === next) return;
+    audible = next;
+    ctx.rig.beatBus.gain.rampTo(next ? 1 : 0, next ? 0.35 : TYPING_FADE_SECONDS);
+    useMusicGenStore.getState().setTypingActive(next);
+  };
 
   return {
     start(context) {
       ctx = context;
-      const { rig, seed } = ctx;
-      const rng = makeRng(seed ^ 0x33333);
-      bassPattern = Array.from({ length: 4 }, () => pick(PENTATONIC.low, rng));
+      const { rig } = context;
+      const transport = rig.Tone.getTransport();
+      const rng = makeRng(context.seed ^ 0x33333);
+      const progression = PROGRESSIONS[Math.floor(rng() * PROGRESSIONS.length)];
+      step = 0;
+      bar = 0;
 
-      const initialBpm = readTypingBPM(useMusicGenStore.getState().typingBPM || 90);
-      rig.Tone.getTransport().bpm.rampTo(initialBpm, 0.5);
+      steady = !isTypingTrackerActive();
+      const last = getLastKeystrokeAt();
+      const typingNow = !steady && last !== null && Date.now() - last < STOP_TYPING_MS;
+      const interval = steady ? null : recentKeystrokeInterval(getRecentKeystrokeTimes());
+      const bpm = interval ? intervalToBpm(interval) : TYPING_FALLBACK_BPM;
+      transport.bpm.rampTo(bpm, 0.5);
+      transport.swing = 0.12; // lo-fi shuffle
+      transport.swingSubdivision = '8n';
+      useMusicGenStore.getState().updateTypingRhythm(bpm);
 
-      // Start the master lo-fi bus faded in
-      rig.master.gain.rampTo(useMusicGenStore.getState().volume, 0.5);
+      audible = steady || typingNow;
+      const now = rig.Tone.now();
+      rig.beatBus.gain.cancelScheduledValues(now);
+      rig.beatBus.gain.setValueAtTime(audible ? 1 : 0, now);
+      useMusicGenStore.getState().setTypingActive(audible);
 
-      beatLoop = new rig.Tone.Loop((time) => {
-        if (!ctx) return;
-        const beat = Math.floor(sixteenthStep / 4) % 4; // 0..3 quarter
-        const isEighth = sixteenthStep % 2 === 0;
-        // Hihat every 8th
-        if (isEighth) {
-          rig.hihat.triggerAttackRelease('16n', time, 0.4);
+      loop = new rig.Tone.Loop((time) => {
+        const c = ctx;
+        if (!c) return;
+        const s = step % 16;
+        const root = progression[bar % progression.length];
+
+        if (s % 2 === 0) rig.hihat.triggerAttackRelease(300, '32n', time, s % 4 === 0 ? 0.55 : 0.3);
+        if (s === 0 || s === 8) rig.kick.triggerAttackRelease('C1', '8n', time, 0.9);
+        if (s === 4 || s === 12) rig.snare.triggerAttackRelease('16n', time, 0.6);
+
+        if (s === 0 || s === 8 || (s === 14 && rng() < 0.5)) {
+          const raw = s === 0 ? root : s === 8 ? transposeNote(rig, root, rng() < 0.5 ? 7 : 12) : transposeNote(rig, root, 9);
+          const note = transposeNote(rig, raw, c.getTranspose());
+          const vel = s === 0 ? 0.7 : 0.5;
+          rig.bass.triggerAttackRelease(note, s === 14 ? '16n' : '8n', time, vel);
+          reportNote(c, time, note, noteToDegree(raw), vel);
         }
-        // Kick on beats 1 & 3 (downbeat of quarter)
-        if (sixteenthStep % 4 === 0 && (beat === 0 || beat === 2)) {
-          rig.kick.triggerAttackRelease('C1', '8n', time, 0.9);
+        if (s === 0) {
+          const voicing = VOICINGS[root.replace(/[0-9]/g, '')] ?? VOICINGS.C;
+          const chord = voicing.map((n) => transposeNote(rig, n, c.getTranspose()));
+          rig.piano.triggerAttackRelease(chord, '2n', time, 0.1);
+          reportNote(c, time, chord[chord.length - 1], noteToDegree(voicing[voicing.length - 1]), 0.3);
         }
-        // Snare-ish (noise burst, brighter) on 2 & 4
-        if (sixteenthStep % 4 === 0 && (beat === 1 || beat === 3)) {
-          rig.hihat.triggerAttackRelease('8n', time, 0.7);
-        }
-        // Bass follows pentatonic root on each quarter
-        if (sixteenthStep % 4 === 0) {
-          const note = bassPattern[beat % bassPattern.length];
-          rig.bass.triggerAttackRelease(note, '8n', time, 0.6);
-          rig.Tone.getDraw().schedule(() => {
-            ctx?.onNote({ note, degree: noteToDegree(note), velocity: 0.6 });
-          }, time);
-        }
-        sixteenthStep = (sixteenthStep + 1) % 16;
+
+        step++;
+        if (step % 16 === 0) bar++;
       }, '16n');
-      beatLoop.start(0);
-      rig.Tone.getTransport().start();
+      loop.start(0);
 
-      // Poll typing tempo + idle state; fade beat out when idle
-      bpmPoll = setInterval(() => {
-        if (!ctx) return;
-        const store = useMusicGenStore.getState();
-        const bpm = readTypingBPM(store.typingBPM || 90);
-        store.updateTypingRhythm(bpm);
-        rig.Tone.getTransport().bpm.rampTo(bpm, 1);
+      // Typing drives tempo and brings the beat back.
+      unsubKeys = onTypingKeystroke(() => {
+        if (steady || !ctx) return;
+        setAudible(true);
+        const t = Date.now();
+        if (t - lastBpmUpdate < BPM_UPDATE_MS) return;
+        lastBpmUpdate = t;
+        const avg = recentKeystrokeInterval(getRecentKeystrokeTimes());
+        if (avg === null) return;
+        const next = intervalToBpm(avg);
+        transport.bpm.rampTo(next, 1.2);
+        useMusicGenStore.getState().updateTypingRhythm(next);
+      });
 
-        const last = readLastActivity();
-        const idle = last != null ? Date.now() - last > IDLE_MS : false;
-        const target = idle ? 0 : store.volume;
-        rig.master.gain.rampTo(target, idle ? FADE_SECONDS : 0.8);
-      }, 700);
+      // Stopped typing → fade the beat over 4 s (checked every eighth note).
+      events.push(
+        transport.scheduleRepeat(() => {
+          if (steady || !audible) return;
+          const lastKey = getLastKeystrokeAt();
+          if (lastKey === null || Date.now() - lastKey > STOP_TYPING_MS) setAudible(false);
+        }, '8n')
+      );
     },
 
     stop() {
-      if (bpmPoll) { clearInterval(bpmPoll); bpmPoll = null; }
-      if (beatLoop) { beatLoop.stop(); beatLoop.dispose(); beatLoop = null; }
-      try {
-        // restore master toward the configured volume so other moods aren't muted
-        ctx?.rig.master.gain.rampTo(useMusicGenStore.getState().volume, 0.5);
-      } catch { /* ignore */ }
+      if (!ctx) return;
+      const { rig } = ctx;
+      unsubKeys?.();
+      unsubKeys = null;
+      clearTransportEvents(rig, events);
+      events = [];
+      if (loop) {
+        loop.stop();
+        loop.dispose();
+        loop = null;
+      }
+      const transport = rig.Tone.getTransport();
+      transport.swing = 0;
+      const now = rig.Tone.now();
+      rig.beatBus.gain.cancelScheduledValues(now);
+      rig.beatBus.gain.setValueAtTime(1, now + 0.3);
+      useMusicGenStore.getState().setTypingActive(false);
+      audible = false;
       ctx = null;
     },
   };

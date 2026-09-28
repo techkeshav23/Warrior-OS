@@ -1,16 +1,26 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Dream barrel
-// Single drop-in for the OS "dream" phase:
-//   import DreamSequence from '@/components/dream';
-//   <DreamSequence onComplete={nextPhase} />
+// Drop-in for the OS "dream" phase:
+//   import { DreamSequence, decideInitialPhase } from '@/components/dream';
+//   <DreamSequence onComplete={() => setPhase('lock')} />
 // ═══════════════════════════════════════════════════════════
 
 export { DreamSequence, default } from './DreamSequence';
 export { DreamRenderer } from './DreamRenderer';
 export { DreamNarration } from './DreamNarration';
+export { DreamTransition, DREAM_FADE_MS, DREAM_BLACK_HOLD_MS } from './DreamTransition';
 export {
   buildDreamScene,
   buildDreamActivity,
+  decideInitialPhase,
+  dreamsEnabled,
   shouldPlayDream,
   DREAM_DURATION_MS,
+  VOID_AFTER_DAYS,
 } from './DreamEngine';
+export {
+  loadDreamJournal,
+  recordDreamSeen,
+  reconcileDreamAchievements,
+  DREAM_ACHIEVEMENT_IDS,
+} from './dreamJournal';

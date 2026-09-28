@@ -5,20 +5,41 @@
 
 'use client';
 
-import { useState, useCallback, useEffect, useRef, memo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, memo } from 'react';
 import { cn } from '@/lib/utils';
 import { useXPStore } from '@/stores/useXPStore';
-import type { Question } from '@/types/gate';
-import { ALL_QUESTIONS } from '@/data/gate-questions';
+import { dispatchCreatureEvent } from '@/components/creature';
+import { recordQuizCompletion } from '@/components/achievements/quiz-achievements';
+import type { GateSubject, Question } from '@/types/gate';
+import { ALL_QUESTIONS, getAvailableSubjects, getQuestionsBySubject } from '@/data/gate-questions';
+import { isAnswerCorrect, isAnswered, type UserAnswer } from './grading';
 
 type Phase = 'setup' | 'test' | 'results';
+type SubjectFilter = GateSubject | 'all';
 
 interface MockConfig {
   questionCount: number;
   durationMinutes: number;
+  subject: SubjectFilter;
 }
 
-function shuffleArray<T>(arr: T[]): T[] {
+interface MockResult {
+  totalQuestions: number;
+  correct: number;
+  incorrect: number;
+  unattempted: number;
+  earned: number;
+  totalMarks: number;
+  pct: number;
+  xp: number;
+}
+
+interface MockTestProps {
+  /** Subject to preselect, e.g. from a NEXUS deep link. */
+  initialSubject?: GateSubject | null;
+}
+
+function shuffleArray<T>(arr: readonly T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -27,56 +48,136 @@ function shuffleArray<T>(arr: T[]): T[] {
   return a;
 }
 
-function MockTestInner() {
+function formatTime(s: number): string {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${h > 0 ? h + ':' : ''}${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+/**
+ * GATE marking: +marks when correct; a wrong MCQ costs a third of its marks
+ * (−0.33 / −0.67); no negative marking for numerical answers.
+ * `results` lists correctness per question in the order shown.
+ */
+function scoreMock(
+  questions: readonly Question[],
+  answers: Record<string, UserAnswer>
+): { result: MockResult; results: boolean[] } {
+  let totalMarks = 0;
+  let earned = 0;
+  let correct = 0;
+  let incorrect = 0;
+  let unattempted = 0;
+  const results: boolean[] = [];
+
+  for (const q of questions) {
+    totalMarks += q.marks;
+    const answer = answers[q.id];
+    if (!isAnswered(answer)) {
+      unattempted++;
+      results.push(false);
+      continue;
+    }
+    const ok = isAnswerCorrect(q, answer);
+    results.push(ok);
+    if (ok) {
+      correct++;
+      earned += q.marks;
+    } else {
+      incorrect++;
+      if (q.type === 'mcq') earned -= q.marks === 2 ? 0.67 : 0.33;
+    }
+  }
+
+  const pct = totalMarks > 0 ? Math.max(0, (earned / totalMarks) * 100) : 0;
+  const xp = Math.round(correct * 8 + (pct >= 70 ? 100 : 0));
+  return {
+    result: { totalQuestions: questions.length, correct, incorrect, unattempted, earned, totalMarks, pct, xp },
+    results,
+  };
+}
+
+function MockTestInner({ initialSubject = null }: MockTestProps) {
   const [phase, setPhase] = useState<Phase>('setup');
-  const [config, setConfig] = useState<MockConfig>({ questionCount: 30, durationMinutes: 60 });
+  const [config, setConfig] = useState<MockConfig>(() => ({
+    questionCount: 30,
+    durationMinutes: 60,
+    subject: initialSubject ?? 'all',
+  }));
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number | string>>({});
-  const [marked, setMarked] = useState<Set<string>>(new Set());
-  const [timeLeft, setTimeLeft] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [answers, setAnswers] = useState<Record<string, UserAnswer>>({});
+  const [marked, setMarked] = useState<Set<string>>(() => new Set());
+  const [endsAt, setEndsAt] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const [result, setResult] = useState<MockResult | null>(null);
+  const finishedRef = useRef(false);
   const addXP = useXPStore((s) => s.addXP);
 
-  // Timer
+  const subjects = useMemo(() => getAvailableSubjects(), []);
+  const pool = useMemo(
+    () => (config.subject === 'all' ? ALL_QUESTIONS : getQuestionsBySubject(config.subject)),
+    [config.subject]
+  );
+  const questionTarget = Math.min(config.questionCount, pool.length);
+
+  // Score once, award XP once, fire achievements once — on manual submit or time-out.
+  const finishMock = useCallback(() => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    const { result: scored, results } = scoreMock(questions, answers);
+    const answered = scored.correct + scored.incorrect;
+    addXP(scored.xp, 'mock-test');
+    recordQuizCompletion({
+      kind: 'mock',
+      subject: config.subject === 'all' ? null : config.subject,
+      results,
+      answered,
+    });
+    // Mock tests never reach quiz history (which the creature watches), so tell it directly.
+    if (answered > 0) {
+      dispatchCreatureEvent({
+        type: scored.correct === scored.totalQuestions ? 'quiz-perfect' : 'quiz-complete',
+      });
+    }
+    setResult(scored);
+    setPhase('results');
+  }, [questions, answers, addXP, config.subject]);
+
+  // Latest finishMock for the timer, so typing an answer doesn't restart the interval.
+  const finishRef = useRef(finishMock);
+  useEffect(() => {
+    finishRef.current = finishMock;
+  });
+
+  // Timer: time left derives from endsAt; auto-submit when it runs out.
   useEffect(() => {
     if (phase !== 'test') return;
-    timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current!);
-          setPhase('results');
-          return 0;
-        }
-        return prev - 1;
-      });
+    const id = setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= endsAt) finishRef.current();
     }, 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [phase]);
+    return () => clearInterval(id);
+  }, [phase, endsAt]);
 
   const startMock = useCallback(() => {
-    const shuffled = shuffleArray(ALL_QUESTIONS).slice(0, config.questionCount);
-    setQuestions(shuffled);
+    const picked = shuffleArray(pool).slice(0, config.questionCount);
+    if (picked.length === 0) return;
+    const start = Date.now();
+    finishedRef.current = false;
+    setQuestions(picked);
     setAnswers({});
     setMarked(new Set());
     setCurrentIndex(0);
-    setTimeLeft(config.durationMinutes * 60);
+    setResult(null);
+    setNow(start);
+    setEndsAt(start + config.durationMinutes * 60_000);
     setPhase('test');
-  }, [config]);
+  }, [pool, config.questionCount, config.durationMinutes]);
 
-  const submitMock = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setPhase('results');
-  }, []);
-
-  const formatTime = (s: number) => {
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    return `${h > 0 ? h + ':' : ''}${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-  };
+  const timeLeft = Math.max(0, Math.ceil((endsAt - now) / 1000));
 
   // ─── Setup ───
   if (phase === 'setup') {
@@ -89,6 +190,21 @@ function MockTestInner() {
 
         <div className="space-y-4">
           <div>
+            <label className="text-xs text-white/60 block mb-1">Subject</label>
+            <select
+              value={config.subject}
+              onChange={(e) => setConfig((c) => ({ ...c, subject: e.target.value as SubjectFilter }))}
+              className="bg-white/5 border border-white/10 rounded p-2 text-sm text-white w-full"
+            >
+              <option value="all">All subjects (full GATE mix)</option>
+              {subjects.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="text-xs text-white/60 block mb-1">Questions</label>
             <select
               value={config.questionCount}
@@ -99,6 +215,11 @@ function MockTestInner() {
               <option value={30}>30 (Half)</option>
               <option value={65}>65 (Full GATE)</option>
             </select>
+            {questionTarget < config.questionCount && (
+              <p className="text-[11px] text-yellow-300/80 mt-1">
+                Only {pool.length} questions are available for {config.subject}; the test will use all {questionTarget}.
+              </p>
+            )}
           </div>
           <div>
             <label className="text-xs text-white/60 block mb-1">Duration</label>
@@ -116,7 +237,8 @@ function MockTestInner() {
 
         <button
           onClick={startMock}
-          className="w-full p-3 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30 text-sm font-bold"
+          disabled={questionTarget === 0}
+          className="w-full p-3 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30 text-sm font-bold disabled:opacity-30"
         >
           🚀 Start Mock Test
         </button>
@@ -141,7 +263,7 @@ function MockTestInner() {
             {formatTime(timeLeft)}
           </span>
           <button
-            onClick={submitMock}
+            onClick={finishMock}
             className="px-3 py-1 rounded text-xs bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30"
           >
             Submit
@@ -215,7 +337,7 @@ function MockTestInner() {
                   'w-7 h-7 rounded text-[10px] transition-all',
                   i === currentIndex ? 'bg-cyan-500 text-black font-bold' :
                   marked.has(questions[i].id) ? 'bg-yellow-500/30 text-yellow-300' :
-                  answers[questions[i].id] !== undefined ? 'bg-green-500/30 text-green-300' :
+                  isAnswered(answers[questions[i].id]) ? 'bg-green-500/30 text-green-300' :
                   'bg-white/10 text-white/40'
                 )}
               >
@@ -245,62 +367,37 @@ function MockTestInner() {
   }
 
   // ─── Results ───
-  if (phase === 'results') {
-    let totalMarks = 0;
-    let earned = 0;
-    let correct = 0;
-    let incorrect = 0;
-    let unattempted = 0;
-
-    for (const q of questions) {
-      totalMarks += q.marks;
-      const ua = answers[q.id];
-      if (ua === undefined) {
-        unattempted++;
-        continue;
-      }
-      const isCorrect = String(ua) === String(q.answer);
-      if (isCorrect) {
-        correct++;
-        earned += q.marks;
-      } else {
-        incorrect++;
-        // Negative marking for MCQ only
-        if (q.type === 'mcq') {
-          earned -= q.marks === 2 ? 0.67 : 0.33;
-        }
-      }
-    }
-
-    const pct = totalMarks > 0 ? Math.max(0, (earned / totalMarks) * 100) : 0;
-    const xp = Math.round(correct * 8 + (pct >= 70 ? 100 : 0));
-    addXP(xp, 'mock-test');
-
+  if (phase === 'results' && result) {
     return (
       <div className="p-6 space-y-4 overflow-y-auto h-full">
         <h3 className="text-lg font-bold text-white text-center">Mock Test Results</h3>
         <div className="grid grid-cols-2 gap-3 text-center">
           <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-            <p className="text-2xl font-bold text-green-300">{correct}</p>
+            <p className="text-2xl font-bold text-green-300">{result.correct}</p>
             <p className="text-xs text-green-400/60">Correct</p>
           </div>
           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-            <p className="text-2xl font-bold text-red-300">{incorrect}</p>
+            <p className="text-2xl font-bold text-red-300">{result.incorrect}</p>
             <p className="text-xs text-red-400/60">Incorrect</p>
           </div>
           <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-            <p className="text-2xl font-bold text-white/70">{unattempted}</p>
+            <p className="text-2xl font-bold text-white/70">{result.unattempted}</p>
             <p className="text-xs text-white/40">Unattempted</p>
           </div>
           <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
-            <p className="text-2xl font-bold text-cyan-300">{earned.toFixed(2)}/{totalMarks}</p>
-            <p className="text-xs text-cyan-400/60">{Math.round(pct)}%</p>
+            <p className="text-2xl font-bold text-cyan-300">{result.earned.toFixed(2)}/{result.totalMarks}</p>
+            <p className="text-xs text-cyan-400/60">{Math.round(result.pct)}%</p>
           </div>
         </div>
-        <p className="text-xs text-white/40 text-center">+{xp} XP earned</p>
+        <p className="text-xs text-white/40 text-center">+{result.xp} XP earned</p>
 
         <button
-          onClick={() => { setPhase('setup'); setQuestions([]); setAnswers({}); }}
+          onClick={() => {
+            setPhase('setup');
+            setQuestions([]);
+            setAnswers({});
+            setResult(null);
+          }}
           className="w-full p-3 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-sm font-semibold"
         >
           Back to Setup

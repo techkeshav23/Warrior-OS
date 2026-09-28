@@ -1,83 +1,85 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Procedural Music :: Night Ambient Generator
-// Deep bass drone (C1), wind noise (filtered brown noise + slow
-// LFO), distant low rumbles every 30-60s, dark + atmospheric.
-// If studied > 4h today, adds a subtle heroic pad swell every 2 min.
+// A deep bass drone on C1, wind from brown noise through a slowly
+// sweeping low-pass (LFO), distant low rumbles every 30-60 s — dark
+// and atmospheric. If the warrior has studied more than 4 hours
+// today (tracked by the Reality Decay engine), a subtle heroic pad
+// swell rises every 2 minutes.
 // ═══════════════════════════════════════════════════════════
 
-import type { MusicGenerator, GeneratorContext } from './generator';
+import {
+  type MusicGenerator,
+  type GeneratorContext,
+  clearTransportEvents,
+  reportNote,
+  scheduleRandomly,
+  transposeNote,
+} from './generator';
 import { makeRng, pick, noteToDegree, buildPentatonic } from './tone-setup';
 
 const LOW_RUMBLE = buildPentatonic(1, 1); // C1 D1 E1 G1 A1
-const HERO_NOTES = ['C3', 'G3', 'E4'];    // rising heroic pad swell
+const HERO_CHORD = ['C3', 'G3', 'E4']; // rising heroic swell
+export const NIGHT_HERO_INTERVAL_S = 120;
 
 export function createNightAmbientGenerator(): MusicGenerator {
   let ctx: GeneratorContext | null = null;
-  let rumbleTimeout: ReturnType<typeof setTimeout> | null = null;
-  let heroInterval: ReturnType<typeof setInterval> | null = null;
-
-  function scheduleRumble(rng: () => number) {
-    if (!ctx) return;
-    const delayMs = 30000 + rng() * 30000; // 30-60s
-    rumbleTimeout = setTimeout(() => {
-      if (!ctx) return;
-      const note = pick(LOW_RUMBLE, rng);
-      try {
-        ctx.rig.bass.triggerAttackRelease(note, '1n', undefined, 0.4);
-        ctx.onNote({ note, degree: noteToDegree(note), velocity: 0.4 });
-      } catch { /* not ready */ }
-      scheduleRumble(rng);
-    }, delayMs);
-  }
+  let cancelRumble: (() => void) | null = null;
+  let events: number[] = [];
 
   return {
     start(context) {
       ctx = context;
-      const { rig, seed } = ctx;
-      const rng = makeRng(seed ^ 0x44444);
+      const { rig } = context;
+      const transport = rig.Tone.getTransport();
+      const rng = makeRng(context.seed ^ 0x44444);
+      const now = rig.Tone.now();
 
-      // Deep bass drone on C1
-      try { rig.pad.triggerAttack('C1'); } catch { /* not ready */ }
+      // Deep drone on C1 (C2 an octave up, quietly, so small speakers hear it)
+      rig.pad.triggerAttack(['C1', 'C2'], now, 0.45);
 
-      // Wind: brown noise with slow LFO sweep
-      try {
-        rig.noise.type = 'brown';
-        rig.noiseFilter.frequency.value = 500;
-        rig.noise.start();
-        rig.noiseGain.gain.rampTo(0.08, 4);
-        rig.noiseLFO.frequency.value = 0.05;
-        rig.noiseLFO.min = 200;
-        rig.noiseLFO.max = 900;
-        rig.noiseLFO.start();
-      } catch { /* not ready */ }
+      // Wind: brown noise with a slow LFO sweep on the low-pass
+      rig.rain.noise.type = 'brown';
+      rig.rainLFO.set({ frequency: 0.05, min: 220, max: 900 });
+      if (rig.rainLFO.state !== 'started') rig.rainLFO.start(now);
+      rig.rainGain.gain.rampTo(0.12, 4);
+      rig.rain.triggerAttack(now);
 
-      scheduleRumble(rng);
+      // Distant low rumbles, 30-60 s apart
+      cancelRumble = scheduleRandomly(rig, 30, 60, rng, (time) => {
+        if (!ctx) return;
+        const raw = pick(LOW_RUMBLE, rng);
+        const note = transposeNote(rig, raw, ctx.getTranspose());
+        rig.bass.triggerAttackRelease(note, '1n', time, 0.4);
+        reportNote(ctx, time, note, noteToDegree(raw), 0.4);
+      });
 
-      // Heroic swell every 2 min if the warrior ground hard today
-      if (ctx.studiedHardToday()) {
-        let heroStep = 0;
-        heroInterval = setInterval(() => {
-          if (!ctx) return;
-          const note = HERO_NOTES[heroStep % HERO_NOTES.length];
-          heroStep++;
-          try {
-            ctx.rig.pad.triggerAttackRelease(note, '2n', undefined, 0.5);
-            ctx.onNote({ note, degree: noteToDegree(note), velocity: 0.5 });
-          } catch { /* not ready */ }
-        }, 120000);
-      }
+      // Heroic swell every 2 minutes — only after a 4 h+ study day.
+      events.push(
+        transport.scheduleRepeat(
+          (time) => {
+            const c = ctx;
+            if (!c || !c.studiedHardToday()) return;
+            const shift = c.getTranspose();
+            const chord = HERO_CHORD.map((n) => transposeNote(rig, n, shift));
+            rig.pad.triggerAttackRelease(chord, 6, time, 0.5);
+            chord.forEach((n, i) => reportNote(c, time + i * 0.4, n, noteToDegree(HERO_CHORD[i]), 0.5));
+          },
+          NIGHT_HERO_INTERVAL_S,
+          transport.seconds + NIGHT_HERO_INTERVAL_S
+        )
+      );
     },
 
     stop() {
-      if (rumbleTimeout) { clearTimeout(rumbleTimeout); rumbleTimeout = null; }
-      if (heroInterval) { clearInterval(heroInterval); heroInterval = null; }
-      try { ctx?.rig.pad.triggerRelease(); } catch { /* ignore */ }
-      try {
-        ctx?.rig.noiseGain.gain.rampTo(0, 2);
-        ctx?.rig.noiseLFO.stop();
-        const noise = ctx?.rig.noise;
-        setTimeout(() => { try { noise?.stop(); } catch { /* ignore */ } }, 2200);
-      } catch { /* ignore */ }
+      if (!ctx) return;
+      const { rig } = ctx;
+      cancelRumble?.();
+      cancelRumble = null;
+      clearTransportEvents(rig, events);
+      events = [];
+      rig.pad.releaseAll();
+      rig.rainGain.gain.rampTo(0, 2);
+      rig.rain.triggerRelease(rig.Tone.now());
       ctx = null;
     },
   };

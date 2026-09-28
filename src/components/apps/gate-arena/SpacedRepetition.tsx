@@ -9,6 +9,7 @@ import { useState, useMemo, useCallback, memo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { getAvailableSubjects, getTopicsForSubject } from '@/data/gate-questions';
+import { recordStudyAction } from '@/components/achievements/study-streak';
 
 interface RevisionEntry {
   subject: string;
@@ -55,21 +56,26 @@ function SpacedRepetitionInner() {
   }, [allTopics, revisions, now]);
 
   const markRevised = useCallback((subject: string, topic: string) => {
-    setRevisions((prev) => {
-      const existing = prev.find((r) => r.subject === subject && r.topic === topic);
-      const newInterval = existing ? Math.min(existing.interval * 2, 30) : 1;
-      const entry: RevisionEntry = {
-        subject,
-        topic,
-        lastRevised: new Date().toISOString(),
-        interval: newInterval,
-      };
-      const filtered = prev.filter((r) => !(r.subject === subject && r.topic === topic));
-      const updated = [...filtered, entry];
+    const existing = revisions.find((r) => r.subject === subject && r.topic === topic);
+    const newInterval = existing ? Math.min(existing.interval * 2, 30) : 1;
+    const entry: RevisionEntry = {
+      subject,
+      topic,
+      lastRevised: new Date().toISOString(),
+      interval: newInterval,
+    };
+    const filtered = revisions.filter((r) => !(r.subject === subject && r.topic === topic));
+    const updated = [...filtered, entry];
+    setRevisions(updated);
+    // Save outside the state updater, so it runs exactly once.
+    try {
       localStorage.setItem('warrior-revisions', JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
+    } catch {
+      /* storage blocked — the list still updates for this session */
+    }
+    // A revision is study activity for today's streak.
+    recordStudyAction();
+  }, [revisions]);
 
   return (
     <div className="p-6 space-y-4">

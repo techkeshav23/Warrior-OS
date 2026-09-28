@@ -15,13 +15,12 @@ export type DreamThemeKey =
   | 'code' // code-lab / building
   | 'exam' // heavy mixed study (exam-prep vibe)
   | 'mixed' // multiple subjects, no clear winner
-  | 'idle' // some presence but nothing logged
+  | 'idle' // no activity yesterday
   | 'void'; // 3+ days offline — deep concerned void
 
 /**
- * A single visual motif rendered as drifting objects in the scene.
- * Kept as string ids so the renderer can switch on them without a
- * hard dependency on a specific asset system.
+ * A visual motif rendered as drifting objects in the scene. Kept as
+ * string ids so the renderer can switch on them without assets.
  */
 export type DreamObjectKind =
   | 'floating-table'
@@ -59,8 +58,8 @@ export type DreamObjectKind =
   | 'dark-fog';
 
 /**
- * Static theme definition (see dream-themes.ts) — the palette + motifs
- * + a pool of narration lines associated with a subject/edge-case.
+ * Static theme definition (see data/dream-themes.ts) — the palette,
+ * motifs, glowing text snippets and narration pool of a subject.
  */
 export interface DreamTheme {
   key: DreamThemeKey;
@@ -68,48 +67,38 @@ export interface DreamTheme {
   objects: DreamObjectKind[]; // visual motifs to drift through the scene
   color: string; // primary accent hex
   ambientColor: string; // deep background hex (fog / void tint)
-  ambient: string; // ambience label (e.g. 'digital-hum') — decorative
-  narration: string[]; // fallback narration lines for this theme
+  ambient: string; // ambience label (e.g. 'digital-hum')
+  narration: string[]; // theme narration lines
+  textSnippets: string[]; // glowing text fragments (SQL, code, states…)
 }
 
-/**
- * Aggregated snapshot of what the warrior did "yesterday", built by
- * DreamEngine from localStorage. All numbers default to 0 / empty when
- * nothing was found — never throws.
- */
-export interface DreamActivity {
-  /** Subjects studied yesterday with a rough intensity (quiz count). */
-  subjects: { subject: string; count: number }[];
-  /** Total quizzes/attempts recorded yesterday. */
-  quizzesTaken: number;
-  /** Approx focused hours yesterday (heuristic, may be fractional). */
-  studyHours: number;
-  /** Projects touched (name list) yesterday. */
-  projectsWorkedOn: string[];
-  /** Did the user write/run code yesterday. */
-  codedYesterday: boolean;
-  /** Habit/routine items completed yesterday. */
-  habitsCompleted: number;
-  /** Current streak length in days (0 = none). */
-  streak: number;
-  /** True when the previous streak looks freshly broken. */
-  streakBroken: boolean;
-  /** Days since the last recorded activity (0 = active yesterday/today). */
-  daysSinceActive: number;
-  /** True when we found literally no historical activity at all. */
-  firstEver: boolean;
-}
+/** Element categories from spec 6.5. */
+export type DreamElementType = 'floating-object' | 'particle' | 'text';
 
-/** A single drifting object instance placed in the scene. */
-export interface DreamSceneObject {
+/** How an element moves on top of its drift. */
+export type DreamAnimation =
+  | 'drift' // slow float
+  | 'spin' // rotates in place (process diagrams, clocks)
+  | 'pulse' // breathes in size / glow
+  | 'sort' // bars re-arrange (sorting)
+  | 'travel' // packets moving along a path
+  | 'twinkle' // stars flicker
+  | 'rise'; // dust / embers float upwards
+
+/** One element of a dream scene (spec 6.5 DreamElement). */
+export interface DreamElement {
   id: string;
-  kind: DreamObjectKind;
-  /** Normalised start position 0..1 in scene space. */
-  x: number;
-  y: number;
-  /** Drift velocity (scene units / sec). */
-  vx: number;
-  vy: number;
+  type: DreamElementType;
+  /**
+   * floating-object → its DreamObjectKind,
+   * text → the glowing text itself,
+   * particle → '' (a mote of light).
+   */
+  content: string;
+  /** Normalised position 0..1 in scene space. */
+  position: { x: number; y: number };
+  /** Drift velocity in scene units / second. */
+  velocity: { x: number; y: number };
   /** Base size in px. */
   size: number;
   /** Rotation in degrees + spin speed (deg/sec). */
@@ -117,40 +106,109 @@ export interface DreamSceneObject {
   spin: number;
   /** 0..1 opacity multiplier. */
   opacity: number;
-  /** Optional glowing label text (SQL, code, etc.). */
-  text?: string;
-  /** Animation phase offset so objects don't pulse in lockstep. */
+  /** Animation phase offset so elements don't pulse in lockstep. */
   phase: number;
+  animation: DreamAnimation;
+  /** Theme that produced this element (colour + context). */
+  subjectTheme: DreamThemeKey;
+  /** Leaves a fading particle trail behind it. */
+  trail: boolean;
 }
 
 /**
- * Fully resolved, render-ready dream. DreamEngine produces this and
- * hands it to the renderer + narration.
+ * Aggregated snapshot of what the warrior did "yesterday" (UTC day key,
+ * matching the habit/routine keys used across the OS). Built from the
+ * quiz history, notes, habit logs, projects and the creature's activity
+ * log (XP + focus minutes). Never throws; empty data → zeros.
+ */
+export interface DreamActivity {
+  /** UTC day key being recapped. */
+  recapDay: string;
+  /** GATE subjects touched yesterday (quizzes + notes), strongest first. */
+  subjects: { subject: string; count: number }[];
+  /** Quiz submissions yesterday. */
+  quizzesTaken: number;
+  /** Questions answered yesterday. */
+  questionsAnswered: number;
+  /** Accuracy yesterday 0..1, null when no questions. */
+  accuracy: number | null;
+  /** Focused hours in study apps yesterday. */
+  studyHours: number;
+  /** Focused hours in build apps yesterday. */
+  codingHours: number;
+  /** XP earned yesterday. */
+  xpEarned: number;
+  /** Notes created or edited yesterday. */
+  notesTouched: number;
+  /** Projects touched yesterday (names). */
+  projectsWorkedOn: string[];
+  /** Did the user write/run code yesterday. */
+  codedYesterday: boolean;
+  /** Habit + routine items completed yesterday. */
+  habitsCompleted: number;
+  /** Activity streak length as of yesterday (0 = none). */
+  streak: number;
+  /** True when a streak ended because yesterday was empty. */
+  streakBroken: boolean;
+  /** Days between today and the last day with any presence/activity. */
+  daysSinceActive: number;
+  /** True when nothing at all happened before today (first-ever session). */
+  firstEver: boolean;
+  /** True when yesterday had real activity. */
+  hadActivity: boolean;
+}
+
+/**
+ * Fully resolved, render-ready dream (spec 6.5 DreamScene).
+ * DreamEngine produces this; the renderer + narration consume it.
  */
 export interface DreamScene {
   themeKey: DreamThemeKey;
   label: string;
+  /** Deep background colour. */
+  bgColor: string;
+  /** Accent / glow colour (the subject's accent). */
   primaryColor: string;
-  ambientColor: string;
-  ambient: string;
-  /** Concrete drifting objects to render. */
-  objects: DreamSceneObject[];
-  /** Ordered narration lines chosen for this specific dream. */
-  narration: string[];
+  /** Ambience label, e.g. 'digital-hum'. */
+  ambientText: string;
+  /** Full narration text (1–2 sentences). */
+  narration: string;
+  /** Narration split into display lines. */
+  narrationLines: string[];
   /** Total dream duration in ms (renderer + narration honour this). */
-  durationMs: number;
-  /** Intensity 0..1 — scales object count, glow, particle density. */
+  duration: number;
+  /** Concrete scene elements. */
+  elements: DreamElement[];
+  /** Intensity 0..1 — scales element count, glow, particle density. */
   intensity: number;
+  /** GATE subjects represented in this dream. */
+  subjects: string[];
   /** The raw activity snapshot this scene was derived from. */
   activity: DreamActivity;
 }
 
 /** Props for the top-level orchestrator used as the OS "dream" phase. */
 export interface DreamSequenceProps {
-  /** Called once when the dream finishes (or is skipped). */
+  /** Called once when the dream finishes (or is skipped / not needed). */
   onComplete: () => void;
-  /** Optional override scene (mainly for previews / testing). */
+  /** Optional override scene (previews / testing). */
   scene?: DreamScene;
-  /** When true, allow click/Escape to skip. Default true. */
+  /** When true, allow click/Escape/Space/Enter to skip. Default true. */
   skippable?: boolean;
+}
+
+/** Which phase a page load should start in (spec 6.68). */
+export type DreamBootPhase = 'dream' | 'boot' | 'lock';
+
+/** Persisted record of dreams seen (drives dream achievements). */
+export interface DreamJournal {
+  v: 1;
+  /** UTC day keys on which a dream was seen (unique). */
+  dreamDays: string[];
+  /** Distinct GATE subjects that appeared in dreams. */
+  subjects: string[];
+  /** Distinct theme keys seen. */
+  themes: string[];
+  /** Dreams seen in total (including repeats on the same day). */
+  total: number;
 }

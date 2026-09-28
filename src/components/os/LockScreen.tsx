@@ -1,23 +1,83 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — LockScreen Component
-// Parallax lock screen with biometric-style unlock animation
+// Parallax lock screen with biometric-style unlock animation,
+// live clock and current weather (fails silently when offline).
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Shield, Zap } from 'lucide-react';
 import { useParallax } from '@/hooks/useParallax';
 import { useClock } from '@/hooks/useClock';
 import { GlitchText } from '@/components/ui/GlitchText';
+import { WeatherIcon } from '@/components/apps/weather/WeatherIcon';
 import { getQuoteOfDay } from '@/data/quotes';
 import { useXPStore } from '@/stores/useXPStore';
+import { getLocalWeather, type WeatherData } from '@/lib/weather';
 import { cn } from '@/lib/utils';
 
 interface LockScreenProps {
   onUnlock: () => void;
 }
+
+// ─── Clock: ticks every second without re-rendering the whole screen ───
+function LockClockInner() {
+  const clock = useClock();
+  return (
+    <>
+      <h1 className="text-7xl font-display font-bold text-text-primary tracking-wider">
+        {clock.timeShort}
+      </h1>
+      <p className="text-text-secondary text-sm font-mono mt-2">
+        {clock.date}
+      </p>
+    </>
+  );
+}
+
+const LockClock = memo(LockClockInner);
+
+// ─── Weather: temp + icon. Never prompts for location (uses a saved
+// city or an existing permission, else the default city) and renders
+// nothing at all if the weather service is unavailable. ───
+function LockWeatherInner() {
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getLocalWeather({ allowPrompt: false, signal: controller.signal })
+      .then(({ data }) => {
+        if (!controller.signal.aborted) setWeather(data);
+      })
+      .catch(() => {
+        /* lock screen fails silently: no key, offline, rate-limited... */
+      });
+    return () => controller.abort();
+  }, []);
+
+  return (
+    <div className="h-7 mt-3 flex items-center justify-center">
+      {weather && (
+        <motion.div
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-mono text-text-secondary max-w-[20rem]"
+          title={weather.description}
+        >
+          <WeatherIcon code={weather.icon} className="w-4 h-4 shrink-0" />
+          <span className="text-text-primary">{weather.temp}°C</span>
+          <span className="capitalize truncate">{weather.condition}</span>
+          <span className="truncate">· {weather.city}</span>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+const LockWeather = memo(LockWeatherInner);
 
 export function LockScreen({ onUnlock }: LockScreenProps) {
   const [password, setPassword] = useState('');
@@ -26,7 +86,6 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
   const [shattered, setShattered] = useState(false);
 
   const parallax = useParallax(0.3);
-  const clock = useClock();
   const level = useXPStore((s) => s.level);
   const levelTitle = useXPStore((s) => s.getLevelTitle());
   const quote = getQuoteOfDay();
@@ -123,12 +182,8 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
               transition={{ delay: 0.2 }}
               className="text-center"
             >
-              <h1 className="text-7xl font-display font-bold text-text-primary tracking-wider">
-                {clock.timeShort}
-              </h1>
-              <p className="text-text-secondary text-sm font-mono mt-2">
-                {clock.date}
-              </p>
+              <LockClock />
+              <LockWeather />
             </motion.div>
 
             {/* Avatar Ring */}

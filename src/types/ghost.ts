@@ -1,19 +1,22 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Ghost Warriors Types
-// Anonymous multiplayer presence (local simulation)
+// Anonymous multiplayer presence: Firebase Realtime Database when
+// configured, an explicitly-labelled local simulation otherwise.
 // ═══════════════════════════════════════════════════════════
 
 /**
- * An anonymous warrior currently "online" (real self or simulated ghost).
+ * An anonymous warrior currently online (real self, real peer, or a
+ * clearly-flagged simulated ghost).
  */
 export interface GhostWarrior {
-  anonymousId: string;      // e.g. "Warrior#4821"
-  studyHoursToday: number;  // hours studied today
-  quizzesToday: number;     // quizzes completed today
-  streak: number;           // day streak
+  anonymousId: string; // e.g. "Warrior#4821"
+  studyHoursToday: number; // focused hours today
+  quizzesToday: number; // quiz submissions today
+  streak: number; // day streak
   isOnline: boolean;
-  lastSeen: string;         // ISO timestamp
-  isSelf?: boolean;         // true for the local user's own presence
+  lastSeen: string; // ISO timestamp
+  isSelf?: boolean; // true for the local user's own presence
+  isSimulated?: boolean; // true for local-simulation ghosts (never real people)
 }
 
 /**
@@ -22,9 +25,11 @@ export interface GhostWarrior {
 export interface WarCry {
   id: string;
   message: string;
-  timestamp: string;        // ISO timestamp
-  anonymousId: string;      // sender
-  isSelf?: boolean;         // sent by the local user
+  timestamp: string; // ISO timestamp
+  anonymousId: string; // sender
+  isSelf?: boolean; // sent by the local user
+  /** True when the cry was not broadcast (simulation mode). */
+  isLocalOnly?: boolean;
 }
 
 /**
@@ -32,7 +37,7 @@ export interface WarCry {
  */
 export interface CampfireState {
   onlineCount: number;
-  fireIntensity: number;    // 0..1 normalized flame size/brightness
+  fireIntensity: number; // 0..1 normalized flame size/brightness
 }
 
 /**
@@ -46,4 +51,29 @@ export type CampfireStage = 'ember' | 'small' | 'fire' | 'bonfire' | 'inferno';
 export interface WarCryPreset {
   label: string;
   message: string;
+}
+
+/**
+ * Where presence data comes from right now.
+ *  - disabled:   Ghost Warriors switched off in Settings
+ *  - connecting: Firebase RTDB configured, connection in progress
+ *  - realtime:   live Firebase RTDB presence (real people)
+ *  - simulated:  no database configured (or unreachable) → local simulation
+ */
+export type GhostPresenceMode = 'disabled' | 'connecting' | 'realtime' | 'simulated';
+
+/** The stats the local warrior publishes about themselves. */
+export interface GhostSelfStats {
+  studyHoursToday: number;
+  quizzesToday: number;
+  streak: number;
+}
+
+/** Lifetime counters used for Ghost Warrior achievements. */
+export interface GhostLifetimeStats {
+  warCriesSent: number;
+  /** Minutes spent online in realtime mode while other warriors were online. */
+  minutesWithOthers: number;
+  /** Highest simultaneous real online count seen. */
+  maxOnlineSeen: number;
 }

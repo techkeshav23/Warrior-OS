@@ -1,46 +1,66 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — BreakMode
-// Full-screen forced-break overlay. Deep-blue calming gradient,
-// animated 4-7-8 breathing circle, stretching-tip carousel, and a
-// countdown timer. Cannot be dismissed early (Esc disabled).
+// Full-screen recovery overlay: deep-blue calming gradient, an
+// animated 4-7-8 breathing circle (inhale 4 s · hold 7 s · exhale
+// 8 s), a stretching-tip carousel, and a countdown that always ends
+// on its own. It cannot be skipped: pointer input is covered, Esc and
+// every other app key are swallowed, and the end time is persisted so
+// a reload resumes the same break. A soft synthesised ambient pad
+// plays underneath when sound is on.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Howl } from 'howler';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useDecayStore } from '@/stores/useDecayStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { createSynthLoop } from '@/lib/procedural-music/synth-samples';
 
 const STRETCH_TIPS: string[] = [
-  'Roll your shoulders slowly, both directions.',
-  'Look at something 20 feet away for 20 seconds.',
-  'Stand up and stretch your arms overhead.',
-  'Unclench your jaw. Drop your shoulders.',
+  'Roll your shoulders slowly — five times forward, five times back.',
+  'Look at something 20 feet away for 20 seconds. Let your eyes soften.',
+  'Stand up and stretch your arms overhead. Reach for the ceiling.',
+  'Unclench your jaw. Drop your shoulders away from your ears.',
   'Take a slow sip of water.',
-  'Rotate your wrists and stretch your fingers.',
+  'Rotate your wrists and gently stretch each finger back.',
+  'Tilt your head toward each shoulder and hold for a breath.',
   'Breathe from your belly, not your chest.',
 ];
+const TIP_SECONDS = 12;
 
-// 4-7-8 technique: inhale 4s, hold 7s, exhale 8s.
+// 4-7-8 technique: inhale 4 s, hold 7 s, exhale 8 s (19 s cycle).
 type BreathPhase = 'inhale' | 'hold' | 'exhale';
-const PHASE_DURATION: Record<BreathPhase, number> = {
-  inhale: 4,
-  hold: 7,
-  exhale: 8,
-};
+const PHASES: { phase: BreathPhase; seconds: number }[] = [
+  { phase: 'inhale', seconds: 4 },
+  { phase: 'hold', seconds: 7 },
+  { phase: 'exhale', seconds: 8 },
+];
+const CYCLE_SECONDS = 19;
 const PHASE_LABEL: Record<BreathPhase, string> = {
   inhale: 'Breathe in',
   hold: 'Hold',
   exhale: 'Breathe out',
 };
 
-function formatTime(totalSeconds: number): string {
+function breathAt(elapsedSec: number): { phase: BreathPhase; left: number; length: number; cycle: number } {
+  const cycle = Math.floor(elapsedSec / CYCLE_SECONDS) + 1;
+  let t = elapsedSec % CYCLE_SECONDS;
+  for (const p of PHASES) {
+    if (t < p.seconds) return { phase: p.phase, left: p.seconds - t, length: p.seconds, cycle };
+    t -= p.seconds;
+  }
+  return { phase: 'inhale', left: 4, length: 4, cycle };
+}
+
+function formatClock(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
+
+const RING_R = 118;
+const RING_C = 2 * Math.PI * RING_R;
 
 interface BreakModeProps {
   /** Called once the countdown reaches zero. */
@@ -48,185 +68,194 @@ interface BreakModeProps {
 }
 
 export function BreakMode({ onComplete }: BreakModeProps) {
+  const breakEndsAt = useDecayStore((s) => s.breakEndsAt);
+  const breakStartedAt = useDecayStore((s) => s.breakStartedAt);
+  const breakReason = useDecayStore((s) => s.breakReason);
   const breakDuration = useDecayStore((s) => s.breakDuration);
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
-  const soundVolume = useSettingsStore((s) => s.soundVolume);
 
-  const totalSeconds = breakDuration * 60;
-  const [remaining, setRemaining] = useState(totalSeconds);
-  const [phase, setPhase] = useState<BreathPhase>('inhale');
-  const [tipIndex, setTipIndex] = useState(0);
-  const completedRef = useRef(false);
-  const ambientRef = useRef<Howl | null>(null);
-
-  // Countdown
+  const [mountedAt] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  const onCompleteRef = useRef(onComplete);
   useEffect(() => {
-    const id = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          clearInterval(id);
-          if (!completedRef.current) {
-            completedRef.current = true;
-            onComplete();
-          }
-          return 0;
-        }
-        return r - 1;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [onComplete]);
+    onCompleteRef.current = onComplete;
+  });
 
-  // Breathing phase cycle (4-7-8)
+  const startedAt = breakStartedAt ?? mountedAt;
+  const endsAt = breakEndsAt ?? startedAt + breakDuration * 60_000;
+  const totalMs = Math.max(1, endsAt - startedAt);
+  const remainingMs = Math.max(0, endsAt - now);
+  const done = remainingMs <= 0;
+  const elapsedSec = Math.max(0, (now - startedAt) / 1000);
+  const breath = breathAt(elapsedSec);
+  const tipIndex = Math.floor(elapsedSec / TIP_SECONDS) % STRETCH_TIPS.length;
+
+  // Clock — 4 Hz keeps the breathing countdown crisp.
   useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-    const order: BreathPhase[] = ['inhale', 'hold', 'exhale'];
-    let idx = 0;
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, []);
 
-    const advance = () => {
-      if (cancelled) return;
-      const current = order[idx];
-      setPhase(current);
-      timer = setTimeout(() => {
-        idx = (idx + 1) % order.length;
-        advance();
-      }, PHASE_DURATION[current] * 1000);
+  // The break always ends on its own once the persisted end time passes.
+  useEffect(() => {
+    if (done) onCompleteRef.current();
+  }, [done]);
+
+  // Nothing behind the overlay keeps keyboard focus.
+  useEffect(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+  }, []);
+
+  // Swallow app keyboard input (Esc included). Browser-level chords
+  // (Ctrl/⌘/Alt combos, F-keys) still reach the browser itself.
+  useEffect(() => {
+    const block = (e: KeyboardEvent) => {
+      e.stopImmediatePropagation();
+      const browserChord = e.ctrlKey || e.metaKey || e.altKey || /^F\d{1,2}$/.test(e.key);
+      if (!browserChord) e.preventDefault();
     };
-    advance();
-
+    const opts: AddEventListenerOptions = { capture: true };
+    window.addEventListener('keydown', block, opts);
+    window.addEventListener('keyup', block, opts);
+    window.addEventListener('keypress', block, opts);
     return () => {
-      cancelled = true;
-      clearTimeout(timer);
+      window.removeEventListener('keydown', block, opts);
+      window.removeEventListener('keyup', block, opts);
+      window.removeEventListener('keypress', block, opts);
     };
   }, []);
 
-  // Tip carousel
-  useEffect(() => {
-    const id = setInterval(() => {
-      setTipIndex((i) => (i + 1) % STRETCH_TIPS.length);
-    }, 8000);
-    return () => clearInterval(id);
-  }, []);
-
-  // Soft ambient sound (best-effort; file may not exist — never throws)
+  // Soft ambient pad (synthesised loop through Howler), faded in and out.
   useEffect(() => {
     if (!soundEnabled) return;
-    if (typeof window === 'undefined') return;
-    let howl: Howl | null = null;
-    try {
-      howl = new Howl({
-        src: ['/sounds/ambient-calm.mp3'],
-        loop: true,
-        volume: Math.min(0.4, soundVolume),
-        html5: true,
-        onloaderror: () => {},
-        onplayerror: () => {},
-      });
-      howl.play();
-      ambientRef.current = howl;
-    } catch {
-      /* ignore missing audio */
-    }
+    const target = Math.min(0.35, useSettingsStore.getState().soundVolume);
+    const howl = createSynthLoop('calm-ambient', 0);
+    if (!howl) return;
+    howl.play();
+    howl.fade(0, target, 2500);
     return () => {
       try {
-        howl?.stop();
-        howl?.unload();
+        howl.fade(howl.volume(), 0, 600);
       } catch {
-        /* noop */
+        /* already unloaded */
       }
-      ambientRef.current = null;
+      window.setTimeout(() => {
+        howl.stop();
+        howl.unload();
+      }, 650);
     };
-  }, [soundEnabled, soundVolume]);
+  }, [soundEnabled]);
 
-  // Block Esc + other dismissal keys while break is active.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const block = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-    window.addEventListener('keydown', block, true);
-    return () => window.removeEventListener('keydown', block, true);
-  }, []);
-
-  const circleScale =
-    phase === 'inhale' ? 1.35 : phase === 'hold' ? 1.35 : 0.75;
+  const circleScale = breath.phase === 'exhale' ? 0.72 : 1.3;
+  const progress = 1 - remainingMs / totalMs;
+  const remainingSec = Math.ceil(remainingMs / 1000);
 
   return (
     <motion.div
-      className="fixed inset-0 flex flex-col items-center justify-center select-none"
+      className="fixed inset-0 flex select-none flex-col items-center justify-center overflow-hidden"
       style={{
         zIndex: 960,
-        background:
-          'radial-gradient(circle at 50% 40%, #123a6b 0%, #0a1f3d 55%, #050b18 100%)',
+        background: 'radial-gradient(circle at 50% 38%, #143f73 0%, #0b2344 50%, #050b18 100%)',
       }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.6 }}
+      transition={{ duration: 0.8 }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Recovery break"
     >
-      <div className="text-center mb-10">
-        <p className="font-display text-accent-primary text-glow-sm text-sm tracking-[0.3em] uppercase">
-          Forced Recovery
+      {/* Slow drifting light for calm */}
+      <motion.div
+        className="pointer-events-none absolute h-[70vmax] w-[70vmax] rounded-full"
+        style={{ background: 'radial-gradient(circle, rgba(0,240,255,0.08) 0%, transparent 60%)' }}
+        animate={{ x: ['-12%', '10%', '-12%'], y: ['-8%', '6%', '-8%'] }}
+        transition={{ duration: 38, repeat: Infinity, ease: 'easeInOut' }}
+        aria-hidden
+      />
+
+      <div className="relative mb-8 text-center">
+        <p className="font-display text-sm uppercase tracking-[0.3em] text-accent-primary text-glow-sm">
+          {breakReason === 'voluntary' ? 'Recovery Break' : 'Forced Recovery'}
         </p>
-        <p className="text-text-secondary text-sm mt-2 max-w-md mx-auto">
-          Your focus is legendary. Your body is mortal. Rest — this cannot be
-          skipped.
+        <p className="mx-auto mt-2 max-w-md text-sm text-text-secondary">
+          {breakReason === 'voluntary'
+            ? 'Good call, warrior. Rest now — the OS will repair itself when the timer ends.'
+            : 'Your focus is legendary. Your body is mortal. This break cannot be skipped.'}
         </p>
       </div>
 
-      {/* Breathing circle */}
-      <div className="relative flex items-center justify-center w-72 h-72">
+      {/* Breathing circle inside the break-progress ring */}
+      <div className="relative flex h-72 w-72 items-center justify-center">
+        <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 288 288" aria-hidden>
+          <circle cx="144" cy="144" r={RING_R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2" />
+          <circle
+            cx="144"
+            cy="144"
+            r={RING_R}
+            fill="none"
+            stroke="rgba(0,240,255,0.55)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeDasharray={RING_C}
+            strokeDashoffset={RING_C * (1 - progress)}
+            style={{ transition: 'stroke-dashoffset 0.25s linear' }}
+          />
+        </svg>
         <motion.div
           className="absolute rounded-full"
           style={{
-            width: 200,
-            height: 200,
+            width: 170,
+            height: 170,
             background:
-              'radial-gradient(circle, rgba(0,240,255,0.28) 0%, rgba(123,97,255,0.12) 60%, transparent 75%)',
-            border: '1px solid rgba(0,240,255,0.4)',
+              'radial-gradient(circle, rgba(0,240,255,0.26) 0%, rgba(123,97,255,0.12) 60%, transparent 76%)',
+            border: '1px solid rgba(0,240,255,0.35)',
+            boxShadow: '0 0 40px rgba(0,240,255,0.12)',
           }}
+          initial={{ scale: 0.72 }}
           animate={{ scale: circleScale }}
-          transition={{
-            duration: PHASE_DURATION[phase],
-            ease: phase === 'hold' ? 'linear' : 'easeInOut',
-          }}
+          transition={{ duration: breath.phase === 'hold' ? 0.3 : breath.left, ease: 'easeInOut' }}
         />
-        <div className="relative text-center z-10">
-          <p className="font-display text-2xl text-text-primary text-glow-sm">
-            {PHASE_LABEL[phase]}
-          </p>
-          <p className="text-text-secondary text-xs mt-1">
-            {PHASE_DURATION[phase]}s
+        <div className="relative z-10 text-center">
+          <p className="font-display text-2xl text-text-primary text-glow-sm">{PHASE_LABEL[breath.phase]}</p>
+          <p className="mt-1 font-mono text-sm text-text-secondary">{Math.ceil(breath.left)}</p>
+          <p className="mt-1 text-[10px] uppercase tracking-widest text-text-muted">
+            4 · 7 · 8 — cycle {breath.cycle}
           </p>
         </div>
       </div>
 
-      {/* Timer */}
-      <div className="mt-10 text-center">
-        <p className="font-mono text-4xl text-text-primary tracking-widest">
-          {formatTime(remaining)}
+      {/* Countdown */}
+      <div className="mt-8 text-center">
+        <p className="font-mono text-4xl tracking-widest text-text-primary tabular-nums">
+          {formatClock(remainingSec)}
         </p>
-        <p className="text-text-muted text-xs mt-1 uppercase tracking-widest">
-          remaining
-        </p>
+        <p className="mt-1 text-xs uppercase tracking-widest text-text-muted">remaining</p>
       </div>
 
       {/* Stretch tip carousel */}
-      <div className="mt-8 h-8 flex items-center">
-        <motion.p
-          key={tipIndex}
-          className="text-text-secondary text-sm"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.5 }}
-        >
-          {STRETCH_TIPS[tipIndex]}
-        </motion.p>
+      <div className="mt-8 flex h-10 max-w-lg items-center px-6 text-center">
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={tipIndex}
+            className="text-sm text-text-secondary"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.5 }}
+          >
+            {STRETCH_TIPS[tipIndex]}
+          </motion.p>
+        </AnimatePresence>
+      </div>
+      <div className="mt-3 flex gap-1.5" aria-hidden>
+        {STRETCH_TIPS.map((_, i) => (
+          <span
+            key={i}
+            className={i === tipIndex ? 'h-1 w-4 rounded-full bg-accent-primary/70' : 'h-1 w-1 rounded-full bg-white/20'}
+          />
+        ))}
       </div>
     </motion.div>
   );

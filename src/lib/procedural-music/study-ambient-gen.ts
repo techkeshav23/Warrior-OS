@@ -1,65 +1,60 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Procedural Music :: Study Ambient Generator
-// Very low drone on C2 (pad), rain noise (filtered), distant bell
-// hits every 20-40s, no rhythm/beat, ultra-minimal + low volume.
-// Designed to fade into the background.
+// A very low pad drone on C2, rain from filtered white noise, and a
+// distant bell every 20-40 s (randomised). No rhythm, no beat —
+// ultra-minimal and designed to fade into the background. The engine
+// also plays this mode quieter than the others.
 // ═══════════════════════════════════════════════════════════
 
-import type { MusicGenerator, GeneratorContext } from './generator';
+import {
+  type MusicGenerator,
+  type GeneratorContext,
+  reportNote,
+  scheduleRandomly,
+  transposeNote,
+} from './generator';
 import { PENTATONIC, makeRng, pick, noteToDegree } from './tone-setup';
 
 export function createStudyAmbientGenerator(): MusicGenerator {
   let ctx: GeneratorContext | null = null;
-  let bellTimeout: ReturnType<typeof setTimeout> | null = null;
-
-  function scheduleBell(rng: () => number) {
-    if (!ctx) return;
-    const delayMs = 20000 + rng() * 20000; // 20-40s
-    bellTimeout = setTimeout(() => {
-      if (!ctx) return;
-      const note = pick(PENTATONIC.high, rng);
-      try {
-        ctx.rig.bell.triggerAttackRelease(note, '2n', undefined, 0.3);
-        ctx.onNote({ note, degree: noteToDegree(note), velocity: 0.3 });
-      } catch { /* not ready */ }
-      scheduleBell(rng);
-    }, delayMs);
-  }
+  let cancelBell: (() => void) | null = null;
 
   return {
     start(context) {
       ctx = context;
-      const { rig, seed } = ctx;
-      const rng = makeRng(seed ^ 0x22222);
+      const { rig } = context;
+      const rng = makeRng(context.seed ^ 0x22222);
+      const now = rig.Tone.now();
 
       // Ultra-low drone
-      try { rig.pad.triggerAttack('C2'); } catch { /* not ready */ }
+      rig.pad.triggerAttack(['C2', 'G2'], now, 0.3);
 
-      // Rain: filtered noise, gentle
-      try {
-        rig.noiseFilter.frequency.value = 900;
-        rig.noise.type = 'pink';
-        rig.noise.start();
-        rig.noiseGain.gain.rampTo(0.06, 3);
-        rig.noiseLFO.frequency.value = 0.1;
-        rig.noiseLFO.min = 500;
-        rig.noiseLFO.max = 1400;
-        rig.noiseLFO.start();
-      } catch { /* not ready */ }
+      // Rain: white noise through a gently wandering low-pass
+      rig.rain.noise.type = 'white';
+      rig.rainLFO.set({ frequency: 0.07, min: 1300, max: 2600 });
+      if (rig.rainLFO.state !== 'started') rig.rainLFO.start(now);
+      rig.rainGain.gain.rampTo(0.09, 3);
+      rig.rain.triggerAttack(now);
 
-      scheduleBell(rng);
+      // Distant bell, 20-40 s apart
+      cancelBell = scheduleRandomly(rig, 20, 40, rng, (time) => {
+        if (!ctx) return;
+        const raw = pick(PENTATONIC.high, rng);
+        const note = transposeNote(rig, raw, ctx.getTranspose());
+        rig.bell.triggerAttackRelease(note, '1n', time, 0.22);
+        reportNote(ctx, time, note, noteToDegree(raw), 0.22);
+      });
     },
 
     stop() {
-      if (bellTimeout) { clearTimeout(bellTimeout); bellTimeout = null; }
-      try { ctx?.rig.pad.triggerRelease(); } catch { /* ignore */ }
-      try {
-        ctx?.rig.noiseGain.gain.rampTo(0, 1.5);
-        ctx?.rig.noiseLFO.stop();
-        // Stop noise slightly after the gain fade to avoid a click
-        const noise = ctx?.rig.noise;
-        setTimeout(() => { try { noise?.stop(); } catch { /* ignore */ } }, 1800);
-      } catch { /* ignore */ }
+      if (!ctx) return;
+      const { rig } = ctx;
+      cancelBell?.();
+      cancelBell = null;
+      rig.pad.releaseAll();
+      // Release now (2 s envelope tail); the next mood can re-attack cleanly.
+      rig.rainGain.gain.rampTo(0, 2);
+      rig.rain.triggerRelease(rig.Tone.now());
       ctx = null;
     },
   };

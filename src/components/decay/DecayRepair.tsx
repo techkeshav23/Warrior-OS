@@ -1,20 +1,24 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — DecayRepair
-// After a break completes: cracks animate closed, vignette/colors fade
-// back to normal, NEXUS confirms restoration, and a 50 XP bonus is
-// awarded for taking the break. Renders a brief "Systems restored"
-// flourish, then calls onDone.
+// After a break completes the OS heals: the crack lines draw closed
+// and the vignette + colour grade fade back to normal over ~3 s
+// (DecayStages, driven by `repairing`), a restore sweep passes over
+// the screen, particles return to full speed, NEXUS says "Systems
+// restored. Ready for battle." and a +50 XP bonus is awarded for
+// taking the break. Calls onDone when the sequence ends.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useXPStore } from '@/stores/useXPStore';
-import { useNotificationStore } from '@/stores/useNotificationStore';
+import { useDecayStore } from '@/stores/useDecayStore';
+import { nexusSay } from './nexus-say';
+import { onDecayBreakCompleted } from './achievements';
 
-const REPAIR_XP = 50;
-const REPAIR_DURATION_MS = 3200; // matches crack-close + vignette fade
+export const REPAIR_XP = 50;
+const REPAIR_DURATION_MS = 3200; // matches crack-close + vignette/grade fade
 
 interface DecayRepairProps {
   /** Called when the repair sequence completes. */
@@ -22,35 +26,56 @@ interface DecayRepairProps {
 }
 
 export function DecayRepair({ onDone }: DecayRepairProps) {
-  const awardedRef = useRef(false);
+  // Peek (not claim) so the flourish can show whether XP was earned.
+  const [earnsXP] = useState(() => useDecayStore.getState().repairTicket?.reward ?? false);
+  const onDoneRef = useRef(onDone);
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  });
+
+  // One-shot rewards: the ticket can only be claimed once, so a double
+  // effect run (StrictMode) or a remount never awards twice.
+  useEffect(() => {
+    const ticket = useDecayStore.getState().claimRepairTicket();
+    if (!ticket) return;
+    if (ticket.reward) useXPStore.getState().addXP(REPAIR_XP, 'decay-break');
+    nexusSay(
+      ticket.reward
+        ? `Systems restored. Ready for battle. (+${REPAIR_XP} XP)`
+        : 'Systems restored. Ready for battle.',
+      'success'
+    );
+    onDecayBreakCompleted(ticket.reason);
+  }, []);
 
   useEffect(() => {
-    if (awardedRef.current) return;
-    awardedRef.current = true;
-
-    // Award XP + NEXUS restoration message once.
-    useXPStore.getState().addXP(REPAIR_XP, 'decay-break');
-    useNotificationStore.getState().addNotification({
-      type: 'system',
-      title: 'NEXUS',
-      message: 'Systems restored. Ready for battle. (+50 XP)',
-      icon: '🛡️',
-      autoDismiss: 6000,
-    });
-
-    const id = setTimeout(onDone, REPAIR_DURATION_MS);
-    return () => clearTimeout(id);
-  }, [onDone]);
+    const id = window.setTimeout(() => onDoneRef.current(), REPAIR_DURATION_MS);
+    return () => window.clearTimeout(id);
+  }, []);
 
   return (
     <motion.div
-      className="fixed inset-0 pointer-events-none flex items-center justify-center"
+      className="pointer-events-none fixed inset-0 flex items-center justify-center"
       style={{ zIndex: 958 }}
       initial={{ opacity: 0 }}
       animate={{ opacity: [0, 1, 1, 0] }}
-      transition={{ duration: REPAIR_DURATION_MS / 1000, times: [0, 0.15, 0.7, 1] }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: REPAIR_DURATION_MS / 1000, times: [0, 0.12, 0.72, 1] }}
+      aria-live="polite"
     >
-      <div className="text-center">
+      {/* Restore sweep: a soft band of light passes top → bottom */}
+      <motion.div
+        className="absolute inset-x-0 h-40"
+        style={{
+          background:
+            'linear-gradient(180deg, transparent 0%, rgba(0,240,255,0.10) 45%, rgba(0,230,118,0.14) 55%, transparent 100%)',
+        }}
+        initial={{ top: '-20%' }}
+        animate={{ top: '110%' }}
+        transition={{ duration: 2.4, ease: [0.16, 1, 0.3, 1] }}
+        aria-hidden
+      />
+      <div className="relative text-center">
         <motion.p
           className="font-display text-2xl text-accent-success text-glow-sm"
           initial={{ scale: 0.9, opacity: 0 }}
@@ -59,8 +84,8 @@ export function DecayRepair({ onDone }: DecayRepairProps) {
         >
           Systems restored
         </motion.p>
-        <p className="text-text-secondary text-sm mt-2">
-          Ready for battle. +50 XP
+        <p className="mt-2 text-sm text-text-secondary">
+          Ready for battle.{earnsXP ? ` +${REPAIR_XP} XP` : ''}
         </p>
       </div>
     </motion.div>

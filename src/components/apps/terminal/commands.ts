@@ -3,6 +3,24 @@
 // All available terminal commands mapped to handlers
 // ═══════════════════════════════════════════════════════════
 
+import { useAppStore } from '@/stores/useAppStore';
+import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
+import { useXPStore } from '@/stores/useXPStore';
+import { useQuizHistoryStore } from '@/stores/useQuizHistoryStore';
+import { sendPendingEvent } from '@/components/achievements/pending-events';
+import { useAchievementProgressStore } from '@/components/achievements/progress-store';
+import { utcDayKey } from '@/components/achievements/award';
+import { currentStreak } from '@/components/achievements/day-streak';
+import { collectStudyDays } from '@/components/achievements/study-streak';
+import {
+  GATE_START_QUIZ_EVENT,
+  resolveGateSubject,
+  type GateLinkMode,
+  type GateStartQuizDetail,
+} from '@/components/apps/gate-arena/deep-link';
+import { NOTES_SEARCH_EVENT, type NotesSearchDetail } from '@/components/apps/notes-archive/deep-link';
+import { parseStoredHabits } from '@/components/apps/habit-forge/streak';
+
 export interface CommandResult {
   output: string;
   type: 'info' | 'success' | 'error' | 'warning' | 'ascii';
@@ -22,6 +40,11 @@ const helpCommand: CommandHandler = () => ({
   uptime        — System uptime
   ls            — List installed apps
   xp            — Show XP and level
+  stats         — Today's study summary
+  gate [mode] [subject]
+                — Open GATE Arena (modes: start, mock, flashcards, planner)
+                  e.g. gate start dbms · gate mock os
+  notes [query] — Open Notes, searching for <query>
   quote         — Random warrior quote
   subjects      — List GATE subjects
   version       — OS version
@@ -31,8 +54,105 @@ const helpCommand: CommandHandler = () => ({
   cowsay <text> — ASCII cow says your text
   hack          — Fake hacking sequence
   motivate      — Get motivated!
-  warrior       — Warrior ASCII art`,
+  warrior       — Warrior ASCII art
+  ...and a few secrets nobody lists.`,
 });
+
+function activeWorkspaceId(): string {
+  return useWorkspaceStore.getState().activeWorkspaceId;
+}
+
+const GATE_MODE_WORDS = new Map<string, GateLinkMode>([
+  ['start', 'quiz'],
+  ['quiz', 'quiz'],
+  ['mock', 'mock'],
+  ['test', 'mock'],
+  ['flashcards', 'flashcards'],
+  ['cards', 'flashcards'],
+  ['formulas', 'flashcards'],
+  ['planner', 'planner'],
+  ['plan', 'planner'],
+]);
+
+const GATE_MODE_LABELS: Record<GateLinkMode, string> = {
+  quiz: 'Quiz',
+  mock: 'Mock Test',
+  flashcards: 'Formula Cards',
+  planner: 'Study Planner',
+};
+
+/** `gate [mode] [subject]` — opens GATE Arena through the 'warrior:gate-start-quiz' deep link. */
+const gateCommand: CommandHandler = (args) => {
+  const explicitMode = GATE_MODE_WORDS.get(args[0]?.toLowerCase() ?? '');
+  const mode: GateLinkMode = explicitMode ?? 'quiz';
+  const subjectText = (explicitMode ? args.slice(1) : args).join(' ').trim();
+  const subject = resolveGateSubject(subjectText);
+  if (subjectText && !subject) {
+    return {
+      type: 'error',
+      output: `gate: unknown subject "${subjectText}". Run 'subjects' for the list.`,
+    };
+  }
+  const detail: GateStartQuizDetail = subject ? { subject, mode } : { mode };
+  useAppStore.getState().launchApp('gate-prep', activeWorkspaceId());
+  sendPendingEvent(GATE_START_QUIZ_EVENT, detail);
+  return {
+    type: 'success',
+    output: `Opening GATE Arena → ${GATE_MODE_LABELS[mode]}${subject ? ` · ${subject}` : ''}`,
+  };
+};
+
+/** `notes [search] <query>` — opens Notes through the 'warrior:notes-search' deep link. */
+const notesCommand: CommandHandler = (args) => {
+  const words = args[0]?.toLowerCase() === 'search' ? args.slice(1) : args;
+  const query = words.join(' ').trim();
+  useAppStore.getState().launchApp('notes', activeWorkspaceId());
+  if (!query) return { type: 'success', output: 'Opening Notes.' };
+  const detail: NotesSearchDetail = { query };
+  sendPendingEvent(NOTES_SEARCH_EVENT, detail);
+  return { type: 'success', output: `Opening Notes → searching "${query}"` };
+};
+
+function readStoredJSON(key: string): unknown {
+  try {
+    return JSON.parse(localStorage.getItem(key) || 'null') as unknown;
+  } catch {
+    return null;
+  }
+}
+
+/** `stats` — today's numbers from the real stores (UTC day, like habits). */
+const statsCommand: CommandHandler = () => {
+  const today = utcDayKey();
+  const { xp, level, achievements, getLevelTitle, getXPForNextLevel } = useXPStore.getState();
+
+  const minutes = useAchievementProgressStore.getState().getStudyMinutes(today);
+  const quizRows = useQuizHistoryStore
+    .getState()
+    .attempts.filter(
+      (a) => Number.isFinite(a.timestamp) && utcDayKey(new Date(a.timestamp)) === today
+    );
+  const questions = quizRows.reduce((sum, a) => sum + a.totalQuestions, 0);
+  const correct = quizRows.reduce((sum, a) => sum + a.correctAnswers, 0);
+
+  const habits = parseStoredHabits(readStoredJSON('warrior-habits'));
+  const habitsDone = habits.filter((h) => h.completions.includes(today)).length;
+  const streak = currentStreak(collectStudyDays(), today);
+
+  const unlocked = achievements.filter((a) => a.unlockedAt).length;
+  const toNext = getXPForNextLevel();
+
+  return {
+    type: 'info',
+    output: `TODAY — ${today} (UTC)
+  Level         ${level} · ${getLevelTitle()} · ${xp} XP${toNext > 0 ? ` (${toNext} to next level)` : ''}
+  Study time    ${Math.floor(minutes / 60)}h ${minutes % 60}m in study apps
+  Questions     ${correct}/${questions} correct
+  Habits        ${habitsDone}/${habits.length} done
+  Study streak  ${streak} day${streak === 1 ? '' : 's'}
+  Achievements  ${unlocked}/${achievements.length} unlocked`,
+  };
+};
 
 const whoamiCommand: CommandHandler = () => ({
   type: 'info',
@@ -116,7 +236,8 @@ const aboutCommand: CommandHandler = () => ({
   output: `Warrior OS v4.0 — The Living World
 An immersive OS-in-browser for GATE exam prep.
 Built by Keshav Upadhyay with Next.js 16, React 19, and passion.
-"Every warrior was once a beginner who refused to give up."`,
+"Every warrior was once a beginner who refused to give up."
+(Old gamers say the desktop still remembers a certain code. Try 'konami'.)`,
 });
 
 const QUOTES = [
@@ -149,4 +270,8 @@ export const COMMANDS: Record<string, CommandHandler> = {
   version: versionCommand,
   about: aboutCommand,
   quote: quoteCommand,
+  stats: statsCommand,
+  gate: gateCommand,
+  notes: notesCommand,
+  note: notesCommand,
 };

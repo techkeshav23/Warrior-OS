@@ -9,15 +9,55 @@ import { useState, useMemo, useCallback, memo } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { getAvailableSubjects } from '@/data/gate-questions';
+import { recordStudyAction } from '@/components/achievements/study-streak';
 
 interface PlanDay {
   date: string;
   subjects: string[];
 }
 
+/** The exam date is remembered so the plan is there whenever the planner opens. */
+const EXAM_DATE_KEY = 'warrior-exam-date';
+
+function readExamDate(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return localStorage.getItem(EXAM_DATE_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Plan from today to the exam (max 60 days), 2-3 subjects a day in rotation.
+ * Days are UTC keys, like the "today" marker and every other day key in the OS.
+ */
+function buildPlan(examDate: string, subjects: readonly string[]): PlanDay[] {
+  if (!examDate || subjects.length === 0) return [];
+  const startMs = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+  const examMs = Date.parse(`${examDate}T00:00:00Z`);
+  if (Number.isNaN(examMs)) return [];
+  const daysLeft = Math.max(1, Math.ceil((examMs - startMs) / 86400000));
+
+  const days: PlanDay[] = [];
+  for (let d = 0; d < Math.min(daysLeft, 60); d++) {
+    // Distribute subjects evenly: 2-3 subjects per day
+    const subjectsPerDay = 2 + (d % 2);
+    const daySubjects: string[] = [];
+    for (let s = 0; s < subjectsPerDay; s++) {
+      daySubjects.push(subjects[(d * subjectsPerDay + s) % subjects.length]);
+    }
+    days.push({
+      date: new Date(startMs + d * 86400000).toISOString().slice(0, 10),
+      subjects: daySubjects,
+    });
+  }
+  return days;
+}
+
 function StudyPlannerInner() {
-  const [examDate, setExamDate] = useState('');
-  const [plan, setPlan] = useState<PlanDay[]>([]);
+  const [examDate, setExamDate] = useState(readExamDate);
+  const [plan, setPlan] = useState<PlanDay[]>(() => buildPlan(readExamDate(), getAvailableSubjects()));
   const [completed, setCompleted] = useState<Set<string>>(() => {
     if (typeof window === 'undefined') return new Set();
     try {
@@ -29,37 +69,29 @@ function StudyPlannerInner() {
 
   const generatePlan = useCallback(() => {
     if (!examDate) return;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const exam = new Date(examDate);
-    const daysLeft = Math.max(1, Math.ceil((exam.getTime() - now.getTime()) / 86400000));
-
-    const days: PlanDay[] = [];
-    for (let d = 0; d < Math.min(daysLeft, 60); d++) {
-      const date = new Date(now.getTime() + d * 86400000);
-      // Distribute subjects evenly: 2-3 subjects per day
-      const subjectsPerDay = 2 + (d % 2);
-      const daySubjects: string[] = [];
-      for (let s = 0; s < subjectsPerDay; s++) {
-        daySubjects.push(subjects[(d * subjectsPerDay + s) % subjects.length]);
-      }
-      days.push({
-        date: date.toISOString().split('T')[0],
-        subjects: daySubjects,
-      });
+    setPlan(buildPlan(examDate, subjects));
+    try {
+      localStorage.setItem(EXAM_DATE_KEY, examDate);
+    } catch {
+      /* storage blocked — the plan still shows for this session */
     }
-    setPlan(days);
   }, [examDate, subjects]);
 
   const toggleDone = useCallback((key: string) => {
-    setCompleted((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+    const next = new Set(completed);
+    const nowDone = !next.has(key);
+    if (nowDone) next.add(key);
+    else next.delete(key);
+    setCompleted(next);
+    // Save outside the state updater, so it runs exactly once.
+    try {
       localStorage.setItem('warrior-plan-done', JSON.stringify([...next]));
-      return next;
-    });
-  }, []);
+    } catch {
+      /* storage blocked — the plan still updates for this session */
+    }
+    // Finishing a planned subject is study activity for today's streak.
+    if (nowDone) recordStudyAction();
+  }, [completed]);
 
   const today = new Date().toISOString().split('T')[0];
 

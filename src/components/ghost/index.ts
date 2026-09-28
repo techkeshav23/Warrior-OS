@@ -4,8 +4,9 @@
 // ═══════════════════════════════════════════════════════════
 
 export { GhostLayer } from './GhostLayer';
+export { GhostPresenceEngine } from './GhostPresenceEngine';
 export { GhostAvatars } from './GhostAvatars';
 export { WarriorLeaderboard } from './WarriorLeaderboard';
-export { CampfireWidget } from './CampfireWidget';
-export { WarCryBubbles, WarCrySystem, WarCryComposer } from './WarCrySystem';
+export { CampfireWidget, campfireStageFor } from './CampfireWidget';
+export { WarCryBubbles, WarCrySystem, WarCryComposer, WARCRY_PRESETS } from './WarCrySystem';
 export { OnlineCounter } from './OnlineCounter';
