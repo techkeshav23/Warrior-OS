@@ -1,70 +1,49 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Memory Palace: data layer
-// Notes (warrior-notes) → palace objects with inferred subject room,
-// topic and object type; spaced-repetition review state (palace log +
-// the legacy topic schedule in warrior-revisions); palace progress +
-// achievements.
-// Pure TypeScript — no React, no three.js (the dream engine uses it).
+// Pure TypeScript — no React, no three.js, no store imports (only
+// types), so it stays cheap to share:
+//   • notes (Notes Archive 'warrior-notes') → PalaceNote with folder,
+//     tags and an object shape inferred from the content
+//   • knowledge objects (PalaceItem): notes, deck cards, projects
+//   • review state: the palace revision log for notes, Training
+//     Grounds spaced repetition (useLearningStore reviews) for cards
+//     and for notes linked to a deck/topic by tag or folder
+//   • room themes by content type (notes · decks · projects)
+//   • palace progress + achievements
 // ═══════════════════════════════════════════════════════════
 
+import type { CardKind, CardReview, Deck } from '@/types/learning';
 import { unlockPhase6Achievement } from '@/components/creature/osBridge';
 
 // ─────────────────────────────────────────────────────────────
-// Subjects + room themes
+// Content types + room themes
 // ─────────────────────────────────────────────────────────────
 
-/** Themed rooms for core CS subjects a note can belong to. */
-export type PalaceRoomSubject =
-  | 'DBMS'
-  | 'OS'
-  | 'CN'
-  | 'TOC'
-  | 'COA'
-  | 'DAA'
-  | 'Compiler Design'
-  | 'Digital Logic'
-  | 'Discrete Math'
-  | 'Engineering Math'
-  | 'C Programming'
-  | 'Data Structures';
+/** What a room holds: your notes, one of your decks, or your projects. */
+export type PalaceContentType = 'notes' | 'deck' | 'projects';
 
-/** Subject rooms, plus a General archive for unmatched notes. */
-export type PalaceSubject = PalaceRoomSubject | 'General';
-export type NoteObjectType = 'concept' | 'formula' | 'question';
-
-export const ROOM_SUBJECTS: PalaceRoomSubject[] = [
-  'DBMS',
-  'OS',
-  'CN',
-  'TOC',
-  'COA',
-  'DAA',
-  'Compiler Design',
-  'Digital Logic',
-  'Discrete Math',
-  'Engineering Math',
-  'C Programming',
-  'Data Structures',
-];
-
-/** Visual style family for a room's furniture + props. */
+/** Visual style family of a room's furniture + props (per content type). */
 export type RoomStyle =
+  // notes
   | 'library'
-  | 'server'
-  | 'network'
-  | 'abstract'
-  | 'warehouse'
-  | 'laboratory'
-  | 'lattice'
-  | 'foundry'
-  | 'forge'
-  | 'bay'
   | 'observatory'
+  | 'lattice'
+  | 'network'
+  | 'archive'
+  // decks
+  | 'laboratory'
+  | 'vault'
+  | 'orbit'
+  // projects
+  | 'forge'
   | 'workshop'
-  | 'archive';
+  | 'depot'
+  | 'pipeline';
 
 export interface RoomTheme {
-  subject: PalaceSubject;
+  contentType: PalaceContentType;
+  style: RoomStyle;
+  /** Style name, e.g. 'Library'. */
   label: string;
   /** accent glow colour (hex) */
   accent: string;
@@ -74,85 +53,68 @@ export interface RoomTheme {
   floor: string;
   /** furniture colour (shelves, racks, benches) */
   furniture: string;
-  style: RoomStyle;
   /** short descriptive vibe used in labels */
   vibe: string;
 }
 
-export const ROOM_THEMES: Record<PalaceSubject, RoomTheme> = {
-  DBMS: { subject: 'DBMS', label: 'DBMS Library', accent: '#4fc3f7', wall: '#3a2a1c', floor: '#2a1d12', furniture: '#6b4a2e', style: 'library', vibe: 'Dark library · wooden shelves · floating SQL' },
-  OS: { subject: 'OS', label: 'OS Server Room', accent: '#00e676', wall: '#1b2226', floor: '#101518', furniture: '#1d2328', style: 'server', vibe: 'Server room · rack cabinets · blinking LEDs' },
-  CN: { subject: 'CN', label: 'Network Lab', accent: '#7c4dff', wall: '#1d1d30', floor: '#131322', furniture: '#2b2b44', style: 'network', vibe: 'Network lab · glowing cables · routers' },
-  TOC: { subject: 'TOC', label: 'Automata Space', accent: '#ff4081', wall: '#1e1426', floor: '#140d1a', furniture: '#3a2748', style: 'abstract', vibe: 'Abstract math space · floating automata' },
-  'Data Structures': { subject: 'Data Structures', label: 'DS Warehouse', accent: '#ffab00', wall: '#2a2416', floor: '#1d190f', furniture: '#8a5a12', style: 'warehouse', vibe: 'Warehouse · stacked data structures' },
-  DAA: { subject: 'DAA', label: 'Algo Laboratory', accent: '#ff5252', wall: '#241a1c', floor: '#181113', furniture: '#d7dde3', style: 'laboratory', vibe: 'Laboratory · sorting tubes' },
-  'Discrete Math': { subject: 'Discrete Math', label: 'Discrete Hall', accent: '#18ffff', wall: '#15222a', floor: '#0e171c', furniture: '#26404b', style: 'lattice', vibe: 'Logic lattice · sets & graphs' },
-  'Digital Logic': { subject: 'Digital Logic', label: 'Gate Foundry', accent: '#64ffda', wall: '#172422', floor: '#0f1817', furniture: '#2a3d39', style: 'foundry', vibe: 'Foundry · logic gates · circuit traces' },
-  'Compiler Design': { subject: 'Compiler Design', label: 'Compiler Forge', accent: '#ffd740', wall: '#2a2214', floor: '#1c170d', furniture: '#4a3a1c', style: 'forge', vibe: 'Forge · parse trees · token blocks' },
-  COA: { subject: 'COA', label: 'Architecture Bay', accent: '#40c4ff', wall: '#15202a', floor: '#0e161d', furniture: '#233444', style: 'bay', vibe: 'Bay · pipelines & caches' },
-  'Engineering Math': { subject: 'Engineering Math', label: 'Math Observatory', accent: '#b388ff', wall: '#1f1a2c', floor: '#15111f', furniture: '#352c4d', style: 'observatory', vibe: 'Observatory · matrices & waves' },
-  'C Programming': { subject: 'C Programming', label: 'C Workshop', accent: '#82b1ff', wall: '#181d2a', floor: '#10141d', furniture: '#2c3550', style: 'workshop', vibe: 'Workshop · memory cells & pointers' },
-  General: { subject: 'General', label: 'General Archive', accent: '#b0bec5', wall: '#22262b', floor: '#171a1e', furniture: '#4a4f57', style: 'archive', vibe: 'Archive · everything else you wrote' },
+type StyleBase = Omit<RoomTheme, 'contentType' | 'style'>;
+
+export const ROOM_STYLES: Record<RoomStyle, StyleBase> = {
+  library: { label: 'Library', accent: '#ffca28', wall: '#3a2a1c', floor: '#2a1d12', furniture: '#6b4a2e', vibe: 'Library · wooden shelves · your words in the air' },
+  observatory: { label: 'Observatory', accent: '#b388ff', wall: '#1f1a2c', floor: '#15111f', furniture: '#352c4d', vibe: 'Observatory · star charts · ideas in orbit' },
+  lattice: { label: 'Idea Crystal', accent: '#18ffff', wall: '#15222a', floor: '#0e171c', furniture: '#26404b', vibe: 'Idea crystal · connected thoughts' },
+  network: { label: 'Link Web', accent: '#7c4dff', wall: '#1d1d30', floor: '#131322', furniture: '#2b2b44', vibe: 'Link web · notes joined by threads of light' },
+  archive: { label: 'Archive', accent: '#b0bec5', wall: '#22262b', floor: '#171a1e', furniture: '#4a4f57', vibe: 'Archive · everything not filed yet' },
+  laboratory: { label: 'Mastery Lab', accent: '#22d3ee', wall: '#241a1c', floor: '#181113', furniture: '#d7dde3', vibe: 'Mastery lab · each tube fills as a topic sticks' },
+  vault: { label: 'Card Vault', accent: '#00e676', wall: '#1b2226', floor: '#101518', furniture: '#1d2328', vibe: 'Card vault · recall lights (red = due)' },
+  orbit: { label: 'Review Loop', accent: '#ff4081', wall: '#1e1426', floor: '#140d1a', furniture: '#3a2748', vibe: 'Review loop · recall nodes in orbit' },
+  forge: { label: 'Forge', accent: '#ffab40', wall: '#2a2214', floor: '#1c170d', furniture: '#4a3a1c', vibe: 'Forge · ideas hammered into things' },
+  workshop: { label: 'Workshop', accent: '#82b1ff', wall: '#181d2a', floor: '#10141d', furniture: '#2c3550', vibe: 'Workshop · benches and blueprints' },
+  depot: { label: 'Depot', accent: '#ffd740', wall: '#2a2416', floor: '#1d190f', furniture: '#8a5a12', vibe: 'Depot · crates of shipped and shipping work' },
+  pipeline: { label: 'Pipeline', accent: '#40c4ff', wall: '#15202a', floor: '#0e161d', furniture: '#233444', vibe: 'Pipeline · ideas → build → test → ship' },
 };
 
-// ─────────────────────────────────────────────────────────────
-// Subject / topic / type inference
-// ─────────────────────────────────────────────────────────────
-
-const SUBJECT_TAG_ALIASES: Record<PalaceRoomSubject, string[]> = {
-  DBMS: ['dbms', 'db', 'database', 'databases', 'sql'],
-  OS: ['os', 'operating-system', 'operating system', 'operating systems'],
-  CN: ['cn', 'network', 'networks', 'networking', 'computer networks'],
-  TOC: ['toc', 'automata', 'theory of computation'],
-  COA: ['coa', 'co', 'computer organization', 'architecture'],
-  DAA: ['daa', 'algo', 'algos', 'algorithm', 'algorithms'],
-  'Compiler Design': ['cd', 'compiler', 'compilers', 'compiler design'],
-  'Digital Logic': ['dl', 'dld', 'digital', 'digital logic'],
-  'Discrete Math': ['dm', 'discrete', 'discrete math', 'discrete maths'],
-  'Engineering Math': ['em', 'math', 'maths', 'engineering math', 'engineering maths'],
-  'C Programming': ['c', 'clang', 'c programming'],
-  'Data Structures': ['ds', 'dsa', 'data structure', 'data structures'],
+/** Styles a room of each content type is drawn from (picked per room). */
+export const CONTENT_STYLES: Record<PalaceContentType, RoomStyle[]> = {
+  notes: ['library', 'observatory', 'lattice', 'network'],
+  deck: ['laboratory', 'vault', 'orbit'],
+  projects: ['forge', 'workshop', 'depot', 'pipeline'],
 };
 
-const SUBJECT_KEYWORDS: Record<PalaceRoomSubject, string[]> = {
-  DBMS: ['database', 'sql', 'normalization', 'normal form', 'bcnf', '3nf', 'transaction', 'acid', 'serializab', 'er model', 'er diagram', 'relational', 'b+ tree', 'indexing', 'functional dependenc', 'foreign key', 'primary key'],
-  OS: ['operating system', 'process', 'thread', 'scheduling', 'deadlock', 'semaphore', 'mutex', 'paging', 'page fault', 'virtual memory', 'segmentation', 'banker', 'critical section', 'context switch', 'disk scheduling', 'file system', 'tlb'],
-  CN: ['network', 'tcp', 'udp', 'ip address', 'ipv4', 'ipv6', 'routing', 'router', 'osi', 'subnet', 'dns', 'http', 'congestion', 'sliding window', 'data link', 'mac address', 'ethernet', 'packet', 'handshake', 'csma'],
-  TOC: ['automata', 'dfa', 'nfa', 'regular expression', 'regular language', 'grammar', 'turing', 'pushdown', 'context free', 'context-free', 'pumping lemma', 'decidab', 'chomsky'],
-  COA: ['pipeline', 'pipelining', 'cache', 'cpu', 'memory hierarchy', 'instruction', 'alu', 'addressing mode', 'microprogram', 'hazard', 'computer organization', 'interrupt', 'dma'],
-  DAA: ['algorithm', 'sorting', 'quicksort', 'merge sort', 'greedy', 'dynamic programming', 'complexity', 'big o', 'divide and conquer', 'dijkstra', 'master theorem', 'recurrence', 'backtracking', 'knapsack', 'kruskal', 'prim'],
-  'Compiler Design': ['compiler', 'parser', 'parsing', 'lexer', 'lexical', 'll(1)', 'lr(0)', 'slr', 'lalr', 'syntax directed', 'three address', 'intermediate code', 'code generation', 'code optimization', 'first and follow', 'symbol table'],
-  'Digital Logic': ['logic gate', 'boolean', 'k-map', 'kmap', 'karnaugh', 'flip flop', 'flip-flop', 'multiplexer', 'decoder', 'combinational', 'sequential circuit', 'counter', 'digital logic', 'number system', "2's complement", 'twos complement'],
-  'Discrete Math': ['discrete', 'set theory', 'graph theory', 'combinatorics', 'propositional', 'predicate', 'group theory', 'lattice', 'induction', 'pigeonhole', 'permutation', 'poset'],
-  'Engineering Math': ['matrix', 'matrices', 'eigen', 'calculus', 'probability', 'integral', 'derivative', 'linear algebra', 'statistics', 'determinant', 'differential', 'random variable'],
-  'C Programming': ['c programming', 'pointer', 'malloc', 'calloc', 'struct', 'printf', 'scanf', 'c language', 'preprocessor', '#include', 'storage class'],
-  'Data Structures': ['data structure', 'stack', 'queue', 'linked list', 'binary tree', 'bst', 'avl', 'heap', 'hashing', 'hash table', 'trie', 'graph traversal', 'bfs', 'dfs'],
-};
+const NOTE_ACCENTS = ['#ffca28', '#4fc3f7', '#b388ff', '#18ffff', '#ff8a65', '#69f0ae'];
+const PROJECT_ACCENTS = ['#ffab40', '#ffd740', '#69f0ae', '#ff6e40'];
 
-/** Topic names a note is matched against inside each room. */
-const ROOM_TOPICS: Record<PalaceRoomSubject, string[]> = {
-  DBMS: ['ER Model', 'Indexing', 'Normalization', 'Recovery', 'Relational Algebra', 'SQL', 'Transactions'],
-  OS: ['CPU Scheduling', 'Deadlock', 'Disk Scheduling', 'File Systems', 'Memory Management', 'Process Management', 'Process Synchronization', 'Threads', 'Virtual Memory'],
-  CN: ['Application Layer', 'Data Link Layer', 'Network Layer', 'OSI Model', 'Routing', 'Subnetting', 'TCP/IP'],
-  TOC: ['Chomsky Hierarchy', 'Context-Free Grammars', 'Finite Automata', 'Pumping Lemma', 'Pushdown Automata', 'Regular Languages', 'Turing Machines'],
-  COA: ['CPU Architecture', 'I/O Systems', 'Memory Hierarchy', 'Number Representation'],
-  DAA: ['Backtracking', 'Complexity Classes', 'Divide and Conquer', 'Dynamic Programming', 'Graph Algorithms', 'Greedy Algorithms', 'Sorting'],
-  'Compiler Design': ['Code Generation', 'Code Optimization', 'Intermediate Code', 'Lexical Analysis', 'Parsing', 'Syntax Directed Translation'],
-  'Digital Logic': ['Boolean Algebra', 'Combinational Circuits', 'Minimization', 'Number Systems', 'Sequential Circuits'],
-  'Discrete Math': ['Combinatorics', 'Functions', 'Graph Theory', 'Group Theory', 'Propositional Logic', 'Recurrence Relations', 'Sets & Relations'],
-  'Engineering Math': ['Calculus', 'Linear Algebra', 'Probability'],
-  'C Programming': ['Arrays', 'Functions', 'Memory', 'Operators', 'Pointers', 'Preprocessor', 'Recursion', 'Strings', 'Structures'],
-  'Data Structures': ['Arrays & Linked Lists', 'BST', 'Graphs', 'Hashing', 'Heaps', 'Stacks & Queues', 'Trees'],
-};
-
-function topicsFor(subject: PalaceRoomSubject): string[] {
-  return ROOM_TOPICS[subject];
+/** Stable 32-bit FNV-1a hash (room styles, seeds). */
+export function hashString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
 }
 
-function hasWord(haystack: string, word: string): boolean {
-  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`).test(haystack);
+/**
+ * Theme of one room: the style comes from its content type (picked by
+ * the room key so neighbours differ), the accent from the content
+ * itself when it has one (a deck's own colour).
+ */
+export function roomTheme(
+  contentType: PalaceContentType,
+  key: string,
+  opts: { style?: RoomStyle; accent?: string } = {}
+): RoomTheme {
+  const h = hashString(key);
+  const styles = CONTENT_STYLES[contentType];
+  const style = opts.style ?? styles[h % styles.length];
+  const base = ROOM_STYLES[style];
+  const palette = contentType === 'notes' ? NOTE_ACCENTS : contentType === 'projects' ? PROJECT_ACCENTS : null;
+  const accent = opts.accent ?? (palette && style !== 'archive' ? palette[(h >>> 5) % palette.length] : base.accent);
+  return { contentType, style, ...base, accent };
 }
+
+// ─────────────────────────────────────────────────────────────
+// Notes
+// ─────────────────────────────────────────────────────────────
+
+export type NoteObjectType = 'concept' | 'formula' | 'question';
 
 export interface NoteLike {
   title?: string;
@@ -160,61 +122,12 @@ export interface NoteLike {
   tags?: string[];
 }
 
-/**
- * Best-matching subject room + topic for a note. Tags weigh most, then
- * the title, then the body. Notes with no clear signal go to 'General'
- * (never an arbitrary subject).
- */
-export function inferNoteSubject(note: NoteLike): { subject: PalaceSubject; topic: string | null } {
-  const title = (note.title ?? '').toLowerCase();
-  const content = (note.content ?? '').toLowerCase().slice(0, 6000);
-  const tags = (note.tags ?? []).map((t) => t.toLowerCase().trim().replace(/^#/, ''));
-
-  let best: PalaceRoomSubject | null = null;
-  let bestScore = 0;
-  let bestTopic: string | null = null;
-
-  for (const subject of ROOM_SUBJECTS) {
-    let score = 0;
-    if (tags.some((t) => SUBJECT_TAG_ALIASES[subject].includes(t))) score += 12;
-    if (hasWord(title, subject.toLowerCase())) score += 6;
-    for (const kw of SUBJECT_KEYWORDS[subject]) {
-      if (title.includes(kw)) score += 3;
-      if (tags.some((t) => t.includes(kw))) score += 3;
-      if (content.includes(kw)) score += 1;
-    }
-    let topic: string | null = null;
-    let topicScore = 0;
-    for (const t of topicsFor(subject)) {
-      const tl = t.toLowerCase();
-      const s = (title.includes(tl) ? 4 : 0) + (tags.includes(tl) ? 4 : 0) + (content.includes(tl) ? 1 : 0);
-      if (s > topicScore) {
-        topicScore = s;
-        topic = t;
-      }
-    }
-    score += topicScore;
-    if (score > bestScore) {
-      bestScore = score;
-      best = subject;
-      bestTopic = topic;
-    }
-  }
-
-  if (!best || bestScore < 2) return { subject: 'General', topic: null };
-  return { subject: best, topic: bestTopic };
-}
-
 /** cube = concept, scroll = formula, sphere = question (spec 6.25). */
 export function inferNoteType(note: NoteLike): NoteObjectType {
   const title = (note.title ?? '').toLowerCase().trim();
   const content = note.content ?? '';
   const lower = content.toLowerCase();
-  if (
-    title.endsWith('?') ||
-    /^(q\s*[:.)\d]|question|pyq)/.test(title) ||
-    /\bpyq\b/.test(title)
-  ) {
+  if (title.endsWith('?') || /^(q\s*[:.)\d]|questions?\b|quiz\b|faq\b)/.test(title)) {
     return 'question';
   }
   const questionLines = content.split('\n').filter((l) => l.trim().endsWith('?')).length;
@@ -230,10 +143,6 @@ export function inferNoteType(note: NoteLike): NoteObjectType {
   return 'concept';
 }
 
-// ─────────────────────────────────────────────────────────────
-// Notes
-// ─────────────────────────────────────────────────────────────
-
 export const NOTES_KEY = 'warrior-notes';
 
 export interface PalaceNote {
@@ -241,10 +150,10 @@ export interface PalaceNote {
   title: string;
   content: string;
   tags: string[];
+  /** Folder the note is filed in, when the notes app provides one. */
+  folder: string | null;
   createdAt: string; // ISO
   updatedAt: string; // ISO
-  subject: PalaceSubject;
-  topic: string | null;
   type: NoteObjectType;
 }
 
@@ -265,6 +174,12 @@ export function readNotesRaw(): string {
   }
 }
 
+function folderOf(n: Record<string, unknown>): string | null {
+  const raw = typeof n.folder === 'string' ? n.folder : typeof n.folderName === 'string' ? n.folderName : '';
+  const folder = raw.trim().slice(0, 60);
+  return folder || null;
+}
+
 /** Parse notes from a raw warrior-notes string (real notes only, no seeds). */
 export function parsePalaceNotes(raw: string): PalaceNote[] {
   let data: unknown;
@@ -281,19 +196,17 @@ export function parsePalaceNotes(raw: string): PalaceNote[] {
     if (typeof n.id !== 'string') continue;
     const title = typeof n.title === 'string' && n.title.trim() ? n.title.trim() : 'Untitled';
     const content = typeof n.content === 'string' ? n.content : '';
-    const tags = Array.isArray(n.tags) ? n.tags.filter((t): t is string => typeof t === 'string') : [];
+    const tags = Array.isArray(n.tags) ? n.tags.filter((t): t is string => typeof t === 'string' && t.trim() !== '') : [];
     const createdAt = validIso(n.createdAt) ?? validIso(n.updatedAt) ?? EPOCH_ISO;
     const updatedAt = validIso(n.updatedAt) ?? createdAt;
-    const { subject, topic } = inferNoteSubject({ title, content, tags });
     out.push({
       id: n.id,
       title,
       content,
       tags,
+      folder: folderOf(n),
       createdAt,
       updatedAt,
-      subject,
-      topic,
       type: inferNoteType({ title, content, tags }),
     });
   }
@@ -304,12 +217,119 @@ export function loadPalaceNotes(): PalaceNote[] {
   return parsePalaceNotes(readNotesRaw());
 }
 
+/** Lower-case, no '#', punctuation → single spaces ("React-Hooks" → "react hooks"). */
+export function normalizeName(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/^#+/, '')
+    .replace(/[^a-z0-9+#]+/g, ' ')
+    .trim();
+}
+
 // ─────────────────────────────────────────────────────────────
-// Spaced repetition
+// Knowledge objects + room groups
+// ─────────────────────────────────────────────────────────────
+
+export type PalaceItemKind = 'note' | 'card' | 'project';
+
+/** cube / scroll / sphere for notes, an index card for deck cards, a crystal for projects. */
+export type ObjectShape = NoteObjectType | 'card' | 'project';
+
+export interface PalaceCardInfo {
+  deckId: string;
+  deckName: string;
+  topicId: string;
+  topicName: string;
+  cardKind: CardKind;
+  /** The correct answer as text (flashcards: the back side). */
+  answer: string;
+  explanation: string | null;
+  /** Options of choice cards (null otherwise). */
+  options: string[] | null;
+  /** Indexes of the correct options (choice cards). */
+  correct: number[] | null;
+}
+
+export interface PalaceProjectInfo {
+  /** Project Forge stage: ideas · building · testing · shipped. */
+  stage: string;
+  /** 0–100. */
+  progress: number;
+  tasksDone: number;
+  tasksTotal: number;
+  techStack: string[];
+  onHold: boolean;
+}
+
+/** One object on a palace shelf: a note, a deck card or a project. */
+export interface PalaceItem {
+  /** Unique across kinds: 'note:<id>', 'card:<id>', 'project:<id>'. */
+  id: string;
+  kind: PalaceItemKind;
+  /** Id of the note / card / project it stands for. */
+  sourceId: string;
+  title: string;
+  /** Markdown shown in the hologram: note body, card prompt or project description. */
+  body: string;
+  tags: string[];
+  /** Short caption: '#tag' / folder, 'Deck › Topic', project stage. */
+  context: string;
+  shape: ObjectShape;
+  /** Room group the item belongs to. */
+  groupKey: string;
+  /** Epoch ms. */
+  createdAt: number;
+  updatedAt: number;
+  card?: PalaceCardInfo;
+  project?: PalaceProjectInfo;
+}
+
+/** A named 0..1 value drawn by data-driven decor (topic mastery, stage share). */
+export interface RoomLevel {
+  label: string;
+  value: number;
+}
+
+/**
+ * Everything that becomes a room (or, when big, several): a note folder,
+ * a shared note tag, a deck, the projects, or an empty starter room.
+ */
+export interface PalaceGroup {
+  /** 'folder:…', 'tag:…', 'notes:loose', 'deck:<id>', 'projects', 'starter:…'. */
+  key: string;
+  contentType: PalaceContentType;
+  label: string;
+  /** Forced room style (starter rooms, loose notes). */
+  style?: RoomStyle;
+  /** Accent override (a deck's own colour). */
+  accent?: string;
+  items: PalaceItem[];
+  /** Floating words for the decor: note titles, topic names, project names. */
+  words: string[];
+  /** Empty room shown until the user has content of this type. */
+  starter?: boolean;
+  /** Sign text of an empty starter room. */
+  hint?: string;
+  /** Epoch ms of the group's first item — rooms keep their places as the palace grows. */
+  since: number;
+}
+
+/** Live values drawn by a room's decor. */
+export interface RoomDecorData {
+  words: string[];
+  /** Topic mastery (decks) or share of projects per stage (projects). */
+  levels: RoomLevel[];
+  /** Share of the room's objects due for review (0..1). */
+  dueRatio: number;
+  /** Share of never-studied cards (0..1). */
+  newRatio: number;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Spaced repetition / review state
 // ─────────────────────────────────────────────────────────────
 
 export const PALACE_REVISIONS_KEY = 'warrior-palace-revisions';
-export const GATE_REVISIONS_KEY = 'warrior-revisions';
 const DAY_MS = 86_400_000;
 const MAX_INTERVAL_DAYS = 30;
 
@@ -321,14 +341,6 @@ export interface PalaceRevisionEntry {
 }
 
 export type PalaceRevisionLog = Record<string, PalaceRevisionEntry>;
-
-/** Legacy topic revision entry from the old topic schedule (read-only here). */
-export interface GateRevisionEntry {
-  subject: string;
-  topic: string;
-  lastRevised: string;
-  interval: number;
-}
 
 function readJSONKey(key: string): unknown {
   if (typeof window === 'undefined') return null;
@@ -366,88 +378,205 @@ export function saveRevisionLog(log: PalaceRevisionLog): void {
   }
 }
 
-/** The legacy topic schedule (subject + topic → last revised + interval); no longer written. */
-export function loadGateRevisions(): GateRevisionEntry[] {
-  const data = readJSONKey(GATE_REVISIONS_KEY);
-  if (!Array.isArray(data)) return [];
-  return data.filter(
-    (e): e is GateRevisionEntry =>
-      Boolean(e) &&
-      typeof e === 'object' &&
-      typeof (e as GateRevisionEntry).subject === 'string' &&
-      typeof (e as GateRevisionEntry).topic === 'string' &&
-      validIso((e as GateRevisionEntry).lastRevised) !== null &&
-      typeof (e as GateRevisionEntry).interval === 'number'
-  );
+/**
+ * Training Grounds schedule of a deck or one of its topics, derived from
+ * useLearningStore reviews. A note whose tag or folder names the deck or
+ * topic follows this schedule too (studying the cards refreshes the note).
+ */
+export interface DeckTopicSchedule {
+  deckId: string;
+  /** null = the whole deck. */
+  topicId: string | null;
+  /** Normalised deck / topic name notes are matched against. */
+  name: string;
+  /** 'Deck' or 'Deck › Topic'. */
+  label: string;
+  /** Latest review of any of its cards (epoch ms). */
+  lastReviewedAt: number;
+  /** Shortest current interval among its reviewed cards (days, ≥ 1). */
+  intervalDays: number;
+}
+
+/** Schedules of every studied deck + topic. Pure: call inside useMemo. */
+export function buildDeckSchedules(
+  decks: readonly Deck[],
+  reviews: Readonly<Record<string, CardReview>>
+): DeckTopicSchedule[] {
+  const out: DeckTopicSchedule[] = [];
+  for (const deck of decks) {
+    let deckLast = 0;
+    let deckInterval = Infinity;
+    for (const topic of deck.topics) {
+      let last = 0;
+      let interval = Infinity;
+      for (const card of topic.cards) {
+        const r = reviews[card.id];
+        if (!r) continue;
+        if (r.lastReviewedAt > last) last = r.lastReviewedAt;
+        interval = Math.min(interval, Math.max(1, r.intervalDays));
+      }
+      if (last <= 0) continue;
+      out.push({
+        deckId: deck.id,
+        topicId: topic.id,
+        name: normalizeName(topic.name),
+        label: `${deck.name} › ${topic.name}`,
+        lastReviewedAt: last,
+        intervalDays: interval,
+      });
+      deckLast = Math.max(deckLast, last);
+      deckInterval = Math.min(deckInterval, interval);
+    }
+    if (deckLast > 0) {
+      out.push({
+        deckId: deck.id,
+        topicId: null,
+        name: normalizeName(deck.name),
+        label: deck.name,
+        lastReviewedAt: deckLast,
+        intervalDays: deckInterval,
+      });
+    }
+  }
+  return out;
+}
+
+/** The deck/topic schedule a note is linked to by tag or folder (latest wins). */
+export function findDeckSchedule(note: PalaceNote, schedules: readonly DeckTopicSchedule[]): DeckTopicSchedule | undefined {
+  if (schedules.length === 0) return undefined;
+  const names = new Set(note.tags.map(normalizeName));
+  if (note.folder) names.add(normalizeName(note.folder));
+  names.delete('');
+  if (names.size === 0) return undefined;
+  let best: DeckTopicSchedule | undefined;
+  for (const s of schedules) {
+    if (names.has(s.name) && (!best || s.lastReviewedAt > best.lastReviewedAt)) best = s;
+  }
+  return best;
 }
 
 export type RecencyBucket = 'today' | 'week' | 'month' | 'stale';
 
-export interface NoteReview {
-  /** Most recent touch: note edit, palace revision or legacy topic revision. */
+/**
+ * Where an object's schedule comes from: the palace log, a linked deck,
+ * the note's own edits, a card's review, a never-studied card, a project.
+ */
+export type ReviewSource = 'palace' | 'deck' | 'note' | 'card' | 'new' | 'project';
+
+export interface PalaceReview {
+  /** Most recent touch: edit, palace revision or Training Grounds review. */
   lastTouched: number;
   intervalDays: number;
+  /** Epoch ms (Infinity for projects, which are never due). */
   dueAt: number;
   isDue: boolean;
+  /** A deck card that was never answered. */
+  isNew: boolean;
   overdueDays: number;
   recency: RecencyBucket;
-  /** Where the schedule came from. */
-  source: 'palace' | 'gate' | 'note';
-  /** Revised in the palace within the last 24h. */
+  source: ReviewSource;
+  /** Revised (note) or reviewed (card) within the last 24h. */
   revisedToday: boolean;
 }
 
-function findGateEntry(note: PalaceNote, gate: GateRevisionEntry[]): GateRevisionEntry | undefined {
-  if (!note.topic) return undefined;
-  return gate.find((g) => g.subject === note.subject && g.topic === note.topic);
+function recencyOf(lastTouched: number, now: number): RecencyBucket {
+  const age = (now - lastTouched) / DAY_MS;
+  return age < 1 ? 'today' : age < 7 ? 'week' : age < 30 ? 'month' : 'stale';
 }
 
 /**
- * Review state of a note. Writing/editing a note counts as a touch;
- * the first review is due one day later, and each revision doubles the
- * interval (max 30d).
+ * Review state of a note. Writing/editing a note counts as a touch, so
+ * does studying a linked deck/topic; the first review is due one day
+ * later, and each palace revision doubles the interval (max 30d).
  */
 export function computeNoteReview(
   note: PalaceNote,
   log: PalaceRevisionLog,
-  gate: GateRevisionEntry[],
+  schedules: readonly DeckTopicSchedule[],
   now: number
-): NoteReview {
+): PalaceReview {
   const palace = log[note.id];
-  const gateEntry = findGateEntry(note, gate);
+  const linked = findDeckSchedule(note, schedules);
   const touches = [Date.parse(note.updatedAt)];
   if (palace) touches.push(Date.parse(palace.lastRevised));
-  if (gateEntry) touches.push(Date.parse(gateEntry.lastRevised));
+  if (linked) touches.push(linked.lastReviewedAt);
   const lastTouched = Math.max(...touches.filter((t) => !Number.isNaN(t)), 0);
-  const intervalDays = palace ? palace.interval : gateEntry ? Math.max(1, gateEntry.interval) : 1;
+  const intervalDays = palace ? palace.interval : linked ? Math.max(1, linked.intervalDays) : 1;
   const dueAt = lastTouched + intervalDays * DAY_MS;
-  const age = (now - lastTouched) / DAY_MS;
-  const recency: RecencyBucket = age < 1 ? 'today' : age < 7 ? 'week' : age < 30 ? 'month' : 'stale';
   const palaceTs = palace ? Date.parse(palace.lastRevised) : Number.NaN;
   return {
     lastTouched,
     intervalDays,
     dueAt,
     isDue: now >= dueAt,
+    isNew: false,
     overdueDays: Math.max(0, Math.floor((now - dueAt) / DAY_MS)),
-    recency,
-    source: palace ? 'palace' : gateEntry ? 'gate' : 'note',
+    recency: recencyOf(lastTouched, now),
+    source: palace ? 'palace' : linked ? 'deck' : 'note',
     revisedToday: !Number.isNaN(palaceTs) && now - palaceTs < DAY_MS,
   };
 }
 
+/** Review state of a deck card straight from its Training Grounds review. */
+export function computeCardReview(
+  card: Pick<PalaceItem, 'createdAt' | 'updatedAt'>,
+  review: CardReview | undefined,
+  now: number
+): PalaceReview {
+  if (review) {
+    return {
+      lastTouched: review.lastReviewedAt,
+      intervalDays: Math.max(0, review.intervalDays),
+      dueAt: review.dueAt,
+      isDue: now >= review.dueAt,
+      isNew: false,
+      overdueDays: Math.max(0, Math.floor((now - review.dueAt) / DAY_MS)),
+      recency: recencyOf(review.lastReviewedAt, now),
+      source: 'card',
+      revisedToday: now - review.lastReviewedAt < DAY_MS,
+    };
+  }
+  const lastTouched = Math.max(card.createdAt, card.updatedAt, 0);
+  return {
+    lastTouched,
+    intervalDays: 0,
+    dueAt: lastTouched,
+    isDue: false,
+    isNew: true,
+    overdueDays: 0,
+    recency: recencyOf(lastTouched, now),
+    source: 'new',
+    revisedToday: false,
+  };
+}
+
+/** Projects glow by recent activity; they are never due. */
+export function computeProjectReview(updatedAt: number, now: number): PalaceReview {
+  return {
+    lastTouched: updatedAt,
+    intervalDays: 0,
+    dueAt: Number.POSITIVE_INFINITY,
+    isDue: false,
+    isNew: false,
+    overdueDays: 0,
+    recency: recencyOf(updatedAt, now),
+    source: 'project',
+    revisedToday: false,
+  };
+}
+
 /**
- * Record a palace revision: next interval doubles (capped at 30 days).
- * `counted` is false when the note was already revised in the last 24h
- * (the Curator counter only counts one revision per note per day).
+ * Record a palace revision of a note: next interval doubles (capped at
+ * 30 days). `counted` is false when the note was already revised in the
+ * last 24h (the Curator counter only counts one revision per note per day).
  */
 export function markNoteRevised(
   note: PalaceNote,
   log: PalaceRevisionLog,
-  gate: GateRevisionEntry[],
+  schedules: readonly DeckTopicSchedule[],
   now: number
 ): { log: PalaceRevisionLog; counted: boolean } {
-  const review = computeNoteReview(note, log, gate, now);
+  const review = computeNoteReview(note, log, schedules, now);
   const prev = log[note.id];
   const next: PalaceRevisionEntry = {
     lastRevised: new Date(now).toISOString(),
@@ -466,26 +595,32 @@ export function markNoteRevised(
 export const PALACE_PROGRESS_KEY = 'warrior-palace-state';
 
 export interface PalaceProgress {
-  v: 1;
-  /** Room keys already built (new keys animate brick by brick). */
+  v: 2;
+  /** Build unit keys already built (new keys animate brick by brick). */
   builtRooms: string[];
-  /** Subject rooms ever visited. */
-  visitedSubjects: string[];
+  /** Room groups ever visited ('deck:…', 'tag:…', 'folder:…', 'projects'…). */
+  visitedRooms: string[];
   /** Revisions counted toward "Curator". */
   revisions: number;
   /** Entered (pointer-locked) at least once. */
   entered: boolean;
 }
 
+/**
+ * v1 → v2: v1 rooms were a fixed list that no longer exists, so v1 room
+ * keys and visits ('visitedSubjects') are dropped; built corridor
+ * extensions / wings / hall, the revision count and the entered flag
+ * carry over.
+ */
 export function loadPalaceProgress(): PalaceProgress {
   const data = readJSONKey(PALACE_PROGRESS_KEY);
-  const d = (data && typeof data === 'object' ? data : {}) as Partial<PalaceProgress>;
+  const d = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
   const strings = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
   return {
-    v: 1,
-    builtRooms: strings(d.builtRooms),
-    visitedSubjects: strings(d.visitedSubjects),
+    v: 2,
+    builtRooms: d.v === 2 ? strings(d.builtRooms) : strings(d.builtRooms).filter((k) => /^(ext#\d+|wing#\d+|hall)$/.test(k)),
+    visitedRooms: d.v === 2 ? strings(d.visitedRooms) : [],
     revisions: typeof d.revisions === 'number' && d.revisions > 0 ? d.revisions : 0,
     entered: d.entered === true,
   };
@@ -512,13 +647,22 @@ export const PALACE_ACHIEVEMENT_IDS = {
 export const GRAND_LIBRARY_OBJECTS = 50;
 export const CURATOR_REVISIONS = 100;
 export const CARTOGRAPHER_ROOMS = 5;
+/** "Palace of Wisdom" needs every room visited, in a palace of at least this many rooms. */
+export const WISDOM_MIN_ROOMS = 5;
 
-/** Re-apply every palace achievement whose condition is already met (idempotent). */
-export function reconcilePalaceAchievements(progress: PalaceProgress, objectCount: number): void {
+/**
+ * Re-apply every palace achievement whose condition is already met
+ * (idempotent). `roomGroups` = the palace's current (non-starter) rooms.
+ */
+export function reconcilePalaceAchievements(
+  progress: PalaceProgress,
+  objectCount: number,
+  roomGroups: readonly string[]
+): void {
   if (progress.entered) unlockPhase6Achievement(PALACE_ACHIEVEMENT_IDS.architect);
   if (objectCount >= GRAND_LIBRARY_OBJECTS) unlockPhase6Achievement(PALACE_ACHIEVEMENT_IDS.grandLibrary);
   if (progress.revisions >= CURATOR_REVISIONS) unlockPhase6Achievement(PALACE_ACHIEVEMENT_IDS.curator);
-  if (ROOM_SUBJECTS.every((s) => progress.visitedSubjects.includes(s))) {
+  if (roomGroups.length >= WISDOM_MIN_ROOMS && roomGroups.every((g) => progress.visitedRooms.includes(g))) {
     unlockPhase6Achievement(PALACE_ACHIEVEMENT_IDS.wisdom);
   }
 }

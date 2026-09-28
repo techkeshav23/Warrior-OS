@@ -31,22 +31,39 @@ import { NexusVoiceReplyToggle, NexusWakeToggle } from '@/components/nexus/Nexus
 import { NexusPomodoroPill } from '@/components/nexus/NexusPomodoro';
 import { buildNexusContext } from '@/lib/nexus/context';
 import { NEXUS_GEMINI_MODEL } from '@/lib/nexus/protocol';
+import { getVisitorMode } from '@/lib/visitor';
+import { OWNER } from '@/config/owner';
 import { cn, getGreeting } from '@/lib/utils';
 
 export type NexusAIStatus = 'checking' | 'online' | 'offline' | 'unknown';
 
-const QUICK_PROMPTS: Array<{ label: string; prompt: string; kind: 'command' | 'ask' }> = [
+type QuickPrompt = { label: string; prompt: string; kind: 'command' | 'ask' };
+
+const OWNER_PROMPTS: QuickPrompt[] = [
   { label: 'Study mode', prompt: 'study mode', kind: 'command' },
-  { label: 'DBMS quiz', prompt: 'start DBMS quiz', kind: 'command' },
-  { label: 'Notes on deadlock', prompt: 'notes on deadlock', kind: 'command' },
+  { label: 'Review due cards', prompt: 'review due cards', kind: 'command' },
+  { label: 'My decks', prompt: 'my decks', kind: 'command' },
   { label: 'Pomodoro 25', prompt: 'pomodoro 25', kind: 'command' },
-  { label: 'Paging vs segmentation?', prompt: 'Explain paging vs segmentation for GATE', kind: 'ask' },
-  { label: 'Plan my next 2 hours', prompt: 'Plan my next 2 hours of GATE prep based on my stats', kind: 'ask' },
+  { label: 'What should I learn today?', prompt: 'What should I study today?', kind: 'ask' },
+  { label: 'Learn anything faster', prompt: 'How do I learn anything faster?', kind: 'ask' },
+  { label: 'What can you do?', prompt: 'help', kind: 'command' },
+];
+
+const GUEST_PROMPTS: QuickPrompt[] = [
+  { label: 'Tour this OS', prompt: 'What can this OS do?', kind: 'ask' },
+  { label: 'Who built this?', prompt: 'Who built this OS?', kind: 'ask' },
+  { label: 'Study mode', prompt: 'study mode', kind: 'command' },
+  { label: 'Quiz me', prompt: 'quiz me', kind: 'command' },
+  { label: 'Tech stack', prompt: 'What is this built with?', kind: 'ask' },
   { label: 'What can you do?', prompt: 'help', kind: 'command' },
 ];
 
 function AssistEmptyState({ aiStatus, conversationId }: { aiStatus: NexusAIStatus; conversationId: string | null }) {
   const [greeting] = useState(() => getGreeting());
+  // AI Assist renders client-side only, so the stored visitor mode is read once here.
+  const [visitor] = useState(getVisitorMode);
+  const guest = visitor === 'guest';
+  const prompts = guest ? GUEST_PROMPTS : OWNER_PROMPTS;
   const send = (prompt: string) => {
     void sendToNexus(prompt, { via: 'text', conversationId: conversationId ?? undefined });
   };
@@ -55,23 +72,28 @@ function AssistEmptyState({ aiStatus, conversationId }: { aiStatus: NexusAIStatu
       <NexusOrb size={52} pulse />
       <div>
         <p className="font-display text-sm tracking-[0.2em] text-cyan-200">NEXUS</p>
-        <p className="mt-1 text-sm text-white/80">{greeting}, warrior. Kya karna hai aaj?</p>
+        <p className="mt-1 text-sm text-white/80">
+          {guest
+            ? `${greeting}! Welcome to ${OWNER.shortName}'s Warrior OS.`
+            : `${greeting}, ${visitor === 'owner' ? OWNER.shortName : 'warrior'}. Kya karna hai aaj?`}
+        </p>
         <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-white/50">
-          Commands (apps, quizzes, notes, modes, pomodoro) turant chalte hain. Baaki sab Gemini se — GATE doubts, code,
-          study plans.
+          {guest
+            ? 'I run this OS from plain language and know every app in it. Ask for a tour, or try a command.'
+            : 'Commands (apps, decks, notes, modes, pomodoro) run instantly. Everything else goes to Gemini when it is configured — concepts, code, plans.'}
         </p>
       </div>
       {aiStatus === 'offline' && (
         <div className="flex max-w-sm items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.07] px-3 py-2 text-left">
           <WifiOff size={14} className="mt-0.5 shrink-0 text-amber-300" />
           <p className="text-[11px] leading-relaxed text-amber-100/80">
-            Offline brain active — GEMINI_API_KEY set nahi hai. Saare OS commands, GATE concepts, exam strategy aur study
-            advice phir bhi kaam karte hain; open-ended AI chat ke liye key add kar.
+            Offline brain active (no GEMINI_API_KEY on the server). Every OS command, the learning coach over your
+            decks and notes, and the guide to every app still work; open-ended chat needs the key.
           </p>
         </div>
       )}
       <div className="grid w-full max-w-md grid-cols-1 gap-1.5 @min-[460px]:grid-cols-2">
-        {QUICK_PROMPTS.map((item) => (
+        {prompts.map((item) => (
           <button
             key={item.label}
             type="button"
@@ -140,7 +162,7 @@ function ChatInterfaceInner({ aiStatus, onToggleSidebar }: ChatInterfaceProps) {
     aiStatus === 'online'
       ? `${NEXUS_GEMINI_MODEL} · online`
       : aiStatus === 'offline'
-        ? 'offline brain · commands + GATE notes'
+        ? 'offline brain · commands + learning coach'
         : aiStatus === 'checking'
           ? 'checking AI link…'
           : 'AI status unknown';

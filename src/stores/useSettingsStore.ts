@@ -19,6 +19,13 @@ function isPerformanceMode(value: unknown): value is PerformanceMode {
   return typeof value === 'string' && (PERFORMANCE_MODES as readonly string[]).includes(value);
 }
 
+/** Wallpapers WallpaperEngine can draw (keep in sync with its component map). */
+export const WALLPAPER_IDS = ['void', 'starfield', 'nebula', 'aurora', 'fluid', 'matrix', 'neural'] as const;
+
+function isWallpaperId(value: unknown): value is string {
+  return typeof value === 'string' && (WALLPAPER_IDS as readonly string[]).includes(value);
+}
+
 interface SettingsState {
   // Display
   wallpaper: string;
@@ -109,13 +116,17 @@ export const useSettingsStore = create<SettingsState>()(
     })),
     {
       name: 'warrior-os-settings',
-      version: 1,
+      version: 2,
       // v0 → v1: adds performanceMode. Existing installs start on 'auto',
       // like new ones; anything unrecognised is reset to 'auto' too.
+      // v1 → v2: older Appearance tabs could save wallpaper ids the engine
+      // never had (gradient-dark, cyber-grid, deep-space); those go back to
+      // the default wallpaper.
       migrate: (persisted) => {
         const state = (persisted ?? {}) as Partial<SettingsState>;
         return {
           ...state,
+          wallpaper: isWallpaperId(state.wallpaper) ? state.wallpaper : 'nebula',
           performanceMode: isPerformanceMode(state.performanceMode) ? state.performanceMode : 'auto',
         } as SettingsState;
       },

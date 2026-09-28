@@ -166,7 +166,7 @@ const PALACE: Achievement[] = [
   def({
     id: 'palace-of-wisdom',
     title: 'Palace of Wisdom',
-    description: 'Visited every subject room in your Memory Palace.',
+    description: 'Visited every room of your Memory Palace (5+ rooms).',
     category: 'exploration',
     icon: '🗝️',
     xpReward: 300,
@@ -309,7 +309,7 @@ const DREAM: Achievement[] = [
   def({
     id: 'dream-walker',
     title: 'Dream Walker',
-    description: 'Dreamed of 5 or more different subjects.',
+    description: 'Dreamed of 5 or more different things (activities or decks).',
     category: 'exploration',
     icon: '🚪',
     xpReward: 500,
@@ -437,7 +437,7 @@ export const SUPPLEMENT_ACHIEVEMENTS: Achievement[] = [
   def({
     id: 'target-crushed',
     title: 'Target Crushed',
-    description: "Hit today's question target from the desktop target widget.",
+    description: "Hit your daily goal on the desktop Daily goal widget.",
     category: 'study',
     icon: '🎯',
     xpReward: 100,

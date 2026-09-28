@@ -14,12 +14,13 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useOSStore } from '@/stores/useOSStore';
 import { useXPStore } from '@/stores/useXPStore';
+import { OWNER } from '@/config/owner';
+import { getOwnerInitials } from '@/components/showcase/OwnerCard';
 import { rasterizeElement } from './dom-raster';
 import { playShatterSound } from './effects-sfx';
 import {
   FX_IGNORE_SELECTOR,
   FX_Z,
-  levelTitle,
   prefersReducedMotion,
   randRange,
   resolveDisplayFontFamily,
@@ -310,7 +311,7 @@ function captureScreen(root: HTMLElement): HTMLCanvasElement {
   return paintLockScreen(w, h, scale);
 }
 
-/** Recreation of the lock screen's look: gradient, particles, clock, avatar, name. */
+/** Recreation of the lock screen's look: gradient, particles, clock, owner avatar, name. */
 function paintLockScreen(w: number, h: number, scale: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(w * scale);
@@ -367,16 +368,25 @@ function paintLockScreen(w: number, h: number, scale: number): HTMLCanvasElement
   ctx.arc(cx, avatarY, 48, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
+
+  // Owner initials, cyan → violet like the lock screen avatar.
+  const initials = getOwnerInitials(OWNER.name);
+  const initialsFill = ctx.createLinearGradient(cx - 24, avatarY - 18, cx + 24, avatarY + 18);
+  initialsFill.addColorStop(0, '#00f0ff');
+  initialsFill.addColorStop(1, '#7b61ff');
+  ctx.fillStyle = initialsFill;
+  ctx.font = `700 30px ${display}`;
+  ctx.fillText(initials, cx, avatarY + 1, 80);
+
   ctx.fillStyle = '#00f0ff';
   ctx.font = '700 12px ui-monospace, monospace';
   ctx.fillText(`Lv.${level}`, cx, avatarY + 50);
 
   ctx.font = `700 20px ${display}`;
-  ctx.fillText('WARRIOR', cx, cy + 40);
-  ctx.fillStyle = '#555566';
-  ctx.font = '12px ui-monospace, monospace';
-  ctx.fillText(levelTitle(level), cx, cy + 64);
+  ctx.fillText(OWNER.name.toUpperCase(), cx, cy + 40, w - 48);
+  paintOwnerLine(ctx, cx, cy + 64, w - 48);
   ctx.fillStyle = '#00f0ff';
+  ctx.font = '12px ui-monospace, monospace';
   ctx.fillText('Authenticating...', cx, cy + 120);
 
   const vignette = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.35, cx, cy, Math.hypot(cx, cy));
@@ -385,6 +395,25 @@ function paintLockScreen(w: number, h: number, scale: number): HTMLCanvasElement
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, w, h);
   return canvas;
+}
+
+/** "@handle · tagline" centred on (cx, y): handle in cyan, tagline muted, like the lock screen. */
+function paintOwnerLine(ctx: CanvasRenderingContext2D, cx: number, y: number, maxWidth: number): void {
+  const handle = `@${OWNER.handle}`;
+  const tagline = OWNER.tagline ? ` · ${OWNER.tagline}` : '';
+  ctx.save();
+  ctx.font = '12px ui-monospace, monospace';
+  const handleWidth = ctx.measureText(handle).width;
+  const total = handleWidth + ctx.measureText(tagline).width;
+  const fit = total > maxWidth ? maxWidth / total : 1;
+  ctx.translate(cx - (total * fit) / 2, y);
+  ctx.scale(fit, 1);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(0, 240, 255, 0.8)';
+  ctx.fillText(handle, 0, 0);
+  ctx.fillStyle = '#555566';
+  ctx.fillText(tagline, handleWidth, 0);
+  ctx.restore();
 }
 
 // ─── Geometry ───

@@ -5,8 +5,8 @@
 Warrior OS is **Keshav Upadhyay's personal OS and portfolio showcase**, not an exam-prep product. The GATE exam-prep focus was added by mistake and has been replaced.
 
 - **Core feel, all four at once:** my digital home (it knows me: my creature, my NEXUS), a sci-fi command center (Jarvis vibes, 3D, cinematic), a discipline machine (habits, focus, streaks, decay) and a creative playground (music, Code Lab, experiments).
-- **Learn anything:** the study hub is **Training Grounds** (`training-grounds`, formerly `gate-prep`): quiz engine, flashcards, spaced repetition, skill tree, mock test and planner over the user's **own decks** (`types/learning.ts`, `stores/useLearningStore.ts`, sample decks in `data/learning/`).
-- **Fixed app names:** Training Grounds (`training-grounds`), Quest Planner (`study-planner`), Flashcards (`flashcards`). Owner details live in `src/config/owner.ts`; visitors get **Explore as Guest** on the lock screen.
+- **Learn anything:** the study hub is **Training Grounds** (`training-grounds`, formerly `gate-prep`), built over the user's **own decks** (`types/learning.ts`, `stores/useLearningStore.ts`, sample decks in `data/learning/`). Tabs: **Decks** (the default: create, import, export or forge decks from notes), Quiz, Review (the due-card queue), Skill Tree, Question Bank, Mock Test and **Quest Planner**.
+- **Fixed app names:** Training Grounds (`training-grounds`), **Habit Forge** (`study-planner`: habits, routines, streaks), Flashcards (`flashcards`). "Quest Planner" is the Training Grounds planner tab, not an app. NEXUS AI opens with **Ctrl+.** (Ctrl+N belongs to the browser). Owner details live in `src/config/owner.ts`; visitors get **Explore as Guest** on the lock screen.
 - **Shipping:** CI in `.github/workflows/ci.yml`, Playwright smoke test in `tests/e2e/`, deploy steps in `DEPLOY.md`.
 
 > **Ye file project ka single source of truth hai.**  
@@ -103,7 +103,7 @@ Warrior OS is **Keshav Upadhyay's personal OS and portfolio showcase**, not an e
 | # | Task | Est. Time | Depends On | Status | Verify |
 |---|------|-----------|------------|--------|--------|
 | 1.34 | Create `lib/firebase.ts` — initializeApp with config from env vars, export auth, db, storage | 15 min | 0.4, 0.7, 1.4 | ⬜ | Firebase initializes without errors |
-| 1.35 | Create `.env.local` — NEXT_PUBLIC_FIREBASE_API_KEY, AUTH_DOMAIN, PROJECT_ID, STORAGE_BUCKET, MESSAGING_SENDER_ID, APP_ID, NEXT_PUBLIC_WEATHER_API_KEY, NEXT_PUBLIC_GEMINI_API_KEY | 10 min | 0.7, 0.8, 0.9 | ⬜ | Env vars accessible in code |
+| 1.35 | Create `.env.local` — NEXT_PUBLIC_FIREBASE_API_KEY, AUTH_DOMAIN, PROJECT_ID, STORAGE_BUCKET, MESSAGING_SENDER_ID, APP_ID, WEATHER_API_KEY, GEMINI_API_KEY (server-only, never NEXT_PUBLIC_) | 10 min | 0.7, 0.8, 0.9 | ⬜ | Env vars accessible in code |
 | 1.36 | Create `lib/auth.ts` — signInWithEmail(), signUpWithEmail(), signInWithGoogle(), signOut(), onAuthChange() | 25 min | 1.34 | ⬜ | Can create account, login, logout, Google login |
 | 1.37 | Create `lib/firestore.ts` — generic CRUD: getDoc(), setDoc(), updateDoc(), deleteDoc(), queryCollection(), onSnapshot() wrappers | 25 min | 1.34 | ⬜ | Can read/write to Firestore |
 | 1.38 | Add `.env.local` to `.gitignore` | 2 min | 1.35 | ⬜ | `.env.local` not tracked by git |

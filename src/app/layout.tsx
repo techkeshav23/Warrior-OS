@@ -31,13 +31,15 @@ const orbitron = Orbitron({
 });
 
 // ─── Metadata ───
-// The web app manifest comes from src/app/manifest.ts (file convention:
-// served at /manifest.webmanifest and linked automatically).
+// File conventions fill in the rest, linked automatically:
+//   • src/app/manifest.ts        → /manifest.webmanifest
+//   • src/app/opengraph-image.tsx → the 1200×630 link-preview card
+//     (og:image; the Twitter card inherits it as twitter:image)
+// So no `images` here: a config value would override the generated card.
+// The tab icon comes from `icons` below (the Warrior OS emblem in public/icons).
 const SITE_NAME = 'Warrior OS';
 const TITLE = 'Warrior OS — A Sci-Fi Command Center in Your Browser';
 const DESCRIPTION = `${OWNER.name}'s personal sci-fi OS in the browser: a command center, discipline machine and creative playground with real windows, a terminal and 3D worlds.`;
-/** Link previews use the app icon until a dedicated 1200×630 card exists. */
-const PREVIEW_IMAGE = { url: '/icons/icon-512.png', width: 512, height: 512, alt: 'Warrior OS emblem' };
 
 /**
  * Public origin for absolute link-preview URLs: NEXT_PUBLIC_SITE_URL, else
@@ -82,17 +84,14 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     locale: 'en_IN',
     ...(SITE_ORIGIN ? { url: '/' } : {}),
-    images: [PREVIEW_IMAGE],
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: TITLE,
     description: DESCRIPTION,
-    images: [PREVIEW_IMAGE],
   },
   icons: {
     icon: [
-      { url: '/favicon.ico' },
       { url: '/icons/icon-192.png', type: 'image/png', sizes: '192x192' },
       { url: '/icons/icon-512.png', type: 'image/png', sizes: '512x512' },
     ],

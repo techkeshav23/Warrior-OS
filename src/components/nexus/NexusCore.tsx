@@ -22,9 +22,9 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useNexusStore } from '@/stores/useNexusStore';
 import { useXPStore } from '@/stores/useXPStore';
 import { useDecayStore } from '@/stores/useDecayStore';
-import { useLearningStore } from '@/stores/useLearningStore';
+import { collectDueCards, useLearningStore } from '@/stores/useLearningStore';
 import { resolveAppId } from '@/data/app-registry';
-import { resolveDeckTarget } from '@/components/apps/training-grounds/deep-link';
+import { deckTargetLabel, resolveDeckTarget } from '@/components/apps/training-grounds/deep-link';
 import {
   commandKey,
   describeCommand,
@@ -34,18 +34,23 @@ import {
   wallpaperName,
   type LocalIntent,
 } from '@/lib/nexus-intent';
-import { emitWarriorEvent, WARRIOR_EVENTS, type WarriorGateStartQuizDetail } from '@/lib/nexus/events';
+import { emitWarriorEvent, WARRIOR_EVENTS, type WarriorTrainingStartDetail } from '@/lib/nexus/events';
 import { centerWindow, findAppWindows, focusAppWindow, openOrFocusApp, snapWindow } from '@/lib/nexus/windows';
 import {
   buildNexusContext,
   computeHabitStreak,
+  findDeckKnowledge,
   findMatchingNotes,
   formatClock,
+  getLearningInsights,
   getQuizInsights,
+  listDeckNames,
   loadHabitsLite,
   pomodoroRemainingMs,
 } from '@/lib/nexus/context';
 import { requestNexusAI } from '@/lib/nexus/ai-client';
+import { extractTopicQuery } from '@/lib/nexus/offline-brain';
+import { getVisitorMode } from '@/lib/visitor';
 import { checkHabitToday, listHabits, logExpense } from '@/lib/nexus/quick-actions';
 import { NEXUS_LIMITS } from '@/lib/nexus/protocol';
 import { speakNexus } from '@/lib/nexus/speech';
@@ -57,9 +62,9 @@ import type {
   NexusChatTurn,
   NexusCommand,
   NexusCommandType,
-  NexusGateMode,
   NexusInputChannel,
   NexusReplySource,
+  NexusTrainingMode,
   NexusWorkspaceId,
 } from '@/types/nexus';
 
@@ -105,6 +110,7 @@ const AI_AUTO_EXECUTE: ReadonlySet<NexusCommandType> = new Set<NexusCommandType>
   'start_pomodoro',
   'switch_workspace',
   'show_stats',
+  'show_decks',
 ]);
 
 // ─── Small helpers ───
@@ -123,6 +129,16 @@ function titleCase(text: string): string {
 
 function button(command: NexusCommand, label?: string): NexusActionButton {
   return { kind: 'command', label: label ?? describeCommand(command), command };
+}
+
+function clip(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+/** "Open <app>" button for a registered app (none when it is not installed). */
+function openAppButtons(appId: string): NexusActionButton[] {
+  const app = useAppStore.getState().getApp(appId);
+  return app ? [button({ type: 'open_app', appId: app.id, appName: app.name }, `Open ${app.name}`)] : [];
 }
 
 /**
@@ -228,48 +244,69 @@ function runSearchNotes(query: string): NexusCommandResult {
   };
 }
 
-/** "Deck" or "Deck · Topic" for free text naming a deck/topic, null when nothing matches. */
-function deckLabel(subject: string): string | null {
-  const decks = useLearningStore.getState().decks;
-  const target = resolveDeckTarget(subject, decks);
-  const deck = target ? decks.find((d) => d.id === target.deckId) : undefined;
-  if (!target || !deck) return null;
-  const topic = target.topicId ? deck.topics.find((t) => t.id === target.topicId) : undefined;
-  return topic ? `${deck.name} · ${topic.name}` : deck.name;
+/** "quiz me on my weakest deck", "review next"… → the deck NEXUS picks. */
+const FOCUS_DECK_RE = /^(?:my\s+)?(?:weakest|weak|hardest|toughest|focus|next)(?:\s+(?:deck|topic|one))?$/;
+
+/** Reviews go to the deck with the most cards due; quizzes to the weakest deck by accuracy. */
+function pickFocusDeck(mode: NexusTrainingMode, now: number): string | undefined {
+  const learning = getLearningInsights(now).focus?.name;
+  return mode === 'flashcards' ? learning : (getQuizInsights().weakest?.subject ?? learning);
 }
 
-function runStartQuiz(mode: NexusGateMode, subject?: string): NexusCommandResult {
+function runStartQuiz(mode: NexusTrainingMode, requested?: string): NexusCommandResult {
+  const now = Date.now();
+  const subject =
+    requested && FOCUS_DECK_RE.test(requested.trim().toLowerCase()) ? pickFocusDeck(mode, now) : requested;
   const opened = openOrFocusApp('training-grounds');
   if (!opened) return { ok: false, reply: 'Training Grounds app registered nahi hai.' };
-  const detail: WarriorGateStartQuizDetail = subject ? { mode, subject } : { mode };
-  emitWarriorEvent(WARRIOR_EVENTS.gateStartQuiz, detail);
+  const detail: WarriorTrainingStartDetail = subject ? { mode, subject } : { mode };
+  emitWarriorEvent(WARRIOR_EVENTS.trainingStart, detail);
 
   // Training Grounds resolves the same text against the same decks.
-  const label = subject ? deckLabel(subject) : null;
+  const { decks, reviews } = useLearningStore.getState();
+  const label = subject ? deckTargetLabel(subject, decks) : null;
   if (subject && !label) {
     return {
       ok: true,
-      reply: `"${subject}" naam ka koi deck nahi mila. Training Grounds khol diya — deck chun le, ya naya bana.`,
+      reply: `"${subject}" naam ka koi deck ya topic nahi mila. Training Grounds khol diya — deck chun le, ya naya bana.`,
+      followUps: decks.length > 0 ? [button({ type: 'show_decks' }, 'My decks')] : [],
     };
   }
 
   const pomodoroIdle = useNexusStore.getState().pomodoro.phase === 'idle';
-  const followUps: NexusActionButton[] = [];
-  if (mode === 'quiz' && pomodoroIdle) followUps.push(button({ type: 'start_pomodoro' }));
-  if (mode === 'quiz' && subject) followUps.push(button({ type: 'start_quiz', mode: 'flashcards', subject }));
-
   switch (mode) {
     case 'mock':
       return {
         ok: true,
-        reply: `Mock test${label ? ` (${label})` : ''} ready. Full exam conditions — timer on, koi googling nahi.`,
-        followUps,
+        reply: `Mock test${label ? ` (${label})` : ''} ready — timer on, koi googling nahi. Asli test jaisa treat kar.`,
       };
-    case 'flashcards':
-      return { ok: true, reply: `${label ? `${label} flashcards` : 'Flashcards'} khol diye. Ek ek karke revise kar.`, followUps };
+    case 'flashcards': {
+      const target = subject ? resolveDeckTarget(subject, decks) : null;
+      const due = collectDueCards(decks, reviews, {
+        now,
+        includeNew: false,
+        deckId: target?.deckId,
+        topicId: target?.topicId ?? undefined,
+      }).length;
+      if (due === 0) {
+        return {
+          ok: true,
+          reply: `${label ? `${label}: ` : ''}abhi kuch due nahi. Naye cards seekh le, ya quiz se khud ko test kar.`,
+          followUps: [button(subject ? { type: 'start_quiz', mode: 'quiz', subject } : { type: 'start_quiz', mode: 'quiz' })],
+        };
+      }
+      return {
+        ok: true,
+        reply: `Review ready: ${plural(due, 'card')} due${label ? ` (${label})` : ''}. Pehle khud yaad kar, fir flip — aur honestly rate kar (Again / Hard / Good / Easy).`,
+        followUps: pomodoroIdle ? [button({ type: 'start_pomodoro' })] : [],
+      };
+    }
     case 'planner':
-      return { ok: true, reply: 'Study planner khol diya. Aaj ka target set kar.', followUps };
-    case 'quiz':
+      return { ok: true, reply: 'Quest Planner khol diya — target date set kar, topics din-wise baant de.' };
+    case 'quiz': {
+      const followUps: NexusActionButton[] = [];
+      if (pomodoroIdle) followUps.push(button({ type: 'start_pomodoro' }));
+      if (subject) followUps.push(button({ type: 'start_quiz', mode: 'flashcards', subject }));
       return {
         ok: true,
         reply: label
@@ -277,7 +314,40 @@ function runStartQuiz(mode: NexusGateMode, subject?: string): NexusCommandResult
           : 'Training Grounds khol diya — deck chun aur quiz shuru kar.',
         followUps,
       };
+    }
   }
+}
+
+/** Deck report: mastery, due and new cards per deck, plus what to do next. */
+function runShowDecks(): NexusCommandResult {
+  const learning = getLearningInsights(Date.now());
+  const openTraining = openAppButtons('training-grounds');
+  if (learning.decks.length === 0) {
+    return {
+      ok: true,
+      reply: 'Abhi koi deck nahi hai. Training Grounds mein pehla deck bana — jo bhi seekhna hai, uske topics aur cards.',
+      followUps: openTraining,
+    };
+  }
+  const shown = learning.decks.slice(0, 8);
+  const rows = shown.map((d) => {
+    if (d.total === 0) return `- **${d.name}** — no cards yet`;
+    const parts = [`${d.mastery}% mastery`, d.due > 0 ? `${d.due} due` : 'nothing due'];
+    if (d.fresh > 0) parts.push(`${d.fresh} new`);
+    return `- **${d.name}** — ${parts.join(', ')}`;
+  });
+  if (learning.decks.length > shown.length) rows.push(`- …aur ${plural(learning.decks.length - shown.length, 'deck')}`);
+
+  const focus = learning.focus;
+  const head =
+    learning.dueCards > 0
+      ? `${plural(learning.dueCards, 'card')} due hain${focus && focus.due > 0 ? ` — **${focus.name}** se shuru kar` : ''}.`
+      : `Kuch due nahi${focus ? ` — aaj **${focus.name}** pe naya kaam kar` : ''}.`;
+  const followUps: NexusActionButton[] = [];
+  if (learning.dueCards > 0) followUps.push(button({ type: 'start_quiz', mode: 'flashcards' }));
+  if (focus) followUps.push(button({ type: 'start_quiz', mode: 'quiz', subject: focus.name }));
+  followUps.push(...openTraining);
+  return { ok: true, reply: `${head}\n\n${rows.join('\n')}`, followUps };
 }
 
 function runStartPomodoro(focusMinutes?: number, breakMinutes?: number): NexusCommandResult {
@@ -368,6 +438,7 @@ function runStudyMode(): NexusCommandResult {
   applyWallpaper(STUDY_WALLPAPER, switched);
   unlockNexusAchievement(NEXUS_ACHIEVEMENTS.smartMode);
 
+  const due = getLearningInsights(Date.now()).dueCards;
   const layout = [
     training ? `${appLabel('training-grounds', 'Training Grounds')} left` : null,
     notes ? `${appLabel('notes', 'Notes')} right` : null,
@@ -380,8 +451,12 @@ function runStudyMode(): NexusCommandResult {
   ];
   return {
     ok: true,
-    reply: `Study mode on: ${pieces.join(', ')}. Padh le.`,
-    followUps: [button({ type: 'stop_pomodoro' }), button({ type: 'chill_mode' })],
+    reply: `Study mode on: ${pieces.join(', ')}.${due > 0 ? ` ${plural(due, 'card')} due — pehle review.` : ' Padh le.'}`,
+    followUps: [
+      ...(due > 0 ? [button({ type: 'start_quiz', mode: 'flashcards' })] : []),
+      button({ type: 'stop_pomodoro' }),
+      button({ type: 'chill_mode' }),
+    ],
   };
 }
 
@@ -442,7 +517,9 @@ function runShowStats(): NexusCommandResult {
   const opened = openOrFocusApp('warrior-profile');
   const xp = useXPStore.getState();
   const quiz = getQuizInsights();
-  const streak = computeHabitStreak(loadHabitsLite(), Date.now());
+  const now = Date.now();
+  const streak = computeHabitStreak(loadHabitsLite(), now);
+  const due = getLearningInsights(now).dueCards;
   const toNext = xp.getXPForNextLevel();
   const parts = [
     `Lvl ${xp.level} (${xp.getLevelTitle()}), ${xp.xp} XP${toNext > 0 ? ` — ${toNext} XP to next level` : ''}`,
@@ -451,9 +528,14 @@ function runShowStats(): NexusCommandResult {
   ];
   if (quiz.last) parts.push(`last ${quiz.last.subject} ${quiz.last.pct}%`);
   if (quiz.weakest) parts.push(`weakest ${quiz.weakest.subject} (${quiz.weakest.accuracy}%)`);
-  const followUps = quiz.weakest
-    ? [button({ type: 'start_quiz', mode: 'quiz', subject: quiz.weakest.subject }, `Fix ${quiz.weakest.subject}`)]
-    : [button({ type: 'start_quiz', mode: 'quiz' })];
+  if (due > 0) parts.push(`${plural(due, 'card')} due`);
+  const followUps: NexusActionButton[] = [];
+  if (due > 0) followUps.push(button({ type: 'start_quiz', mode: 'flashcards' }));
+  followUps.push(
+    quiz.weakest
+      ? button({ type: 'start_quiz', mode: 'quiz', subject: quiz.weakest.subject }, `Fix ${clip(quiz.weakest.subject, 24)}`)
+      : button({ type: 'start_quiz', mode: 'quiz' })
+  );
   return {
     ok: true,
     reply: `${parts.join(', ')}.${opened ? ` ${appLabel('warrior-profile', 'Profile')} khul gaya.` : ''}`,
@@ -488,12 +570,7 @@ function runAddExpense(amount: number, category: ExpenseCategory, note: string):
 
 function runCheckHabit(habit: string): NexusCommandResult {
   const result = checkHabitToday(habit);
-  const forge = useAppStore.getState().getApp('study-planner');
-  return {
-    ok: result.ok,
-    reply: result.reply,
-    followUps: forge ? [button({ type: 'open_app', appId: forge.id, appName: forge.name }, `Open ${forge.name}`)] : [],
-  };
+  return { ok: result.ok, reply: result.reply, followUps: openAppButtons('study-planner') };
 }
 
 /** Execute one command against the real OS stores. Never throws. */
@@ -515,6 +592,8 @@ export function executeNexusCommand(command: NexusCommand): NexusCommandResult {
         return runSearchNotes(command.query);
       case 'start_quiz':
         return runStartQuiz(command.mode, command.subject);
+      case 'show_decks':
+        return runShowDecks();
       case 'study_mode':
         return runStudyMode();
       case 'chill_mode':
@@ -555,9 +634,39 @@ export function executeNexusCommand(command: NexusCommand): NexusCommandResult {
 
 const HELP_ACTIONS: NexusActionButton[] = [
   button({ type: 'study_mode' }),
-  button({ type: 'start_quiz', mode: 'quiz' }),
-  button({ type: 'start_pomodoro' }),
+  button({ type: 'start_quiz', mode: 'flashcards' }),
+  button({ type: 'show_decks' }, 'My decks'),
 ];
+
+/**
+ * Offline answers to "what is X" questions: add what the user's own
+ * decks and notes say about X, so NEXUS stays useful without an AI key.
+ */
+function localKnowledge(message: string): { text: string; actions: NexusActionButton[] } | null {
+  const topic = extractTopicQuery(message);
+  if (!topic) return null;
+  const cards = findDeckKnowledge(topic, 2);
+  const notes = findMatchingNotes(topic).slice(0, 3);
+  if (cards.length === 0 && notes.length === 0) return null;
+  const guest = getVisitorMode() === 'guest';
+  const lines: string[] = [];
+  if (cards.length > 0) {
+    lines.push(guest ? '**From your decks:**' : '**Tere decks mein:**');
+    for (const c of cards) {
+      lines.push(`- *${c.deckName} · ${c.topicName}:* ${c.prompt} → **${c.answer}**${c.explanation ? ` — ${c.explanation}` : ''}`);
+    }
+  }
+  if (notes.length > 0) {
+    lines.push(`${guest ? '**Your notes:**' : '**Tere notes:**'} ${notes.map((n) => `**${n.title}**`).join(', ')}`);
+  }
+  const actions: NexusActionButton[] = [];
+  if (cards[0]) {
+    const topicName = cards[0].topicName;
+    actions.push(button({ type: 'start_quiz', mode: 'quiz', subject: topicName }, `Quiz: ${clip(topicName, 24)}`));
+  }
+  if (notes.length > 0) actions.push(button({ type: 'search_notes', query: topic.slice(0, 100) }, 'Open these notes'));
+  return { text: lines.join('\n'), actions };
+}
 
 function dedupeButtons(buttons: NexusActionButton[], exclude: Set<string> = new Set()): NexusActionButton[] {
   const seen = new Set(exclude);
@@ -600,7 +709,8 @@ export async function processNexusInput(
   const intent = parseLocalIntent(
     message,
     apps,
-    listHabits().map((h) => h.name)
+    listHabits().map((h) => h.name),
+    listDeckNames()
   );
 
   if (intent.type === 'help') return { reply: NEXUS_HELP_TEXT, source: 'local', actions: HELP_ACTIONS, intent };
@@ -650,10 +760,16 @@ export async function processNexusInput(
   const suggested = ai.actions
     .map((wire) => resolveWireButton(wire, apps))
     .filter((b): b is NexusActionButton => b !== null);
+  // No AI behind the reply: what the user's own decks and notes know comes first.
+  const local = ai.offline ? localKnowledge(message) : null;
+  if (local) reply = `${reply}\n\n${local.text}`;
   return {
     reply,
     source: ai.offline ? 'offline' : 'ai',
-    actions: dedupeButtons([...pendingCommand, ...suggested, ...executionFollowUps], executedKeys),
+    actions: dedupeButtons(
+      [...pendingCommand, ...(local?.actions ?? []), ...suggested, ...executionFollowUps],
+      executedKeys
+    ),
     intent,
   };
 }

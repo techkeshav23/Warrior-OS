@@ -47,7 +47,7 @@ const DEFAULT_ROUTINES: RoutineItem[] = [
   { id: 'r5', text: 'Revise notes', time: '10:00', category: 'study' },
   { id: 'r6', text: 'Practice problems', time: '11:00', category: 'study' },
   { id: 'r7', text: 'Study Session 2', time: '14:00', category: 'study' },
-  { id: 'r8', text: 'Mock test / PYQs', time: '16:00', category: 'study' },
+  { id: 'r8', text: 'Quiz or mock test', time: '16:00', category: 'study' },
   { id: 'r9', text: 'Light reading', time: '21:00', category: 'night' },
   { id: 'r10', text: 'Plan tomorrow', time: '22:00', category: 'night' },
 ];
@@ -56,7 +56,7 @@ const PRESET_HABITS: { name: string; icon: string; color: string }[] = [
   { name: 'Study 4h+', icon: '📚', color: 'cyan' },
   { name: 'Exercise', icon: '💪', color: 'green' },
   { name: 'No social media', icon: '📵', color: 'red' },
-  { name: 'Solved PYQs', icon: '✏️', color: 'purple' },
+  { name: 'Daily quiz', icon: '✏️', color: 'purple' },
   { name: 'Read 20 pages', icon: '📖', color: 'amber' },
   { name: 'Early wake up', icon: '🌅', color: 'orange' },
   { name: 'Meditate', icon: '🧘', color: 'blue' },

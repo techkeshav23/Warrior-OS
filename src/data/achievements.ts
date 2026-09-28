@@ -21,7 +21,7 @@ const BASE_ACHIEVEMENTS: Achievement[] = [
   {
     id: 'quiz-streak-5',
     title: 'Knowledge Streak',
-    description: 'Get 5 correct answers in a row',
+    description: 'Get 5 correct answers in a row in one quiz',
     category: 'study',
     icon: '🔥',
     xpReward: 100,
@@ -41,7 +41,7 @@ const BASE_ACHIEVEMENTS: Achievement[] = [
   {
     id: 'all-subjects',
     title: 'Renaissance Warrior',
-    description: 'Take a quiz in every subject in Training Grounds',
+    description: 'Take a quiz in every deck in Training Grounds (3+ decks)',
     category: 'study',
     icon: '🎓',
     xpReward: 300,
@@ -51,7 +51,7 @@ const BASE_ACHIEVEMENTS: Achievement[] = [
   {
     id: 'quiz-master',
     title: 'Quiz Grandmaster',
-    description: 'Complete 100 quizzes',
+    description: 'Complete 100 quizzes or mock tests',
     category: 'study',
     icon: '👑',
     xpReward: 500,
@@ -269,7 +269,7 @@ const BASE_ACHIEVEMENTS: Achievement[] = [
   {
     id: 'memory-cartographer',
     title: 'Memory Cartographer',
-    description: 'Visited 5 or more subject rooms in a single Memory Palace session.',
+    description: 'Visited 5 or more rooms in a single Memory Palace session.',
     category: 'exploration',
     icon: '🗺️',
     xpReward: 250,

@@ -1,9 +1,13 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Memory Palace: Note Hologram (spec 6.27)
+// WARRIOR OS — Memory Palace: Hologram (spec 6.27)
 // Click a knowledge object → it lifts off the shelf → flies to you and
-// turns to face you → unfolds into a floating holographic glass panel
-// with the note rendered as markdown. Close folds it back up and it
-// drifts home to its shelf. Any number can be open at once.
+// turns to face you → unfolds into a floating holographic glass panel:
+//   • note    → the note as markdown · Mark revised · Open in Notes
+//   • card    → the prompt · Reveal answer · Forgot / Recalled (graded
+//               into Training Grounds spaced repetition) · Open deck
+//   • project → description, stage, tasks, stack · Open in Project Forge
+// Close folds it back up and it drifts home to its shelf. Any number
+// can be open at once.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -12,10 +16,10 @@ import { memo, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { BookOpen, CheckCircle2, ExternalLink, X } from 'lucide-react';
+import { BookOpen, CheckCircle2, ExternalLink, Eye, Hammer, Layers, RotateCcw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { NoteReview, PalaceNote } from './palaceData';
-import { DUE_COLOR, RECENCY_STYLES } from './KnowledgeObject';
+import type { PalaceItem, PalaceReview } from './palaceData';
+import { DUE_COLOR, KIND_LABELS, NEW_COLOR, RECENCY_STYLES, ShapeGeometry } from './KnowledgeObject';
 
 // ─────────────────────────────────────────────────────────────
 // Safe markdown → React (no dangerouslySetInnerHTML)
@@ -122,6 +126,7 @@ export function renderNoteMarkdown(md: string): React.ReactNode[] {
 
 const OPEN_S = 1.0;
 const CLOSE_S = 0.8;
+const DAY_MS = 86_400_000;
 
 function ease(t: number): number {
   const x = Math.min(1, Math.max(0, t));
@@ -133,8 +138,8 @@ function seg(p: number, a: number, b: number): number {
 }
 
 export interface NoteHologramProps {
-  note: PalaceNote;
-  review: NoteReview;
+  item: PalaceItem;
+  review: PalaceReview;
   /** World position of the object on its shelf. */
   origin: [number, number, number];
   /** World position the panel floats at (in front of the player). */
@@ -146,15 +151,118 @@ export interface NoteHologramProps {
   onRequestClose: (id: string) => void;
   /** Fired when the close animation finished (remove it then). */
   onClosed: (id: string) => void;
-  onRevise: (note: PalaceNote) => void;
-  onOpenInNotes: (note: PalaceNote) => void;
+  /** Notes: mark revised in the palace. */
+  onRevise: (item: PalaceItem) => void;
+  /** Cards: self-graded recall, recorded in Training Grounds. */
+  onGrade: (item: PalaceItem, recalled: boolean) => void;
+  /** Open the note / deck / project in its own app. */
+  onOpenSource: (item: PalaceItem) => void;
 }
 
 const _tmp = new THREE.Vector3();
 const _look = new THREE.Object3D();
 
+const OPEN_LABEL: Record<PalaceItem['kind'], string> = {
+  note: 'Open in Notes',
+  card: 'Open deck',
+  project: 'Open in Project Forge',
+};
+
+function KindIcon({ kind, color }: { kind: PalaceItem['kind']; color: string }) {
+  const cls = 'h-3.5 w-3.5 shrink-0';
+  if (kind === 'card') return <Layers className={cls} style={{ color }} />;
+  if (kind === 'project') return <Hammer className={cls} style={{ color }} />;
+  return <BookOpen className={cls} style={{ color }} />;
+}
+
+function ScheduleLabel({ item, review, now }: { item: PalaceItem; review: PalaceReview; now: number }) {
+  if (item.kind === 'project') {
+    return <span className="text-white/50">{item.project?.onHold ? 'parked' : `${item.project?.progress ?? 0}% done`}</span>;
+  }
+  if (review.isNew) return <span className="font-semibold text-amber-300">new · not studied yet</span>;
+  const word = item.kind === 'card' ? 'review' : 'revision';
+  if (review.isDue) {
+    return (
+      <span className="font-semibold text-accent-danger">
+        {review.overdueDays > 0 ? `${word} ${review.overdueDays}d overdue` : `${word} due`}
+      </span>
+    );
+  }
+  const dueIn = Math.max(1, Math.ceil((review.dueAt - now) / DAY_MS));
+  return <span className="text-white/50">next {word} in {dueIn}d</span>;
+}
+
+function CardBody({ item, revealed }: { item: PalaceItem; revealed: boolean }) {
+  const card = item.card;
+  const prompt = useMemo(() => renderNoteMarkdown(item.body), [item.body]);
+  if (!card) return null;
+  return (
+    <>
+      {prompt}
+      {card.options && (
+        <div className="space-y-0.5 pt-1">
+          {card.options.map((o, i) => {
+            const right = revealed && (card.correct?.includes(i) ?? false);
+            return (
+              <div
+                key={`${i}:${o}`}
+                className={cn('flex gap-1.5 rounded px-1.5 py-0.5 text-[11.5px]', right ? 'bg-accent-success/15 text-accent-success' : 'text-white/70')}
+              >
+                <span className="font-mono text-white/40">{String.fromCharCode(65 + i)}</span>
+                <span>{o}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {revealed && (
+        <div className="mt-2 rounded-md border border-accent-success/25 bg-accent-success/[0.07] px-2 py-1.5">
+          <div className="text-[9.5px] uppercase tracking-wider text-accent-success/80">Answer</div>
+          <div className="text-[12px] font-semibold text-white">{card.answer || '—'}</div>
+          {card.explanation && <div className="mt-1 text-[11px] leading-relaxed text-white/60">{card.explanation}</div>}
+        </div>
+      )}
+    </>
+  );
+}
+
+function ProjectBody({ item }: { item: PalaceItem }) {
+  const project = item.project;
+  const description = useMemo(
+    () => renderNoteMarkdown(item.body.trim() ? item.body : '*No description yet.*'),
+    [item.body]
+  );
+  if (!project) return null;
+  return (
+    <>
+      {description}
+      <div className="pt-2">
+        <div className="flex items-center justify-between text-[10px] text-white/50">
+          <span>Progress</span>
+          <span className="font-mono">
+            {project.tasksTotal > 0 ? `${project.tasksDone}/${project.tasksTotal} tasks · ` : ''}
+            {project.progress}%
+          </span>
+        </div>
+        <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10">
+          <div className="h-full rounded-full bg-accent-success" style={{ width: `${project.progress}%` }} />
+        </div>
+      </div>
+      {project.techStack.length > 0 && (
+        <div className="flex flex-wrap gap-1 pt-2">
+          {project.techStack.map((t) => (
+            <span key={t} className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/70">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 function NoteHologramInner({
-  note,
+  item,
   review,
   origin,
   target,
@@ -163,7 +271,8 @@ function NoteHologramInner({
   onRequestClose,
   onClosed,
   onRevise,
-  onOpenInNotes,
+  onGrade,
+  onOpenSource,
 }: NoteHologramProps) {
   const { camera } = useThree();
   const groupRef = useRef<THREE.Group | null>(null);
@@ -172,9 +281,14 @@ function NoteHologramInner({
   const progress = useRef(0);
   const closedFired = useRef(false);
   const [panelVisible, setPanelVisible] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [graded, setGraded] = useState<'recalled' | 'forgot' | null>(null);
   const style = RECENCY_STYLES[review.recency];
-  const color = review.isDue ? DUE_COLOR : style.color === '#4a3f33' ? '#b0bec5' : style.color;
-  const rendered = useMemo(() => renderNoteMarkdown(note.content.trim() ? note.content : '*This note is empty.*'), [note.content]);
+  const color = review.isDue ? DUE_COLOR : review.isNew ? NEW_COLOR : style.color === '#4a3f33' ? '#b0bec5' : style.color;
+  const noteBody = useMemo(
+    () => (item.kind === 'note' ? renderNoteMarkdown(item.body.trim() ? item.body : '*This note is empty.*') : null),
+    [item.kind, item.body]
+  );
 
   useFrame((_, dt) => {
     const g = groupRef.current;
@@ -215,24 +329,21 @@ function NoteHologramInner({
 
     if (closing && p <= 0 && !closedFired.current) {
       closedFired.current = true;
-      onClosed(note.id);
+      onClosed(item.id);
     }
   });
 
   const lastTouched = review.lastTouched > 0 ? new Date(review.lastTouched) : null;
-  const dueIn = Math.ceil((review.dueAt - now) / 86_400_000);
+  const grade = (recalled: boolean) => {
+    setGraded(recalled ? 'recalled' : 'forgot');
+    onGrade(item, recalled);
+  };
 
   return (
     <group ref={groupRef} position={origin}>
       {/* The object itself, carried to you */}
       <mesh ref={tokenRef}>
-        {note.type === 'question' ? (
-          <sphereGeometry args={[0.24, 20, 20]} />
-        ) : note.type === 'formula' ? (
-          <cylinderGeometry args={[0.11, 0.11, 0.5, 14]} />
-        ) : (
-          <boxGeometry args={[0.36, 0.36, 0.36]} />
-        )}
+        <ShapeGeometry type={item.shape} />
         <meshBasicMaterial color={color} toneMapped={false} />
       </mesh>
 
@@ -252,10 +363,10 @@ function NoteHologramInner({
               onWheel={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-2 border-b border-white/10 bg-white/5 px-3 py-2">
-                <BookOpen className="h-3.5 w-3.5 shrink-0" style={{ color }} />
-                <span className="flex-1 truncate font-display text-[12px] font-bold tracking-wide text-white">{note.title}</span>
+                <KindIcon kind={item.kind} color={color} />
+                <span className="flex-1 truncate font-display text-[12px] font-bold tracking-wide text-white">{item.title}</span>
                 <button
-                  onClick={() => onRequestClose(note.id)}
+                  onClick={() => onRequestClose(item.id)}
                   className="rounded p-0.5 text-white/50 transition-colors hover:bg-white/10 hover:text-accent-danger"
                   aria-label="Close hologram"
                 >
@@ -264,26 +375,21 @@ function NoteHologramInner({
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5 border-b border-white/5 px-3 py-1.5 text-[9.5px] uppercase tracking-wider">
-                <span className="rounded px-1.5 py-0.5" style={{ backgroundColor: `${note.subject === 'General' ? '#b0bec5' : color}22`, color }}>
-                  {note.subject}
-                  {note.topic ? ` · ${note.topic}` : ''}
+                <span className="max-w-[190px] truncate rounded px-1.5 py-0.5" style={{ backgroundColor: `${color}22`, color }}>
+                  {item.context}
                 </span>
-                <span className="text-white/40">{note.type}</span>
+                <span className="text-white/40">{KIND_LABELS[item.kind]}</span>
                 <span className="text-white/25">·</span>
-                {review.isDue ? (
-                  <span className="font-semibold text-accent-danger">
-                    {review.overdueDays > 0 ? `revision ${review.overdueDays}d overdue` : 'revision due'}
-                  </span>
-                ) : (
-                  <span className="text-white/50">next revision in {Math.max(1, dueIn)}d</span>
-                )}
+                <ScheduleLabel item={item} review={review} now={now} />
               </div>
 
               <div className="max-h-[300px] space-y-1 overflow-y-auto px-3 py-2">
-                {rendered}
-                {note.tags.length > 0 && (
+                {item.kind === 'note' && noteBody}
+                {item.kind === 'card' && <CardBody item={item} revealed={revealed || graded !== null} />}
+                {item.kind === 'project' && <ProjectBody item={item} />}
+                {item.kind !== 'project' && item.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 pt-2">
-                    {note.tags.map((t) => (
+                    {item.tags.map((t) => (
                       <span key={t} className="rounded bg-accent-secondary/20 px-1.5 py-0.5 text-[10px] text-accent-secondary">
                         #{t}
                       </span>
@@ -292,26 +398,60 @@ function NoteHologramInner({
                 )}
               </div>
 
-              <div className="flex items-center gap-2 border-t border-white/10 bg-white/[0.03] px-3 py-2">
+              <div className="flex flex-wrap items-center gap-2 border-t border-white/10 bg-white/[0.03] px-3 py-2">
+                {item.kind === 'note' && (
+                  <button
+                    onClick={() => onRevise(item)}
+                    disabled={review.revisedToday}
+                    className={cn(
+                      'flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors',
+                      review.revisedToday
+                        ? 'cursor-default bg-accent-success/15 text-accent-success/80'
+                        : 'bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25'
+                    )}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {review.revisedToday ? 'Revised today' : 'Mark revised'}
+                  </button>
+                )}
+                {item.kind === 'card' &&
+                  (graded ? (
+                    <span className={cn('flex items-center gap-1 text-[11px] font-semibold', graded === 'recalled' ? 'text-accent-success' : 'text-amber-300')}>
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {graded === 'recalled' ? 'Recalled' : 'Back in the queue'}
+                    </span>
+                  ) : !revealed ? (
+                    <button
+                      onClick={() => setRevealed(true)}
+                      className="flex items-center gap-1 rounded-md bg-accent-primary/15 px-2 py-1 text-[11px] font-semibold text-accent-primary transition-colors hover:bg-accent-primary/25"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Reveal answer
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => grade(false)}
+                        className="flex items-center gap-1 rounded-md bg-amber-400/15 px-2 py-1 text-[11px] font-semibold text-amber-300 transition-colors hover:bg-amber-400/25"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Forgot
+                      </button>
+                      <button
+                        onClick={() => grade(true)}
+                        className="flex items-center gap-1 rounded-md bg-accent-success/15 px-2 py-1 text-[11px] font-semibold text-accent-success transition-colors hover:bg-accent-success/25"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Recalled
+                      </button>
+                    </>
+                  ))}
                 <button
-                  onClick={() => onRevise(note)}
-                  disabled={review.revisedToday}
-                  className={cn(
-                    'flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors',
-                    review.revisedToday
-                      ? 'cursor-default bg-accent-success/15 text-accent-success/80'
-                      : 'bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25'
-                  )}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {review.revisedToday ? 'Revised today' : 'Mark revised'}
-                </button>
-                <button
-                  onClick={() => onOpenInNotes(note)}
+                  onClick={() => onOpenSource(item)}
                   className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-white/60 transition-colors hover:bg-white/10 hover:text-white"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
-                  Open in Notes
+                  {OPEN_LABEL[item.kind]}
                 </button>
                 <span className="ml-auto text-[9.5px] text-white/35">
                   {lastTouched ? `touched ${lastTouched.toLocaleDateString()}` : ''}

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Desktop Widgets Layer
 // One drop-in layer (<DesktopWidgets />) holding the clock, streak
-// and today's-target widgets. Each is draggable, remembers its
+// and daily-goal widgets. Each is draggable, remembers its
 // position, can be switched off, and fades away while a maximized
 // window covers the desktop. Mount once in the desktop phase.
 // The Vitals and Campfire widgets live in their own features.
@@ -10,7 +10,6 @@
 'use client';
 
 import { memo, useCallback, useEffect, useMemo } from 'react';
-import { useAppStore } from '@/stores/useAppStore';
 import { useWindowStore } from '@/stores/useWindowStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { ClockWidget } from './ClockWidget';
@@ -18,7 +17,7 @@ import { DraggableWidget } from './DraggableWidget';
 import { StreakWidget } from './StreakWidget';
 import { TargetWidget } from './TargetWidget';
 import { useHabits, useIsClient, useNow, useViewportSize } from './hooks';
-import { unlockAchievementWhenReady } from './os-events';
+import { openApp, openTrainingGrounds, unlockAchievementWhenReady } from './os-events';
 import { useWidgetStore, type WidgetId, type WidgetPosition } from './useWidgetStore';
 import { computeStreak, utcDayKey } from './widget-data';
 
@@ -35,9 +34,9 @@ const STACK_GAP = 12;
 const RIGHT_MARGIN = 24;
 const TASKBAR_HEIGHT = 48;
 // The biometrics Vitals HUD sits at top:80 / right:24 (≈224px wide,
-// ≈210px tall). Default slots stack below it, or beside it when the
-// screen is too short for a full column.
-const BELOW_VITALS_Y = 300;
+// up to ≈252px tall once typing stats show). Default slots stack below
+// it, or beside it when the screen is too short for a full column.
+const BELOW_VITALS_Y = 344;
 const BESIDE_VITALS_OFFSET = 224 + 16;
 const TOP_Y = 80;
 
@@ -65,13 +64,10 @@ const STREAK_ACHIEVEMENTS: ReadonlyArray<readonly [number, string]> = [
   [100, 'streak-100'],
 ];
 
-function launch(appId: string) {
-  useAppStore.getState().launchApp(appId, useWorkspaceStore.getState().activeWorkspaceId);
-}
-
 function DesktopWidgetsInner() {
   const isClient = useIsClient();
   const enabled = useWidgetStore((s) => s.enabled);
+  const goalKind = useWidgetStore((s) => s.dailyGoalKind);
   const { width, height } = useViewportSize();
 
   // "Today" is the OS-wide UTC day key; a minute tick catches midnight.
@@ -101,8 +97,12 @@ function DesktopWidgetsInner() {
     return () => cleanups.forEach((cleanup) => cleanup());
   }, [current]);
 
-  const openQuestPlanner = useCallback(() => launch('study-planner'), []);
-  const openTrainingGrounds = useCallback(() => launch('training-grounds'), []);
+  const openQuestPlanner = useCallback(() => openApp('study-planner'), []);
+  // A card goal opens straight on the review queue; a focus goal on Training Grounds.
+  const openGoalApp = useCallback(
+    () => openTrainingGrounds(goalKind === 'cards' ? 'flashcards' : undefined),
+    [goalKind]
+  );
 
   if (!isClient || !(enabled.clock || enabled.streak || enabled.target)) return null;
 
@@ -146,8 +146,10 @@ function DesktopWidgetsInner() {
           height={WIDGET_SIZES.target.height}
           defaultPosition={slots.target}
           hidden={covered}
-          onOpen={openTrainingGrounds}
-          openHint="Double-click to open Training Grounds"
+          onOpen={openGoalApp}
+          openHint={
+            goalKind === 'cards' ? 'Double-click to review due cards' : 'Double-click to open Training Grounds'
+          }
         >
           <TargetWidget habits={habits} dayKey={dayKey} />
         </DraggableWidget>

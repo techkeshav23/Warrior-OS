@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — NEXUS Suggestion Rules
-// Contextual nudges from time of day, streak risk, last activity,
-// open apps, continuous study time and typing biometrics (6.62).
+// Contextual nudges from time of day, streak risk, cards due for
+// review, last activity, open apps, continuous study time and typing
+// biometrics (6.62). Visitors get a welcome instead of owner nags.
 // `collectSuggestionSnapshot` reads live data; `pickSuggestion` is
 // pure: highest-priority eligible rule, never the previous one,
 // each rule with its own cooldown.
@@ -16,6 +17,7 @@ import {
   computeHabitStreak,
   formatHour,
   getBiometricInsights,
+  getLearningInsights,
   getQuizInsights,
   habitsDoneToday,
   loadHabitsLite,
@@ -23,6 +25,8 @@ import {
   type BiometricInsights,
   type QuizInsights,
 } from './context';
+import { getVisitorMode, type VisitorMode } from '@/lib/visitor';
+import { OWNER } from '@/config/owner';
 import type { NexusActionButton, NexusCommand, NexusTone } from '@/types/nexus';
 
 /** Minimum gap between any two suggestions. */
@@ -41,6 +45,12 @@ export interface SuggestionSnapshot {
   habitsCount: number;
   habitsDoneToday: number;
   quiz: QuizInsights;
+  /** Cards due for spaced-repetition review now, over all decks */
+  dueCards: number;
+  /** Deck to work on next (most due, else weakest), null without decks */
+  focusDeck: string | null;
+  /** Owner, guest, or null when the lock screen never asked */
+  visitor: VisitorMode | null;
   notesCount: number;
   lastNoteUpdateAt: number | null;
   windowCount: number;
@@ -81,6 +91,7 @@ export function collectSuggestionSnapshot(now: number, runtime: SuggestionRuntim
   const decay = useDecayStore.getState();
   const pomodoro = useNexusStore.getState().pomodoro;
   const windowCount = useWindowStore.getState().windows.length;
+  const learning = getLearningInsights(now);
   return {
     now,
     hour: new Date(now).getHours(),
@@ -89,6 +100,9 @@ export function collectSuggestionSnapshot(now: number, runtime: SuggestionRuntim
     habitsCount: habits.length,
     habitsDoneToday: habitsDoneToday(habits, now),
     quiz: getQuizInsights(),
+    dueCards: learning.dueCards,
+    focusDeck: learning.focus?.name ?? null,
+    visitor: getVisitorMode(),
     notesCount: notes.length,
     lastNoteUpdateAt,
     windowCount,
@@ -118,9 +132,18 @@ function openAppButton(s: SuggestionSnapshot, appId: string, label: string): Nex
   return app ? commandButton(label, { type: 'open_app', appId: app.id, appName: app.name }) : undefined;
 }
 
-/** Weakest attempted deck, or null without enough quiz history. */
+/** Deck to push next: weakest by quiz accuracy, else the learning focus deck. */
 function focusSubject(s: SuggestionSnapshot): string | null {
-  return s.quiz.weakest?.subject ?? null;
+  return s.quiz.weakest?.subject ?? s.focusDeck;
+}
+
+function reviewButton(label: string): NexusActionButton {
+  return commandButton(label, { type: 'start_quiz', mode: 'flashcards' });
+}
+
+/** Nags about the user's own streaks, quizzes and notes are for the owner, not visitors. */
+function ownerOnly(s: SuggestionSnapshot): boolean {
+  return s.visitor !== 'guest';
 }
 
 /** Quiz on a deck, or a quick quiz when there is none to point at. */
@@ -141,14 +164,27 @@ type Rule = (s: SuggestionSnapshot) => SuggestionCandidate | null;
 const RULES: Rule[] = [
   // Streak at risk: evening, streak alive, nothing ticked today.
   (s) =>
-    s.hour >= 20 && s.streak >= 1 && s.habitsCount > 0 && s.habitsDoneToday === 0
+    ownerOnly(s) && s.hour >= 20 && s.streak >= 1 && s.habitsCount > 0 && s.habitsDoneToday === 0
       ? {
           id: 'streak-risk',
           text: `${s.streak}-day streak khatre mein hai. Aaj ki ek habit tick kar de — 2 minute ka kaam.`,
           tone: 'warning',
           priority: 100,
           cooldownMs: 3 * HOUR,
-          action: openAppButton(s, 'study-planner', 'Open Quest Planner'),
+          action: openAppButton(s, 'study-planner', 'Open Habit Forge'),
+        }
+      : null,
+
+  // Visitor: a pointer to what NEXUS can do, once they have looked around a bit.
+  (s) =>
+    s.visitor === 'guest' && s.sessionMinutes >= 3
+      ? {
+          id: 'guest-welcome',
+          text: `Exploring ${OWNER.shortName}'s OS? Press Ctrl+K and just type — "study mode", "quiz me", "who built this".`,
+          tone: 'info',
+          priority: 75,
+          cooldownMs: 24 * HOUR,
+          action: { kind: 'ask', label: 'Tour the OS', prompt: 'What can this OS do?' },
         }
       : null,
 
@@ -249,7 +285,7 @@ const RULES: Rule[] = [
       tone: 'info',
       priority: 60,
       cooldownMs: 2 * HOUR,
-      action: commandButton(`${last.subject} flashcards`, {
+      action: commandButton(`Review ${last.subject}`, {
         type: 'start_quiz',
         mode: 'flashcards',
         subject: last.subject,
@@ -257,9 +293,22 @@ const RULES: Rule[] = [
     };
   },
 
+  // Cards piling up for review.
+  (s) =>
+    ownerOnly(s) && s.dueCards >= 10 && !s.pomodoroRunning
+      ? {
+          id: 'cards-due',
+          text: `${s.dueCards} cards review ke liye due hain${s.focusDeck ? ` (${s.focusDeck} sabse aage)` : ''}. 10 minute ka review — memory fresh rahegi.`,
+          tone: 'info',
+          priority: 58,
+          cooldownMs: 4 * HOUR,
+          action: reviewButton('Review due cards'),
+        }
+      : null,
+
   // Morning: nothing done yet.
   (s) => {
-    if (s.hour < 5 || s.hour >= 11 || s.sessionMinutes > 30 || s.focusMinutesToday > 0 || s.pomodoroRunning) {
+    if (!ownerOnly(s) || s.hour < 5 || s.hour >= 11 || s.sessionMinutes > 30 || s.focusMinutesToday > 0 || s.pomodoroRunning) {
       return null;
     }
     return {
@@ -274,6 +323,7 @@ const RULES: Rule[] = [
 
   // No quiz in a day (or never).
   (s) => {
+    if (!ownerOnly(s)) return null;
     const subject = focusSubject(s);
     const action = quizButton(subject);
     if (s.quiz.last) {
@@ -327,7 +377,7 @@ const RULES: Rule[] = [
 
   // Notes untouched for days.
   (s) => {
-    if (s.notesCount === 0 || s.lastNoteUpdateAt === null) return null;
+    if (!ownerOnly(s) || s.notesCount === 0 || s.lastNoteUpdateAt === null) return null;
     const days = Math.floor((s.now - s.lastNoteUpdateAt) / (24 * HOUR));
     if (days < 3) return null;
     return {

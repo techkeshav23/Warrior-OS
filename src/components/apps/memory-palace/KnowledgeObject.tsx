@@ -1,10 +1,13 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Memory Palace: Knowledge Object (spec 6.25 + 6.29)
-// A note sitting on a shelf.
-//   shape  = note type   → cube (concept) · scroll (formula) · sphere (question)
+// A note, deck card or project sitting on a shelf.
+//   shape  = what it is  → cube (concept note) · scroll (formula note) ·
+//                          sphere (question note) · index card (deck card) ·
+//                          crystal (project)
 //   glow   = recency     → bright cyan (today) · medium (this week) ·
 //                          dim orange (this month) · almost dark + cobwebs
-//   border = due for spaced-repetition revision → pulsing RED outline
+//   border = spaced repetition (Training Grounds reviews / palace log):
+//            pulsing RED = due · AMBER = card never studied
 // Hover shows the title floating above; click opens its hologram.
 // ═══════════════════════════════════════════════════════════
 
@@ -14,16 +17,20 @@ import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import type { NoteObjectType, NoteReview, PalaceNote, RecencyBucket } from './palaceData';
+import type { ObjectShape, PalaceItem, PalaceItemKind, PalaceReview, RecencyBucket } from './palaceData';
 
-export type { PalaceNote, NoteObjectType } from './palaceData';
+export type { PalaceItem, ObjectShape } from './palaceData';
 
 /** Due for revision (spaced repetition) — kept as a helper for other modules. */
-export function isDueForRevision(review: Pick<NoteReview, 'isDue'>): boolean {
+export function isDueForRevision(review: Pick<PalaceReview, 'isDue'>): boolean {
   return review.isDue;
 }
 
 export const DUE_COLOR = '#ff1744';
+/** Outline of deck cards that were never studied. */
+export const NEW_COLOR = '#ffab00';
+
+export const KIND_LABELS: Record<PalaceItemKind, string> = { note: 'note', card: 'card', project: 'project' };
 
 export interface RecencyStyle {
   color: string;
@@ -34,7 +41,7 @@ export interface RecencyStyle {
 }
 
 export const RECENCY_STYLES: Record<RecencyBucket, RecencyStyle> = {
-  today: { color: '#00f0ff', intensity: 1.6, opacity: 1, cobweb: false, label: 'Revised today' },
+  today: { color: '#00f0ff', intensity: 1.6, opacity: 1, cobweb: false, label: 'Fresh today' },
   week: { color: '#26c6da', intensity: 0.75, opacity: 1, cobweb: false, label: 'This week' },
   month: { color: '#ff9800', intensity: 0.32, opacity: 0.95, cobweb: false, label: 'This month' },
   stale: { color: '#4a3f33', intensity: 0.05, opacity: 0.85, cobweb: true, label: 'Gathering dust' },
@@ -44,10 +51,13 @@ export const RECENCY_STYLES: Record<RecencyBucket, RecencyStyle> = {
 // Shapes
 // ─────────────────────────────────────────────────────────────
 
-function ShapeGeometry({ type, outline = false }: { type: NoteObjectType; outline?: boolean }) {
+export function ShapeGeometry({ type, outline = false }: { type: ObjectShape; outline?: boolean }) {
   const k = outline ? 1.14 : 1;
   if (type === 'question') return <sphereGeometry args={[0.24 * k, 24, 24]} />;
   if (type === 'formula') return <cylinderGeometry args={[0.11 * k, 0.11 * k, 0.5 * k, 16]} />;
+  // An upright index card; the outline gets extra depth so it shows round the edges.
+  if (type === 'card') return <boxGeometry args={[0.46 * k, 0.32 * k, outline ? 0.09 : 0.035]} />;
+  if (type === 'project') return <octahedronGeometry args={[0.26 * k, 0]} />;
   return <boxGeometry args={[0.36 * k, 0.36 * k, 0.36 * k]} />;
 }
 
@@ -65,7 +75,7 @@ function ScrollKnobs({ color }: { color: string }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Cobwebs (never / long-unrevised notes)
+// Cobwebs (long-untouched objects)
 // ─────────────────────────────────────────────────────────────
 
 function Cobwebs({ seed }: { seed: number }) {
@@ -114,13 +124,13 @@ function Cobwebs({ seed }: { seed: number }) {
 // ─────────────────────────────────────────────────────────────
 
 interface KnowledgeObjectProps {
-  note: PalaceNote;
-  review: NoteReview;
+  item: PalaceItem;
+  review: PalaceReview;
   /** Position in the parent's (room-local) space. */
   position: [number, number, number];
   /** Hidden while its hologram is out. */
   lifted?: boolean;
-  onOpen: (note: PalaceNote, worldPosition: [number, number, number]) => void;
+  onOpen: (item: PalaceItem, worldPosition: [number, number, number]) => void;
 }
 
 function hashSeed(id: string): number {
@@ -129,13 +139,13 @@ function hashSeed(id: string): number {
   return h >>> 0;
 }
 
-function KnowledgeObjectInner({ note, review, position, lifted = false, onOpen }: KnowledgeObjectProps) {
+function KnowledgeObjectInner({ item, review, position, lifted = false, onOpen }: KnowledgeObjectProps) {
   const groupRef = useRef<THREE.Group | null>(null);
   const shapeRef = useRef<THREE.Group | null>(null);
   const outlineRef = useRef<THREE.MeshBasicMaterial | null>(null);
   const [hovered, setHovered] = useState(false);
   const style = RECENCY_STYLES[review.recency];
-  const seed = useMemo(() => hashSeed(note.id), [note.id]);
+  const seed = useMemo(() => hashSeed(item.id), [item.id]);
   const phase = (seed % 1000) / 160;
 
   useFrame(({ clock }, dt) => {
@@ -160,14 +170,17 @@ function KnowledgeObjectInner({ note, review, position, lifted = false, onOpen }
     e.stopPropagation();
     const wp = new THREE.Vector3();
     (groupRef.current ?? e.object).getWorldPosition(wp);
-    onOpen(note, [wp.x, wp.y, wp.z]);
+    onOpen(item, [wp.x, wp.y, wp.z]);
   };
 
-  const dueLabel = review.isDue
-    ? review.overdueDays > 0
-      ? `due · ${review.overdueDays}d overdue`
-      : 'due today'
-    : null;
+  const dueLabel = review.isNew
+    ? 'new · not studied yet'
+    : review.isDue
+      ? review.overdueDays > 0
+        ? `due · ${review.overdueDays}d overdue`
+        : 'due today'
+      : null;
+  const outline = review.isDue ? DUE_COLOR : review.isNew ? NEW_COLOR : null;
 
   return (
     <group
@@ -180,9 +193,9 @@ function KnowledgeObjectInner({ note, review, position, lifted = false, onOpen }
       }}
       onPointerOut={() => setHovered(false)}
     >
-      <group ref={shapeRef} rotation={note.type === 'formula' ? [0, 0, Math.PI / 2] : [0, 0, 0]}>
+      <group ref={shapeRef} rotation={item.shape === 'formula' ? [0, 0, Math.PI / 2] : [0, 0, 0]}>
         <mesh castShadow>
-          <ShapeGeometry type={note.type} />
+          <ShapeGeometry type={item.shape} />
           <meshStandardMaterial
             color={style.color}
             emissive={style.color}
@@ -193,12 +206,12 @@ function KnowledgeObjectInner({ note, review, position, lifted = false, onOpen }
             opacity={style.opacity}
           />
         </mesh>
-        {note.type === 'formula' && <ScrollKnobs color={style.color} />}
-        {/* Spaced repetition: due → red border */}
-        {review.isDue && (
+        {item.shape === 'formula' && <ScrollKnobs color={style.color} />}
+        {/* Spaced repetition: due → red border, never studied → amber */}
+        {outline && (
           <mesh>
-            <ShapeGeometry type={note.type} outline />
-            <meshBasicMaterial ref={outlineRef} color={DUE_COLOR} side={THREE.BackSide} transparent opacity={0.8} toneMapped={false} />
+            <ShapeGeometry type={item.shape} outline />
+            <meshBasicMaterial ref={outlineRef} color={outline} side={THREE.BackSide} transparent opacity={0.8} toneMapped={false} />
           </mesh>
         )}
       </group>
@@ -216,15 +229,15 @@ function KnowledgeObjectInner({ note, review, position, lifted = false, onOpen }
       {hovered && (
         <Html center position={[0, 0.62, 0]} zIndexRange={[40, 0]} style={{ pointerEvents: 'none' }}>
           <div className="whitespace-nowrap rounded-md border border-white/15 bg-black/80 px-2.5 py-1.5 text-center shadow-lg backdrop-blur-sm">
-            <div className="max-w-[220px] truncate text-[11px] font-semibold text-white">{note.title}</div>
+            <div className="max-w-[220px] truncate text-[11px] font-semibold text-white">{item.title}</div>
             <div className="mt-0.5 flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-wider">
               <span style={{ color: style.color === '#4a3f33' ? '#a1887f' : style.color }}>{style.label}</span>
               <span className="text-white/30">·</span>
-              <span className="text-white/50">{note.type}</span>
+              <span className="text-white/50">{KIND_LABELS[item.kind]}</span>
               {dueLabel && (
                 <>
                   <span className="text-white/30">·</span>
-                  <span className="text-accent-danger">{dueLabel}</span>
+                  <span className={review.isNew ? 'text-amber-300' : 'text-accent-danger'}>{dueLabel}</span>
                 </>
               )}
             </div>

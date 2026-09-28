@@ -4,9 +4,9 @@
 //   • <PalaceStructure/>  — every wall/floor/ceiling/glow box, instanced,
 //                           with world-space masonry + tile patterns
 //   • <PalaceSigns/>      — room labels above doorways, wing/hall signs
-//   • <PalaceRoom/>       — one subject room's furniture: wall shelves
-//                           (where knowledge objects sit) + themed decor
-//                           (library, server room, network lab, …)
+//   • <PalaceRoom/>       — one room's furniture: wall shelves (where
+//                           knowledge objects sit) + decor themed by what
+//                           the room holds (library, card vault, forge, …)
 //   • <GrandHall/>        — chandelier + statues once the palace hits 500
 //   • <RoomLightPool/>    — a fixed pool of accent lights that follows the
 //                           player (constant light count → no shader
@@ -19,7 +19,7 @@
 import { memo, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { RoomStyle, RoomTheme } from './palaceData';
+import type { RoomDecorData, RoomStyle, RoomTheme } from './palaceData';
 import {
   HALL_H,
   ROOM_SIZE,
@@ -33,7 +33,6 @@ import {
 import { createPatternMaterial, useLabelTexture, type SurfacePattern } from './palaceTextures';
 import { RoomDecor } from './RoomDecor';
 
-export { ROOM_THEMES } from './palaceData';
 export type { RoomTheme } from './palaceData';
 
 const HALF = ROOM_SIZE / 2;
@@ -136,7 +135,7 @@ function PalaceStructureInner({ layout, hidden }: PalaceStructureProps) {
 export const PalaceStructure = memo(PalaceStructureInner);
 
 // ─────────────────────────────────────────────────────────────
-// Signs (room labels above doorways, wing gates, hall)
+// Signs (room labels above doorways, wing archways, hall)
 // ─────────────────────────────────────────────────────────────
 
 function Sign({ spec }: { spec: SignSpec }) {
@@ -228,7 +227,7 @@ export const ROOM_SLOTS: [number, number, number][] = buildSlots();
 export const ROOM_CAPACITY = ROOM_SLOTS.length;
 
 function ShelfUnit({ run, color, style }: { run: ShelfRun; color: string; style: RoomStyle }) {
-  const metal = style === 'server' || style === 'bay' || style === 'network' || style === 'laboratory' || style === 'foundry';
+  const metal = style === 'vault' || style === 'pipeline' || style === 'network' || style === 'laboratory' || style === 'workshop';
   const books = useMemo(() => {
     if (style !== 'library' && style !== 'archive') return [];
     const out: { x: number; y: number; h: number; w: number; c: string }[] = [];
@@ -290,23 +289,25 @@ function ShelfUnit({ run, color, style }: { run: ShelfRun; color: string; style:
 }
 
 // ─────────────────────────────────────────────────────────────
-// A subject room (furniture + decor + children = objects)
+// A room (furniture + decor + children = objects)
 // ─────────────────────────────────────────────────────────────
 
 interface PalaceRoomProps {
   room: PlacedRoom;
+  /** Live decor values (words, mastery levels, due share). */
+  decor: RoomDecorData;
   /** Knowledge objects (already positioned in room-local space). */
   children?: React.ReactNode;
 }
 
-function PalaceRoomInner({ room, children }: PalaceRoomProps) {
+function PalaceRoomInner({ room, decor, children }: PalaceRoomProps) {
   const theme: RoomTheme = room.theme;
   return (
     <group position={[room.center[0], 0, room.center[1]]} rotation={[0, room.rotY, 0]}>
       {SHELF_RUNS.map((run, i) => (
         <ShelfUnit key={i} run={run} color={theme.furniture} style={theme.style} />
       ))}
-      <RoomDecor theme={theme} seed={room.key} />
+      <RoomDecor theme={theme} decor={decor} seed={room.key} />
       {children}
     </group>
   );
@@ -315,7 +316,7 @@ function PalaceRoomInner({ room, children }: PalaceRoomProps) {
 export const PalaceRoom = memo(PalaceRoomInner);
 
 // ─────────────────────────────────────────────────────────────
-// Grand Hall (500+ notes): chandelier + statues
+// Grand Hall (500+ objects): chandelier + statues
 // ─────────────────────────────────────────────────────────────
 
 function Chandelier({ y }: { y: number }) {

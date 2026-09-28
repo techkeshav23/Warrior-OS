@@ -1,11 +1,12 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Effects Utilities
 // Shared helpers for the cinematic layers: stacking plan, reduced
-// motion, easing, rarity palette and pure XP / level maths
+// motion / lite mode, easing, rarity palette and pure XP / level maths
 // ═══════════════════════════════════════════════════════════
 
 import type { Achievement, AchievementCategory } from '@/types/achievement';
 import { LEVEL_THRESHOLDS } from '@/lib/constants';
+import { isLiteModeActive } from '@/lib/lite-mode';
 
 export type Rarity = Achievement['rarity'];
 
@@ -38,6 +39,15 @@ export const FX_DISPLAY_FONT = 'var(--font-orbitron, "Orbitron"), var(--font-san
 export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * True when a big animated moment should take its quiet path: reduced
+ * motion, or lite mode (Settings → Performance) on an ordinary laptop.
+ * Call from handlers/effects.
+ */
+export function prefersReducedEffects(): boolean {
+  return prefersReducedMotion() || isLiteModeActive();
 }
 
 /** Canvas font family for the display face, resolved from <body>. Browser only. */

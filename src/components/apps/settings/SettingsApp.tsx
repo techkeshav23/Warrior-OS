@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Settings App
-// 8 tabs: Appearance, Living World, Performance, Sounds, Account,
-// Workspaces, Nexus, About
+// 9 tabs: Appearance, Living World, Performance, Sounds, Account,
+// Workspaces, Nexus, Showcase, About
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -17,6 +17,7 @@ import { NexusTab } from './NexusTab';
 import { AboutTab } from './AboutTab';
 import { LivingWorldTab } from './LivingWorldTab';
 import { PerformanceTab } from './PerformanceTab';
+import { ShowcaseTab } from './ShowcaseTab';
 
 type SettingsTab =
   | 'appearance'
@@ -26,6 +27,7 @@ type SettingsTab =
   | 'account'
   | 'workspaces'
   | 'nexus'
+  | 'showcase'
   | 'about';
 
 const TABS: { id: SettingsTab; label: string; icon: string }[] = [
@@ -36,6 +38,7 @@ const TABS: { id: SettingsTab; label: string; icon: string }[] = [
   { id: 'account', label: 'Account', icon: '👤' },
   { id: 'workspaces', label: 'Workspaces', icon: '🖥️' },
   { id: 'nexus', label: 'Nexus AI', icon: '🤖' },
+  { id: 'showcase', label: 'Showcase', icon: '🧭' },
   { id: 'about', label: 'About', icon: 'ℹ️' },
 ];
 
@@ -82,6 +85,7 @@ function SettingsAppInner() {
             {activeTab === 'account' && <AccountTab />}
             {activeTab === 'workspaces' && <WorkspacesTab />}
             {activeTab === 'nexus' && <NexusTab />}
+            {activeTab === 'showcase' && <ShowcaseTab />}
             {activeTab === 'about' && <AboutTab />}
           </motion.div>
         </AnimatePresence>

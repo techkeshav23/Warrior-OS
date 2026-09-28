@@ -1,31 +1,33 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Training Grounds Deep Link
-// The start event (WARRIOR_EVENTS.gateStartQuiz, detail { subject?, mode? })
+// The start event (WARRIOR_EVENTS.trainingStart, detail { subject?, mode? })
 // makes TrainingGroundsApp jump to a mode with the deck or topic named by
 // `subject` preselected. Senders: NEXUS, the terminal, the command palette.
 // ═══════════════════════════════════════════════════════════
 
-import { WARRIOR_EVENTS } from '@/lib/nexus/events';
-import type { NexusGateMode } from '@/types/nexus';
+import { WARRIOR_EVENTS, type WarriorTrainingStartDetail } from '@/lib/nexus/events';
+import type { NexusTrainingMode } from '@/types/nexus';
 import type { Deck } from '@/types/learning';
 
-export const TRAINING_START_EVENT = WARRIOR_EVENTS.gateStartQuiz;
+export const TRAINING_START_EVENT = WARRIOR_EVENTS.trainingStart;
 
-/** App ids whose windows render TrainingGroundsApp. */
-export const TRAINING_APP_IDS: readonly string[] = ['training-grounds', 'flashcards'];
+/**
+ * App ids whose windows render TrainingGroundsApp and listen for the start
+ * event. The standalone Flashcards app is not one of them: it only sends the
+ * event, and counting its windows would make open Training Grounds windows
+ * ignore live links.
+ */
+export const TRAINING_APP_IDS: readonly string[] = ['training-grounds'];
 
 export type TrainingTab = 'quiz' | 'flashcards' | 'skill-tree' | 'bank' | 'mock' | 'planner';
 
 /** Launch modes carried by the start event (the set NEXUS uses). */
-export type TrainingLinkMode = NexusGateMode;
+export type TrainingLinkMode = NexusTrainingMode;
 
-const LINK_MODES: readonly string[] = ['quiz', 'mock', 'flashcards', 'planner'];
+const LINK_MODES: readonly string[] = ['quiz', 'mock', 'flashcards', 'planner'] satisfies TrainingLinkMode[];
 
-export interface TrainingStartDetail {
-  /** Free text naming a deck or a topic, e.g. "javascript" or "react hooks". */
-  subject?: string;
-  mode?: TrainingLinkMode;
-}
+/** Detail of the start event: `subject` names a deck or topic, e.g. "javascript" or "react hooks". */
+export type TrainingStartDetail = WarriorTrainingStartDetail;
 
 /** Validate an untrusted event detail. A missing detail means "open the quiz". */
 export function parseTrainingStart(raw: unknown): TrainingStartDetail | null {
@@ -105,4 +107,13 @@ export function resolveDeckTarget(input: string | null | undefined, decks: reado
     }
   }
   return best;
+}
+
+/** "Deck" or "Deck · Topic" for free text naming a deck or topic; null when nothing matches. */
+export function deckTargetLabel(input: string | null | undefined, decks: readonly Deck[]): string | null {
+  const target = resolveDeckTarget(input, decks);
+  const deck = target ? decks.find((d) => d.id === target.deckId) : undefined;
+  if (!target || !deck) return null;
+  const topic = target.topicId ? deck.topics.find((t) => t.id === target.topicId) : undefined;
+  return topic ? `${deck.name} · ${topic.name}` : deck.name;
 }

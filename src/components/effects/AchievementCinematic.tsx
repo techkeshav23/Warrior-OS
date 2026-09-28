@@ -7,7 +7,8 @@
 // up into the Dynamic Island (posted as an achievement notification)
 // and the screen returns to normal. Unlocks that arrive together are
 // queued (all but the last play in a quicker cut). Under reduced
-// motion, or with the cinematic switched off, a toast is shown instead.
+// motion or lite mode, or with the cinematic switched off, a toast is
+// shown instead.
 //
 // Mount once at the root: it also seeds the achievement catalogue into
 // the XP store (so unlocks work at all) and unlocks the meta
@@ -37,7 +38,7 @@ import {
   FX_DISPLAY_FONT,
   FX_Z,
   RARITY_STYLE,
-  prefersReducedMotion,
+  prefersReducedEffects,
   randRange,
   withAlpha,
   type Rarity,
@@ -81,7 +82,7 @@ function routeUnlock(a: Achievement): void {
   if (routedIds.has(a.id)) return;
   routedIds.add(a.id);
   const fx = useEffectsStore.getState();
-  if (!fx.achievementCinematic || prefersReducedMotion()) {
+  if (!fx.achievementCinematic || prefersReducedEffects()) {
     announceAchievement(a);
     // Deferred: other recentUnlock subscribers (the creature) still see it this tick.
     window.setTimeout(() => releaseRecentUnlock(a.id), 0);

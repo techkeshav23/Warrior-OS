@@ -15,6 +15,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef, memo } from 'react';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Eye, Lock, Shield, Zap } from 'lucide-react';
 import { useParallax } from '@/hooks/useParallax';
@@ -23,12 +24,20 @@ import { GlitchText } from '@/components/ui/GlitchText';
 import { WeatherIcon } from '@/components/apps/weather/WeatherIcon';
 import { getQuoteOfDay } from '@/data/quotes';
 import { useXPStore } from '@/stores/useXPStore';
+import { useCreatureStore } from '@/stores/useCreatureStore';
 import { getLocalWeather, type WeatherData } from '@/lib/weather';
 import { cn } from '@/lib/utils';
-import { CreatureLockBadge } from '@/components/creature';
 import { OWNER } from '@/config/owner';
 import { setVisitorMode, type VisitorMode } from '@/lib/visitor';
 import { getOwnerInitials } from '@/components/showcase/OwnerCard';
+
+// The creature sprite (canvas painters) is a lazy client-only chunk; the
+// creature barrel would also drag the stats popup and recharts into the
+// bundle that paints boot and lock.
+const CreatureLockBadge = dynamic(
+  () => import('@/components/creature/CreatureStatusBadges').then((m) => m.CreatureLockBadge),
+  { ssr: false }
+);
 
 interface LockScreenProps {
   /** Called when the unlock cinematic ends, with the mode the visitor chose. */
@@ -108,6 +117,8 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
   const parallax = useParallax(0.3);
   const level = useXPStore((s) => s.level);
   const levelTitle = useXPStore((s) => s.getLevelTitle());
+  // The creature exists once it was born on a first desktop session.
+  const creatureKnown = useCreatureStore((s) => s.lastSyncedUserXP !== null);
   const quote = getQuoteOfDay();
 
   // useState initializer runs exactly once — the canonical pattern for
@@ -303,7 +314,13 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
                   <span className="text-text-muted"> · {OWNER.tagline}</span>
                 )}
               </p>
-              <CreatureLockBadge className="mt-2" />
+              {/* Creature badge: its row is reserved up front, so nothing
+                  shifts when the lazy sprite chunk arrives. */}
+              {creatureKnown && (
+                <div className="mt-2 flex min-h-6 items-center justify-center">
+                  <CreatureLockBadge />
+                </div>
+              )}
             </motion.div>
 
             {/* Password Input / Unlock */}

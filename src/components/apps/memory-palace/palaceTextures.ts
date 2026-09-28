@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Memory Palace: procedural textures + materials
 // Everything is generated at runtime (no asset files, works offline):
-//   • label textures (signs, floating SQL / automata text)
+//   • label textures (signs, floating words of a room)
 //   • a world-space stone/tile pattern patched into standard materials
 //     so walls read as masonry and floors as tiles on any box size.
 // ═══════════════════════════════════════════════════════════

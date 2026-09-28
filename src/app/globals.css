@@ -108,12 +108,16 @@
 }
 
 /* ─── Base Styles ─── */
-*,
-*::before,
-*::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* In the base layer, like Tailwind's preflight: an unlayered reset would
+   outrank every (layered) utility and zero p-*, m-*, mx-auto, space-y-*… */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 }
 
 html {

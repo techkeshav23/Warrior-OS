@@ -2,14 +2,16 @@
 // WARRIOR OS — NEXUS Local Intent Parser
 //
 // Fast deterministic path that maps English + Hinglish commands
-// ("open notes", "javascript quiz", "notes on deadlock", "study mode",
-// "pomodoro 50", "wallpaper aurora", "terminal band karo") to
-// executable NexusCommands WITHOUT a Gemini round-trip. Anything
-// conversational returns { type: 'none' } and falls through to AI.
+// ("open notes", "quiz me on javascript", "review due cards", "my
+// decks", "notes on closures", "study mode", "pomodoro 50", "wallpaper
+// aurora", "terminal band karo") to executable NexusCommands WITHOUT a
+// Gemini round-trip. Anything conversational returns { type: 'none' }
+// and falls through to AI (or the offline brain).
 //
 // Pure + synchronous. The caller passes the registered app list
-// (useAppStore.registeredApps) so apps added later are understood
-// and this module never imports the app registry (no import cycle).
+// (useAppStore.registeredApps), habit names and deck/topic names, so
+// apps and decks added later are understood and this module never
+// imports the app registry or a store (no import cycle).
 // ═══════════════════════════════════════════════════════════
 
 import { WALLPAPER_OPTIONS } from '@/lib/constants';
@@ -17,7 +19,7 @@ import type { ExpenseCategory } from '@/types/expense';
 import type {
   NexusActionButton,
   NexusCommand,
-  NexusGateMode,
+  NexusTrainingMode,
   NexusWireAction,
   NexusWorkspaceId,
 } from '@/types/nexus';
@@ -90,9 +92,6 @@ const APP_ALIASES: Record<string, readonly string[]> = {
   decks: ['training-grounds'],
   'skill tree': ['training-grounds'],
   'question bank': ['training-grounds'],
-  quest: ['study-planner'],
-  quests: ['study-planner'],
-  'quest planner': ['study-planner'],
   habit: ['study-planner'],
   habits: ['study-planner'],
   'habit forge': ['study-planner'],
@@ -115,6 +114,9 @@ const APP_ALIASES: Record<string, readonly string[]> = {
   projects: ['project-forge', 'project-tracker', 'projects'],
   kanban: ['project-forge', 'project-tracker', 'projects'],
   'project forge': ['project-forge', 'project-tracker'],
+  resume: ['resume-builder'],
+  'resume builder': ['resume-builder'],
+  cv: ['resume-builder'],
   terminal: ['terminal'],
   term: ['terminal'],
   shell: ['terminal'],
@@ -457,13 +459,13 @@ function parseNotesSearch(text: string): NexusCommand | null {
       if (query && !NOTE_QUERY_STOP.has(query)) return { type: 'search_notes', query };
     }
   }
-  // "open my OS notes" → search "os"
+  // "open my react notes" → search "react"
   const topical = /^(?:open|show|get|pull\s+up)\s+(?:me\s+)?(?:my\s+)?(.+?)\s+notes?$/.exec(text);
   if (topical) {
     const query = cleanQuery(topical[1]);
     if (query && !NOTE_QUERY_STOP.has(query) && wordCount(query) <= 4) return { type: 'search_notes', query };
   }
-  // Generic "search deadlock" — notes are the only searchable store.
+  // Generic "search closures" — notes are the only searchable store.
   const generic = /^(?:search|find|dhundh(?:o)?|dhoondh(?:o)?|khoj(?:o)?)\s+(?:for\s+)?(.+)$/.exec(text);
   if (generic) {
     const query = cleanQuery(generic[1]);
@@ -485,20 +487,27 @@ function parseStats(text: string): NexusCommand | null {
   return null;
 }
 
-function parseTraining(text: string): NexusCommand | null {
-  const mock = /\bmock(?:\s+tests?)?\b/;
-  const flash = /\b(?:flash\s*cards?|revision\s+cards?|review\s+cards?|spaced\s+repetition)\b/;
-  const planner = /\bstudy\s+plan(?:ner)?\b/;
-  const quiz = /\b(?:quiz|quizzes|test\s+me|practice|practise|mcqs?)\b/;
+/** Whole-word containment ("react hooks" is in "quiz me on react hooks"). */
+function containsPhrase(haystack: string, needle: string): boolean {
+  const n = needle.toLowerCase().replace(/\s+/g, ' ').trim();
+  return n !== '' && ` ${haystack} `.includes(` ${n} `);
+}
 
-  let mode: NexusGateMode | null = null;
+function parseTraining(text: string, deckNames: readonly string[]): NexusCommand | null {
+  const mock = /\bmock(?:\s+tests?)?\b/;
+  const planner = /\b(?:quest\s+planner|study\s+plan(?:ner)?|learning\s+plan|planner)\b/;
+  const review =
+    /\b(?:flash\s*cards?|revision\s+cards?|spaced\s+repetition|due\s+cards?|cards?\s+due|review\s+session|review(?:\s+(?:my|the|all|due))*\s+(?:cards?|flashcards?|decks?))\b/;
+  const quiz = /\b(?:quiz|quizzes|test\s+me|practice|practise|mcqs?|drill)\b/;
+
+  let mode: NexusTrainingMode | null = null;
   let keyword: RegExp | null = null;
   if (mock.test(text)) {
     mode = 'mock';
     keyword = mock;
-  } else if (flash.test(text)) {
+  } else if (review.test(text)) {
     mode = 'flashcards';
-    keyword = flash;
+    keyword = review;
   } else if (planner.test(text)) {
     mode = 'planner';
     keyword = planner;
@@ -506,18 +515,53 @@ function parseTraining(text: string): NexusCommand | null {
     mode = 'quiz';
     keyword = quiz;
   }
-  if (!mode || !keyword) return null;
+
+  if (!mode || !keyword) {
+    // Bare "review" / "revise": all due cards, or one of the user's decks by name.
+    const bare = /^(?:review|revise|revision)(?:\s+(.+))?$/.exec(text);
+    if (!bare) return null;
+    const rest = (bare[1] ?? '').replace(/^(?:my|the|all)\s+/, '').trim();
+    if (!rest) return { type: 'start_quiz', mode: 'flashcards' };
+    if (/^(?:weakest|hardest|toughest)(?:\s+deck)?$/.test(rest)) {
+      return { type: 'start_quiz', mode: 'flashcards', subject: 'weakest deck' };
+    }
+    return deckNames.some((name) => containsPhrase(rest, name) || containsPhrase(name, rest))
+      ? { type: 'start_quiz', mode: 'flashcards', subject: rest }
+      : null;
+  }
 
   // Whatever is left names a deck or topic ("javascript quiz", "quiz me on react hooks").
   const leftovers = leftoverWords(text, [
     new RegExp(keyword.source, 'g'),
     /\btraining(?:\s+grounds?)?\b/g,
     /\bdecks?\b/g,
+    ...(mode === 'flashcards' ? [/\b(?:review|due|cards?)\b/g] : []),
   ]);
-  // Must look like a command, not a question that happens to contain "practice".
-  if (leftovers.length > 3 || leftovers.some((w) => QUESTION_WORD_RE.test(w))) return null;
   const subject = leftovers.join(' ');
-  return subject ? { type: 'start_quiz', mode, subject } : { type: 'start_quiz', mode };
+  // Must look like a command, not a question that happens to contain "practice".
+  // Longer leftovers pass only when they name one of the user's decks.
+  const namesDeck = deckNames.some((name) => containsPhrase(subject, name));
+  if ((leftovers.length > 3 && !namesDeck) || leftovers.some((w) => QUESTION_WORD_RE.test(w))) return null;
+  if (mode === 'planner') return { type: 'start_quiz', mode };
+  if (!subject) return { type: 'start_quiz', mode };
+  // "quiz me on my weakest deck": NexusCore picks the deck.
+  if (/^(?:weakest|weak|hardest|toughest)$/.test(subject)) return { type: 'start_quiz', mode, subject: 'weakest deck' };
+  return { type: 'start_quiz', mode, subject };
+}
+
+/** "my decks", "deck progress", "what's due" → deck report. */
+function parseDecks(text: string): NexusCommand | null {
+  if (
+    /^(?:(?:show|list|check)\s+(?:me\s+)?)?(?:(?:all\s+)?(?:my|mere|meri)\s+|all\s+)?(?:decks?|deck\s+(?:progress|stats|report|mastery|status)|learning\s+(?:progress|stats|report|status)|mastery(?:\s+report)?)(?:\s+(?:dikhao|dikha|batao|bata|check))?$/.test(
+      text
+    ) ||
+    /^(?:what(?:s|\s+is)?\s+due(?:\s+(?:today|now))?|anything\s+due(?:\s+today)?|due\s+(?:today|now)|kya\s+due\s+hai|how\s+are\s+my\s+decks(?:\s+doing)?)$/.test(
+      text
+    )
+  ) {
+    return { type: 'show_decks' };
+  }
+  return null;
 }
 
 function parseCloseAll(text: string): NexusCommand | null {
@@ -637,7 +681,12 @@ function parseAppCommand(text: string, apps: readonly NexusAppRef[]): NexusComma
 }
 
 /** Parse exactly one command (no multi-action splitting). */
-function parseSingle(text: string, apps: readonly NexusAppRef[], habits: readonly string[]): LocalIntent {
+function parseSingle(
+  text: string,
+  apps: readonly NexusAppRef[],
+  habits: readonly string[],
+  deckNames: readonly string[]
+): LocalIntent {
   if (!text) return { type: 'none' };
   if (/^(?:help|commands|command\s+list|what\s+can\s+(?:you|u)\s+do|kya\s+(?:kya\s+)?kar\s+sakta\s+hai|madad|options)$/.test(text)) {
     return { type: 'help' };
@@ -654,7 +703,8 @@ function parseSingle(text: string, apps: readonly NexusAppRef[], habits: readonl
     parseWorkspace(text) ??
     parseNotesSearch(text) ??
     parseStats(text) ??
-    parseTraining(text) ??
+    parseDecks(text) ??
+    parseTraining(text, deckNames) ??
     parseCloseAll(text) ??
     parseAppCommand(text, apps) ??
     parseHabit(text, habits) ?? { type: 'none' }
@@ -670,13 +720,15 @@ export function isCommandIntent(intent: LocalIntent): intent is NexusCommand {
 
 /**
  * Pure synchronous parser. Returns a command, a multi-command list
- * ("open notes and start a javascript quiz"), help/easter-egg replies, or
+ * ("open notes and review due cards"), help/easter-egg replies, or
  * { type: 'none' } when the caller should ask the AI instead.
+ * `deckNames` (deck + topic names) lets a bare "review <deck>" through.
  */
 export function parseLocalIntent(
   rawInput: string,
   apps: readonly NexusAppRef[] = [],
-  habits: readonly string[] = []
+  habits: readonly string[] = [],
+  deckNames: readonly string[] = []
 ): LocalIntent {
   const normalized = normalize(rawInput);
   if (!normalized) return { type: 'none' };
@@ -690,19 +742,32 @@ export function parseLocalIntent(
       .map((part) => stripFillers(part))
       .filter(Boolean);
     if (parts.length >= 2 && parts.length <= 4) {
-      const intents = parts.map((part) => parseSingle(part, apps, habits));
+      const intents = parts.map((part) => parseSingle(part, apps, habits, deckNames));
       if (intents.every(isCommandIntent)) {
         return { type: 'multi', commands: intents as NexusCommand[] };
       }
     }
   }
-  return parseSingle(text, apps, habits);
+  return parseSingle(text, apps, habits, deckNames);
 }
 
 // ─── Descriptions + AI action resolution ───
 
 function titleCase(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function describeTraining(mode: NexusTrainingMode, subject: string | undefined): string {
+  switch (mode) {
+    case 'mock':
+      return subject ? `${titleCase(subject)} mock test` : 'Mock test';
+    case 'flashcards':
+      return subject ? `Review ${subject} cards` : 'Review due cards';
+    case 'planner':
+      return 'Quest Planner';
+    case 'quiz':
+      return subject ? `${titleCase(subject)} quiz` : 'Quick quiz';
+  }
 }
 
 /** Short human label for a command (buttons, palette rows). */
@@ -720,13 +785,10 @@ export function describeCommand(command: NexusCommand): string {
       return `Go to ${titleCase(command.workspaceId)} workspace`;
     case 'search_notes':
       return `Search notes: "${command.query}"`;
-    case 'start_quiz': {
-      const subject = command.subject ? `${command.subject} ` : '';
-      if (command.mode === 'mock') return `${subject}mock test`.trim().replace(/^./, (c) => c.toUpperCase());
-      if (command.mode === 'flashcards') return `${subject}flashcards`.trim().replace(/^./, (c) => c.toUpperCase());
-      if (command.mode === 'planner') return 'Study planner';
-      return command.subject ? `${command.subject} quiz` : 'Quick quiz';
-    }
+    case 'start_quiz':
+      return describeTraining(command.mode, command.subject);
+    case 'show_decks':
+      return 'Deck report';
     case 'study_mode':
       return 'Study mode';
     case 'chill_mode':
@@ -783,7 +845,7 @@ export function resolveWireCommand(wire: NexusWireAction, apps: readonly NexusAp
     case 'start_quiz':
     case 'start_mock_test':
     case 'open_flashcards': {
-      const mode: NexusGateMode =
+      const mode: NexusTrainingMode =
         wire.type === 'start_mock_test' ? 'mock' : wire.type === 'open_flashcards' ? 'flashcards' : 'quiz';
       const subject = target ? subjectFromTarget(target) : '';
       return subject ? { type: 'start_quiz', mode, subject } : { type: 'start_quiz', mode };
@@ -808,6 +870,8 @@ export function resolveWireCommand(wire: NexusWireAction, apps: readonly NexusAp
     }
     case 'show_stats':
       return { type: 'show_stats' };
+    case 'show_decks':
+      return { type: 'show_decks' };
     case 'take_break':
       return { type: 'take_break' };
     case 'ask':

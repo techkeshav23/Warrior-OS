@@ -1,12 +1,13 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Dream Renderer
-// Full-screen canvas scene for the dream's 5 seconds. Subject motifs
-// drift slowly with a soft glow and particle trails: DBMS → floating
-// tables + glowing SQL, OS → spinning process diagrams, CN → packets
-// travelling between routers, Algorithms → bars re-arranging (bubble
-// sort), idle/void → a dark void with distant twinkling stars and fog.
-// Ambient colour = the subject's accent. All canvas + rAF work lives
-// in an effect (SSR-safe); no React state changes per frame.
+// Full-screen canvas scene for the dream's 5 seconds. Activity motifs
+// drift slowly with a soft glow and particle trails: decks → flash
+// cards flipping, notes → pages and quills, projects → kanban cards and
+// rockets, code → braces and terminals, music → notes and waves, habits
+// → flames and ticked grids, focus → hourglasses, idle/void → a dark
+// void with distant twinkling stars and fog. Ambient colour = the
+// theme's accent. All canvas + rAF work lives in an effect (SSR-safe);
+// no React state changes per frame.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -90,157 +91,90 @@ function drawKind(ctx: CanvasRenderingContext2D, kind: DreamObjectKind, s: numbe
   ctx.lineWidth = Math.max(1, s * 0.035);
 
   switch (kind) {
-    case 'floating-table': {
-      const w = s * 1.2;
-      const h = s * 0.8;
-      ctx.fillRect(-w / 2, -h / 2, w, h * 0.22);
+    // ─── decks ───
+    case 'flash-card': {
+      // A card flipping over: '?' on the front, '✓' on the back.
+      const flip = Math.cos(t * 1.4 + rt.el.phase);
+      const w = s * 0.9 * Math.max(0.08, Math.abs(flip));
+      const h = s * 0.6;
+      ctx.fillRect(-w / 2, -h / 2, w, h);
       ctx.strokeRect(-w / 2, -h / 2, w, h);
-      for (let r = 1; r < 4; r++) {
-        ctx.beginPath();
-        ctx.moveTo(-w / 2, -h / 2 + (h * r) / 4 + h * 0.02);
-        ctx.lineTo(w / 2, -h / 2 + (h * r) / 4 + h * 0.02);
-        ctx.stroke();
-      }
-      for (let c = 1; c < 3; c++) {
-        ctx.beginPath();
-        ctx.moveTo(-w / 2 + (w * c) / 3, -h / 2);
-        ctx.lineTo(-w / 2 + (w * c) / 3, h / 2);
-        ctx.stroke();
-      }
-      label(ctx, 'id', -w / 3, -h / 2 + h * 0.11, s * 0.13, rgb, a);
-      label(ctx, 'name', 0, -h / 2 + h * 0.11, s * 0.13, rgb, a);
-      label(ctx, 'score', w / 3, -h / 2 + h * 0.11, s * 0.13, rgb, a);
+      if (Math.abs(flip) > 0.35) label(ctx, flip > 0 ? '?' : '✓', 0, 0, s * 0.32, rgb, a);
       break;
     }
-    case 'database-cylinder': {
-      const w = s * 0.7;
-      ctx.beginPath();
-      ctx.ellipse(0, -s * 0.35, w / 2, s * 0.12, 0, 0, TAU);
-      ctx.fill();
-      ctx.stroke();
-      for (const y of [0, s * 0.35]) {
-        ctx.beginPath();
-        ctx.ellipse(0, y, w / 2, s * 0.12, 0, 0, Math.PI);
-        ctx.stroke();
-      }
-      ctx.beginPath();
-      ctx.moveTo(-w / 2, -s * 0.35);
-      ctx.lineTo(-w / 2, s * 0.35);
-      ctx.moveTo(w / 2, -s * 0.35);
-      ctx.lineTo(w / 2, s * 0.35);
-      ctx.stroke();
-      break;
-    }
-    case 'er-diagram-web': {
-      const nodes: [number, number][] = [
-        [-s * 0.5, -s * 0.25],
-        [s * 0.5, -s * 0.25],
-        [0, s * 0.35],
-      ];
-      ctx.beginPath();
-      ctx.moveTo(nodes[0][0], nodes[0][1]);
-      ctx.lineTo(nodes[1][0], nodes[1][1]);
-      ctx.lineTo(nodes[2][0], nodes[2][1]);
-      ctx.closePath();
-      ctx.stroke();
-      for (const [x, y] of nodes) {
-        ctx.fillRect(x - s * 0.18, y - s * 0.1, s * 0.36, s * 0.2);
-        ctx.strokeRect(x - s * 0.18, y - s * 0.1, s * 0.36, s * 0.2);
-      }
-      ctx.beginPath();
-      ctx.moveTo(0, -s * 0.37);
-      ctx.lineTo(s * 0.1, -s * 0.25);
-      ctx.lineTo(0, -s * 0.13);
-      ctx.lineTo(-s * 0.1, -s * 0.25);
-      ctx.closePath();
-      ctx.stroke();
-      break;
-    }
-    case 'process-diagram': {
-      const R = s * 0.45;
+    case 'recall-ring': {
+      // Cards circling the review loop; the one on top is being recalled.
+      const R = s * 0.42;
+      const active = Math.floor(t * 1.5) % 5;
       for (let i = 0; i < 5; i++) {
         const ang = (i / 5) * TAU - Math.PI / 2;
         const x = Math.cos(ang) * R;
         const y = Math.sin(ang) * R;
-        const nx = Math.cos(ang + TAU / 5) * R;
-        const ny = Math.sin(ang + TAU / 5) * R;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(nx, ny);
-        ctx.stroke();
-        const active = Math.floor(t * 1.5) % 5 === i;
-        ctx.fillStyle = active ? `rgba(${rgb},${0.7 * a})` : fill;
-        ctx.beginPath();
-        ctx.arc(x, y, s * 0.14, 0, TAU);
-        ctx.fill();
-        ctx.stroke();
-        label(ctx, `P${i + 1}`, x, y, s * 0.12, active ? '5,5,10' : rgb, a);
+        ctx.fillStyle = i === active ? `rgba(${rgb},${0.75 * a})` : fill;
+        ctx.fillRect(x - s * 0.1, y - s * 0.07, s * 0.2, s * 0.14);
+        ctx.strokeRect(x - s * 0.1, y - s * 0.07, s * 0.2, s * 0.14);
       }
-      break;
-    }
-    case 'gantt-bar': {
-      const lengths = [0.5, 0.8, 0.35, 0.65];
-      lengths.forEach((l, i) => {
-        const off = ((t * 0.15 + i * 0.2) % 1) * s * 0.3;
-        ctx.fillStyle = `rgba(${rgb},${(0.25 + i * 0.12) * a})`;
-        ctx.fillRect(-s * 0.6 + off, -s * 0.4 + i * s * 0.22, s * l, s * 0.15);
-        ctx.strokeRect(-s * 0.6 + off, -s * 0.4 + i * s * 0.22, s * l, s * 0.15);
-      });
-      break;
-    }
-    case 'network-packet': {
-      // Two routers with a packet travelling between them.
-      const L = s * 0.9;
       ctx.beginPath();
-      ctx.moveTo(-L / 2, 0);
-      ctx.lineTo(L / 2, 0);
+      ctx.arc(0, 0, R * 0.55, 0, TAU * 0.8);
       ctx.stroke();
-      for (const x of [-L / 2, L / 2]) {
-        ctx.beginPath();
-        ctx.arc(x, 0, s * 0.1, 0, TAU);
-        ctx.fill();
-        ctx.stroke();
-      }
-      const p = (t * 0.7 + rt.el.phase) % 1;
-      const px = -L / 2 + p * L;
-      for (let k = 6; k >= 0; k--) {
-        ctx.fillStyle = `rgba(${rgb},${(0.9 - k * 0.13) * a})`;
-        ctx.beginPath();
-        ctx.arc(px - k * s * 0.05, 0, s * 0.045 * (1 - k * 0.1), 0, TAU);
-        ctx.fill();
-      }
       break;
     }
-    case 'router-node': {
-      ctx.fillRect(-s * 0.35, -s * 0.15, s * 0.7, s * 0.3);
-      ctx.strokeRect(-s * 0.35, -s * 0.15, s * 0.7, s * 0.3);
-      for (const x of [-s * 0.2, s * 0.2]) {
-        ctx.beginPath();
-        ctx.moveTo(x, -s * 0.15);
-        ctx.lineTo(x + s * 0.05, -s * 0.45);
-        ctx.stroke();
-      }
-      for (let i = 0; i < 4; i++) {
-        ctx.fillStyle = Math.sin(t * 6 + i * 1.7) > 0 ? `rgba(${rgb},${a})` : `rgba(${rgb},${0.2 * a})`;
-        ctx.fillRect(-s * 0.25 + i * s * 0.14, -s * 0.03, s * 0.06, s * 0.06);
-      }
-      break;
-    }
-    case 'automaton-state': {
+    case 'checkmark-orb': {
       ctx.beginPath();
-      ctx.arc(0, 0, s * 0.3, 0, TAU);
+      ctx.arc(0, 0, s * 0.35, 0, TAU);
       ctx.fill();
       ctx.stroke();
       ctx.beginPath();
-      ctx.arc(0, 0, s * 0.24, 0, TAU);
+      ctx.moveTo(-s * 0.15, 0);
+      ctx.lineTo(-s * 0.03, s * 0.13);
+      ctx.lineTo(s * 0.18, -s * 0.12);
+      ctx.lineWidth = Math.max(1.5, s * 0.06);
       ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(0, -s * 0.38, s * 0.14, Math.PI * 0.8, Math.PI * 2.2);
-      ctx.stroke();
-      label(ctx, 'q1', 0, 0, s * 0.18, rgb, a);
       break;
     }
-    case 'transition-arrow':
+    // ─── notes ───
+    case 'note-page': {
+      const w = s * 0.62;
+      const h = s * 0.8;
+      const fold = s * 0.15;
+      ctx.beginPath();
+      ctx.moveTo(-w / 2, -h / 2);
+      ctx.lineTo(w / 2 - fold, -h / 2);
+      ctx.lineTo(w / 2, -h / 2 + fold);
+      ctx.lineTo(w / 2, h / 2);
+      ctx.lineTo(-w / 2, h / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(w / 2 - fold, -h / 2);
+      ctx.lineTo(w / 2 - fold, -h / 2 + fold);
+      ctx.lineTo(w / 2, -h / 2 + fold);
+      ctx.stroke();
+      [0.55, 0.8, 0.65, 0.4].forEach((len, i) => {
+        ctx.fillStyle = `rgba(${rgb},${0.55 * a})`;
+        ctx.fillRect(-w / 2 + s * 0.08, -h / 2 + s * 0.24 + i * s * 0.14, (w - s * 0.16) * len, s * 0.035);
+      });
+      break;
+    }
+    case 'quill': {
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.3, s * 0.38);
+      ctx.quadraticCurveTo(-s * 0.08, -s * 0.12, s * 0.34, -s * 0.46);
+      ctx.quadraticCurveTo(s * 0.06, s * 0.02, -s * 0.3, s * 0.38);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.4, s * 0.48);
+      ctx.lineTo(s * 0.26, -s * 0.36);
+      ctx.stroke();
+      // Ink dot where the nib touches the page.
+      ctx.fillStyle = `rgba(${rgb},${(0.5 + 0.5 * Math.sin(t * 3 + rt.el.phase)) * a})`;
+      ctx.beginPath();
+      ctx.arc(-s * 0.42, s * 0.5, s * 0.04, 0, TAU);
+      ctx.fill();
+      break;
+    }
     case 'graph-edge': {
       const pts: [number, number][] = [
         [-s * 0.5, s * 0.2],
@@ -259,17 +193,6 @@ function drawKind(ctx: CanvasRenderingContext2D, kind: DreamObjectKind, s: numbe
         ctx.arc(x, y, s * 0.07, 0, TAU);
         ctx.fill();
         ctx.stroke();
-      }
-      break;
-    }
-    case 'sorting-bar': {
-      const n = rt.bars.length;
-      const bw = (s * 1.1) / n;
-      for (let i = 0; i < n; i++) {
-        const h = rt.bars[i] * s * 0.9;
-        const hot = i === rt.sortJ || i === rt.sortJ + 1;
-        ctx.fillStyle = hot ? `rgba(255,255,255,${0.85 * a})` : `rgba(${rgb},${(0.35 + rt.bars[i] * 0.5) * a})`;
-        ctx.fillRect(-s * 0.55 + i * bw + bw * 0.1, s * 0.45 - h, bw * 0.8, h);
       }
       break;
     }
@@ -303,114 +226,7 @@ function drawKind(ctx: CanvasRenderingContext2D, kind: DreamObjectKind, s: numbe
       });
       break;
     }
-    case 'linked-list': {
-      for (let i = 0; i < 3; i++) {
-        const x = -s * 0.6 + i * s * 0.45;
-        ctx.fillRect(x, -s * 0.12, s * 0.28, s * 0.24);
-        ctx.strokeRect(x, -s * 0.12, s * 0.28, s * 0.24);
-        if (i < 2) {
-          ctx.beginPath();
-          ctx.moveTo(x + s * 0.28, 0);
-          ctx.lineTo(x + s * 0.43, 0);
-          ctx.lineTo(x + s * 0.38, -s * 0.05);
-          ctx.moveTo(x + s * 0.43, 0);
-          ctx.lineTo(x + s * 0.38, s * 0.05);
-          ctx.stroke();
-        }
-      }
-      break;
-    }
-    case 'logic-gate': {
-      ctx.beginPath();
-      ctx.moveTo(-s * 0.3, -s * 0.3);
-      ctx.lineTo(0, -s * 0.3);
-      ctx.arc(0, 0, s * 0.3, -Math.PI / 2, Math.PI / 2);
-      ctx.lineTo(-s * 0.3, s * 0.3);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-s * 0.55, -s * 0.15);
-      ctx.lineTo(-s * 0.3, -s * 0.15);
-      ctx.moveTo(-s * 0.55, s * 0.15);
-      ctx.lineTo(-s * 0.3, s * 0.15);
-      ctx.moveTo(s * 0.3, 0);
-      ctx.lineTo(s * 0.55, 0);
-      ctx.stroke();
-      break;
-    }
-    case 'circuit-trace': {
-      ctx.beginPath();
-      ctx.moveTo(-s * 0.5, -s * 0.3);
-      ctx.lineTo(-s * 0.1, -s * 0.3);
-      ctx.lineTo(-s * 0.1, s * 0.2);
-      ctx.lineTo(s * 0.5, s * 0.2);
-      ctx.moveTo(-s * 0.1, 0);
-      ctx.lineTo(s * 0.3, 0);
-      ctx.lineTo(s * 0.3, -s * 0.35);
-      ctx.stroke();
-      for (const [x, y] of [
-        [-s * 0.5, -s * 0.3],
-        [s * 0.5, s * 0.2],
-        [s * 0.3, -s * 0.35],
-      ] as [number, number][]) {
-        ctx.beginPath();
-        ctx.arc(x, y, s * 0.05, 0, TAU);
-        ctx.fillStyle = `rgba(${rgb},${a})`;
-        ctx.fill();
-      }
-      break;
-    }
-    case 'set-venn': {
-      for (const [x, y] of [
-        [-s * 0.15, -s * 0.08],
-        [s * 0.15, -s * 0.08],
-        [0, s * 0.17],
-      ] as [number, number][]) {
-        ctx.beginPath();
-        ctx.arc(x, y, s * 0.28, 0, TAU);
-        ctx.fill();
-        ctx.stroke();
-      }
-      break;
-    }
-    case 'matrix-grid': {
-      ctx.beginPath();
-      ctx.moveTo(-s * 0.4, -s * 0.4);
-      ctx.lineTo(-s * 0.48, -s * 0.4);
-      ctx.lineTo(-s * 0.48, s * 0.4);
-      ctx.lineTo(-s * 0.4, s * 0.4);
-      ctx.moveTo(s * 0.4, -s * 0.4);
-      ctx.lineTo(s * 0.48, -s * 0.4);
-      ctx.lineTo(s * 0.48, s * 0.4);
-      ctx.lineTo(s * 0.4, s * 0.4);
-      ctx.stroke();
-      const vals = ['2', '0', '1', '1', '3', '0', '4', '1', '2'];
-      vals.forEach((v, i) => label(ctx, v, -s * 0.25 + (i % 3) * s * 0.25, -s * 0.25 + Math.floor(i / 3) * s * 0.25, s * 0.16, rgb, a));
-      break;
-    }
-    case 'integral-symbol':
-      label(ctx, '∫ f(x) dx', 0, 0, s * 0.3, rgb, a);
-      break;
-    case 'code-block': {
-      ctx.fillRect(-s * 0.55, -s * 0.35, s * 1.1, s * 0.7);
-      ctx.strokeRect(-s * 0.55, -s * 0.35, s * 1.1, s * 0.7);
-      const widths = [0.7, 0.45, 0.85, 0.3];
-      widths.forEach((w, i) => {
-        ctx.fillStyle = `rgba(${rgb},${0.6 * a})`;
-        ctx.fillRect(-s * 0.45 + (i % 2) * s * 0.08, -s * 0.25 + i * s * 0.15, s * w * 0.8, s * 0.06);
-      });
-      break;
-    }
-    case 'terminal-line':
-      label(ctx, `$ run${Math.sin(t * 4) > 0 ? ' ▌' : ''}`, 0, 0, s * 0.22, rgb, a);
-      break;
-    case 'brace-glyph':
-      label(ctx, '{ }', 0, 0, s * 0.5, rgb, a);
-      break;
-    case 'binary-stream':
-      label(ctx, ((Math.floor(t * 3) % 2 === 0) ? '0110 1001' : '1001 0110'), 0, 0, s * 0.2, rgb, a);
-      break;
+    // ─── projects ───
     case 'kanban-card': {
       ctx.fillRect(-s * 0.4, -s * 0.3, s * 0.8, s * 0.6);
       ctx.strokeRect(-s * 0.4, -s * 0.3, s * 0.8, s * 0.6);
@@ -436,32 +252,135 @@ function drawKind(ctx: CanvasRenderingContext2D, kind: DreamObjectKind, s: numbe
       ctx.fill();
       break;
     }
-    case 'checkmark-orb': {
-      ctx.beginPath();
-      ctx.arc(0, 0, s * 0.35, 0, TAU);
-      ctx.fill();
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-s * 0.15, 0);
-      ctx.lineTo(-s * 0.03, s * 0.13);
-      ctx.lineTo(s * 0.18, -s * 0.12);
-      ctx.lineWidth = Math.max(1.5, s * 0.06);
-      ctx.stroke();
+    case 'gantt-bar': {
+      const lengths = [0.5, 0.8, 0.35, 0.65];
+      lengths.forEach((l, i) => {
+        const off = ((t * 0.15 + i * 0.2) % 1) * s * 0.3;
+        ctx.fillStyle = `rgba(${rgb},${(0.25 + i * 0.12) * a})`;
+        ctx.fillRect(-s * 0.6 + off, -s * 0.4 + i * s * 0.22, s * l, s * 0.15);
+        ctx.strokeRect(-s * 0.6 + off, -s * 0.4 + i * s * 0.22, s * l, s * 0.15);
+      });
       break;
     }
-    case 'exam-sheet': {
-      ctx.fillRect(-s * 0.32, -s * 0.42, s * 0.64, s * 0.84);
-      ctx.strokeRect(-s * 0.32, -s * 0.42, s * 0.64, s * 0.84);
-      for (let i = 0; i < 4; i++) {
-        const y = -s * 0.28 + i * s * 0.18;
+    // ─── code ───
+    case 'code-block': {
+      ctx.fillRect(-s * 0.55, -s * 0.35, s * 1.1, s * 0.7);
+      ctx.strokeRect(-s * 0.55, -s * 0.35, s * 1.1, s * 0.7);
+      const widths = [0.7, 0.45, 0.85, 0.3];
+      widths.forEach((w, i) => {
+        ctx.fillStyle = `rgba(${rgb},${0.6 * a})`;
+        ctx.fillRect(-s * 0.45 + (i % 2) * s * 0.08, -s * 0.25 + i * s * 0.15, s * w * 0.8, s * 0.06);
+      });
+      break;
+    }
+    case 'terminal-line':
+      label(ctx, `$ run${Math.sin(t * 4) > 0 ? ' ▌' : ''}`, 0, 0, s * 0.22, rgb, a);
+      break;
+    case 'brace-glyph':
+      label(ctx, '{ }', 0, 0, s * 0.5, rgb, a);
+      break;
+    case 'binary-stream':
+      label(ctx, Math.floor(t * 3) % 2 === 0 ? '0110 1001' : '1001 0110', 0, 0, s * 0.2, rgb, a);
+      break;
+    case 'circuit-trace': {
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.5, -s * 0.3);
+      ctx.lineTo(-s * 0.1, -s * 0.3);
+      ctx.lineTo(-s * 0.1, s * 0.2);
+      ctx.lineTo(s * 0.5, s * 0.2);
+      ctx.moveTo(-s * 0.1, 0);
+      ctx.lineTo(s * 0.3, 0);
+      ctx.lineTo(s * 0.3, -s * 0.35);
+      ctx.stroke();
+      for (const [x, y] of [
+        [-s * 0.5, -s * 0.3],
+        [s * 0.5, s * 0.2],
+        [s * 0.3, -s * 0.35],
+      ] as [number, number][]) {
         ctx.beginPath();
-        ctx.moveTo(-s * 0.2, y);
-        ctx.lineTo(s * 0.12, y);
-        ctx.stroke();
-        label(ctx, i % 3 === 2 ? '✗' : '✓', s * 0.22, y, s * 0.12, rgb, a);
+        ctx.arc(x, y, s * 0.05, 0, TAU);
+        ctx.fillStyle = `rgba(${rgb},${a})`;
+        ctx.fill();
       }
       break;
     }
+    case 'sorting-bar': {
+      const n = rt.bars.length;
+      const bw = (s * 1.1) / n;
+      for (let i = 0; i < n; i++) {
+        const h = rt.bars[i] * s * 0.9;
+        const hot = i === rt.sortJ || i === rt.sortJ + 1;
+        ctx.fillStyle = hot ? `rgba(255,255,255,${0.85 * a})` : `rgba(${rgb},${(0.35 + rt.bars[i] * 0.5) * a})`;
+        ctx.fillRect(-s * 0.55 + i * bw + bw * 0.1, s * 0.45 - h, bw * 0.8, h);
+      }
+      break;
+    }
+    // ─── music ───
+    case 'music-note': {
+      ctx.fillStyle = `rgba(${rgb},${0.55 * a})`;
+      ctx.beginPath();
+      ctx.ellipse(-s * 0.12, s * 0.26, s * 0.14, s * 0.1, -0.4, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(s * 0.01, s * 0.22);
+      ctx.lineTo(s * 0.01, -s * 0.42);
+      ctx.quadraticCurveTo(s * 0.3, -s * 0.28, s * 0.22, -s * 0.06);
+      ctx.stroke();
+      break;
+    }
+    case 'sound-wave': {
+      ctx.beginPath();
+      for (let i = 0; i <= 40; i++) {
+        const u = i / 40;
+        const x = -s * 0.6 + u * s * 1.2;
+        const env = Math.sin(u * Math.PI);
+        const y = Math.sin(u * 14 + t * 4 + rt.el.phase) * s * 0.22 * env;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      break;
+    }
+    case 'equalizer': {
+      for (let i = 0; i < 6; i++) {
+        const h = s * (0.15 + 0.55 * Math.abs(Math.sin(t * (2.2 + i * 0.4) + i + rt.el.phase)));
+        ctx.fillStyle = `rgba(${rgb},${(0.4 + 0.1 * i) * a})`;
+        ctx.fillRect(-s * 0.45 + i * s * 0.16, s * 0.35 - h, s * 0.1, h);
+      }
+      break;
+    }
+    // ─── habits ───
+    case 'flame': {
+      const flick = 1 + 0.08 * Math.sin(t * 9 + rt.el.phase) + 0.05 * Math.sin(t * 17);
+      const h = s * 0.5 * flick;
+      ctx.beginPath();
+      ctx.moveTo(0, -h);
+      ctx.quadraticCurveTo(s * 0.34, -s * 0.05, s * 0.2, s * 0.25);
+      ctx.quadraticCurveTo(0, s * 0.42, -s * 0.2, s * 0.25);
+      ctx.quadraticCurveTo(-s * 0.34, -s * 0.05, 0, -h);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = `rgba(255,236,179,${0.55 * a})`;
+      ctx.beginPath();
+      ctx.moveTo(0, -h * 0.35);
+      ctx.quadraticCurveTo(s * 0.12, s * 0.08, 0, s * 0.26);
+      ctx.quadraticCurveTo(-s * 0.12, s * 0.08, 0, -h * 0.35);
+      ctx.fill();
+      break;
+    }
+    case 'habit-grid': {
+      // A week of check-offs lighting up one after another.
+      const lit = Math.floor(t * 2 + rt.el.phase * 3) % 12;
+      for (let i = 0; i < 12; i++) {
+        const x = -s * 0.42 + (i % 4) * s * 0.28;
+        const y = -s * 0.3 + Math.floor(i / 4) * s * 0.28;
+        ctx.fillStyle = i <= lit ? `rgba(${rgb},${0.75 * a})` : `rgba(${rgb},${0.12 * a})`;
+        ctx.fillRect(x, y, s * 0.2, s * 0.2);
+      }
+      break;
+    }
+    // ─── focus ───
     case 'clock-orb': {
       ctx.beginPath();
       ctx.arc(0, 0, s * 0.35, 0, TAU);
@@ -475,6 +394,39 @@ function drawKind(ctx: CanvasRenderingContext2D, kind: DreamObjectKind, s: numbe
       ctx.stroke();
       break;
     }
+    case 'hourglass': {
+      const w = s * 0.32;
+      const h = s * 0.42;
+      ctx.beginPath();
+      ctx.moveTo(-w, -h);
+      ctx.lineTo(w, -h);
+      ctx.lineTo(0, 0);
+      ctx.lineTo(w, h);
+      ctx.lineTo(-w, h);
+      ctx.lineTo(0, 0);
+      ctx.closePath();
+      ctx.stroke();
+      // Sand: the top drains while the bottom fills (loops every ~6s).
+      const k = (t / 6 + rt.el.phase) % 1;
+      ctx.fillStyle = `rgba(${rgb},${0.6 * a})`;
+      const top = (1 - k) * h * 0.85;
+      ctx.beginPath();
+      ctx.moveTo(-w * (top / h), -top);
+      ctx.lineTo(w * (top / h), -top);
+      ctx.lineTo(0, 0);
+      ctx.closePath();
+      ctx.fill();
+      const bottom = k * h * 0.85;
+      ctx.beginPath();
+      ctx.moveTo(-w, h);
+      ctx.lineTo(w, h);
+      ctx.lineTo(w * (1 - bottom / h), h - bottom);
+      ctx.lineTo(-w * (1 - bottom / h), h - bottom);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    // ─── mixed / idle / void ───
     case 'star-cluster': {
       for (let i = 0; i < 6; i++) {
         const ang = (i / 6) * TAU + rt.el.phase;
@@ -505,9 +457,6 @@ function drawKind(ctx: CanvasRenderingContext2D, kind: DreamObjectKind, s: numbe
       ctx.fill();
       break;
     }
-    case 'sql-query-text':
-      label(ctx, 'SELECT *', 0, 0, s * 0.25, rgb, a);
-      break;
   }
 }
 
@@ -527,7 +476,7 @@ export function DreamRenderer({ scene }: DreamRendererProps) {
       el,
       x: el.position.x,
       y: el.position.y,
-      rgb: hexToRgb(getDreamTheme(el.subjectTheme).color),
+      rgb: hexToRgb(getDreamTheme(el.theme).color),
       trail: [],
       lastTrail: 0,
       bars: initialBars(el.phase),
@@ -568,7 +517,7 @@ export function DreamRenderer({ scene }: DreamRendererProps) {
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, W, H);
       if (!voidish) {
-        // Ambient wash of the subject's accent.
+        // Ambient wash of the theme's accent.
         const wash = ctx.createRadialGradient(W * 0.5, H * 0.45, 0, W * 0.5, H * 0.45, Math.max(W, H) * 0.6);
         wash.addColorStop(0, `rgba(${accentRgb},0.10)`);
         wash.addColorStop(1, `rgba(${accentRgb},0)`);

@@ -1,8 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — NEXUS Context Builder
-// Reads live stores + app data (habits, notes, quizzes, biometrics,
-// decay, pomodoro) and produces the OS-state context NEXUS sends to
-// the AI route, plus small insight helpers reused by suggestions.
+// Reads live stores + app data (visitor mode, habits, notes, decks,
+// quizzes, biometrics, decay, pomodoro) and produces the OS-state
+// context NEXUS sends to the AI route, plus small insight helpers
+// reused by suggestions, the command palette and NexusCore.
 // Browser-only data access happens inside functions (SSR-safe).
 // ═══════════════════════════════════════════════════════════
 
@@ -10,7 +11,15 @@ import { useAppStore } from '@/stores/useAppStore';
 import { useWindowStore } from '@/stores/useWindowStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { useXPStore } from '@/stores/useXPStore';
-import { useQuizHistoryStore, type QuizAttempt } from '@/stores/useQuizHistoryStore';
+import { deckAttempts, useQuizHistoryStore, type QuizAttempt } from '@/stores/useQuizHistoryStore';
+import {
+  cardAnswerText,
+  collectDueCards,
+  computeDeckMastery,
+  listCardLocations,
+  useLearningStore,
+} from '@/stores/useLearningStore';
+import { getVisitorMode } from '@/lib/visitor';
 import { useDecayStore } from '@/stores/useDecayStore';
 import { useBiometricsStore } from '@/stores/useBiometricsStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
@@ -138,47 +147,182 @@ export function formatHour(hour: number): string {
 // ─── Quiz insights ───
 
 export interface SubjectAccuracy {
+  /** Current deck name (the name the quiz was saved under when the deck is gone). */
   subject: string;
+  deckId: string;
   accuracy: number; // 0-100
   attempts: number;
 }
 
 export interface QuizInsights {
+  /** Every finished quiz, legacy rows included. */
   totalAttempts: number;
+  /** Latest deck quiz (retry rounds and legacy rows excluded). */
   last: (QuizAttempt & { pct: number }) | null;
   subjects: SubjectAccuracy[];
   weakest: SubjectAccuracy | null;
   strongest: SubjectAccuracy | null;
 }
 
+/**
+ * Accuracy per deck from the quiz log. Only deck quizzes are named
+ * (deckAttempts): legacy rows saved before decks existed count toward
+ * the total only, like the store's other totals, and "retry wrong ones"
+ * rounds are left out (the answers were just shown).
+ */
 export function getQuizInsights(attempts: QuizAttempt[] = useQuizHistoryStore.getState().attempts): QuizInsights {
-  const bySubject = new Map<string, QuizAttempt[]>();
+  const deckNames = new Map(useLearningStore.getState().decks.map((d) => [d.id, d.name] as const));
+  const byDeck = new Map<string, QuizAttempt[]>();
   let last: QuizAttempt | null = null;
-  for (const a of attempts) {
+  for (const a of deckAttempts(attempts)) {
+    if (a.retry) continue;
     if (!last || a.timestamp > last.timestamp) last = a;
-    const list = bySubject.get(a.subject) ?? [];
+    const list = byDeck.get(a.deckId) ?? [];
     list.push(a);
-    bySubject.set(a.subject, list);
+    byDeck.set(a.deckId, list);
   }
   const subjects: SubjectAccuracy[] = [];
-  bySubject.forEach((list, subject) => {
+  byDeck.forEach((list, deckId) => {
+    const name = deckNames.get(deckId);
+    if (!name) return; // deleted deck: nothing left to quiz
     const recent = [...list].sort((x, y) => y.timestamp - x.timestamp).slice(0, 10);
     const total = recent.reduce((n, a) => n + a.totalQuestions, 0);
     const correct = recent.reduce((n, a) => n + a.correctAnswers, 0);
     if (total >= 3) {
-      subjects.push({ subject, accuracy: Math.round((correct / total) * 100), attempts: list.length });
+      subjects.push({ subject: name, deckId, accuracy: Math.round((correct / total) * 100), attempts: list.length });
     }
   });
   subjects.sort((a, b) => a.accuracy - b.accuracy);
   const lastPct =
     last && last.totalQuestions > 0 ? Math.round((last.correctAnswers / last.totalQuestions) * 100) : 0;
+  const lastName = last?.deckId ? (deckNames.get(last.deckId) ?? last.subject) : '';
   return {
     totalAttempts: attempts.length,
-    last: last ? { ...last, pct: lastPct } : null,
+    last: last ? { ...last, subject: lastName, pct: lastPct } : null,
     subjects,
     weakest: subjects[0] ?? null,
     strongest: subjects.length > 1 ? subjects[subjects.length - 1] : null,
   };
+}
+
+// ─── Learning insights (Training Grounds decks) ───
+
+export interface DeckInsight {
+  id: string;
+  name: string;
+  /** Cards in the deck. */
+  total: number;
+  /** Cards answered at least once. */
+  seen: number;
+  /** Cards due for review now (answered before, due date passed). */
+  due: number;
+  /** Cards never answered. */
+  fresh: number;
+  /** 0-100: average card strength. */
+  mastery: number;
+}
+
+export interface LearningInsights {
+  decks: DeckInsight[];
+  dueCards: number;
+  newCards: number;
+  /** Deck to work on next: most cards due, else the weakest started deck, else the first unstarted one. */
+  focus: DeckInsight | null;
+}
+
+export function getLearningInsights(now: number): LearningInsights {
+  const { decks, reviews } = useLearningStore.getState();
+  const insights: DeckInsight[] = decks.map((deck) => {
+    const mastery = computeDeckMastery(deck, reviews);
+    const queue = collectDueCards([deck], reviews, { now });
+    const due = queue.filter((c) => c.review !== null).length;
+    return {
+      id: deck.id,
+      name: deck.name,
+      total: mastery.total,
+      seen: mastery.seen,
+      due,
+      fresh: queue.length - due,
+      mastery: Math.round(mastery.value * 100),
+    };
+  });
+  const withCards = insights.filter((d) => d.total > 0);
+  const mostDue = withCards.reduce<DeckInsight | null>((best, d) => (d.due > (best?.due ?? 0) ? d : best), null);
+  const weakest = withCards
+    .filter((d) => d.seen > 0 && d.mastery < 80)
+    .reduce<DeckInsight | null>((best, d) => (!best || d.mastery < best.mastery ? d : best), null);
+  return {
+    decks: insights,
+    dueCards: insights.reduce((n, d) => n + d.due, 0),
+    newCards: insights.reduce((n, d) => n + d.fresh, 0),
+    focus: mostDue ?? weakest ?? withCards.find((d) => d.seen === 0) ?? withCards[0] ?? null,
+  };
+}
+
+/** Deck and topic names, for matching free text such as "review javascript". */
+export function listDeckNames(): string[] {
+  const names: string[] = [];
+  for (const deck of useLearningStore.getState().decks) {
+    names.push(deck.name);
+    for (const topic of deck.topics) names.push(topic.name);
+  }
+  return names;
+}
+
+export interface DeckKnowledge {
+  deckName: string;
+  topicName: string;
+  prompt: string;
+  answer: string;
+  explanation?: string;
+}
+
+const LOOKUP_STOP_WORDS = new Set(['the', 'and', 'for', 'with', 'what', 'how', 'does', 'why', 'kya', 'hai', 'about']);
+
+function clipText(text: string, max: number): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+}
+
+/**
+ * Cards in the user's own decks that talk about `query` (every word must
+ * appear in the card, its tags, its topic or its answer). NEXUS shows
+ * them under offline replies, so "what is a closure" finds the user's
+ * closure cards even without an AI key.
+ */
+export function findDeckKnowledge(query: string, limit = 2): DeckKnowledge[] {
+  const words = query
+    .toLowerCase()
+    .split(/[^a-z0-9+#]+/)
+    .filter((w) => w.length >= 3 && !LOOKUP_STOP_WORDS.has(w));
+  if (words.length === 0) return [];
+  const scored: { score: number; item: DeckKnowledge }[] = [];
+  for (const loc of listCardLocations(useLearningStore.getState().decks)) {
+    const prompt = loc.card.prompt.toLowerCase();
+    const labels = `${loc.card.tags.join(' ')} ${loc.topicName} ${loc.deckName}`.toLowerCase();
+    const answer = cardAnswerText(loc.card);
+    const body = `${answer} ${loc.card.explanation ?? ''}`.toLowerCase();
+    let score = 0;
+    let matched = 0;
+    for (const w of words) {
+      const hit = (prompt.includes(w) ? 3 : 0) + (labels.includes(w) ? 2 : 0) + (body.includes(w) ? 1 : 0);
+      if (hit > 0) matched += 1;
+      score += hit;
+    }
+    if (matched < words.length || score < 3) continue;
+    scored.push({
+      score,
+      item: {
+        deckName: loc.deckName,
+        topicName: loc.topicName,
+        prompt: clipText(loc.card.prompt, 160),
+        answer: clipText(answer, 120),
+        ...(loc.card.explanation ? { explanation: clipText(loc.card.explanation, 200) } : {}),
+      },
+    });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((s) => s.item);
 }
 
 // ─── Biometric insights (task 6.62) ───
@@ -302,6 +446,15 @@ export function buildNexusContext(options: { detailed: boolean }): NexusContext 
     localTime: `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`,
   };
   if (quiz.last) context.lastQuizScore = quiz.last.pct;
+  const visitor = getVisitorMode();
+  if (visitor) context.visitor = visitor;
+  // An empty list tells NEXUS "no decks yet" (vs. no learning data sent at all).
+  const learning = getLearningInsights(now);
+  context.decks = learning.decks.slice(0, 12).map((d) => d.name.slice(0, 60));
+  if (learning.decks.length > 0) {
+    context.dueCards = learning.dueCards;
+    if (learning.focus) context.focusDeck = learning.focus.name.slice(0, 60);
+  }
   if (!options.detailed) return context;
 
   const lines: string[] = [];
@@ -312,13 +465,24 @@ export function buildNexusContext(options: { detailed: boolean }): NexusContext 
       ? `Habits: ${habitsDoneToday(habits, now)}/${habits.length} done today, streak ${streak} day(s).`
       : 'Habits: none tracked yet.'
   );
-  if (quiz.totalAttempts > 0 && quiz.last) {
+  if (learning.decks.length > 0) {
+    const decks = learning.decks
+      .slice(0, 6)
+      .map((d) => `${d.name} ${d.mastery}% mastery${d.due > 0 ? `, ${d.due} due` : ''}`)
+      .join('; ');
+    lines.push(
+      `Decks (${learning.decks.length}): ${decks}. Cards due now: ${learning.dueCards}; new: ${learning.newCards}.`
+    );
+  } else {
+    lines.push('Decks: none yet.');
+  }
+  if (quiz.last) {
     const parts = [`Quizzes: ${quiz.totalAttempts} attempts; last ${quiz.last.subject} ${quiz.last.pct}% (${formatAgo(now - quiz.last.timestamp)})`];
     if (quiz.weakest) parts.push(`weakest ${quiz.weakest.subject} ${quiz.weakest.accuracy}%`);
     if (quiz.strongest) parts.push(`strongest ${quiz.strongest.subject} ${quiz.strongest.accuracy}%`);
     lines.push(`${parts.join('; ')}.`);
   } else {
-    lines.push('Quizzes: none attempted yet.');
+    lines.push(quiz.totalAttempts > 0 ? `Quizzes: ${quiz.totalAttempts} attempts.` : 'Quizzes: none attempted yet.');
   }
   if (decay.enabled && decay.continuousStudyMinutes > 0) {
     lines.push(`Continuous study session: ${decay.continuousStudyMinutes} min (decay stage ${decay.decayStage}).`);

@@ -42,7 +42,8 @@ import {
 } from '@/types/learning';
 
 export const LEARNING_STORAGE_KEY = 'warrior-os-learning';
-const STORE_VERSION = 1;
+/** v2: sample decks refreshed (expanded Warrior OS Basics, new Dev Fundamentals). */
+const STORE_VERSION = 2;
 
 // ─── Mastery ───
 
@@ -667,6 +668,44 @@ function sanitizePersisted(raw: unknown): Partial<PersistedLearning> {
   return out;
 }
 
+/** Card ids of a saved deck, tolerating malformed topics. */
+function savedCardIds(deck: Deck): string[] {
+  const ids: string[] = [];
+  for (const topic of deck.topics) {
+    if (!topic || !Array.isArray(topic.cards)) continue;
+    for (const card of topic.cards) if (card && typeof card.id === 'string') ids.push(card.id);
+  }
+  return ids;
+}
+
+/**
+ * Bring shipped sample content up to date in saved state: a sample deck the
+ * user never edited (no updatedAt) gets the current version (card ids are
+ * stable, so review state carries over), and sample decks added since are
+ * seeded unless the user deleted them. Edited sample decks are left alone.
+ */
+function refreshSampleDecks(state: PersistedLearning, now: number): PersistedLearning {
+  const decks = [...state.decks];
+  const reviews = { ...state.reviews };
+  const dismissed = new Set(state.dismissedSamples);
+  SAMPLE_DECKS.forEach((sample, i) => {
+    if (!sample.id) return;
+    const index = decks.findIndex((d) => d.id === sample.id);
+    if (index === -1) {
+      if (!dismissed.has(sample.id)) decks.push(buildDeck(sample, now, collectIds(decks), decks.length));
+      return;
+    }
+    const existing = decks[index];
+    if (!existing.isSample || existing.updatedAt !== undefined) return;
+    const fresh = buildDeck(sample, now, collectIds(decks.filter((_, j) => j !== index)), i);
+    if (typeof existing.createdAt === 'number') fresh.createdAt = existing.createdAt;
+    const kept = new Set(deckCards(fresh).map((c) => c.id));
+    for (const id of savedCardIds(existing)) if (!kept.has(id)) delete reviews[id];
+    decks[index] = fresh;
+  });
+  return { ...state, decks, reviews };
+}
+
 function touch(deck: Deck): void {
   deck.updatedAt = Date.now();
 }
@@ -1025,14 +1064,22 @@ export const useLearningStore = create<LearningStore>()(
     {
       name: LEARNING_STORAGE_KEY,
       version: STORE_VERSION,
-      // v1 is the first version; later versions migrate from here.
-      migrate: (persisted: unknown): PersistedLearning => ({
-        decks: [],
-        reviews: {},
-        attempts: [],
-        dismissedSamples: [],
-        ...sanitizePersisted(persisted),
-      }),
+      migrate: (persisted: unknown, version: number): PersistedLearning => {
+        const state: PersistedLearning = {
+          decks: [],
+          reviews: {},
+          attempts: [],
+          dismissedSamples: [],
+          ...sanitizePersisted(persisted),
+        };
+        if (version >= 2) return state;
+        // v1 → v2: refresh the shipped sample decks (never lose saved data over it).
+        try {
+          return refreshSampleDecks(state, Date.now());
+        } catch {
+          return state;
+        }
+      },
       merge: (persisted, current) => ({ ...current, ...sanitizePersisted(persisted) }),
       partialize: (state): PersistedLearning => ({
         decks: state.decks,

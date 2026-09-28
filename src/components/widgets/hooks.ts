@@ -34,7 +34,7 @@ export function useNow(intervalMs = 1000): number {
   return now;
 }
 
-// ─── Client-only gate ───
+// ─── Client-only guard ───
 
 const noopSubscribe = () => () => {};
 const onClient = () => true;

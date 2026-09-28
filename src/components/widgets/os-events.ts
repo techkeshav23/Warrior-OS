@@ -6,9 +6,29 @@
 // • nexusSay: the shared 'warrior:nexus-say' contract. The detail is
 //   parked in sessionStorage first so a listener that mounts later
 //   still receives it, then a window CustomEvent is dispatched.
+// • openApp / openTrainingGrounds: launch (or focus) an app in the
+//   active workspace; Training Grounds can open on one mode through
+//   the shared 'warrior:training-start' deep link.
 // ═══════════════════════════════════════════════════════════
 
+import { WARRIOR_EVENTS, emitWarriorEvent, type WarriorTrainingStartDetail } from '@/lib/nexus/events';
+import { useAppStore } from '@/stores/useAppStore';
+import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { useXPStore } from '@/stores/useXPStore';
+import type { NexusTrainingMode } from '@/types/nexus';
+
+/** Launch an app in the active workspace (a running singleton is focused). */
+export function openApp(appId: string): void {
+  useAppStore.getState().launchApp(appId, useWorkspaceStore.getState().activeWorkspaceId);
+}
+
+/** Open Training Grounds, optionally on one mode ('flashcards' = the review queue of due cards). */
+export function openTrainingGrounds(mode?: NexusTrainingMode): void {
+  openApp('training-grounds');
+  if (!mode) return;
+  const detail: WarriorTrainingStartDetail = { mode };
+  emitWarriorEvent(WARRIOR_EVENTS.trainingStart, detail);
+}
 
 function isUnlocked(id: string): boolean {
   return Boolean(useXPStore.getState().achievements.find((a) => a.id === id)?.unlockedAt);

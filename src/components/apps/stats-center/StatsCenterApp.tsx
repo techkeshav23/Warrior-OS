@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Stats Center App
-// XP, Level, Streak, Study heatmap — the warrior's dashboard —
-// plus the achievement gallery
+// XP, level, study streak, deck mastery, learning trend and the
+// activity heatmap — the warrior's dashboard — plus the achievement
+// gallery
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -15,6 +16,8 @@ import { LevelProgress } from './LevelProgress';
 import { StreakBoard } from './StreakBoard';
 import { HeatmapCalendar } from './HeatmapCalendar';
 import { RadarChart } from './RadarChart';
+import { StudyPulse } from './StudyPulse';
+import { LearningTrend } from './LearningTrend';
 import { AchievementGallery, AchievementSummaryCard } from './AchievementGallery';
 
 type StatsTab = 'overview' | 'achievements';
@@ -26,7 +29,7 @@ const TABS: { id: StatsTab; label: string; icon: LucideIcon }[] = [
 
 function OverviewTab({ onOpenAchievements }: { onOpenAchievements: () => void }) {
   return (
-    <div className="h-full space-y-6 overflow-y-auto p-6">
+    <div className="@container h-full space-y-6 overflow-y-auto p-6">
       {/* Top row: XP + Level */}
       <div className="grid grid-cols-2 gap-4">
         <XPSystem />
@@ -36,14 +39,20 @@ function OverviewTab({ onOpenAchievements }: { onOpenAchievements: () => void })
       {/* Achievements at a glance */}
       <AchievementSummaryCard onOpen={onOpenAchievements} />
 
-      {/* Streak */}
+      {/* Study streak */}
       <StreakBoard />
 
-      {/* Radar + Heatmap */}
-      <div className="grid grid-cols-2 gap-4">
-        <RadarChart />
-        <HeatmapCalendar />
-      </div>
+      {/* Learning: today's load, deck mastery, trend */}
+      <section aria-label="Learning" className="space-y-4">
+        <StudyPulse />
+        <div className="grid grid-cols-1 gap-4 @5xl:grid-cols-2">
+          <RadarChart />
+          <LearningTrend />
+        </div>
+      </section>
+
+      {/* Activity heatmap */}
+      <HeatmapCalendar />
     </div>
   );
 }

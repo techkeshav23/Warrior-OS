@@ -5,7 +5,8 @@
 // away while the new one scales up with a glow → the new title and the
 // fresh bar for the next level. Shares the celebration queue with the
 // achievement cinematic (an unlock that causes a level-up plays
-// first). Toast instead under reduced motion or when switched off.
+// first). Toast instead under reduced motion or lite mode, or when
+// switched off.
 // Mount once at the root.
 // ═══════════════════════════════════════════════════════════
 
@@ -29,7 +30,7 @@ import {
   MAX_LEVEL,
   levelProgress,
   levelTitle,
-  prefersReducedMotion,
+  prefersReducedEffects,
   xpToNextLevel,
 } from './effects-utils';
 
@@ -231,7 +232,7 @@ function LevelUpEffectInner() {
     const unsubXP = useXPStore.subscribe((state, prev) => {
       if (state.level <= prev.level) return;
       const fx = useEffectsStore.getState();
-      if (!fx.levelUpEffect || prefersReducedMotion()) {
+      if (!fx.levelUpEffect || prefersReducedEffects()) {
         announceLevelUp(prev.level, state.level);
         return;
       }

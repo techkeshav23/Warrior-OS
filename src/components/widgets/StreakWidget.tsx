@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Streak Widget
-// Pulsing flame + current streak in days, computed from Habit
-// Forge with the same rule as Stats Center's StreakBoard. The flame
-// burns hotter (faster pulse) as the streak grows and goes cold at 0.
+// Pulsing flame + current habit streak in days, computed from Habit
+// Forge (Stats Center shows the same number as its habit streak). The
+// flame burns hotter (faster pulse) as the streak grows, cold at 0.
 // ═══════════════════════════════════════════════════════════
 
 'use client';

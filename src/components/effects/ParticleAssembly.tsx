@@ -11,7 +11,7 @@
 
 import { memo, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { easeInOutCubic, prefersReducedMotion, randRange, resolveDisplayFontFamily } from './effects-utils';
+import { easeInOutCubic, prefersReducedEffects, randRange, resolveDisplayFontFamily } from './effects-utils';
 
 export interface ParticleAssemblyProps {
   /** Word to assemble. */
@@ -194,7 +194,8 @@ function ParticleAssemblyInner({
         ctx.restore();
       };
 
-      if (prefersReducedMotion()) {
+      // Reduced motion / lite mode: the finished word, drawn once.
+      if (prefersReducedEffects()) {
         ctx.globalCompositeOperation = 'lighter';
         for (const p of particles) {
           const s = p.size * 2.6;

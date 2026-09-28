@@ -48,6 +48,7 @@ export function WarriorCreature() {
       {/* Taskbar is 48px (h-12) at --z-taskbar; the sprite sits on its top
           edge, offset from the right to clear the tray + clock. */}
       <div
+        data-tour="creature"
         className="fixed pointer-events-none"
         style={{ right: 176, bottom: 44, zIndex: 'calc(var(--z-taskbar) + 1)' }}
       >

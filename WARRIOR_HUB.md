@@ -5,8 +5,8 @@
 Warrior OS is **Keshav Upadhyay's personal OS and portfolio showcase**, not an exam-prep product. The GATE exam-prep focus was added by mistake and has been replaced.
 
 - **Core feel, all four at once:** my digital home (it knows me: my creature, my NEXUS), a sci-fi command center (Jarvis vibes, 3D, cinematic), a discipline machine (habits, focus, streaks, decay) and a creative playground (music, Code Lab, experiments).
-- **Learn anything:** the study hub is **Training Grounds** (app id `training-grounds`): quiz engine, flashcards, spaced repetition, skill tree, mock test and planner over the user's **own decks**.
-- **Fixed app names:** Training Grounds (`training-grounds`), Quest Planner (`study-planner`), Flashcards (`flashcards`). Visitors can **Explore as Guest** from the lock screen.
+- **Learn anything:** the study hub is **Training Grounds** (app id `training-grounds`), built over the user's **own decks**. Tabs: **Decks** (the default: create, import, export or forge decks from notes), Quiz, Review (the due-card queue), Skill Tree, Question Bank, Mock Test and **Quest Planner**.
+- **Fixed app names:** Training Grounds (`training-grounds`), **Habit Forge** (`study-planner`: habits, routines, streaks), Flashcards (`flashcards`). "Quest Planner" is the Training Grounds planner tab, not an app. NEXUS AI opens with **Ctrl+.** (Ctrl+N belongs to the browser). Visitors can **Explore as Guest** from the lock screen.
 
 > **Pehle version mein OS banaya. Phir use ALIVE kiya. Ab use SENTIENT bana rahe hain.**  
 > Ye sirf browser mein OS nahi hai. Ye ek **living, breathing, thinking, evolving digital world** hai.  

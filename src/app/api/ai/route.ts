@@ -182,6 +182,18 @@ function sanitizeContext(raw: Record<string, unknown>): Partial<NexusContext> {
   if (lastQuiz !== undefined) ctx.lastQuizScore = lastQuiz;
   const localTime = shortString(raw.localTime, 16);
   if (localTime) ctx.localTime = localTime;
+  if (raw.visitor === 'owner' || raw.visitor === 'guest') ctx.visitor = raw.visitor;
+  if (Array.isArray(raw.decks)) {
+    ctx.decks = raw.decks
+      .filter((d): d is string => typeof d === 'string')
+      .map((d) => d.replace(/\s+/g, ' ').trim().slice(0, 60))
+      .filter(Boolean)
+      .slice(0, 12);
+  }
+  const due = finiteNumber(raw.dueCards, 0, 1_000_000);
+  if (due !== undefined) ctx.dueCards = Math.round(due);
+  const focusDeck = shortString(raw.focusDeck, 60);
+  if (focusDeck) ctx.focusDeck = focusDeck;
   const summary = shortString(raw.summary, NEXUS_LIMITS.contextChars);
   if (summary) ctx.summary = summary;
   return ctx;
@@ -357,7 +369,7 @@ function extractStructuredReply(data: GeminiResponse): StructuredReply {
 
 export async function GET() {
   // Key read at request time, inside the handler; only a boolean leaves the server.
-  const apiKey = usableKey(process.env.GEMINI_API_KEY ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+  const apiKey = usableKey(process.env.GEMINI_API_KEY);
   return json(200, {
     configured: apiKey !== null,
     model: apiKey !== null ? NEXUS_GEMINI_MODEL : NEXUS_OFFLINE_MODEL,
@@ -407,7 +419,8 @@ export async function POST(req: Request) {
 
   // 3. Key — read inside the handler so a swapped env needs no rebuild of module state.
   //    No key is not an error: the rule-based offline brain answers instead.
-  const apiKey = usableKey(process.env.GEMINI_API_KEY ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+  //    Server-only variable: a NEXT_PUBLIC_ key would be inlined into the client bundle.
+  const apiKey = usableKey(process.env.GEMINI_API_KEY);
   if (!apiKey) return offlineResponse(parsed.message, parsed.context, parsed.history, 'no_key');
 
   // 4. Upstream call with a hard timeout.

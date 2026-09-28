@@ -1,16 +1,18 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Activity History (read-only aggregator)
 // Derives day-by-day activity from data other features already keep:
-// quiz history, notes, habit + routine logs, projects, and the
+// Training Grounds card attempts, quiz history, notes, habit + routine
+// logs, projects (Project Forge sessions), procedural music and the
 // creature's own activity log (XP fed + focused minutes). Never writes
-// to another feature's storage. Day keys are UTC (YYYY-MM-DD), the same
-// convention habits/routines use, so streaks line up across the OS.
+// to another feature's storage. Stores that the boot screen doesn't
+// otherwise load (learning, forge, music) are read from their persisted
+// JSON, so the boot bundle stays lean. Day keys are UTC (YYYY-MM-DD),
+// the convention habits/routines use, so streaks line up across the OS.
 // ═══════════════════════════════════════════════════════════
 
 import { useQuizHistoryStore, type QuizAttempt } from '@/stores/useQuizHistoryStore';
 import { useCreatureStore } from '@/stores/useCreatureStore';
 import type { CreatureDayLog } from '@/types/creature';
-import { loadPalaceNotes, type PalaceNote } from '@/components/apps/memory-palace/palaceData';
 
 const DAY_MS = 86_400_000;
 
@@ -27,6 +29,12 @@ export function shiftDayKey(key: string, days: number): string {
 /** later - earlier, in whole days. */
 export function daysBetweenKeys(later: string, earlier: string): number {
   return Math.round((Date.parse(`${later}T00:00:00Z`) - Date.parse(`${earlier}T00:00:00Z`)) / DAY_MS);
+}
+
+/** Local-time day key (the procedural music log uses local days). */
+export function localDayKey(ms: number = Date.now()): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function toDayKey(value: unknown): string | null {
@@ -122,12 +130,131 @@ export function readProjects(): ProjectLike[] {
     });
 }
 
-/** Notes with subject/topic inference (heavier — use for a few notes / once). */
-export function readNotes(): PalaceNote[] {
-  return loadPalaceNotes();
+/** Notes created or edited on a day: count + titles (latest first). */
+export function readNotesTouchedOn(day: string, maxTitles = 5): { count: number; titles: string[] } {
+  const notes = readJSON<unknown>('warrior-notes', []);
+  if (!Array.isArray(notes)) return { count: 0, titles: [] };
+  const touched: { title: string; at: number }[] = [];
+  for (const n of notes) {
+    if (!n || typeof n !== 'object') continue;
+    const r = n as Record<string, unknown>;
+    if (toDayKey(r.createdAt) !== day && toDayKey(r.updatedAt) !== day) continue;
+    const title = typeof r.title === 'string' ? r.title.trim() : '';
+    const at = typeof r.updatedAt === 'string' ? Date.parse(r.updatedAt) : Number.NaN;
+    touched.push({ title, at: Number.isNaN(at) ? 0 : at });
+  }
+  const titles = touched
+    .filter((t) => t.title && t.title !== 'Untitled Note')
+    .sort((a, b) => b.at - a.at)
+    .slice(0, maxTitles)
+    .map((t) => t.title);
+  return { count: touched.length, titles };
 }
 
-/** Note timestamps only (cheap — no subject inference). */
+/** Names of habits completed on a day (warrior-habits). */
+export function readHabitNamesOn(day: string): string[] {
+  const habits = readJSON<unknown>('warrior-habits', []);
+  if (!Array.isArray(habits)) return [];
+  const names: string[] = [];
+  for (const h of habits) {
+    const r = (h ?? {}) as { name?: unknown; completions?: unknown };
+    if (typeof r.name !== 'string' || !r.name.trim() || !Array.isArray(r.completions)) continue;
+    if (r.completions.some((c) => toDayKey(c) === day)) names.push(r.name.trim());
+  }
+  return names;
+}
+
+// ─── Training Grounds (useLearningStore's persisted state, read raw) ───
+
+const LEARNING_KEY = 'warrior-os-learning';
+
+export interface LearningAttemptLite {
+  deckId: string;
+  correct: boolean;
+  timestamp: number;
+}
+
+export interface LearningSnapshot {
+  /** Deck id → the user's deck name. */
+  deckNames: Record<string, string>;
+  /** Answered cards (quiz, mock, flashcards, reviews), oldest first. */
+  attempts: LearningAttemptLite[];
+}
+
+const EMPTY_LEARNING: LearningSnapshot = { deckNames: {}, attempts: [] };
+let learningCache: { raw: string; value: LearningSnapshot } | null = null;
+
+/** Deck names + card attempts. Cached until the persisted state changes. */
+export function readLearningSnapshot(): LearningSnapshot {
+  if (typeof window === 'undefined') return EMPTY_LEARNING;
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(LEARNING_KEY);
+  } catch {
+    return EMPTY_LEARNING;
+  }
+  if (!raw) return EMPTY_LEARNING;
+  if (learningCache && learningCache.raw === raw) return learningCache.value;
+  const value: LearningSnapshot = { deckNames: {}, attempts: [] };
+  try {
+    const state = (JSON.parse(raw) as { state?: { decks?: unknown; attempts?: unknown } } | null)?.state;
+    if (Array.isArray(state?.decks)) {
+      for (const d of state.decks as { id?: unknown; name?: unknown }[]) {
+        if (d && typeof d.id === 'string' && typeof d.name === 'string') value.deckNames[d.id] = d.name;
+      }
+    }
+    if (Array.isArray(state?.attempts)) {
+      for (const a of state.attempts as { deckId?: unknown; correct?: unknown; timestamp?: unknown }[]) {
+        if (!a || typeof a.deckId !== 'string' || typeof a.timestamp !== 'number' || !Number.isFinite(a.timestamp)) continue;
+        value.attempts.push({ deckId: a.deckId, correct: a.correct === true, timestamp: a.timestamp });
+      }
+    }
+  } catch {
+    /* corrupt state → nothing studied */
+  }
+  learningCache = { raw, value };
+  return value;
+}
+
+// ─── Project Forge sessions (persisted state, read raw) ───
+
+/** Minutes logged per project on a UTC day (timer + manual sessions). */
+export function readProjectMinutesOn(day: string): { minutes: number; names: string[] } {
+  const blob = readJSON<{ state?: { projects?: unknown; sessions?: unknown } }>('warrior-os-project-forge', {});
+  const state = blob?.state;
+  if (!state || !Array.isArray(state.sessions)) return { minutes: 0, names: [] };
+  const names = new Map<string, string>();
+  if (Array.isArray(state.projects)) {
+    for (const p of state.projects as { id?: unknown; name?: unknown }[]) {
+      if (p && typeof p.id === 'string' && typeof p.name === 'string') names.set(p.id, p.name);
+    }
+  }
+  const dayStart = Date.parse(`${day}T00:00:00Z`);
+  const dayEnd = dayStart + DAY_MS;
+  const perProject = new Map<string, number>();
+  for (const s of state.sessions as { projectId?: unknown; start?: unknown; end?: unknown }[]) {
+    if (!s || typeof s.projectId !== 'string' || typeof s.start !== 'number' || typeof s.end !== 'number') continue;
+    const overlap = Math.min(s.end, dayEnd) - Math.max(s.start, dayStart);
+    if (overlap > 0) perProject.set(s.projectId, (perProject.get(s.projectId) ?? 0) + overlap);
+  }
+  const ranked = [...perProject.entries()].sort((a, b) => b[1] - a[1]);
+  return {
+    minutes: Math.round(ranked.reduce((sum, [, ms]) => sum + ms, 0) / 60_000),
+    names: ranked.map(([id]) => names.get(id)).filter((n): n is string => Boolean(n)),
+  };
+}
+
+// ─── Procedural music (persisted state, read raw) ───
+
+/** Music moods played on a local day ('warrior-os-musicgen' keeps the latest day only). */
+export function readMusicMoodsOn(localDay: string): string[] {
+  const blob = readJSON<{ state?: { modesToday?: { day?: unknown; modes?: unknown } } }>('warrior-os-musicgen', {});
+  const today = blob?.state?.modesToday;
+  if (!today || today.day !== localDay || !Array.isArray(today.modes)) return [];
+  return today.modes.filter((m): m is string => typeof m === 'string');
+}
+
+/** Note timestamps only (cheap). */
 export function readNoteDates(): { createdAt: string | null; updatedAt: string | null }[] {
   const notes = readJSON<unknown>('warrior-notes', []);
   if (!Array.isArray(notes)) return [];
@@ -165,7 +292,7 @@ function readDreamDays(): string[] {
 // ─── Activity sets ───
 
 export interface ActivityDaySets {
-  /** Days with real activity (quiz, note, habit, routine, project, XP, focus). */
+  /** Days with real activity (cards, quiz, note, habit, routine, project, XP, focus). */
   active: Set<string>;
   /** active ∪ days the OS was simply opened (creature log / birth / dreams). */
   presence: Set<string>;
@@ -179,6 +306,8 @@ export function collectActivityDays(): ActivityDaySets {
   for (const a of readQuizAttempts()) {
     if (typeof a.timestamp === 'number') active.add(utcDayKey(a.timestamp));
   }
+  // Flashcard + review sessions only write card attempts, so count those days too.
+  for (const a of readLearningSnapshot().attempts) active.add(utcDayKey(a.timestamp));
   for (const d of readHabitDays()) active.add(d);
   for (const d of Object.keys(readRoutineCounts())) active.add(d);
   for (const n of readNoteDates()) {

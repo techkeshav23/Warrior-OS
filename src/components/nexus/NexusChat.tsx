@@ -237,7 +237,7 @@ function NexusMessageBubbleInner({ message, onAction, busy, canSpeak }: BubblePr
 
 const NexusMessageBubble = memo(NexusMessageBubbleInner);
 
-const DEFAULT_PROMPTS = ['study mode', 'DBMS quiz', 'notes on deadlock', 'Explain paging vs segmentation'];
+const DEFAULT_PROMPTS = ['study mode', 'review due cards', 'my decks', 'What can this OS do?'];
 
 function DefaultEmptyState({ onPick }: { onPick: (text: string) => void }) {
   return (
@@ -246,7 +246,7 @@ function DefaultEmptyState({ onPick }: { onPick: (text: string) => void }) {
       <div>
         <p className="text-sm font-medium text-white/80">NEXUS online.</p>
         <p className="mt-1 max-w-xs text-xs leading-relaxed text-white/50">
-          GATE, code, ya is OS ke baare mein kuch bhi pooch. Commands jaise &ldquo;study mode&rdquo; turant chalte hain.
+          Ask about this OS, your decks, habits or code. Commands like &ldquo;study mode&rdquo; run instantly.
         </p>
       </div>
       <div className="flex flex-wrap justify-center gap-1.5">

@@ -7,10 +7,10 @@
 // All functions are SSR-safe no-ops on the server.
 // ═══════════════════════════════════════════════════════════
 
-import type { NexusGateMode, NexusTone } from '@/types/nexus';
+import type { NexusTone, NexusTrainingMode } from '@/types/nexus';
 
 export const WARRIOR_EVENTS = {
-  gateStartQuiz: 'warrior:gate-start-quiz',
+  trainingStart: 'warrior:training-start',
   notesSearch: 'warrior:notes-search',
   nexusSay: 'warrior:nexus-say',
 } as const;
@@ -20,10 +20,11 @@ export const LEGACY_NEXUS_EVENT = 'warrior:nexus';
 
 export type WarriorEventName = (typeof WARRIOR_EVENTS)[keyof typeof WARRIOR_EVENTS];
 
-/** detail of 'warrior:gate-start-quiz' */
-export interface WarriorGateStartQuizDetail {
+/** detail of 'warrior:training-start' (Training Grounds deep link) */
+export interface WarriorTrainingStartDetail {
+  /** Free text naming one of the user's decks or topics, e.g. "javascript". */
   subject?: string;
-  mode?: NexusGateMode;
+  mode?: NexusTrainingMode;
 }
 
 /** detail of 'warrior:notes-search' */

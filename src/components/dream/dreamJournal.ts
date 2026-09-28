@@ -5,11 +5,12 @@
 //   Dreamer       — first dream
 //   Lucid         — dreams on 30 different days
 //   Nightmare     — the void / idle dream
-//   Dream Walker  — dreams featuring 5+ different GATE subjects
+//   Dream Walker  — dreams about 5+ different things (activity kinds,
+//                   decks studied)
 // ═══════════════════════════════════════════════════════════
 
 import type { DreamJournal, DreamScene } from '@/types/dream';
-import { SUBJECT_THEME_KEYS } from '@/data/dream-themes';
+import { isDreamThemeKey } from '@/data/dream-themes';
 import { unlockPhase6Achievement } from '@/components/creature/osBridge';
 
 export const DREAM_JOURNAL_KEY = 'warrior-dream-journal';
@@ -22,11 +23,12 @@ export const DREAM_ACHIEVEMENT_IDS = {
 } as const;
 
 const LUCID_DAYS = 30;
-const WALKER_SUBJECTS = 5;
+const WALKER_MOTIFS = 5;
 const MAX_DAYS_KEPT = 400;
+const MAX_MOTIFS_KEPT = 200;
 
 function emptyJournal(): DreamJournal {
-  return { v: 1, dreamDays: [], subjects: [], themes: [], total: 0 };
+  return { v: 2, dreamDays: [], motifs: [], themes: [], total: 0 };
 }
 
 function strings(v: unknown): string[] {
@@ -39,11 +41,14 @@ export function loadDreamJournal(): DreamJournal {
     const raw = window.localStorage.getItem(DREAM_JOURNAL_KEY);
     if (!raw) return emptyJournal();
     const p = JSON.parse(raw) as Record<string, unknown>;
+    // v1 kept a list of study-subject names; those no longer exist as
+    // themes, so they carry over as one 'decks' motif (they were study).
+    const motifs = p.v === 2 ? strings(p.motifs) : strings(p.subjects).length > 0 ? ['decks'] : [];
     return {
-      v: 1,
+      v: 2,
       dreamDays: strings(p.dreamDays),
-      subjects: strings(p.subjects),
-      themes: strings(p.themes),
+      motifs,
+      themes: strings(p.themes).filter(isDreamThemeKey),
       total: typeof p.total === 'number' && p.total > 0 ? p.total : 0,
     };
   } catch {
@@ -67,7 +72,7 @@ export function reconcileDreamAchievements(journal: DreamJournal = loadDreamJour
     unlockPhase6Achievement(DREAM_ACHIEVEMENT_IDS.nightmare);
   }
   if (journal.dreamDays.length >= LUCID_DAYS) unlockPhase6Achievement(DREAM_ACHIEVEMENT_IDS.lucid);
-  if (journal.subjects.length >= WALKER_SUBJECTS) unlockPhase6Achievement(DREAM_ACHIEVEMENT_IDS.walker);
+  if (journal.motifs.length >= WALKER_MOTIFS) unlockPhase6Achievement(DREAM_ACHIEVEMENT_IDS.walker);
 }
 
 // A scene object is recorded once even if an effect runs twice (StrictMode).
@@ -81,9 +86,10 @@ export function recordDreamSeen(scene: DreamScene): DreamJournal {
   const day = new Date().toISOString().slice(0, 10);
   if (!journal.dreamDays.includes(day)) journal.dreamDays.push(day);
   if (journal.dreamDays.length > MAX_DAYS_KEPT) journal.dreamDays = journal.dreamDays.slice(-MAX_DAYS_KEPT);
-  for (const s of scene.subjects) {
-    if ((SUBJECT_THEME_KEYS as string[]).includes(s) && !journal.subjects.includes(s)) journal.subjects.push(s);
+  for (const m of scene.motifs) {
+    if (!journal.motifs.includes(m)) journal.motifs.push(m);
   }
+  if (journal.motifs.length > MAX_MOTIFS_KEPT) journal.motifs = journal.motifs.slice(-MAX_MOTIFS_KEPT);
   if (!journal.themes.includes(scene.themeKey)) journal.themes.push(scene.themeKey);
   journal.total += 1;
   saveDreamJournal(journal);

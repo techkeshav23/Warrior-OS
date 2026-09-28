@@ -3,31 +3,27 @@
 // NEXUS Dreams: daily cinematic recap of yesterday's activity
 // ═══════════════════════════════════════════════════════════
 
-/** Study subjects with a dream theme of their own (a deck or topic named like one gets it). */
-export type DreamSubjectKey =
-  | 'DBMS'
-  | 'OS'
-  | 'CN'
-  | 'TOC'
-  | 'COA'
-  | 'DAA'
-  | 'Compiler Design'
-  | 'Digital Logic'
-  | 'Discrete Math'
-  | 'Engineering Math'
-  | 'C Programming'
-  | 'Data Structures';
+/**
+ * What a day can be spent on. Each activity has a dream theme of its
+ * own; yesterday's strongest one (by rough minutes) picks the dream.
+ */
+export type DreamActivityKey =
+  | 'decks' // cards answered in Training Grounds (decks by name)
+  | 'notes' // notes written or edited
+  | 'project' // Project Forge work
+  | 'code' // focused time in build apps
+  | 'music' // procedural music played
+  | 'habits' // habits + routine items checked off
+  | 'focus'; // long focused time in the OS
 
 /**
- * All theme keys a dream can resolve to. Themed study subjects plus
- * synthetic edge-case keys for non-study activity and empty days.
+ * All theme keys a dream can resolve to: the activity themes plus
+ * synthetic keys for big days, mixed days and empty days.
  */
 export type DreamThemeKey =
-  | DreamSubjectKey
-  | 'project' // shipped/worked on projects
-  | 'code' // code-lab / building
-  | 'exam' // heavy mixed study (exam-prep vibe)
-  | 'mixed' // multiple subjects, no clear winner
+  | DreamActivityKey
+  | 'marathon' // an all-out day across several activities
+  | 'mixed' // several activities, no clear winner
   | 'idle' // no activity yesterday
   | 'void'; // 3+ days offline — deep concerned void
 
@@ -36,34 +32,37 @@ export type DreamThemeKey =
  * string ids so the renderer can switch on them without assets.
  */
 export type DreamObjectKind =
-  | 'floating-table'
-  | 'sql-query-text'
-  | 'er-diagram-web'
-  | 'database-cylinder'
-  | 'process-diagram'
-  | 'gantt-bar'
-  | 'network-packet'
-  | 'router-node'
-  | 'automaton-state'
-  | 'transition-arrow'
-  | 'sorting-bar'
-  | 'tree-node'
-  | 'linked-list'
-  | 'logic-gate'
-  | 'binary-stream'
-  | 'circuit-trace'
-  | 'set-venn'
+  // decks
+  | 'flash-card'
+  | 'recall-ring'
+  | 'checkmark-orb'
+  // notes
+  | 'note-page'
+  | 'quill'
   | 'graph-edge'
-  | 'matrix-grid'
-  | 'integral-symbol'
+  | 'tree-node'
+  // projects
+  | 'kanban-card'
+  | 'rocket'
+  | 'gantt-bar'
+  // code
   | 'code-block'
   | 'terminal-line'
   | 'brace-glyph'
-  | 'kanban-card'
-  | 'rocket'
-  | 'checkmark-orb'
-  | 'exam-sheet'
+  | 'binary-stream'
+  | 'circuit-trace'
+  | 'sorting-bar'
+  // music
+  | 'music-note'
+  | 'sound-wave'
+  | 'equalizer'
+  // habits
+  | 'flame'
+  | 'habit-grid'
+  // focus
   | 'clock-orb'
+  | 'hourglass'
+  // mixed / idle / void
   | 'star-cluster'
   | 'nebula-swirl'
   | 'void-particles'
@@ -72,17 +71,17 @@ export type DreamObjectKind =
 
 /**
  * Static theme definition (see data/dream-themes.ts) — the palette,
- * motifs, glowing text snippets and narration pool of a subject.
+ * motifs, glowing text snippets and narration pool of an activity.
  */
 export interface DreamTheme {
   key: DreamThemeKey;
-  label: string; // human readable subject name for narration
+  label: string; // shown in the corner: "NEXUS dream · <label>"
   objects: DreamObjectKind[]; // visual motifs to drift through the scene
   color: string; // primary accent hex
   ambientColor: string; // deep background hex (fog / void tint)
-  ambient: string; // ambience label (e.g. 'digital-hum')
+  ambient: string; // ambience label (e.g. 'recall-hum')
   narration: string[]; // theme narration lines
-  textSnippets: string[]; // glowing text fragments (SQL, code, states…)
+  textSnippets: string[]; // generic glowing fragments; the user's own names are mixed in
 }
 
 /** Element categories from spec 6.5. */
@@ -123,42 +122,55 @@ export interface DreamElement {
   phase: number;
   animation: DreamAnimation;
   /** Theme that produced this element (colour + context). */
-  subjectTheme: DreamThemeKey;
+  theme: DreamThemeKey;
   /** Leaves a fading particle trail behind it. */
   trail: boolean;
 }
 
 /**
  * Aggregated snapshot of what the warrior did "yesterday" (UTC day key,
- * matching the habit/routine keys used across the OS). Built from the
- * quiz history, notes, habit logs, projects and the creature's activity
- * log (XP + focus minutes). Never throws; empty data → zeros.
+ * matching the habit/routine keys used across the OS). Built from
+ * Training Grounds card attempts + quiz sessions, notes, habit logs,
+ * Project Forge, procedural music and the creature's activity log (XP +
+ * focus minutes). Never throws; empty data → zeros.
  */
 export interface DreamActivity {
   /** UTC day key being recapped. */
   recapDay: string;
-  /** Study subjects (quiz decks + note subjects) touched yesterday, strongest first. */
-  subjects: { subject: string; count: number }[];
+  /** Activity kinds of yesterday with a rough weight in minutes, strongest first. */
+  activities: { key: DreamActivityKey; weight: number }[];
+  /** Decks studied yesterday (the user's own deck names), most cards first. */
+  decks: { id: string; name: string; cards: number }[];
+  /** Cards / questions answered yesterday (quiz, mock, flashcards, reviews). */
+  cardsReviewed: number;
   /** Quiz submissions yesterday. */
   quizzesTaken: number;
-  /** Questions answered yesterday. */
-  questionsAnswered: number;
-  /** Accuracy yesterday 0..1, null when no questions. */
+  /** Accuracy yesterday 0..1, null when nothing was answered. */
   accuracy: number | null;
   /** Focused hours in study apps yesterday. */
   studyHours: number;
   /** Focused hours in build apps yesterday. */
   codingHours: number;
+  /** All focused hours in the OS yesterday. */
+  focusHours: number;
   /** XP earned yesterday. */
   xpEarned: number;
   /** Notes created or edited yesterday. */
   notesTouched: number;
+  /** Titles of those notes, latest first (capped). */
+  noteTitles: string[];
   /** Projects touched yesterday (names). */
   projectsWorkedOn: string[];
+  /** Hours logged on projects yesterday (Project Forge timer). */
+  projectHours: number;
   /** Did the user write/run code yesterday. */
   codedYesterday: boolean;
+  /** Procedural music moods played yesterday. */
+  musicMoods: string[];
   /** Habit + routine items completed yesterday. */
   habitsCompleted: number;
+  /** Names of the habits completed yesterday. */
+  habitNames: string[];
   /** Activity streak length as of yesterday (0 = none). */
   streak: number;
   /** True when a streak ended because yesterday was empty. */
@@ -180,9 +192,9 @@ export interface DreamScene {
   label: string;
   /** Deep background colour. */
   bgColor: string;
-  /** Accent / glow colour (the subject's accent). */
+  /** Accent / glow colour (the theme's accent). */
   primaryColor: string;
-  /** Ambience label, e.g. 'digital-hum'. */
+  /** Ambience label, e.g. 'recall-hum'. */
   ambientText: string;
   /** Full narration text (1–2 sentences). */
   narration: string;
@@ -194,8 +206,11 @@ export interface DreamScene {
   elements: DreamElement[];
   /** Intensity 0..1 — scales element count, glow, particle density. */
   intensity: number;
-  /** Study subjects represented in this dream. */
-  subjects: string[];
+  /**
+   * What this dream was about: activity keys plus 'deck:<id>' for each
+   * deck studied (the journal counts distinct motifs for Dream Walker).
+   */
+  motifs: string[];
   /** The raw activity snapshot this scene was derived from. */
   activity: DreamActivity;
 }
@@ -215,11 +230,12 @@ export type DreamBootPhase = 'dream' | 'boot' | 'lock';
 
 /** Persisted record of dreams seen (drives dream achievements). */
 export interface DreamJournal {
-  v: 1;
+  /** 2: motifs replaced v1's study-subject list. */
+  v: 2;
   /** UTC day keys on which a dream was seen (unique). */
   dreamDays: string[];
-  /** Distinct study subjects that appeared in dreams. */
-  subjects: string[];
+  /** Distinct motifs dreamed of (activity keys, 'deck:<id>'). */
+  motifs: string[];
   /** Distinct theme keys seen. */
   themes: string[];
   /** Dreams seen in total (including repeats on the same day). */

@@ -7,8 +7,9 @@ import { useAppStore } from '@/stores/useAppStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { useXPStore } from '@/stores/useXPStore';
 import { useQuizHistoryStore } from '@/stores/useQuizHistoryStore';
-import { computeDeckMastery, useLearningStore } from '@/stores/useLearningStore';
+import { collectDueCards, computeDeckMastery, useLearningStore } from '@/stores/useLearningStore';
 import { OWNER } from '@/config/owner';
+import { getVisitorMode } from '@/lib/visitor';
 import { sendPendingEvent } from '@/components/achievements/pending-events';
 import { useAchievementProgressStore } from '@/components/achievements/progress-store';
 import { utcDayKey } from '@/components/achievements/award';
@@ -16,7 +17,7 @@ import { currentStreak } from '@/components/achievements/day-streak';
 import { collectStudyDays } from '@/components/achievements/study-streak';
 import {
   TRAINING_START_EVENT,
-  resolveDeckTarget,
+  deckTargetLabel,
   type TrainingLinkMode,
   type TrainingStartDetail,
 } from '@/components/apps/training-grounds/deep-link';
@@ -44,9 +45,9 @@ const helpCommand: CommandHandler = () => ({
   xp            — Show XP and level
   stats         — Today's study summary
   train [mode] [deck]
-                — Open Training Grounds (modes: start, mock, flashcards, planner)
-                  e.g. train start warrior os basics · train cards
-  decks         — List your learning decks
+                — Open Training Grounds (modes: start, review, mock, planner)
+                  e.g. train start warrior os basics · train review
+  decks         — List your learning decks with mastery and cards due
   notes [query] — Open Notes, searching for <query>
   quote         — Random warrior quote
   version       — OS version
@@ -79,8 +80,8 @@ const TRAIN_MODE_WORDS = new Map<string, TrainingLinkMode>([
 const TRAIN_MODE_LABELS: Record<TrainingLinkMode, string> = {
   quiz: 'Quiz',
   mock: 'Mock Test',
-  flashcards: 'Flashcards',
-  planner: 'Study Planner',
+  flashcards: 'Flashcards (review due cards)',
+  planner: 'Quest Planner',
 };
 
 /** `train [mode] [deck or topic]` — opens Training Grounds through its start deep link. */
@@ -88,17 +89,13 @@ const trainCommand: CommandHandler = (args) => {
   const explicitMode = TRAIN_MODE_WORDS.get(args[0]?.toLowerCase() ?? '');
   const mode: TrainingLinkMode = explicitMode ?? 'quiz';
   const subjectText = (explicitMode ? args.slice(1) : args).join(' ').trim();
-  const decks = useLearningStore.getState().decks;
-  const target = resolveDeckTarget(subjectText, decks);
-  if (subjectText && !target) {
+  const focus = subjectText ? deckTargetLabel(subjectText, useLearningStore.getState().decks) : null;
+  if (subjectText && !focus) {
     return {
       type: 'error',
       output: `train: no deck or topic matches "${subjectText}". Run 'decks' for the list.`,
     };
   }
-  const deck = target ? decks.find((d) => d.id === target.deckId) : undefined;
-  const topic = target?.topicId ? deck?.topics.find((t) => t.id === target.topicId) : undefined;
-  const focus = deck ? `${deck.name}${topic ? ` · ${topic.name}` : ''}` : '';
   // The app resolves the same text against the same decks.
   const detail: TrainingStartDetail = subjectText ? { subject: subjectText, mode } : { mode };
   useAppStore.getState().launchApp('training-grounds', activeWorkspaceId());
@@ -109,20 +106,22 @@ const trainCommand: CommandHandler = (args) => {
   };
 };
 
-/** `decks` — the learning decks with card counts and mastery. */
+/** `decks` — the learning decks with card counts, mastery and cards due. */
 const decksCommand: CommandHandler = () => {
   const { decks, reviews } = useLearningStore.getState();
   if (decks.length === 0) {
     return { type: 'info', output: 'No decks yet. Open Training Grounds to create one.' };
   }
+  const now = Date.now();
   const rows = decks.map((deck, i) => {
     const mastery = computeDeckMastery(deck, reviews);
+    const due = collectDueCards([deck], reviews, { now, includeNew: false }).length;
     const cards = `${mastery.total} card${mastery.total === 1 ? '' : 's'}`;
-    return `  ${i + 1}. ${deck.name} — ${cards}, ${Math.round(mastery.value * 100)}% mastery`;
+    return `  ${i + 1}. ${deck.name} — ${cards}, ${Math.round(mastery.value * 100)}% mastery${due > 0 ? `, ${due} due` : ''}`;
   });
   return {
     type: 'info',
-    output: `Your decks:\n${rows.join('\n')}\n\n'train <deck>' starts a quiz · 'train cards <deck>' reviews flashcards`,
+    output: `Your decks:\n${rows.join('\n')}\n\n'train <deck>' starts a quiz · 'train review <deck>' reviews the cards due`,
   };
 };
 
@@ -178,10 +177,14 @@ const statsCommand: CommandHandler = () => {
   };
 };
 
-const whoamiCommand: CommandHandler = () => ({
-  type: 'info',
-  output: 'warrior@warrior-os',
-});
+const whoamiCommand: CommandHandler = () => {
+  const mode = getVisitorMode();
+  if (mode === 'guest') {
+    return { type: 'info', output: `guest@warrior-os — visiting ${OWNER.shortName}'s OS. Make yourself at home.` };
+  }
+  const user = mode === 'owner' ? OWNER.handle || OWNER.shortName.toLowerCase() : 'warrior';
+  return { type: 'info', output: `${user}@warrior-os` };
+};
 
 const neofetchCommand: CommandHandler = () => ({
   type: 'ascii',
@@ -196,12 +199,13 @@ const neofetchCommand: CommandHandler = () => ({
   OS:       Warrior OS v4.0
   Kernel:   The Living World
   Shell:    warrior-bash 1.0
-  UI:       React 19 + Framer Motion
+  Owner:    ${OWNER.name}${OWNER.handle ? ` (@${OWNER.handle})` : ''}
+  Stack:    Next.js 16 + React 19 + TypeScript
+  UI:       Tailwind CSS 4 + Framer Motion
   State:    Zustand + Immer
-  Style:    Tailwind CSS 4
-  Backend:  Firebase
-  Host:     Browser
-  Builder:  ${OWNER.name}`,
+  AI:       NEXUS (offline brain, Gemini optional)
+  Storage:  Offline-first, this browser
+  Host:     Browser${OWNER.repo ? `\n  Source:   ${OWNER.repo}` : ''}`,
 });
 
 const dateCommand: CommandHandler = () => ({
@@ -221,12 +225,15 @@ const uptimeCommand: CommandHandler = () => {
   };
 };
 
-const lsCommand: CommandHandler = () => ({
-  type: 'info',
-  output: `training-grounds/  notes/  habit-forge/  stats-center/  settings/
-music-player/  terminal/  calculator/  file-manager/  weather/
-project-tracker/  warrior-profile/  nexus-ai/  study-planner/`,
-});
+/** `ls` — the installed apps, as directories. */
+const lsCommand: CommandHandler = () => {
+  const dirs = useAppStore
+    .getState()
+    .registeredApps.map((app) => `${app.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}/`);
+  const rows: string[] = [];
+  for (let i = 0; i < dirs.length; i += 5) rows.push(dirs.slice(i, i + 5).join('  '));
+  return { type: 'info', output: rows.join('\n') || '(no apps installed)' };
+};
 
 const echoCommand: CommandHandler = (args) => ({
   type: 'info',

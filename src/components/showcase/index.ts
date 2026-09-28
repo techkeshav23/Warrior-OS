@@ -18,3 +18,5 @@ export {
   SMALL_SCREEN_STORAGE_KEY,
   type SmallScreenGateProps,
 } from './SmallScreenGate';
+export { GuidedTour, type GuidedTourProps } from './GuidedTour';
+export { ReplayTourButton } from './tour/ReplayTourButton';

@@ -1,58 +1,87 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Heatmap Calendar
-// GitHub-style 365-day activity heatmap
+// GitHub-style activity calendar for the last 26 weeks (a column per
+// week, Monday on top): cards answered plus habits ticked each day.
+// Live: it follows new answers, quizzes and habit check-ins.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useMemo, memo } from 'react';
+import { memo, useMemo } from 'react';
+import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useLearningStore } from '@/stores/useLearningStore';
+import { useQuizHistoryStore } from '@/stores/useQuizHistoryStore';
+import { useHabits, useNow } from '@/components/widgets/hooks';
+import { utcDayKey } from '@/components/widgets/widget-data';
+import { HEATMAP_WEEKS, buildActivityCalendar, type ActivityCell } from './learning-stats';
+
+const LEVEL_CLASS = ['bg-white/5', 'bg-cyan-700/35', 'bg-cyan-600/50', 'bg-cyan-500/70', 'bg-cyan-400'] as const;
+
+function cellTitle(cell: ActivityCell): string {
+  const day = format(parseISO(cell.key), 'EEE, d MMM yyyy');
+  if (cell.cards + cell.habits === 0) return `${day}: no activity`;
+  const parts: string[] = [];
+  if (cell.cards > 0) parts.push(`${cell.cards} ${cell.cards === 1 ? 'card' : 'cards'}`);
+  if (cell.habits > 0) parts.push(`${cell.habits} ${cell.habits === 1 ? 'habit' : 'habits'}`);
+  return `${day}: ${parts.join(' · ')}`;
+}
 
 function HeatmapCalendarInner() {
-  const days = useMemo(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const habits = JSON.parse(localStorage.getItem('warrior-habits') || '[]');
-      const activityMap = new Map<string, number>();
-      for (const h of habits) {
-        for (const d of (h.completions || [])) {
-          activityMap.set(d, (activityMap.get(d) || 0) + 1);
-        }
-      }
+  const habits = useHabits();
+  const cardAttempts = useLearningStore((s) => s.attempts);
+  const quizAttempts = useQuizHistoryStore((s) => s.attempts);
+  const now = useNow(60_000);
+  const todayKey = utcDayKey(now);
 
-      const result: { date: string; count: number }[] = [];
-      const now = new Date();
-      for (let i = 179; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
-        result.push({ date: dateStr, count: activityMap.get(dateStr) || 0 });
-      }
-      return result;
-    } catch { return []; }
-  }, []);
-
-  const getColor = (count: number) => {
-    if (count === 0) return 'bg-white/5';
-    if (count >= 6) return 'bg-cyan-400';
-    if (count >= 4) return 'bg-cyan-500/70';
-    if (count >= 2) return 'bg-cyan-600/50';
-    return 'bg-cyan-700/35';
-  };
+  const calendar = useMemo(
+    () => buildActivityCalendar(habits, cardAttempts, quizAttempts, todayKey),
+    [habits, cardAttempts, quizAttempts, todayKey]
+  );
 
   return (
-    <div className="p-4 rounded-xl border border-white/10 bg-black/20">
-      <p className="text-xs text-white/60 mb-3">Activity (180 days)</p>
-      <div className="flex flex-wrap gap-[2px]">
-        {days.map((day) => (
-          <div
-            key={day.date}
-            title={`${day.date}: ${day.count} activities`}
-            className={cn('w-2.5 h-2.5 rounded-[2px]', getColor(day.count))}
-          />
+    <section className="p-4 rounded-xl border border-white/10 bg-black/20" aria-label="Activity calendar">
+      <div className="mb-3 flex items-baseline justify-between gap-2">
+        <p className="text-xs text-white/60">Activity · {HEATMAP_WEEKS} weeks</p>
+        <p className="text-[10px] text-white/40">
+          {calendar.activeDays} active {calendar.activeDays === 1 ? 'day' : 'days'}
+        </p>
+      </div>
+
+      <div
+        className="flex gap-[2px]"
+        role="img"
+        aria-label={`${calendar.activeDays} active days in the last ${HEATMAP_WEEKS} weeks. Hover a day for its cards and habits.`}
+      >
+        {calendar.weeks.map((week) => (
+          <div key={week[0]?.key} className="flex flex-col gap-[2px]">
+            {week.map((cell) =>
+              cell.future ? (
+                <div key={cell.key} className="h-2.5 w-2.5" />
+              ) : (
+                <div
+                  key={cell.key}
+                  title={cellTitle(cell)}
+                  className={cn(
+                    'h-2.5 w-2.5 rounded-[2px]',
+                    LEVEL_CLASS[cell.level],
+                    cell.key === todayKey && 'ring-1 ring-white/40'
+                  )}
+                />
+              )
+            )}
+          </div>
         ))}
       </div>
-    </div>
+
+      <div className="mt-2 flex items-center justify-end gap-1 text-[10px] text-white/35" aria-hidden="true">
+        <span className="mr-0.5">Less</span>
+        {LEVEL_CLASS.map((cls) => (
+          <span key={cls} className={cn('h-2.5 w-2.5 rounded-[2px]', cls)} />
+        ))}
+        <span className="ml-0.5">More</span>
+      </div>
+    </section>
   );
 }
 

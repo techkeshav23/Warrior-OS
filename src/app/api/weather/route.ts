@@ -130,13 +130,10 @@ function dedupe<T>(key: string, run: () => Promise<UpstreamResult<T>>): Promise<
 
 // ─── Helpers ───
 
-/** First configured key: skips empty values and `your_…` placeholders. */
-function pickApiKey(...candidates: Array<string | undefined>): string | null {
-  for (const raw of candidates) {
-    const key = raw?.trim();
-    if (key && !key.startsWith('your_')) return key;
-  }
-  return null;
+/** The configured key, or null for an empty value or a `your_…` placeholder. */
+function readApiKey(raw: string | undefined): string | null {
+  const key = raw?.trim();
+  return key && !key.startsWith('your_') ? key : null;
 }
 
 function json(body: unknown, status: number, cacheSeconds = 0) {
@@ -371,11 +368,10 @@ export async function GET(request: NextRequest) {
     return json({ error: location.error }, 400);
   }
 
-  // Read per request, inside the handler, server-side only. WEATHER_API_KEY
-  // is the server-only name; the legacy NEXT_PUBLIC_ name is accepted as a
-  // fallback so existing .env files keep working. Both are read only here,
-  // so neither is ever inlined into client code.
-  const apiKey = pickApiKey(process.env.WEATHER_API_KEY, process.env.NEXT_PUBLIC_WEATHER_API_KEY);
+  // Read per request, inside the handler, server-side only. Only the
+  // server-only WEATHER_API_KEY counts: a NEXT_PUBLIC_ name would be inlined
+  // into the browser bundle, so it is deliberately not read.
+  const apiKey = readApiKey(process.env.WEATHER_API_KEY);
   const wantForecast = request.nextUrl.searchParams.get('forecast') === '1';
 
   if (!apiKey) {

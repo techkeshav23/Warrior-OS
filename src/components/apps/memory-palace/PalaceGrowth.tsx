@@ -1,14 +1,15 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Memory Palace: Growth + Layout
-// The palace grows with your notes (spec 6.28):
-//   • starts with 1 room (the subject of your first note)
-//   • every 10 notes → a new room is unlocked
-//   • every 50 notes → the corridor is extended (+ pillars, lanterns)
-//   • every 100 notes → a new wing (10 rooms behind a gated arch)
-//   • 500+ notes → a Grand Hall with a chandelier and statues
+// The palace grows with everything you keep in it (spec 6.28) —
+// notes, deck cards and projects are all "objects":
+//   • starts with 3 foundation rooms (notes · decks · projects)
+//   • every 10 objects → a new room is unlocked
+//   • every 50 objects → the corridor is extended (+ pillars, lanterns)
+//   • every 10 rooms → a new wing behind an archway
+//   • 500+ objects → a Grand Hall with a chandelier and statues
 // New structures are built brick by brick (<GrowthBuilder/>).
 // Also computes the full walkable layout: vestibule, corridor, rooms,
-// wing gates, extensions, grand hall, colliders and signs.
+// wing archways, extensions, grand hall, colliders and signs.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -16,7 +17,7 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { ROOM_THEMES, type PalaceNote, type PalaceSubject, type RoomTheme } from './palaceData';
+import { roomTheme, type PalaceContentType, type PalaceGroup, type PalaceItem, type RoomTheme } from './palaceData';
 
 // ─────────────────────────────────────────────────────────────
 // Dimensions (world units ≈ metres)
@@ -53,12 +54,13 @@ const CORRIDOR_FLOOR = '#24252c';
 // ─────────────────────────────────────────────────────────────
 
 export interface PalaceGrowthState {
-  noteCount: number;
-  /** Rooms unlocked: 1 + one per 10 notes (max 40). */
+  /** Notes + deck cards + projects in the palace. */
+  objectCount: number;
+  /** Rooms unlocked: 3 foundation rooms + one per 10 objects (max 40). */
   roomSlots: number;
-  /** Wings: a new one every 100 notes (10 rooms each). */
+  /** Wings of 10 rooms each. */
   wings: number;
-  /** Corridor tier: +1 every 50 notes (extensions, pillars, lanterns). */
+  /** Corridor tier: +1 every 50 objects (extensions, pillars, lanterns). */
   corridorTier: number;
   extensionSegments: number;
   grandHall: boolean;
@@ -68,25 +70,30 @@ export interface PalaceGrowthState {
   grandHallAt: number;
 }
 
-export const GRAND_HALL_NOTES = 500;
+export const BASE_ROOMS = 3;
+export const OBJECTS_PER_ROOM = 10;
+export const OBJECTS_PER_CORRIDOR = 50;
+export const GRAND_HALL_OBJECTS = 500;
 
-export function computePalaceGrowth(noteCount: number): PalaceGrowthState {
-  const n = Math.max(0, noteCount);
-  const roomSlots = Math.min(MAX_ROOMS, 1 + Math.floor(n / 10));
+export function computePalaceGrowth(objectCount: number): PalaceGrowthState {
+  const n = Math.max(0, objectCount);
+  const roomSlots = Math.min(MAX_ROOMS, BASE_ROOMS + Math.floor(n / OBJECTS_PER_ROOM));
   const wings = Math.ceil(roomSlots / ROOMS_PER_WING);
-  const corridorTier = Math.floor(n / 50);
+  const corridorTier = Math.floor(n / OBJECTS_PER_CORRIDOR);
   const extensionSegments = Math.min(MAX_EXT_SEGMENTS, corridorTier);
+  // Objects at which the slot count reaches `slots`.
+  const objectsFor = (slots: number) => (slots - BASE_ROOMS) * OBJECTS_PER_ROOM;
   return {
-    noteCount: n,
+    objectCount: n,
     roomSlots,
     wings,
     corridorTier,
     extensionSegments,
-    grandHall: n >= GRAND_HALL_NOTES,
-    nextRoomAt: roomSlots >= MAX_ROOMS ? null : roomSlots * 10,
-    nextCorridorAt: corridorTier >= MAX_EXT_SEGMENTS ? null : (corridorTier + 1) * 50,
-    nextWingAt: wings >= MAX_ROOMS / ROOMS_PER_WING ? null : wings * 100,
-    grandHallAt: GRAND_HALL_NOTES,
+    grandHall: n >= GRAND_HALL_OBJECTS,
+    nextRoomAt: roomSlots >= MAX_ROOMS ? null : objectsFor(roomSlots + 1),
+    nextCorridorAt: corridorTier >= MAX_EXT_SEGMENTS ? null : (corridorTier + 1) * OBJECTS_PER_CORRIDOR,
+    nextWingAt: wings >= MAX_ROOMS / ROOMS_PER_WING ? null : objectsFor(wings * ROOMS_PER_WING + 1),
+    grandHallAt: GRAND_HALL_OBJECTS,
   };
 }
 
@@ -95,14 +102,21 @@ export function computePalaceGrowth(noteCount: number): PalaceGrowthState {
 // ─────────────────────────────────────────────────────────────
 
 export interface PalaceRoomSpec {
-  /** Stable id: `${subject}#${ordinal}`. */
+  /** Stable id: `${group}#${ordinal}`. */
   key: string;
-  subject: PalaceSubject;
-  /** 1 for a subject's first room, 2+ for overflow rooms. */
+  /** Room group key ('deck:…', 'tag:…', 'projects', 'starter:…'). */
+  group: string;
+  contentType: PalaceContentType;
+  /** 1 for a group's first room, 2+ for overflow rooms. */
   ordinal: number;
   label: string;
   theme: RoomTheme;
-  notes: PalaceNote[];
+  items: PalaceItem[];
+  /** Floating words of the group (titles, topics, project names). */
+  words: string[];
+  /** Empty starter room (no content of its type yet). */
+  starter: boolean;
+  hint: string | null;
 }
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
@@ -111,44 +125,43 @@ export function roman(n: number): string {
   return ROMAN[n] ?? String(n);
 }
 
+function bySince(a: PalaceGroup, b: PalaceGroup): number {
+  if (a.since !== b.since) return a.since < b.since ? -1 : 1;
+  return a.key.localeCompare(b.key);
+}
+
 /**
- * Hand out the unlocked room slots. Subjects claim rooms in the order
- * you started them (first note first), so rooms keep their places as
- * the palace grows; spare slots become overflow rooms for the fullest
- * subject. Notes of subjects still waiting for a room sit on the
- * archive table in the entrance hall.
+ * Hand out the unlocked room slots. Groups claim rooms in the order you
+ * started them (oldest content first, starter rooms last), so rooms keep
+ * their places as the palace grows; spare slots become overflow rooms
+ * for the fullest group. Objects of groups still waiting for a room sit
+ * on the archive table in the entrance hall.
  */
 export function allocateRooms(
-  notes: PalaceNote[],
+  groups: readonly PalaceGroup[],
   slots: number
-): { rooms: PalaceRoomSpec[]; unhoused: PalaceNote[] } {
-  const sorted = [...notes].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
-  const bySubject = new Map<PalaceSubject, PalaceNote[]>();
-  for (const n of sorted) {
-    const list = bySubject.get(n.subject);
-    if (list) list.push(n);
-    else bySubject.set(n.subject, [n]);
-  }
-  const order = [...bySubject.keys()];
-  const roomsPer = new Map<PalaceSubject, number>();
+): { rooms: PalaceRoomSpec[]; unhoused: PalaceItem[] } {
+  const order = [...groups].sort(bySince);
+  const roomsPer = new Map<string, number>();
   let used = 0;
-  for (const s of order) {
+  for (const g of order) {
     if (used >= slots) break;
-    roomsPer.set(s, 1);
+    roomsPer.set(g.key, 1);
     used += 1;
   }
-  const overflow: PalaceSubject[] = [];
+  const byKey = new Map(order.map((g) => [g.key, g] as const));
+  const overflow: string[] = [];
   while (used < slots) {
-    let best: PalaceSubject | null = null;
+    let best: string | null = null;
     let bestRatio = 0;
-    for (const [s, k] of roomsPer) {
-      const count = bySubject.get(s)?.length ?? 0;
-      // Only split when every room would still hold at least 2 notes.
+    for (const [key, k] of roomsPer) {
+      const count = byKey.get(key)?.items.length ?? 0;
+      // Only split when every room would still hold at least 2 objects.
       if (count < 2 * (k + 1)) continue;
       const ratio = count / k;
       if (ratio > bestRatio) {
         bestRatio = ratio;
-        best = s;
+        best = key;
       }
     }
     if (!best) break;
@@ -157,34 +170,56 @@ export function allocateRooms(
     used += 1;
   }
 
-  const chunk = (s: PalaceSubject, ordinal: number): PalaceNote[] => {
-    const list = bySubject.get(s) ?? [];
-    const k = roomsPer.get(s) ?? 1;
-    const per = Math.ceil(list.length / k);
-    return list.slice((ordinal - 1) * per, ordinal * per);
+  const chunk = (g: PalaceGroup, ordinal: number): PalaceItem[] => {
+    const k = roomsPer.get(g.key) ?? 1;
+    const per = Math.ceil(g.items.length / k);
+    return g.items.slice((ordinal - 1) * per, ordinal * per);
   };
-  const make = (s: PalaceSubject, ordinal: number): PalaceRoomSpec => {
-    const theme = ROOM_THEMES[s];
+  const make = (g: PalaceGroup, ordinal: number): PalaceRoomSpec => {
+    const key = `${g.key}#${ordinal}`;
     return {
-      key: `${s}#${ordinal}`,
-      subject: s,
+      key,
+      group: g.key,
+      contentType: g.contentType,
       ordinal,
-      label: ordinal > 1 ? `${theme.label} ${roman(ordinal)}` : theme.label,
-      theme,
-      notes: chunk(s, ordinal),
+      label: ordinal > 1 ? `${g.label} ${roman(ordinal)}` : g.label,
+      // Overflow rooms get a style of their own; the accent stays the group's.
+      theme: roomTheme(g.contentType, ordinal > 1 ? key : g.key, { style: g.style, accent: g.accent }),
+      items: chunk(g, ordinal),
+      words: g.words,
+      starter: g.starter === true,
+      hint: g.hint ?? null,
     };
   };
 
   const rooms: PalaceRoomSpec[] = [];
-  for (const s of order) if (roomsPer.has(s)) rooms.push(make(s, 1));
-  const seen = new Map<PalaceSubject, number>();
-  for (const s of overflow) {
-    const next = (seen.get(s) ?? 1) + 1;
-    seen.set(s, next);
-    rooms.push(make(s, next));
+  for (const g of order) if (roomsPer.has(g.key)) rooms.push(make(g, 1));
+  const seen = new Map<string, number>();
+  for (const key of overflow) {
+    const g = byKey.get(key);
+    if (!g) continue;
+    const next = (seen.get(key) ?? 1) + 1;
+    seen.set(key, next);
+    rooms.push(make(g, next));
   }
-  const unhoused = order.filter((s) => !roomsPer.has(s)).flatMap((s) => bySubject.get(s) ?? []);
+  const unhoused = order.filter((g) => !roomsPer.has(g.key)).flatMap((g) => g.items);
   return { rooms, unhoused };
+}
+
+const OBJECT_NOUN: Record<PalaceContentType, [string, string]> = {
+  notes: ['note', 'notes'],
+  deck: ['card', 'cards'],
+  projects: ['project', 'projects'],
+};
+
+function countLabel(type: PalaceContentType, n: number): string {
+  return `${n} ${OBJECT_NOUN[type][n === 1 ? 0 : 1]}`;
+}
+
+/** Door signs stay legible: long deck / folder names are shortened. */
+function signTitle(label: string): string {
+  const t = label.trim();
+  return (t.length > 26 ? `${t.slice(0, 25).trimEnd()}…` : t).toUpperCase();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -260,12 +295,12 @@ export interface PalaceLayout {
   signs: SignSpec[];
   units: BuildUnit[];
   spawn: [number, number];
-  /** Archive table (entrance hall) centre for unhoused notes. */
+  /** Archive table (entrance hall) centre for objects still waiting for a room. */
   archiveTable: [number, number];
   corridorEndZ: number;
   hall: { center: [number, number]; size: number } | null;
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
-  unhoused: PalaceNote[];
+  unhoused: PalaceItem[];
 }
 
 /** Room-local (x toward the door, z along the corridor) → world x/z. */
@@ -373,7 +408,7 @@ function darken(hex: string, f: number): string {
 
 /** Everything that exists in the palace for a given allocation + growth. */
 export function buildPalaceLayout(
-  allocation: { rooms: PalaceRoomSpec[]; unhoused: PalaceNote[] },
+  allocation: { rooms: PalaceRoomSpec[]; unhoused: PalaceItem[] },
   growth: PalaceGrowthState
 ): PalaceLayout {
   const boxes: StructureBox[] = [];
@@ -447,8 +482,8 @@ export function buildPalaceLayout(
     signs.push({
       key: `sign:${spec.key}`,
       unit: u,
-      title: spec.label.toUpperCase(),
-      sub: `${spec.notes.length} object${spec.notes.length === 1 ? '' : 's'}`,
+      title: signTitle(spec.label),
+      sub: spec.starter ? spec.hint ?? 'Waiting for its first object' : countLabel(spec.contentType, spec.items.length),
       color: t.accent,
       pos: [side * (CORR_HALF - 0.06), DOOR_H + 0.72, cz],
       rotY: side === -1 ? Math.PI / 2 : -Math.PI / 2,
@@ -479,26 +514,26 @@ export function buildPalaceLayout(
     if (growth.corridorTier >= 3) {
       boxes.push(box(S, 'trim', 0, 0.012, cz, 1.4, 0.02, ROW_PITCH, '#5a1622'));
     }
-    // Wing gate before the first row of every new wing.
+    // Wing archway before the first row of every new wing.
     if (row > 0 && row % ROWS_PER_WING === 0) {
       const wing = row / ROWS_PER_WING;
-      const gu = `wing#${wing + 1}`;
+      const wu = `wing#${wing + 1}`;
       const zTop = rowCenterZ(row - 1) - ROW_PITCH / 2;
       const zBottom = cz + ROW_PITCH / 2;
-      units.push({ key: gu, label: `Wing ${roman(wing + 1)}` });
-      boxes.push(slab(gu, 'floor', -CORR_HALF - WALL_T, CORR_HALF + WALL_T, zBottom, zTop, 0, '#2c2233'));
-      boxes.push(slab(gu, 'ceiling', -CORR_HALF, CORR_HALF, zBottom, zTop, WALL_H, '#121318'));
-      boxes.push(wallZ(gu, zBottom, zTop, -(CORR_HALF + WALL_T / 2), '#463a52'));
-      boxes.push(wallZ(gu, zBottom, zTop, CORR_HALF + WALL_T / 2, '#463a52'));
+      units.push({ key: wu, label: `Wing ${roman(wing + 1)}` });
+      boxes.push(slab(wu, 'floor', -CORR_HALF - WALL_T, CORR_HALF + WALL_T, zBottom, zTop, 0, '#2c2233'));
+      boxes.push(slab(wu, 'ceiling', -CORR_HALF, CORR_HALF, zBottom, zTop, WALL_H, '#121318'));
+      boxes.push(wallZ(wu, zBottom, zTop, -(CORR_HALF + WALL_T / 2), '#463a52'));
+      boxes.push(wallZ(wu, zBottom, zTop, CORR_HALF + WALL_T / 2, '#463a52'));
       const zm = (zTop + zBottom) / 2;
       for (const side of [-1, 1] as const) {
-        boxes.push(box(gu, 'pillar', side * (CORR_HALF - 0.35), WALL_H / 2, zm, 0.6, WALL_H, 0.6, '#6b5a7a', true));
+        boxes.push(box(wu, 'pillar', side * (CORR_HALF - 0.35), WALL_H / 2, zm, 0.6, WALL_H, 0.6, '#6b5a7a', true));
       }
-      boxes.push(box(gu, 'trim', 0, WALL_H - 0.3, zm, CORR_HALF * 2, 0.6, 0.6, '#6b5a7a'));
-      boxes.push(box(gu, 'glow', 0, WALL_H - 0.62, zm + 0.31, CORR_HALF * 2 - 0.4, 0.05, 0.03, '#b388ff'));
+      boxes.push(box(wu, 'trim', 0, WALL_H - 0.3, zm, CORR_HALF * 2, 0.6, 0.6, '#6b5a7a'));
+      boxes.push(box(wu, 'glow', 0, WALL_H - 0.62, zm + 0.31, CORR_HALF * 2 - 0.4, 0.05, 0.03, '#b388ff'));
       signs.push({
-        key: `sign:${gu}`,
-        unit: gu,
+        key: `sign:${wu}`,
+        unit: wu,
         title: `WING ${roman(wing + 1)}`,
         sub: `rooms ${wing * ROOMS_PER_WING + 1}–${(wing + 1) * ROOMS_PER_WING}`,
         color: '#b388ff',
@@ -553,7 +588,7 @@ export function buildPalaceLayout(
       key: 'sign:hall',
       unit: hu,
       title: 'GRAND HALL',
-      sub: `${growth.noteCount} notes of knowledge`,
+      sub: `${growth.objectCount} objects of knowledge`,
       color: '#ffd740',
       pos: [0, WALL_H - 0.9, zS + 0.25],
       rotY: 0,
@@ -564,7 +599,7 @@ export function buildPalaceLayout(
   }
 
   // ── Signs in the entrance hall ──
-  const objectCount = allocation.rooms.reduce((n, r) => n + r.notes.length, 0) + allocation.unhoused.length;
+  const objectCount = allocation.rooms.reduce((n, r) => n + r.items.length, 0) + allocation.unhoused.length;
   signs.push({
     key: 'sign:title',
     unit: S,
@@ -580,7 +615,7 @@ export function buildPalaceLayout(
       key: 'sign:archive',
       unit: S,
       title: 'AWAITING A ROOM',
-      sub: `${allocation.unhoused.length} note${allocation.unhoused.length === 1 ? '' : 's'} · next room at ${growth.nextRoomAt ?? '—'} notes`,
+      sub: `${allocation.unhoused.length} object${allocation.unhoused.length === 1 ? '' : 's'} · next room at ${growth.nextRoomAt ?? '—'} objects`,
       color: '#b0bec5',
       pos: [archiveTable[0], 1.75, archiveTable[1] - 0.55],
       rotY: 0,
@@ -592,7 +627,7 @@ export function buildPalaceLayout(
       key: 'sign:empty',
       unit: S,
       title: 'AN EMPTY PALACE',
-      sub: 'Write your first note to build your first room',
+      sub: 'Write a note, build a deck or start a project',
       color: '#00f0ff',
       pos: [0, 2.2, endZ + 0.2],
       rotY: 0,

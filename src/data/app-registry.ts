@@ -108,13 +108,13 @@ export const APP_REGISTRY: AppDefinition[] = [
   {
     // id kept as 'study-planner' (saved state and older links use it).
     id: 'study-planner',
-    name: 'Quest Planner',
+    name: 'Habit Forge',
     icon: '🔥',
     component: HabitForgeApp,
     defaultSize: { width: 800, height: 600 },
     minSize: { width: 500, height: 350 },
     category: 'study',
-    description: 'Daily quests, habits, routines and streaks',
+    description: 'Habits, routines and streaks that pay XP',
   },
   {
     id: 'flashcards',
@@ -124,7 +124,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     defaultSize: { width: 700, height: 500 },
     minSize: { width: 400, height: 300 },
     category: 'study',
-    description: 'Spaced-repetition review of your decks',
+    description: 'Flip through your decks: shuffle, flip, rate your recall',
   },
   {
     id: 'notes',
@@ -144,7 +144,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     defaultSize: { width: 960, height: 680 },
     minSize: { width: 640, height: 460 },
     category: 'study',
-    description: '3D walkable knowledge space — explore your notes as glowing objects',
+    description: '3D walkable knowledge space — explore your notes, decks and projects as glowing objects',
     shortcut: 'ctrl+shift+m',
     singleton: true,
   },
@@ -214,8 +214,9 @@ export const APP_REGISTRY: AppDefinition[] = [
     defaultSize: { width: 450, height: 600 },
     minSize: { width: 350, height: 400 },
     category: 'utility',
-    description: 'AI assistant powered by Gemini',
-    shortcut: 'ctrl+n',
+    description: 'Your OS companion: commands, learning coach and guide (offline brain, Gemini optional)',
+    // Ctrl/Cmd+. (Ctrl+N is reserved by browsers for a new window).
+    shortcut: 'ctrl+.',
     singleton: true,
   },
   {
@@ -244,7 +245,8 @@ export const APP_REGISTRY: AppDefinition[] = [
     name: 'Calculator',
     icon: '🔢',
     component: CalculatorApp,
-    defaultSize: { width: 350, height: 500 },
+    // Keypad + history sidebar: room for the 7-wide scientific row.
+    defaultSize: { width: 440, height: 540 },
     minSize: { width: 280, height: 400 },
     category: 'utility',
     description: 'Scientific calculator',
@@ -279,7 +281,8 @@ export const APP_REGISTRY: AppDefinition[] = [
     name: 'WarBeats',
     icon: '🎵',
     component: MusicApp,
-    defaultSize: { width: 400, height: 500 },
+    // Tall enough for the procedural player's controls without scrolling.
+    defaultSize: { width: 420, height: 600 },
     minSize: { width: 300, height: 350 },
     category: 'chill',
     description: 'Lo-fi beats and focus music player',

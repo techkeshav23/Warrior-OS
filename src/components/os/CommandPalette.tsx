@@ -1,18 +1,30 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — CommandPalette Component
-// Spotlight/Ctrl+K command palette. Apps and quick actions first;
-// anything else is routed through NEXUS intent parsing (natural
-// language → OS actions, e.g. "study mode", "DBMS quiz", "notes on
-// paging", "close terminal", "pomodoro 50"), with "Ask NEXUS" as
-// the final fallback. Matching notes are listed too.
+// Spotlight/Ctrl+K command palette. Apps, quick actions and deck
+// actions (quiz a deck, review the cards due) first; anything else is
+// routed through NEXUS intent parsing (natural language → OS actions,
+// e.g. "study mode", "quiz me on javascript", "review due cards",
+// "notes on closures", "close terminal", "pomodoro 50"), with "Ask
+// NEXUS" as the final fallback. Matching notes are listed too.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ArrowRight, Sparkles, WandSparkles, FileText, CircleCheck, IndianRupee } from 'lucide-react';
+import {
+  Search,
+  ArrowRight,
+  Sparkles,
+  WandSparkles,
+  FileText,
+  CircleCheck,
+  IndianRupee,
+  GraduationCap,
+  Layers,
+} from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { collectDueCards, useLearningStore } from '@/stores/useLearningStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { useNotificationStore } from '@/stores/useNotificationStore';
 import { commandKey, describeIntent, isCommandIntent, parseLocalIntent, type LocalIntent } from '@/lib/nexus-intent';
@@ -36,7 +48,7 @@ interface CommandPaletteProps {
   onClose: () => void;
 }
 
-type CommandKind = 'app' | 'action' | 'nexus' | 'note' | 'habit' | 'ask';
+type CommandKind = 'app' | 'action' | 'deck' | 'review' | 'nexus' | 'note' | 'habit' | 'ask';
 
 interface CommandItem {
   id: string;
@@ -44,6 +56,8 @@ interface CommandItem {
   category: string;
   kind: CommandKind;
   action: () => void;
+  /** The NEXUS command the row runs (lets a typed intent skip a duplicate row). */
+  command?: NexusCommand;
 }
 
 /** Show the outcome of palette-run NEXUS commands as a toast. */
@@ -69,17 +83,25 @@ function focusPaletteInput(): void {
 }
 
 const QUICK_ACTIONS: Array<{ id: string; label: string; command: NexusCommand }> = [
-  { id: 'study-mode', label: 'Study Mode (GATE + Notes, pomodoro)', command: { type: 'study_mode' } },
+  { id: 'study-mode', label: 'Study Mode (Training Grounds + Notes, pomodoro)', command: { type: 'study_mode' } },
   { id: 'chill-mode', label: 'Chill Mode (music, aurora)', command: { type: 'chill_mode' } },
-  { id: 'quiz', label: 'Start GATE Quiz', command: { type: 'start_quiz', mode: 'quiz' } },
+  { id: 'quiz', label: 'Quick Quiz (any deck)', command: { type: 'start_quiz', mode: 'quiz' } },
   { id: 'mock', label: 'Start Mock Test', command: { type: 'start_quiz', mode: 'mock' } },
-  { id: 'flashcards', label: 'Formula Flashcards', command: { type: 'start_quiz', mode: 'flashcards' } },
+  { id: 'planner', label: 'Quest Planner', command: { type: 'start_quiz', mode: 'planner' } },
   { id: 'pomodoro', label: 'Start Pomodoro (25 min)', command: { type: 'start_pomodoro' } },
   { id: 'pomodoro-stop', label: 'Stop Pomodoro', command: { type: 'stop_pomodoro' } },
   { id: 'notes-search', label: 'Search Notes', command: { type: 'search_notes', query: '' } },
   { id: 'stats', label: 'View Stats & XP', command: { type: 'show_stats' } },
   { id: 'break', label: 'Take a Break (breathing)', command: { type: 'take_break' } },
 ];
+
+/** Deck rows listed in the palette (decks with the most cards due first). */
+const MAX_DECK_ROWS = 8;
+
+/** Commands whose multi-line reply reads better in the NEXUS chat than in a toast. */
+function opensInChat(intent: LocalIntent): boolean {
+  return intent.type === 'help' || intent.type === 'easter_egg' || intent.type === 'show_decks';
+}
 
 export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
@@ -92,10 +114,35 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const registeredApps = useAppStore((s) => s.registeredApps);
   const launchApp = useAppStore((s) => s.launchApp);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const decks = useLearningStore((s) => s.decks);
+  const reviews = useLearningStore((s) => s.reviews);
+  // Due dates are compared against the moment the palette opened.
+  const [openedAt, setOpenedAt] = useState(() => Date.now());
 
-  // Build the static command list (apps + quick actions).
+  // Deck + topic names, so "review <deck>" is understood.
+  const deckNames = useMemo(() => decks.flatMap((d) => [d.name, ...d.topics.map((t) => t.name)]), [decks]);
+
+  // Decks with cards, most due first; the total drives the "Review Due Cards" row.
+  const deckRows = useMemo(() => {
+    const due = collectDueCards(decks, reviews, { now: openedAt, includeNew: false });
+    const dueByDeck = new Map<string, number>();
+    for (const card of due) dueByDeck.set(card.deckId, (dueByDeck.get(card.deckId) ?? 0) + 1);
+    const rows = decks
+      .filter((d) => d.topics.some((t) => t.cards.length > 0))
+      .map((d) => ({ id: d.id, name: d.name, due: dueByDeck.get(d.id) ?? 0 }))
+      .sort((a, b) => b.due - a.due)
+      .slice(0, MAX_DECK_ROWS);
+    return { totalDue: due.length, rows };
+  }, [decks, reviews, openedAt]);
+
+  // Build the static command list (apps + quick actions + deck actions).
   const commands = useMemo<CommandItem[]>(() => {
     const markUsed = () => unlockNexusAchievement(NEXUS_ACHIEVEMENTS.commandPalette);
+    const runCommand = (command: NexusCommand) => () => {
+      markUsed();
+      toastResults([executeNexusCommand(command)]);
+      onClose();
+    };
     const cmds: CommandItem[] = registeredApps.map((app): CommandItem => ({
       id: `launch-${app.id}`,
       label: `Open ${app.name}`,
@@ -114,12 +161,55 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         label: qa.label,
         category: 'Quick Action',
         kind: 'action',
-        action: () => {
-          markUsed();
-          toastResults([executeNexusCommand(qa.command)]);
-          onClose();
-        },
+        command: qa.command,
+        action: runCommand(qa.command),
       });
+    });
+
+    // Training: review what is due, quiz (or review) one deck.
+    const reviewAll: NexusCommand = { type: 'start_quiz', mode: 'flashcards' };
+    cmds.push({
+      id: 'training-review-due',
+      label: deckRows.totalDue > 0 ? `Review Due Cards (${deckRows.totalDue} due)` : 'Review Flashcards',
+      category: 'Training',
+      kind: 'review',
+      command: reviewAll,
+      action: runCommand(reviewAll),
+    });
+    deckRows.rows.forEach((deck) => {
+      const quizDeck: NexusCommand = { type: 'start_quiz', mode: 'quiz', subject: deck.name };
+      cmds.push({
+        id: `training-quiz-${deck.id}`,
+        label: `Quiz: ${deck.name}`,
+        category: 'Training',
+        kind: 'deck',
+        command: quizDeck,
+        action: runCommand(quizDeck),
+      });
+      if (deck.due > 0) {
+        const reviewDeck: NexusCommand = { type: 'start_quiz', mode: 'flashcards', subject: deck.name };
+        cmds.push({
+          id: `training-review-${deck.id}`,
+          label: `Review: ${deck.name} (${deck.due} due)`,
+          category: 'Training',
+          kind: 'review',
+          command: reviewDeck,
+          action: runCommand(reviewDeck),
+        });
+      }
+    });
+    cmds.push({
+      id: 'training-decks',
+      label: 'Deck Report (mastery, cards due)',
+      category: 'Training',
+      kind: 'deck',
+      command: { type: 'show_decks' },
+      action: () => {
+        markUsed();
+        openNexusWindow();
+        void sendToNexus('my decks', { via: 'palette' });
+        onClose();
+      },
     });
 
     cmds.push({
@@ -157,7 +247,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     });
 
     return cmds;
-  }, [registeredApps, launchApp, activeWorkspaceId, onClose]);
+  }, [registeredApps, launchApp, activeWorkspaceId, deckRows, onClose]);
 
   // Filter + NEXUS intent + note matches + Ask fallback.
   const filtered = useMemo<CommandItem[]>(() => {
@@ -183,25 +273,24 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       },
     };
 
-    // Natural language → NEXUS intent (skip when an app row already covers it).
+    // Natural language → NEXUS intent (skip when a listed row already runs the same thing).
     const intent: LocalIntent = parseLocalIntent(
       q,
       registeredApps,
-      habits.map((h) => h.name)
+      habits.map((h) => h.name),
+      deckNames
     );
     const singleKey = isCommandIntent(intent) ? commandKey(intent) : null;
     const redundant =
       (intent.type === 'open_app' && !intent.newWindow && matches.some((m) => m.id === `launch-${intent.appId}`)) ||
-      (singleKey !== null &&
-        QUICK_ACTIONS.some(
-          (qa) => commandKey(qa.command) === singleKey && matches.some((m) => m.id === `action-${qa.id}`)
-        ));
+      (singleKey !== null && matches.some((m) => m.command !== undefined && commandKey(m.command) === singleKey));
     let intentItem: CommandItem | null = null;
     if (intent.type !== 'none' && !redundant) {
-      const showInChat = intent.type === 'help' || intent.type === 'easter_egg';
+      const showInChat = opensInChat(intent);
+      const askLabel = intent.type === 'help' || intent.type === 'easter_egg';
       intentItem = {
         id: 'nexus-intent',
-        label: `NEXUS: ${showInChat ? `ask "${q}"` : describeIntent(intent)}`,
+        label: `NEXUS: ${askLabel ? `ask "${q}"` : describeIntent(intent)}`,
         category: 'NEXUS',
         kind: 'nexus',
         action: () => {
@@ -268,7 +357,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     items.push(...noteItems);
     if (intentItem || matches.length > 0 || habitItems.length > 0) items.push(askItem);
     return items;
-  }, [commands, query, registeredApps, notes, habits, onClose]);
+  }, [commands, query, registeredApps, notes, habits, deckNames, onClose]);
 
   // Reset selectedIndex when the filter query changes — using the "store info from
   // previous render" pattern instead of setState-in-effect to avoid an extra render.
@@ -285,13 +374,14 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     if (isOpen) setQuery('');
   }
 
-  // On open: focus the input and refresh the note index (async, not in render).
+  // On open: focus the input and refresh notes, habits and due dates (async, not in render).
   useEffect(() => {
     if (!isOpen) return;
     const id = setTimeout(() => {
       inputRef.current?.focus();
       setNotes(loadNotesLite());
       setHabits(listHabits());
+      setOpenedAt(Date.now());
     }, 50);
     return () => clearTimeout(id);
   }, [isOpen]);
@@ -348,6 +438,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
 
           {/* Palette */}
           <motion.div
+            data-tour="command-bar"
             initial={{ opacity: 0, y: -20, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.98 }}
@@ -368,7 +459,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                 id={PALETTE_INPUT_ID}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder='Search apps, or tell NEXUS: "study mode", "DBMS quiz", "add expense 80 chai"…'
+                placeholder='Search apps, or tell NEXUS: "study mode", "review due cards", "quiz me on <deck>"…'
                 aria-label="Command palette"
                 className="flex-1 bg-transparent text-sm font-mono text-text-primary placeholder:text-text-muted outline-none"
               />
@@ -410,6 +501,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                         <FileText className="w-3 h-3 flex-shrink-0 opacity-70" />
                       ) : cmd.kind === 'habit' ? (
                         <CircleCheck className="w-3 h-3 flex-shrink-0 opacity-80 text-emerald-300" />
+                      ) : cmd.kind === 'deck' ? (
+                        <GraduationCap className="w-3 h-3 flex-shrink-0 opacity-80 text-violet-300" />
+                      ) : cmd.kind === 'review' ? (
+                        <Layers className="w-3 h-3 flex-shrink-0 opacity-80 text-amber-300" />
                       ) : cmd.id === 'action-expense' ? (
                         <IndianRupee className="w-3 h-3 flex-shrink-0 opacity-70" />
                       ) : (

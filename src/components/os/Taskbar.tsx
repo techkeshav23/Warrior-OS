@@ -11,11 +11,16 @@
 // plus every app's registry `shortcut` (e.g. Ctrl+` → Terminal).
 // Combos are built exactly like useKeyboardShortcuts, and page-level
 // shortcuts win because that hook stops propagation at `document`.
+//
+// The Reality Decay timer and the Ghost Warriors counter are lazy
+// client-only chunks, so the decay / ghost code stays out of the bundle
+// that paints boot and lock; they pop into the tray once loaded.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { Bell, Lock, MonitorDown, Shield, Volume2, VolumeX, Wifi, WifiOff } from 'lucide-react';
 import { useWindowStore } from '@/stores/useWindowStore';
@@ -29,8 +34,17 @@ import { useNow } from '@/components/widgets/hooks';
 import { DEFAULT_WORKSPACES, type WorkspaceId } from '@/types/workspace';
 import { cn } from '@/lib/utils';
 import { appGlyph } from './DesktopIcon';
-import { OnlineCounter } from '@/components/ghost';
-import { DecayTrayTimer } from '@/components/decay';
+
+// Tray extras, fetched on first render (straight from their files: the
+// ghost / decay barrels would pull in every overlay of those features).
+const DecayTrayTimer = dynamic(
+  () => import('@/components/decay/DecayTrayTimer').then((m) => m.DecayTrayTimer),
+  { ssr: false }
+);
+const OnlineCounter = dynamic(
+  () => import('@/components/ghost/OnlineCounter').then((m) => m.OnlineCounter),
+  { ssr: false }
+);
 
 interface TaskbarProps {
   onStartClick: () => void;

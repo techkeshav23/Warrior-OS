@@ -8,6 +8,10 @@
 // recovery screen → Reboot), every app under its own boundary inside its
 // window (Window.tsx), and each optional layer below under a
 // LayerBoundary that drops only that layer if it fails.
+// Showcase: phones and narrow windows get the SmallScreenGate instead of
+// the OS; a guest unlock fills empty apps with demo data first
+// (src/lib/demo-seed.ts, once per browser); the NEXUS guided tour runs
+// on a first visit.
 // Performance: this bundle carries just the shell that boot, lock and the
 // desktop need. The dream intro, the living-world overlays and the effects
 // are lazy client-only chunks, fetched when first shown. Lite mode
@@ -26,6 +30,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useAdaptiveWallpaper } from '@/hooks/useAdaptiveWallpaper';
 import { APP_REGISTRY } from '@/data/app-registry';
 import { useLiteMode } from '@/lib/lite-mode';
+import { getVisitorMode, type VisitorMode } from '@/lib/visitor';
 
 // OS Components (bundled: boot, lock and the first desktop frame need them)
 import { BootScreen } from '@/components/os/BootScreen';
@@ -54,6 +59,8 @@ import { ServiceWorkerRegistrar } from '@/components/pwa/ServiceWorkerRegistrar'
 
 // Crash isolation
 import { LayerBoundary, SystemErrorBoundary } from '@/components/showcase/AppErrorBoundary';
+// Phones / narrow windows: "best on desktop" screen instead of the OS
+import { SmallScreenGate } from '@/components/showcase/SmallScreenGate';
 
 // Notification store for toasts
 import { useNotificationStore } from '@/stores/useNotificationStore';
@@ -139,6 +146,20 @@ const ScreenShatterLayer = dynamic(
   () => import('@/components/effects/ScreenShatter').then((m) => m.ScreenShatterLayer),
   { ssr: false }
 );
+// First-visit walkthrough (starts itself once per browser; Settings → Showcase replays it).
+const GuidedTour = dynamic(
+  () => import('@/components/showcase/GuidedTour').then((m) => m.GuidedTour),
+  { ssr: false }
+);
+
+// Guest unlock: how long the desktop waits for the demo seed chunk. It is
+// prefetched on the lock screen, so this only matters on a slow first load;
+// past it the desktop appears and the seed lands while it does.
+const DEMO_SEED_WAIT_MS = 1200;
+
+function loadDemoSeed() {
+  return import('@/lib/demo-seed');
+}
 
 // Lite mode: no backdrop blur anywhere. On integrated GPUs it is the most
 // expensive effect in the OS (every glass panel re-blurs what is behind it).
@@ -148,7 +169,9 @@ const LITE_MODE_CSS =
 export default function WarriorOSPage() {
   return (
     <SystemErrorBoundary>
-      <WarriorOS />
+      <SmallScreenGate>
+        <WarriorOS />
+      </SmallScreenGate>
     </SystemErrorBoundary>
   );
 }
@@ -204,19 +227,58 @@ function WarriorOS() {
     nextPhase(); // boot → lock
   }, [nextPhase]);
 
-  // Lock screen unlock → advance to desktop
-  const handleUnlock = useCallback(() => {
-    nextPhase(); // lock → desktop
-  }, [nextPhase]);
+  // Warm the demo seed chunk while the lock screen is up (not in the
+  // owner's browser), so a guest unlock never waits for it.
+  useEffect(() => {
+    if (phase !== 'lock' || getVisitorMode() === 'owner') return;
+    loadDemoSeed().catch(() => {
+      // Offline without a cached chunk: a guest unlock then simply starts empty.
+    });
+  }, [phase]);
+
+  // Lock screen unlock → advance to desktop. A guest first gets demo data
+  // in the apps that are still empty (once per browser; owners never).
+  const handleUnlock = useCallback(
+    (mode: VisitorMode) => {
+      if (mode !== 'guest') {
+        nextPhase(); // lock → desktop
+        return;
+      }
+      let entered = false;
+      const enterDesktop = () => {
+        if (entered) return;
+        entered = true;
+        nextPhase(); // lock → desktop
+      };
+      const fallback = window.setTimeout(enterDesktop, DEMO_SEED_WAIT_MS);
+      loadDemoSeed()
+        .then(({ seedDemoData }) => {
+          seedDemoData({ mode });
+        })
+        .catch((error: unknown) => {
+          console.warn('[Warrior OS] Demo data is unavailable; the guest desktop starts empty.', error);
+        })
+        .finally(() => {
+          window.clearTimeout(fallback);
+          enterDesktop();
+        });
+    },
+    [nextPhase]
+  );
 
   // Toggle start menu
   const toggleStartMenu = useCallback(() => {
     setStartMenuOpen((prev) => !prev);
   }, []);
 
+  // Command palette (Ctrl+K, and the guided tour's "Try it now")
+  const openCommandPalette = useCallback(() => {
+    setCommandPaletteOpen(true);
+  }, []);
+
   // Global keyboard shortcuts
   useKeyboardShortcuts({
-    'ctrl+k': () => setCommandPaletteOpen(true),
+    'ctrl+k': openCommandPalette,
     'ctrl+1': () => switchWorkspace('study'),
     'ctrl+2': () => switchWorkspace('build'),
     'ctrl+3': () => switchWorkspace('chill'),
@@ -413,6 +475,11 @@ function WarriorOS() {
               {/* NEXUS — suggestions, voice indicator, pomodoro */}
               <LayerBoundary name="NEXUS">
                 <NexusLayer />
+              </LayerBoundary>
+              {/* Guided tour — first-visit NEXUS walkthrough; its "Try it
+                  now" opens the real command palette */}
+              <LayerBoundary name="guided-tour">
+                <GuidedTour onOpenCommandBar={openCommandPalette} />
               </LayerBoundary>
 
               {/* Custom cursor + cursor trail (lite mode keeps the system cursor) */}

@@ -17,8 +17,11 @@ export type NexusTone = 'info' | 'success' | 'warning' | 'danger';
 
 export type NexusWorkspaceId = 'study' | 'build' | 'chill';
 
-/** GATE Arena launch modes understood by the 'warrior:gate-start-quiz' contract event. */
-export type NexusGateMode = 'quiz' | 'mock' | 'flashcards' | 'planner';
+/**
+ * Training Grounds launch modes understood by the 'warrior:training-start'
+ * contract event. 'flashcards' is the spaced-repetition review of due cards.
+ */
+export type NexusTrainingMode = 'quiz' | 'mock' | 'flashcards' | 'planner';
 
 /**
  * An executable OS command — the single currency of NexusCore.
@@ -32,7 +35,10 @@ export type NexusCommand =
   | { type: 'close_all' }
   | { type: 'switch_workspace'; workspaceId: NexusWorkspaceId }
   | { type: 'search_notes'; query: string }
-  | { type: 'start_quiz'; mode: NexusGateMode; subject?: string }
+  /** `subject` is free text naming one of the user's decks or topics. */
+  | { type: 'start_quiz'; mode: NexusTrainingMode; subject?: string }
+  /** Deck report: mastery and cards due per deck. */
+  | { type: 'show_decks' }
   | { type: 'study_mode' }
   | { type: 'chill_mode' }
   | { type: 'change_wallpaper'; wallpaperId?: string }
@@ -113,6 +119,14 @@ export interface NexusContext {
   studyHoursToday: number;
   /** Local wall-clock time, e.g. "21:40" */
   localTime?: string;
+  /** Who is using this browser: the OS owner or a visitor exploring it */
+  visitor?: 'owner' | 'guest';
+  /** Names of the user's learning decks (Training Grounds), capped */
+  decks?: string[];
+  /** Cards due for spaced-repetition review right now (new cards excluded) */
+  dueCards?: number;
+  /** Deck to work on next: most cards due, else the weakest started one */
+  focusDeck?: string;
   /** Multi-line OS-state summary, only sent when the context toggle is on */
   summary?: string;
 }
@@ -140,6 +154,7 @@ export type NexusWireActionType =
   | 'stop_pomodoro'
   | 'switch_workspace'
   | 'show_stats'
+  | 'show_decks'
   | 'take_break'
   | 'ask';
 

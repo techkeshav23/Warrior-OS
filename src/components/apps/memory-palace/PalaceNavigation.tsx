@@ -2,7 +2,7 @@
 // WARRIOR OS — Memory Palace: Navigation (spec 6.26)
 // DOM overlay (outside the Canvas):
 //   • corner minimap — top-down view of every built room, the corridor,
-//     wing gates and the grand hall, with the player's position + heading
+//     wing archways and the grand hall, with the player's position + heading
 //   • click a room → teleport (the camera flies through the corridors)
 //   • breadcrumb trail of visited rooms (click to fly back)
 // Room labels above the doorways are 3D signs (PalaceRoomGenerator).
@@ -18,10 +18,13 @@ import { CORR_HALF, ROOM_SIZE, WALL_T, type PalaceLayout } from './PalaceGrowth'
 export interface RoomLayout {
   key: string;
   label: string;
-  subject: string;
+  /** Room group ('deck:…', 'tag:…', 'projects'…). */
+  group: string;
+  /** Up to 3 letters drawn on the minimap tile. */
+  short: string;
   accent: string;
   center: [number, number];
-  noteCount: number;
+  objectCount: number;
   dueCount: number;
 }
 
@@ -134,7 +137,7 @@ function PalaceNavigationInner({
                   key={r.key}
                   onClick={() => onTeleport(r.key)}
                   disabled={flying || underConstruction}
-                  title={`${r.label} · ${r.noteCount} object${r.noteCount === 1 ? '' : 's'}${r.dueCount ? ` · ${r.dueCount} due` : ''}`}
+                  title={`${r.label} · ${r.objectCount} object${r.objectCount === 1 ? '' : 's'}${r.dueCount ? ` · ${r.dueCount} due` : ''}`}
                   className={cn(
                     'absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[3px] border text-[7px] font-bold leading-none transition-transform',
                     !flying && !underConstruction && 'hover:z-10 hover:scale-110',
@@ -151,7 +154,7 @@ function PalaceNavigationInner({
                     boxShadow: isHere ? `0 0 8px ${r.accent}` : undefined,
                   }}
                 >
-                  {roomPx > 16 ? r.subject.replace(/[^A-Z]/g, '').slice(0, 3) || r.subject.slice(0, 3) : ''}
+                  {roomPx > 16 ? r.short : ''}
                   {r.dueCount > 0 && (
                     <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-accent-danger shadow-[0_0_4px_#ff1744]" />
                   )}

@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Quiz Achievements
 // Training Grounds quiz / mock test completion → first-quiz,
-// quiz-streak-5, perfect-quiz, all-subjects (every deck),
-// quiz-master (+ history back-fill)
+// quiz-streak-5, perfect-quiz, all-subjects (a quiz in every deck),
+// quiz-master, plus the back-fill from saved quiz history
 // ═══════════════════════════════════════════════════════════
 
 import { useQuizHistoryStore, type QuizAttempt } from '@/stores/useQuizHistoryStore';
@@ -25,12 +25,17 @@ const SAME_QUIZ_WINDOW_MS = 1000;
 
 export interface QuizCompletion {
   kind: 'quiz' | 'mock';
-  /** Learning deck of a single-deck quiz or mock; null for a mixed mock. */
+  /** Deck of a single-deck quiz or mock test; null when it mixed decks. */
   deckId: string | null;
   /** Per question, in the order shown: answered correctly? */
   results: readonly boolean[];
   /** Questions the user answered, right or wrong. */
   answered: number;
+  /**
+   * A "retry wrong ones" round over answers that were just shown: it counts
+   * as a completed quiz, but earns no answer-streak or perfect-score unlock.
+   */
+  retry?: boolean;
 }
 
 /** Longest run of consecutive correct answers. */
@@ -45,15 +50,21 @@ export function longestCorrectRun(results: readonly boolean[]): number {
 }
 
 export interface HistoricQuiz {
-  subject: string;
+  /** Deck id (legacy rows: the stored quiz name). */
+  key: string;
   totalQuestions: number;
   correctAnswers: number;
+  retry: boolean;
+}
+
+function quizKey(attempt: QuizAttempt): string {
+  return attempt.deckId || attempt.subject;
 }
 
 /**
  * Rebuild whole quizzes from quiz-history rows. A mixed-topic quiz is stored
  * as one row per topic, all written in the same instant, so rows of the same
- * subject recorded within SAME_QUIZ_WINDOW_MS belong to one quiz.
+ * deck recorded within SAME_QUIZ_WINDOW_MS belong to one quiz.
  */
 export function groupAttemptsIntoQuizzes(attempts: readonly QuizAttempt[]): HistoricQuiz[] {
   const sorted = attempts
@@ -64,14 +75,17 @@ export function groupAttemptsIntoQuizzes(attempts: readonly QuizAttempt[]): Hist
   let lastTimestamp = Number.NEGATIVE_INFINITY;
   for (const a of sorted) {
     const current = quizzes[quizzes.length - 1];
-    if (current && current.subject === a.subject && a.timestamp - lastTimestamp <= SAME_QUIZ_WINDOW_MS) {
+    const key = quizKey(a);
+    if (current && current.key === key && a.timestamp - lastTimestamp <= SAME_QUIZ_WINDOW_MS) {
       current.totalQuestions += a.totalQuestions;
       current.correctAnswers += a.correctAnswers;
+      if (a.retry) current.retry = true;
     } else {
       quizzes.push({
-        subject: a.subject,
+        key,
         totalQuestions: a.totalQuestions,
         correctAnswers: a.correctAnswers,
+        retry: Boolean(a.retry),
       });
     }
     lastTimestamp = a.timestamp;
@@ -83,13 +97,13 @@ export function groupAttemptsIntoQuizzes(attempts: readonly QuizAttempt[]): Hist
  * Every deck with quiz questions (at least ALL_DECKS_MIN_DECKS of them)
  * has a completed quiz or single-deck mock test.
  */
-export function allSubjectsCovered(): boolean {
+export function allDecksCovered(): boolean {
   const required = useLearningStore
     .getState()
     .decks.filter((d) => d.topics.some((t) => t.cards.some(isQuizCard)))
     .map((d) => d.id);
   if (required.length < ALL_DECKS_MIN_DECKS) return false;
-  // subjectsQuizzed holds deck ids (older saves: subject names, which match no deck).
+  // The progress store keeps quizzed deck ids for good (quiz history is capped).
   const seen = new Set<string>(useAchievementProgressStore.getState().subjectsQuizzed);
   for (const a of useQuizHistoryStore.getState().attempts) if (a.deckId) seen.add(a.deckId);
   return required.every((id) => seen.has(id));
@@ -97,7 +111,7 @@ export function allSubjectsCovered(): boolean {
 
 /**
  * Call once when a quiz or mock test is submitted. For kind 'quiz' call it
- * after QuizEngine has written the attempt to useQuizHistoryStore.
+ * after QuizEngine has written the quiz to useQuizHistoryStore.
  */
 export function recordQuizCompletion(completion: QuizCompletion): void {
   // A blank submission is not a completed quiz.
@@ -117,13 +131,15 @@ export function recordQuizCompletion(completion: QuizCompletion): void {
   if (completion.deckId) progress.addQuizSubject(completion.deckId);
 
   unlock('first-quiz');
-  if (longestCorrectRun(completion.results) >= ANSWER_STREAK_TARGET) unlock('quiz-streak-5');
-  const correct = completion.results.filter(Boolean).length;
-  if (completion.results.length >= PERFECT_QUIZ_MIN_QUESTIONS && correct === completion.results.length) {
-    unlock('perfect-quiz');
+  if (!completion.retry) {
+    if (longestCorrectRun(completion.results) >= ANSWER_STREAK_TARGET) unlock('quiz-streak-5');
+    const correct = completion.results.filter(Boolean).length;
+    if (completion.results.length >= PERFECT_QUIZ_MIN_QUESTIONS && correct === completion.results.length) {
+      unlock('perfect-quiz');
+    }
   }
   if (completed >= QUIZ_MASTER_TARGET) unlock('quiz-master');
-  if (allSubjectsCovered()) unlock('all-subjects');
+  if (allDecksCovered()) unlock('all-subjects');
   checkStudyHourAchievements();
   // Today counts for the study streak (mock tests included).
   recordStudyAction();
@@ -143,12 +159,12 @@ export function quizAchievementsFromHistory(): WiredAchievementId[] {
   if (completed > 0) ids.push('first-quiz');
   if (
     quizzes.some(
-      (q) => q.totalQuestions >= PERFECT_QUIZ_MIN_QUESTIONS && q.correctAnswers === q.totalQuestions
+      (q) => !q.retry && q.totalQuestions >= PERFECT_QUIZ_MIN_QUESTIONS && q.correctAnswers === q.totalQuestions
     )
   ) {
     ids.push('perfect-quiz');
   }
-  if (allSubjectsCovered()) ids.push('all-subjects');
+  if (allDecksCovered()) ids.push('all-subjects');
   if (completed >= QUIZ_MASTER_TARGET) ids.push('quiz-master');
   return ids;
 }

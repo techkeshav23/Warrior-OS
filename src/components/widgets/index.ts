@@ -13,11 +13,10 @@ export {
   useWidgetStore,
   WIDGET_IDS,
   WIDGET_LABELS,
-  TARGET_MIN,
-  TARGET_MAX,
-  TARGET_STEP,
-  TARGET_DEFAULT,
+  DAILY_GOALS,
+  DAILY_GOAL_KINDS,
+  clampGoalTarget,
 } from './useWidgetStore';
-export type { WidgetId, WidgetPosition } from './useWidgetStore';
-export { unlockAchievementWhenReady, nexusSay, NEXUS_SAY_EVENT } from './os-events';
+export type { WidgetId, WidgetPosition, DailyGoalKind, DailyGoalSpec } from './useWidgetStore';
+export { unlockAchievementWhenReady, nexusSay, openApp, openTrainingGrounds, NEXUS_SAY_EVENT } from './os-events';
 export type { NexusTone, NexusSayDetail } from './os-events';

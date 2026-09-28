@@ -54,7 +54,7 @@ const hackNasaOutput = `> nmap -sS mission-control.nasa (simulated)
   PORT     STATE    SERVICE
   22/tcp   filtered ssh
   443/tcp  open     https
-> bruteforce --target=orbital-uplink --wordlist=gate-syllabus.txt
+> bruteforce --target=orbital-uplink --wordlist=excuses-i-have-used.txt
   [████████████████████████████] 100%
 > decrypting telemetry ......... OK
 > rerouting satellite dish ..... OK
@@ -62,8 +62,8 @@ const hackNasaOutput = `> nmap -sS mission-control.nasa (simulated)
 
   ACCESS GRANTED — Houston, we have a warrior.
 
-  Plot twist: the only file on the server was the GATE syllabus.
-  (Nothing was hacked. It's an easter egg. Go study, astronaut. 🚀)`;
+  Plot twist: the only file on the server was your own to-do list.
+  (Nothing was hacked. It's an easter egg. Go ship something, astronaut. 🚀)`;
 
 const hackCommand: EasterEggHandler = (args) => {
   if (args[0]?.toLowerCase() === 'nasa') {
@@ -76,14 +76,14 @@ const hackCommand: EasterEggHandler = (args) => {
 
   ACCESS GRANTED
   ═══════════════════════════════
-  Connecting to GATE exam server...
-  Downloading question bank...
+  Connecting to skill-download server...
+  Downloading 10,000 hours of practice...
   Injecting knowledge directly...
 
   ERROR: Shortcut not found.
 
   The only hack is HARD WORK. 💪
-  Get back to studying, warrior.`,
+  Get back to your decks, warrior.`,
   };
 };
 
@@ -95,8 +95,8 @@ const motivateCommand: EasterEggHandler = () => {
   ║   YOUR EXCUSES               ║
   ╚═══════════════════════════════╝
 
-  Every hour you study is one step closer.
-  AIR 1 studied the same syllabus. You can too.`,
+  Every hour you put in is one step closer.
+  Every master was once a disaster. Keep going.`,
 
     `
   🔥 WARRIOR MODE: ACTIVATED 🔥
@@ -105,7 +105,7 @@ const motivateCommand: EasterEggHandler = () => {
   While others sleep, you solve.
   While others quit, you persist.
 
-  GATE is not about genius — it's about GRIT.`,
+  Mastery is not about genius — it's about GRIT.`,
 
     `
   ┌─────────────────────────────┐
@@ -115,7 +115,7 @@ const motivateCommand: EasterEggHandler = () => {
   │  • You can handle this      │
   │  • Consistency > Intensity  │
   │  • Progress is progress     │
-  │  • You WILL crack GATE      │
+  │  • You WILL level up        │
   └─────────────────────────────┘`,
   ];
   return {
@@ -208,7 +208,7 @@ const rickrollCommand: EasterEggHandler = () => ({
   You typed it. You know what this is.
   You have been officially rickrolled, warrior. 🕺
 
-  (Now close the dance floor and open GATE Arena.)`,
+  (Now close the dance floor and open Training Grounds.)`,
 });
 
 const jarvisCommand: EasterEggHandler = () => ({
@@ -221,7 +221,7 @@ const jarvisCommand: EasterEggHandler = () => ({
 const konamiCommand: EasterEggHandler = () => ({
   eggId: 'konami',
   type: 'info',
-  output: `Legends speak of a code older than GATE itself:
+  output: `Legends speak of a code older than this OS itself:
 
       ↑  ↑  ↓  ↓  ←  →  ←  →  B  A
 

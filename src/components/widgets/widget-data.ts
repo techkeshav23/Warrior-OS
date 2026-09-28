@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Widget Data Helpers
 // Pure functions that turn real OS data (Habit Forge's habits and
-// the quiz history store) into widget numbers. Day keys are UTC
-// dates, exactly like Habit Forge, routines, the planner and Stats
-// Center's StreakBoard, so every streak in the OS agrees.
+// the learning store's answer log) into widget numbers. Day keys are
+// UTC dates, exactly like Habit Forge, routines, the planner and the
+// study streak, so every "today" in the OS agrees.
 // ═══════════════════════════════════════════════════════════
 
-import type { QuizAttempt } from '@/stores/useQuizHistoryStore';
+import type { CardAttempt } from '@/types/learning';
 
 export const HABITS_STORAGE_KEY = 'warrior-habits';
 export const DAY_MS = 24 * 60 * 60 * 1000;
@@ -65,8 +65,9 @@ export interface StreakInfo {
 }
 
 /**
- * Same rule as Stats Center's StreakBoard: a day is active when at least
- * one habit was completed; a not-yet-done "today" does not break the run.
+ * Habit streak: a day is active when at least one habit was completed;
+ * a not-yet-done "today" does not break the run. (Stats Center shows it
+ * next to the study streak, which also counts cards, quizzes and notes.)
  */
 export function computeStreak(habits: HabitSnapshot[], nowMs: number): StreakInfo {
   const activeDays = new Set<string>();
@@ -111,17 +112,21 @@ export function habitsDoneOn(habits: HabitSnapshot[], dayKey: string): { done: n
   return { done, total: habits.length };
 }
 
-/** Questions answered (and answered correctly) on a given UTC day. */
-export function questionsOn(
-  attempts: QuizAttempt[],
+/** Cards answered (and answered right) on a given UTC day: quizzes, mock tests and reviews alike. */
+export function cardsAnsweredOn(
+  attempts: readonly CardAttempt[],
   dayKey: string
-): { solved: number; correct: number } {
-  let solved = 0;
+): { answered: number; correct: number } {
+  const start = Date.parse(`${dayKey}T00:00:00Z`);
+  if (Number.isNaN(start)) return { answered: 0, correct: 0 };
+  const end = start + DAY_MS;
+  let answered = 0;
   let correct = 0;
   for (const attempt of attempts) {
-    if (!Number.isFinite(attempt.timestamp) || utcDayKey(attempt.timestamp) !== dayKey) continue;
-    solved += Math.max(0, attempt.totalQuestions);
-    correct += Math.max(0, Math.min(attempt.correctAnswers, attempt.totalQuestions));
+    const t = attempt.timestamp;
+    if (!Number.isFinite(t) || t < start || t >= end) continue;
+    answered++;
+    if (attempt.correct) correct++;
   }
-  return { solved, correct };
+  return { answered, correct };
 }

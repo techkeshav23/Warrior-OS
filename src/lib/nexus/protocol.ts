@@ -42,6 +42,7 @@ export const NEXUS_WIRE_ACTION_TYPES: readonly NexusWireActionType[] = [
   'stop_pomodoro',
   'switch_workspace',
   'show_stats',
+  'show_decks',
   'take_break',
   'ask',
 ];
