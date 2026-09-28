@@ -12,3 +12,8 @@ export * from './project';
 export * from './nexus';
 export * from './notification';
 export * from './wallpaper';
+export * from './creature';
+export * from './ghost';
+export * from './phantom';
+export * from './biometrics';
+export * from './dream';

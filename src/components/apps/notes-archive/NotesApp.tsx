@@ -7,7 +7,6 @@
 
 import { useState, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
 import { NotesList } from './NotesList';
 import { MarkdownEditor } from './MarkdownEditor';
 import { SearchPanel } from './SearchPanel';

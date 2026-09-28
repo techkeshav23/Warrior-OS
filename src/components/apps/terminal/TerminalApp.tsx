@@ -58,7 +58,7 @@ function TerminalAppInner() {
       const name = parts[0].toLowerCase();
       const args = parts.slice(1);
 
-      let resultLines: TerminalLine[] = [inputLine];
+      const resultLines: TerminalLine[] = [inputLine];
 
       if (name === 'clear') {
         setLines([]);

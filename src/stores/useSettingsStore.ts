@@ -26,6 +26,12 @@ interface SettingsState {
   autoLockTimeout: number;   // minutes
   adaptiveWallpaper: boolean; // auto-switch by time
 
+  // Phase 6 features
+  ghostWarriors: boolean;     // anonymous multiplayer presence overlay
+  phantomWindows: boolean;    // ghosts of closed apps
+  dreams: boolean;            // NEXUS cinematic recap on login
+  biometricsEnabled: boolean; // typing biometrics tracking
+
   // Actions
   setWallpaper: (id: string) => void;
   setAccentColor: (color: string) => void;
@@ -39,6 +45,10 @@ interface SettingsState {
   toggleAutoLock: () => void;
   setAutoLockTimeout: (minutes: number) => void;
   toggleAdaptiveWallpaper: () => void;
+  toggleGhostWarriors: () => void;
+  togglePhantomWindows: () => void;
+  toggleDreams: () => void;
+  toggleBiometrics: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -57,6 +67,10 @@ export const useSettingsStore = create<SettingsState>()(
       autoLock: false,
       autoLockTimeout: 10,
       adaptiveWallpaper: true,
+      ghostWarriors: true,
+      phantomWindows: true,
+      dreams: true,
+      biometricsEnabled: true,
 
       setWallpaper: (id) => set((s) => { s.wallpaper = id; }),
       setAccentColor: (color) => set((s) => { s.accentColor = color; }),
@@ -70,6 +84,10 @@ export const useSettingsStore = create<SettingsState>()(
       toggleAutoLock: () => set((s) => { s.autoLock = !s.autoLock; }),
       setAutoLockTimeout: (minutes) => set((s) => { s.autoLockTimeout = minutes; }),
       toggleAdaptiveWallpaper: () => set((s) => { s.adaptiveWallpaper = !s.adaptiveWallpaper; }),
+      toggleGhostWarriors: () => set((s) => { s.ghostWarriors = !s.ghostWarriors; }),
+      togglePhantomWindows: () => set((s) => { s.phantomWindows = !s.phantomWindows; }),
+      toggleDreams: () => set((s) => { s.dreams = !s.dreams; }),
+      toggleBiometrics: () => set((s) => { s.biometricsEnabled = !s.biometricsEnabled; }),
     })),
     {
       name: 'warrior-os-settings',

@@ -32,7 +32,9 @@ const WALLPAPERS = [
 function AppearanceTabInner() {
   const {
     wallpaper, accentColor, glassOpacity, crtEffect, cursorTrail, adaptiveWallpaper,
+    ghostWarriors, phantomWindows, dreams, biometricsEnabled,
     setWallpaper, setAccentColor, setGlassOpacity, toggleCRT, toggleCursorTrail, toggleAdaptiveWallpaper,
+    toggleGhostWarriors, togglePhantomWindows, toggleDreams, toggleBiometrics,
   } = useSettingsStore();
 
   return (
@@ -101,6 +103,15 @@ function AppearanceTabInner() {
         <ToggleRow label="CRT Scanlines" enabled={crtEffect} onToggle={toggleCRT} />
         <ToggleRow label="Cursor Trail" enabled={cursorTrail} onToggle={toggleCursorTrail} />
         <ToggleRow label="Adaptive Wallpaper" enabled={adaptiveWallpaper} onToggle={toggleAdaptiveWallpaper} />
+      </section>
+
+      {/* Living OS features */}
+      <section className="space-y-3">
+        <label className="text-xs text-white/60 font-semibold">Living OS</label>
+        <ToggleRow label="Ghost Warriors" enabled={ghostWarriors} onToggle={toggleGhostWarriors} />
+        <ToggleRow label="Phantom Windows" enabled={phantomWindows} onToggle={togglePhantomWindows} />
+        <ToggleRow label="NEXUS Dreams" enabled={dreams} onToggle={toggleDreams} />
+        <ToggleRow label="Typing Biometrics" enabled={biometricsEnabled} onToggle={toggleBiometrics} />
       </section>
     </div>
   );

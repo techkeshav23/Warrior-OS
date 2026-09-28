@@ -11,10 +11,13 @@ import { HabitForgeApp } from '@/components/apps/habit-forge/HabitForgeApp';
 import { StatsCenterApp } from '@/components/apps/stats-center/StatsCenterApp';
 import { SettingsApp } from '@/components/apps/settings/SettingsApp';
 import { TerminalApp } from '@/components/apps/terminal/TerminalApp';
-
-// Placeholder component for apps not yet built
-// Remaining apps will get their components in Phase 4-6
-const PlaceholderApp = () => null;
+import { AIAssistApp } from '@/components/apps/ai-assist/AIAssistApp';
+import { CalculatorApp } from '@/components/apps/calculator/CalculatorApp';
+import { WeatherApp } from '@/components/apps/weather/WeatherApp';
+import { FilesApp } from '@/components/apps/files/FilesApp';
+import { ProjectsApp } from '@/components/apps/projects/ProjectsApp';
+import { CodeLabApp } from '@/components/apps/code-lab/CodeLabApp';
+import { MemoryPalaceApp } from '@/components/apps/memory-palace';
 
 /**
  * Master registry of all WARRIOR OS applications.
@@ -64,13 +67,25 @@ export const APP_REGISTRY: AppDefinition[] = [
     category: 'study',
     description: 'Rich markdown note-taking with auto-save',
   },
+  {
+    id: 'memory-palace',
+    name: 'Memory Palace',
+    icon: '🏛️',
+    component: MemoryPalaceApp,
+    defaultSize: { width: 960, height: 680 },
+    minSize: { width: 640, height: 460 },
+    category: 'study',
+    description: '3D walkable knowledge space — explore your notes as glowing objects',
+    shortcut: 'ctrl+shift+m',
+    singleton: true,
+  },
 
   // ─── BUILD APPS ───
   {
     id: 'code-editor',
     name: 'Code Lab',
     icon: '💻',
-    component: PlaceholderApp,
+    component: CodeLabApp,
     defaultSize: { width: 950, height: 700 },
     minSize: { width: 600, height: 400 },
     category: 'build',
@@ -81,7 +96,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     id: 'project-tracker',
     name: 'Projects',
     icon: '🚀',
-    component: PlaceholderApp,
+    component: ProjectsApp,
     defaultSize: { width: 850, height: 600 },
     minSize: { width: 500, height: 350 },
     category: 'build',
@@ -104,7 +119,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     id: 'nexus-ai',
     name: 'NEXUS AI',
     icon: '🧠',
-    component: PlaceholderApp,
+    component: AIAssistApp,
     defaultSize: { width: 450, height: 600 },
     minSize: { width: 350, height: 400 },
     category: 'utility',
@@ -127,7 +142,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     id: 'file-manager',
     name: 'Files',
     icon: '📁',
-    component: PlaceholderApp,
+    component: FilesApp,
     defaultSize: { width: 800, height: 550 },
     minSize: { width: 500, height: 350 },
     category: 'utility',
@@ -137,7 +152,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     id: 'calculator',
     name: 'Calculator',
     icon: '🔢',
-    component: PlaceholderApp,
+    component: CalculatorApp,
     defaultSize: { width: 350, height: 500 },
     minSize: { width: 280, height: 400 },
     category: 'utility',
@@ -161,7 +176,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     id: 'weather',
     name: 'Weather',
     icon: '🌤️',
-    component: PlaceholderApp,
+    component: WeatherApp,
     defaultSize: { width: 400, height: 450 },
     minSize: { width: 300, height: 300 },
     category: 'chill',

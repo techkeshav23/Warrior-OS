@@ -5,9 +5,9 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Volume2, VolumeX, Bell, Wifi } from 'lucide-react';
+import { useCallback } from 'react';
+import { motion } from 'framer-motion';
+import { Shield, Volume2, VolumeX, Wifi } from 'lucide-react';
 import { useWindowStore } from '@/stores/useWindowStore';
 import { useAppStore } from '@/stores/useAppStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
@@ -20,7 +20,7 @@ interface TaskbarProps {
   onNotificationClick?: () => void;
 }
 
-export function Taskbar({ onStartClick, onNotificationClick }: TaskbarProps) {
+export function Taskbar({ onStartClick, onNotificationClick: _onNotificationClick }: TaskbarProps) {
   const windows = useWindowStore((s) => s.windows);
   const toggleMinimize = useWindowStore((s) => s.toggleMinimize);
   const registeredApps = useAppStore((s) => s.registeredApps);

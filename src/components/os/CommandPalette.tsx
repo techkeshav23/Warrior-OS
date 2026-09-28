@@ -5,11 +5,13 @@
 
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ArrowRight } from 'lucide-react';
+import { Search, ArrowRight, Sparkles } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
+import { useNexusStore } from '@/stores/useNexusStore';
+import { useNexusCore } from '@/components/nexus/NexusCore';
 import { cn } from '@/lib/utils';
 
 interface CommandPaletteProps {
@@ -22,6 +24,7 @@ interface CommandItem {
   label: string;
   category: string;
   action: () => void;
+  isNexus?: boolean;
 }
 
 export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
@@ -32,6 +35,33 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const registeredApps = useAppStore((s) => s.registeredApps);
   const launchApp = useAppStore((s) => s.launchApp);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const addNexusMessage = useNexusStore((s) => s.addMessage);
+  const setNexusProcessing = useNexusStore((s) => s.setProcessing);
+  const { ask } = useNexusCore();
+
+  /**
+   * Hand off the current query to NEXUS: open the AI Assist window,
+   * post the user message, fire the request, post the reply.
+   */
+  const askNexusWith = useCallback(
+    (text: string) => {
+      const q = text.trim();
+      if (!q) return;
+      launchApp('nexus-ai', activeWorkspaceId);
+      addNexusMessage('user', q);
+      setNexusProcessing(true);
+      void (async () => {
+        try {
+          const { reply } = await ask(q);
+          addNexusMessage('nexus', reply);
+        } finally {
+          setNexusProcessing(false);
+        }
+      })();
+      onClose();
+    },
+    [launchApp, activeWorkspaceId, addNexusMessage, setNexusProcessing, ask, onClose]
+  );
 
   // Build command list
   const commands = useMemo<CommandItem[]>(() => {
@@ -93,24 +123,45 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
 
   // Filter
   const filtered = useMemo(() => {
-    if (!query.trim()) return commands;
-    const q = query.toLowerCase();
-    return commands.filter(
-      (c) => c.label.toLowerCase().includes(q) || c.category.toLowerCase().includes(q)
+    const q = query.trim();
+    if (!q) return commands;
+    const lower = q.toLowerCase();
+    const matches = commands.filter(
+      (c) => c.label.toLowerCase().includes(lower) || c.category.toLowerCase().includes(lower)
     );
-  }, [commands, query]);
 
-  // Reset selection on filter change
-  useEffect(() => {
+    // Always offer "Ask NEXUS" as the last option when there's a query, so
+    // any free-form question reaches the AI without leaving the palette.
+    const askEntry: CommandItem = {
+      id: 'nexus-ask',
+      label: `Ask NEXUS: ${q.length > 60 ? q.slice(0, 60) + '…' : q}`,
+      category: 'NEXUS',
+      action: () => askNexusWith(q),
+      isNexus: true,
+    };
+    return [...matches, askEntry];
+  }, [commands, query, askNexusWith]);
+
+  // Reset selectedIndex when the filter query changes — using the "store info from
+  // previous render" pattern instead of setState-in-effect to avoid an extra render.
+  const [prevQuery, setPrevQuery] = useState(query);
+  if (prevQuery !== query) {
+    setPrevQuery(query);
     setSelectedIndex(0);
-  }, [query]);
+  }
 
-  // Focus input on open
+  // Reset query when the palette opens (snapshot pattern for the same reason)
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (prevIsOpen !== isOpen) {
+    setPrevIsOpen(isOpen);
+    if (isOpen) setQuery('');
+  }
+
+  // Focus input on open — useEffect only for the imperative DOM call
   useEffect(() => {
-    if (isOpen) {
-      setQuery('');
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
+    if (!isOpen) return;
+    const id = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(id);
   }, [isOpen]);
 
   // Keyboard navigation
@@ -200,11 +251,17 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                       'w-full flex items-center gap-3 px-4 py-2 text-left',
                       'transition-colors duration-75',
                       i === selectedIndex
-                        ? 'bg-accent-primary/10 text-accent-primary'
+                        ? cmd.isNexus
+                          ? 'bg-cyan-500/10 text-cyan-300'
+                          : 'bg-accent-primary/10 text-accent-primary'
                         : 'text-text-secondary hover:bg-white/5'
                     )}
                   >
-                    <ArrowRight className="w-3 h-3 flex-shrink-0 opacity-50" />
+                    {cmd.isNexus ? (
+                      <Sparkles className="w-3 h-3 flex-shrink-0 opacity-80 text-cyan-400" />
+                    ) : (
+                      <ArrowRight className="w-3 h-3 flex-shrink-0 opacity-50" />
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-mono truncate">{cmd.label}</p>
                     </div>

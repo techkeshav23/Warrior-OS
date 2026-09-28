@@ -5,18 +5,22 @@
 
 'use client';
 
-import { useMemo, memo } from 'react';
+import { memo } from 'react';
 import { getAvailableSubjects } from '@/data/gate-questions';
+import { useQuizHistoryStore } from '@/stores/useQuizHistoryStore';
 
 function RadarChartInner() {
-  const subjects = useMemo(() => getAvailableSubjects(), []);
+  const subjects = getAvailableSubjects();
   const n = subjects.length;
   const cx = 120;
   const cy = 120;
   const maxR = 90;
 
-  // Placeholder mastery values — will be driven by quiz results
-  const values = useMemo(() => subjects.map(() => Math.random() * 0.3), [subjects]);
+  // Subscribe to attempts so the chart re-renders when new quiz data lands.
+  // Compute mastery inline — 12 subjects × O(window) is negligible per render.
+  useQuizHistoryStore((s) => s.attempts);
+  const getMastery = useQuizHistoryStore((s) => s.getMastery);
+  const values = subjects.map((s) => getMastery(s));
 
   const getPoint = (index: number, value: number) => {
     const angle = (Math.PI * 2 * index) / n - Math.PI / 2;

@@ -16,7 +16,7 @@ interface SystemTrayProps {
   onNotificationClick?: () => void;
 }
 
-export function SystemTray({ onNotificationClick }: SystemTrayProps) {
+export function SystemTray({ onNotificationClick: _onNotificationClick }: SystemTrayProps) {
   const [expanded, setExpanded] = useState(false);
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const toggleSound = useSettingsStore((s) => s.toggleSound);

@@ -67,7 +67,7 @@ export const useXPStore = create<XPStore>()(
         return current.maxXP - xp;
       },
 
-      addXP: (amount, _source) => {
+      addXP: (amount) => {
         set((state) => {
           state.xp += amount;
           const newLevel = calculateLevel(state.xp);

@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useMemo, memo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { FORMULA_CARDS, getFormulaSubjects, getFormulasBySubject } from '@/data/formulas';
 

@@ -5,18 +5,19 @@
 
 'use client';
 
-import { useMemo, memo } from 'react';
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { getAvailableSubjects, getQuestionsBySubject } from '@/data/gate-questions';
 import { getTopicsForSubject } from '@/data/gate-questions';
+import { useQuizHistoryStore } from '@/stores/useQuizHistoryStore';
 
 interface SubjectNode {
   subject: string;
   topicCount: number;
   questionCount: number;
-  // Mastery 0-100 (placeholder — will be driven by quiz results later)
-  mastery: number;
+  mastery: number;        // 0-100
+  attempts: number;
 }
 
 function getMasteryColor(mastery: number): string {
@@ -27,14 +28,19 @@ function getMasteryColor(mastery: number): string {
 }
 
 function SkillTreeInner() {
-  const nodes = useMemo<SubjectNode[]>(() => {
-    return getAvailableSubjects().map((subject) => ({
-      subject,
-      topicCount: getTopicsForSubject(subject).length,
-      questionCount: getQuestionsBySubject(subject).length,
-      mastery: 0, // Will be computed from Firestore quiz history
-    }));
-  }, []);
+  // Subscribe to attempts so the tree re-renders when a quiz completes.
+  // Derive inline — ~12 subjects, negligible cost per render.
+  useQuizHistoryStore((s) => s.attempts);
+  const getMastery = useQuizHistoryStore((s) => s.getMastery);
+  const getAttemptCount = useQuizHistoryStore((s) => s.getAttemptCount);
+
+  const nodes: SubjectNode[] = getAvailableSubjects().map((subject) => ({
+    subject,
+    topicCount: getTopicsForSubject(subject).length,
+    questionCount: getQuestionsBySubject(subject).length,
+    mastery: Math.round(getMastery(subject) * 100),
+    attempts: getAttemptCount(subject),
+  }));
 
   return (
     <div className="p-6 space-y-6">
@@ -69,7 +75,10 @@ function SkillTreeInner() {
                 style={{ width: `${Math.max(node.mastery, 2)}%` }}
               />
             </div>
-            <p className="text-[10px] mt-1 opacity-60">{node.mastery}% mastery</p>
+            <p className="text-[10px] mt-1 opacity-60">
+              {node.mastery}% mastery
+              {node.attempts > 0 ? ` • ${node.attempts} attempt${node.attempts === 1 ? '' : 's'}` : ' • untouched'}
+            </p>
           </motion.div>
         ))}
       </div>

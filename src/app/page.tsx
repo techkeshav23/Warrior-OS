@@ -32,15 +32,29 @@ import { WallpaperEngine } from '@/components/wallpapers/WallpaperEngine';
 import { AudioReactive } from '@/components/effects/AudioReactive';
 import { CursorTrail } from '@/components/effects/CursorTrail';
 
+// Phase 6 global overlays
+import { WarriorCreature } from '@/components/creature';
+import { GhostLayer } from '@/components/ghost';
+import { RealityDecay } from '@/components/decay';
+import { PhantomLayer } from '@/components/phantom';
+import { TypingTracker, VitalsWidget } from '@/components/biometrics';
+import { DreamSequence } from '@/components/dream';
+
 // Notification store for toasts
 import { useNotificationStore } from '@/stores/useNotificationStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
+import { useSettingsStore } from '@/stores/useSettingsStore';
 
 export default function WarriorOS() {
   const phase = useOSStore((s) => s.phase);
   const nextPhase = useOSStore((s) => s.nextPhase);
+  const setPhase = useOSStore((s) => s.setPhase);
   const registerApps = useAppStore((s) => s.registerApps);
   const switchWorkspace = useWorkspaceStore((s) => s.switchWorkspace);
+
+  // Phase 6 feature toggles
+  const ghostWarriors = useSettingsStore((s) => s.ghostWarriors);
+  const phantomWindows = useSettingsStore((s) => s.phantomWindows);
 
   // UI state
   const [startMenuOpen, setStartMenuOpen] = useState(false);
@@ -58,6 +72,11 @@ export default function WarriorOS() {
   useEffect(() => {
     registerApps(APP_REGISTRY);
   }, [registerApps]);
+
+  // Dream complete → go straight to lock (returning-user flow: dream → lock → desktop)
+  const handleDreamComplete = useCallback(() => {
+    setPhase('lock');
+  }, [setPhase]);
 
   // Boot complete → advance to lock screen
   const handleBootComplete = useCallback(() => {
@@ -90,6 +109,18 @@ export default function WarriorOS() {
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-bg-void select-none">
       <AnimatePresence mode="wait">
+        {/* ═══ DREAM PHASE (returning users only) ═══ */}
+        {phase === 'dream' && (
+          <motion.div
+            key="dream"
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="absolute inset-0"
+          >
+            <DreamSequence onComplete={handleDreamComplete} />
+          </motion.div>
+        )}
+
         {/* ═══ BOOT PHASE ═══ */}
         {phase === 'boot' && (
           <motion.div
@@ -187,6 +218,20 @@ export default function WarriorOS() {
 
             {/* CRT Scanline overlay */}
             <ScanlineOverlay />
+
+            {/* ─── Phase 6 global overlays ─── */}
+            {/* Typing biometrics tracker (invisible, mount once) */}
+            <TypingTracker />
+            {/* Biometrics vitals HUD (draggable) */}
+            <VitalsWidget />
+            {/* Reality Decay engine + stage/break/repair overlays */}
+            <RealityDecay />
+            {/* Phantom Windows — ghosts of closed apps */}
+            {phantomWindows && <PhantomLayer />}
+            {/* Ghost Warriors — anonymous multiplayer presence */}
+            <GhostLayer enabled={ghostWarriors} />
+            {/* Warrior Creature — digital pet (self-positioned) */}
+            <WarriorCreature />
 
             {/* Custom cursor */}
             <CursorManager />

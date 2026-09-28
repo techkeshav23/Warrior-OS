@@ -10,3 +10,7 @@ export { useContextMenu } from './useContextMenu';
 export { useAuth } from './useAuth';
 export { useAdaptiveWallpaper } from './useAdaptiveWallpaper';
 export { useAudioAnalyzer } from './useAudioAnalyzer';
+export { useGhostPresence } from './useGhostPresence';
+export { useDecayEngine } from './useDecayEngine';
+export { useProceduralMusic } from './useProceduralMusic';
+export { useTypingBiometrics } from './useTypingBiometrics';

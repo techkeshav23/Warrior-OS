@@ -9,6 +9,7 @@ import { useState, useCallback, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useXPStore } from '@/stores/useXPStore';
+import { useQuizHistoryStore } from '@/stores/useQuizHistoryStore';
 import type { Question, GateSubject } from '@/types/gate';
 import {
   getAvailableSubjects,
@@ -24,6 +25,7 @@ interface QuizState {
   currentIndex: number;
   answers: Record<string, number | string>;
   startTime: number;
+  endTime: number | null;
 }
 
 function getGrade(pct: number): { grade: string; color: string } {
@@ -41,6 +43,7 @@ function QuizEngineInner() {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [quiz, setQuiz] = useState<QuizState | null>(null);
   const addXP = useXPStore((s) => s.addXP);
+  const recordAttempt = useQuizHistoryStore((s) => s.recordAttempt);
 
   const subjects = useMemo(() => getAvailableSubjects(), []);
   const topics = useMemo(
@@ -61,6 +64,7 @@ function QuizEngineInner() {
       currentIndex: 0,
       answers: {},
       startTime: Date.now(),
+      endTime: null,
     });
     setPhase('quiz');
   }, [selectedSubject, selectedTopic]);
@@ -95,7 +99,6 @@ function QuizEngineInner() {
 
   const submitQuiz = useCallback(() => {
     if (!quiz) return;
-    // Calculate score
     let correct = 0;
     let totalMarks = 0;
     let earnedMarks = 0;
@@ -110,8 +113,44 @@ function QuizEngineInner() {
     const pct = totalMarks > 0 ? (earnedMarks / totalMarks) * 100 : 0;
     const xp = Math.round(correct * 10 + (pct >= 80 ? 50 : 0));
     addXP(xp, 'gate-quiz');
+
+    // Record attempt(s) so SkillTree / RadarChart / NEXUS see real mastery.
+    // If the user filtered by topic, the quiz is single-topic — record one row.
+    // Otherwise the questions can span multiple topics within the subject;
+    // bucket per-topic so we get topic-level mastery granularity.
+    if (selectedSubject) {
+      if (selectedTopic) {
+        recordAttempt({
+          subject: selectedSubject,
+          topic: selectedTopic,
+          totalQuestions: quiz.questions.length,
+          correctAnswers: correct,
+        });
+      } else {
+        const buckets = new Map<string, { total: number; correct: number }>();
+        for (const q of quiz.questions) {
+          const bucket = buckets.get(q.topic) ?? { total: 0, correct: 0 };
+          bucket.total += 1;
+          const userAns = quiz.answers[q.id];
+          if (userAns !== undefined && String(userAns) === String(q.answer)) {
+            bucket.correct += 1;
+          }
+          buckets.set(q.topic, bucket);
+        }
+        for (const [topic, { total, correct: c }] of buckets) {
+          recordAttempt({
+            subject: selectedSubject,
+            topic,
+            totalQuestions: total,
+            correctAnswers: c,
+          });
+        }
+      }
+    }
+
+    setQuiz((prev) => (prev ? { ...prev, endTime: Date.now() } : prev));
     setPhase('results');
-  }, [quiz, addXP]);
+  }, [quiz, addXP, recordAttempt, selectedSubject, selectedTopic]);
 
   const resetQuiz = useCallback(() => {
     setPhase('select');
@@ -340,7 +379,8 @@ function QuizEngineInner() {
       }
     }
     const pct = totalMarks > 0 ? (earnedMarks / totalMarks) * 100 : 0;
-    const timeTaken = Math.round((Date.now() - quiz.startTime) / 1000);
+    const endTime = quiz.endTime ?? quiz.startTime;
+    const timeTaken = Math.round((endTime - quiz.startTime) / 1000);
     const { grade, color } = getGrade(pct);
 
     return (

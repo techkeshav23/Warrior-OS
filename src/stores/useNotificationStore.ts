@@ -26,7 +26,7 @@ interface NotificationStore {
 }
 
 export const useNotificationStore = create<NotificationStore>()(
-  immer((set, get) => ({
+  immer((set) => ({
     notifications: [],
     unreadCount: 0,
 

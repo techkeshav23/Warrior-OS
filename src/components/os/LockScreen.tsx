@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Shield, Zap } from 'lucide-react';
 import { useParallax } from '@/hooks/useParallax';
@@ -31,15 +31,16 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
   const levelTitle = useXPStore((s) => s.getLevelTitle());
   const quote = getQuoteOfDay();
 
-  // Memoize particle positions to prevent re-randomization on every render
-  const particles = useMemo(() =>
-    Array.from({ length: 30 }).map((_, i) => ({
+  // useState initializer runs exactly once — the canonical pattern for
+  // generating non-deterministic initial state without violating render purity.
+  const [particles] = useState(() =>
+    Array.from({ length: 30 }, () => ({
       size: Math.random() * 3 + 1,
       left: Math.random() * 100,
       top: Math.random() * 100,
       duration: 6 + Math.random() * 8,
       delay: Math.random() * 5,
-    })), []
+    }))
   );
 
   const handleUnlock = useCallback(() => {
@@ -243,7 +244,7 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
               transition={{ delay: 1.2 }}
               className="text-text-muted text-xs font-mono text-center max-w-sm mt-4 italic"
             >
-              "{quote}"
+              &ldquo;{quote}&rdquo;
             </motion.p>
           </motion.div>
 

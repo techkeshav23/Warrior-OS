@@ -54,7 +54,8 @@ function StudyPlannerInner() {
   const toggleDone = useCallback((key: string) => {
     setCompleted((prev) => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       localStorage.setItem('warrior-plan-done', JSON.stringify([...next]));
       return next;
     });

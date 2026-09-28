@@ -31,7 +31,7 @@ const sizeStyles = {
 } as const;
 
 export const GlowButton = forwardRef<HTMLButtonElement, GlowButtonProps>(
-  ({ children, variant = 'primary', size = 'md', loading, icon, className, disabled, onClick, type, ...props }, ref) => {
+  ({ children, variant = 'primary', size = 'md', loading, icon, className, disabled, onClick, type }, ref) => {
     const [ripple, setRipple] = useState<{ x: number; y: number } | null>(null);
     const rippleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 

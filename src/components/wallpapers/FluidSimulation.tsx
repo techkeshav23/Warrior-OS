@@ -6,7 +6,7 @@
 
 'use client';
 
-import { memo, useRef, useMemo } from 'react';
+import { memo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { WallpaperProps } from '@/types/wallpaper';
@@ -142,37 +142,36 @@ function FluidMesh(props: WallpaperProps) {
   const propsRef = useRef(props);
   propsRef.current = props;
 
-  const uniforms = useMemo(
-    () => ({
-      u_time: { value: 0 },
-      u_mouse: { value: new THREE.Vector2(0.5, 0.5) },
-      u_prevMouse: { value: new THREE.Vector2(0.5, 0.5) },
-      u_resolution: { value: new THREE.Vector2(1, 1) },
-      u_bass: { value: 0 },
-      u_energy: { value: 0 },
-    }),
-    []
-  );
+  // useState initializer pattern — stable identity, R3F-friendly mutation in useFrame.
+  const [uniforms] = useState(() => ({
+    u_time: { value: 0 },
+    u_mouse: { value: new THREE.Vector2(0.5, 0.5) },
+    u_prevMouse: { value: new THREE.Vector2(0.5, 0.5) },
+    u_resolution: { value: new THREE.Vector2(1, 1) },
+    u_bass: { value: 0 },
+    u_energy: { value: 0 },
+  }));
 
   useFrame(({ clock, size }) => {
     const { mouseX, mouseY, bassLevel, overallLevel } = propsRef.current;
 
-    // Store prev before updating
     prevMouseRef.current.x = mouseRef.current.x;
     prevMouseRef.current.y = mouseRef.current.y;
 
-    // Smooth mouse
     const targetX = (mouseX + 1) * 0.5;
     const targetY = (mouseY + 1) * 0.5;
     mouseRef.current.x += (targetX - mouseRef.current.x) * 0.08;
     mouseRef.current.y += (targetY - mouseRef.current.y) * 0.08;
 
+    // Canonical R3F pattern: useFrame mutates uniform `.value` each frame.
+    /* eslint-disable react-hooks/immutability */
     uniforms.u_time.value = clock.getElapsedTime();
     uniforms.u_mouse.value.set(mouseRef.current.x, mouseRef.current.y);
     uniforms.u_prevMouse.value.set(prevMouseRef.current.x, prevMouseRef.current.y);
     uniforms.u_resolution.value.set(size.width, size.height);
     uniforms.u_bass.value = bassLevel;
     uniforms.u_energy.value = overallLevel;
+    /* eslint-enable react-hooks/immutability */
   });
 
   return (

@@ -6,7 +6,7 @@
 
 'use client';
 
-import { memo, useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
@@ -37,24 +37,24 @@ function WorkspaceManagerInner({ children }: WorkspaceManagerProps) {
   const setWallpaper = useSettingsStore((s) => s.setWallpaper);
   const setAccentColor = useSettingsStore((s) => s.setAccentColor);
 
-  const prevWorkspaceRef = useRef(activeWorkspaceId);
+  // "Store previous state during render" pattern — official React 19 way to
+  // derive a value from the prev→current transition without reading refs in render.
+  // When activeWorkspaceId changes, both setStates fire, React aborts the in-flight
+  // render and re-runs with prev=current and rotation=computed, in one paint.
+  const [prevWorkspace, setPrevWorkspace] = useState(activeWorkspaceId);
+  const [rotation, setRotation] = useState(0);
 
-  // Compute rotation direction during render (before effect updates prev ref)
-  const rotation = getRotation(prevWorkspaceRef.current, activeWorkspaceId);
+  if (prevWorkspace !== activeWorkspaceId) {
+    setRotation(getRotation(prevWorkspace, activeWorkspaceId));
+    setPrevWorkspace(activeWorkspaceId);
+  }
 
-  // Update wallpaper and accent color when workspace changes
+  // Apply per-workspace wallpaper + accent color on switch
   useEffect(() => {
     const workspace = workspaces.find((w) => w.id === activeWorkspaceId);
     if (!workspace) return;
-
-    // Only apply workspace-specific settings if this is a workspace switch
-    if (prevWorkspaceRef.current !== activeWorkspaceId) {
-      prevWorkspaceRef.current = activeWorkspaceId;
-
-      // Update settings for new workspace
-      setWallpaper(workspace.wallpaper);
-      setAccentColor(workspace.accentColor);
-    }
+    setWallpaper(workspace.wallpaper);
+    setAccentColor(workspace.accentColor);
   }, [activeWorkspaceId, workspaces, setWallpaper, setAccentColor]);
 
   return (

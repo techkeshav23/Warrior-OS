@@ -5,7 +5,6 @@
 'use client';
 
 import { useState, useMemo, memo } from 'react';
-import { cn } from '@/lib/utils';
 import type { Note } from './NotesApp';
 
 interface Props {

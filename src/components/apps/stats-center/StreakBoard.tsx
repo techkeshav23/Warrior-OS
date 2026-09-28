@@ -7,7 +7,6 @@
 
 import { useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
 
 function StreakBoardInner() {
   // Compute streak from habit data in localStorage

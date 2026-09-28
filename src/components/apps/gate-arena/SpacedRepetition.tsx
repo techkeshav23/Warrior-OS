@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useMemo, useCallback, memo } from 'react';
+import { useState, useMemo, useCallback, memo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { getAvailableSubjects, getTopicsForSubject } from '@/data/gate-questions';
@@ -36,8 +36,15 @@ function SpacedRepetitionInner() {
     return topics;
   }, []);
 
+  // `now` ticks once per minute — enough resolution for day-level overdue math
+  // and keeps render pure (no Date.now() in useMemo body).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const dueTopics = useMemo(() => {
-    const now = Date.now();
     return allTopics.map((t) => {
       const rev = revisions.find((r) => r.subject === t.subject && r.topic === t.topic);
       if (!rev) return { ...t, daysOverdue: Infinity, lastRevised: null };
@@ -45,7 +52,7 @@ function SpacedRepetitionInner() {
       const daysOverdue = Math.floor((now - nextDue) / 86400000);
       return { ...t, daysOverdue, lastRevised: rev.lastRevised };
     }).sort((a, b) => b.daysOverdue - a.daysOverdue);
-  }, [allTopics, revisions]);
+  }, [allTopics, revisions, now]);
 
   const markRevised = useCallback((subject: string, topic: string) => {
     setRevisions((prev) => {

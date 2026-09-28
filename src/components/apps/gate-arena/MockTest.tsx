@@ -6,7 +6,6 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef, memo } from 'react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useXPStore } from '@/stores/useXPStore';
 import type { Question } from '@/types/gate';
@@ -160,7 +159,8 @@ function MockTestInner() {
             <button
               onClick={() => setMarked((prev) => {
                 const next = new Set(prev);
-                next.has(q.id) ? next.delete(q.id) : next.add(q.id);
+                if (next.has(q.id)) next.delete(q.id);
+                else next.add(q.id);
                 return next;
               })}
               className={cn(

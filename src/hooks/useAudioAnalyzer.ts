@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAudioStore } from '@/stores/useAudioStore';
 import {
   connectMediaElement,
@@ -28,7 +28,6 @@ export function useAudioAnalyzer(
   const disconnectRef = useRef<(() => void) | null>(null);
   const lastUpdateRef = useRef(0);
 
-  // Connect media element to analyser
   useEffect(() => {
     if (!mediaElement) return;
 
@@ -40,23 +39,22 @@ export function useAudioAnalyzer(
     };
   }, [mediaElement]);
 
-  // Animation loop for frequency data (throttled to ~30fps)
-  const updateFrequency = useCallback((time: number) => {
-    if (time - lastUpdateRef.current >= THROTTLE_MS) {
-      const { bass, mids, highs } = getFrequencyBands();
-      setFrequencyData(bass, mids, highs);
-      lastUpdateRef.current = time;
-    }
-    animRef.current = requestAnimationFrame(updateFrequency);
-  }, [setFrequencyData]);
-
   useEffect(() => {
-    if (isPlaying && mediaElement) {
+    if (!isPlaying || !mediaElement) return;
+
+    const updateFrequency = (time: number) => {
+      if (time - lastUpdateRef.current >= THROTTLE_MS) {
+        const { bass, mids, highs } = getFrequencyBands();
+        setFrequencyData(bass, mids, highs);
+        lastUpdateRef.current = time;
+      }
       animRef.current = requestAnimationFrame(updateFrequency);
-    }
+    };
+
+    animRef.current = requestAnimationFrame(updateFrequency);
 
     return () => {
       cancelAnimationFrame(animRef.current);
     };
-  }, [isPlaying, mediaElement, updateFrequency]);
+  }, [isPlaying, mediaElement, setFrequencyData]);
 }

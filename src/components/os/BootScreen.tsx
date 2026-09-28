@@ -7,7 +7,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TypewriterText } from '@/components/ui/TypewriterText';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { GlitchText } from '@/components/ui/GlitchText';
 import { BOOT_MESSAGES } from '@/lib/constants';

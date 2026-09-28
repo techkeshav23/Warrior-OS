@@ -6,8 +6,6 @@
 'use client';
 
 import { memo } from 'react';
-import { cn } from '@/lib/utils';
-import { useXPStore } from '@/stores/useXPStore';
 import { XPSystem } from './XPSystem';
 import { LevelProgress } from './LevelProgress';
 import { StreakBoard } from './StreakBoard';
@@ -15,7 +13,6 @@ import { HeatmapCalendar } from './HeatmapCalendar';
 import { RadarChart } from './RadarChart';
 
 function StatsCenterAppInner() {
-  const { xp, level } = useXPStore();
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-6 bg-black/30">
