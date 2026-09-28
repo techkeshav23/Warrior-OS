@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Clock Widget
-// Digital clock (seconds-aligned ticks) with the date and a
+// WARRIOR OS — Clock Widget (FORGE HUD)
+// Display-font clock (seconds-aligned ticks) with the date and a
 // time-of-day greeting. Only this widget re-renders every second.
 // ═══════════════════════════════════════════════════════════
 
@@ -36,20 +36,20 @@ function ClockWidgetInner() {
 
   return (
     <div className="flex flex-col">
-      <div className="flex items-baseline gap-1.5" aria-live="off">
+      <div className="flex items-end gap-2.5" aria-live="off">
         <time
           dateTime={date.toISOString()}
-          className="font-display text-3xl font-bold tabular-nums tracking-wider text-text-primary text-glow-sm"
+          className="tabular font-display text-3xl font-semibold leading-none text-fg"
         >
           {String(hours12).padStart(2, '0')}:{minutes}
         </time>
-        <span className="font-mono text-sm tabular-nums text-accent-primary">{seconds}</span>
-        <span className="font-mono text-[10px] text-text-secondary">{meridiem}</span>
+        <span className="flex flex-col gap-1 pb-0.5 font-mono leading-none">
+          <span className="tabular text-2xs font-medium text-fg-subtle">{meridiem}</span>
+          <span className="tabular text-sm font-medium text-accent">{seconds}</span>
+        </span>
       </div>
-      <p className="mt-1 truncate font-mono text-[11px] text-text-secondary">
-        {date.toLocaleDateString('en-IN', DATE_FORMAT)}
-      </p>
-      <p className="truncate text-[10px] text-text-secondary/80">{greetingFor(hours24)}</p>
+      <p className="mt-2.5 truncate text-xs text-fg-muted">{date.toLocaleDateString('en-IN', DATE_FORMAT)}</p>
+      <p className="truncate text-xs text-fg-subtle">{greetingFor(hours24)}</p>
     </div>
   );
 }

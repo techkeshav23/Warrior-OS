@@ -106,7 +106,7 @@ export function checkStudyStreak(): StudyStreakCheck {
     useXPStore.getState().addXP(bonusXp, 'streak');
     useNotificationStore.getState().addNotification({
       type: 'success',
-      title: `🔥 ${streak}-day study streak`,
+      title: `${streak}-day study streak`,
       message: `Streak kept alive. +${bonusXp} XP streak bonus.`,
       icon: '🔥',
     });

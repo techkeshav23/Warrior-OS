@@ -1,19 +1,23 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Project Card
-// Glass kanban card: name, stack badges, progress, last activity,
-// per-project timer button. Sortable wrapper for @dnd-kit.
+// Kanban card: name, timer toggle, description, tech chips,
+// stage-tinted progress, tracked time, links and last activity.
+// Sortable wrapper for @dnd-kit. States: idle, hover, running
+// (ember, the forge is lit), drag ghost (dashed slot) and the
+// lifted drag overlay.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo, type CSSProperties, type KeyboardEvent } from 'react';
+import { memo, type CSSProperties, type KeyboardEvent, type MouseEvent } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
-import { Clock, Pause, Play, Square } from 'lucide-react';
+import { Clock, Github, Globe, Link2, Pause, Play, Square, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge, Chip, ProgressBar } from '@/components/ui';
 import { effectiveProgress } from '@/stores/useProjectForgeStore';
-import type { ForgeProject } from '@/types/project-forge';
+import type { ForgeLink, ForgeProject } from '@/types/project-forge';
 import { RunningClock } from './RunningClock';
-import { STAGE_META, formatHours, formatRelative } from './forge-utils';
+import { STAGE_META, displayUrl, formatHours, formatRelative } from './forge-utils';
 
 export interface ProjectCardProps {
   project: ForgeProject;
@@ -31,6 +35,25 @@ export interface ProjectCardProps {
   ghost?: boolean;
 }
 
+/** Glyph for a project link, from its label or host. */
+export function linkIcon(link: Pick<ForgeLink, 'label' | 'url'>): LucideIcon {
+  const text = `${link.label} ${link.url}`.toLowerCase();
+  if (/github|gitlab|bitbucket|\brepo\b|\bcode\b/.test(text)) return Github;
+  if (/\blive\b|\bdemo\b|\bsite\b|\bapp\b|vercel|netlify|pages\.dev/.test(text)) return Globe;
+  return Link2;
+}
+
+/** Keep clicks and keys on inner controls from opening or dragging the card. */
+const stop = (event: MouseEvent | KeyboardEvent) => event.stopPropagation();
+
+const SURFACE = {
+  idle: 'border-line bg-surface-2 shadow-e1 hover:border-line-strong hover:bg-surface-hover',
+  running:
+    'border-ember-500/40 bg-ember-500/[0.06] shadow-[0_0_28px_-12px_var(--color-ember-500)] hover:border-ember-500/55',
+  overlay: 'rotate-[1.5deg] cursor-grabbing border-accent/45 bg-ink-800 shadow-e3',
+  ghost: 'border-dashed border-accent/40 bg-accent/[0.04] shadow-none',
+} as const;
+
 function ProjectCardViewInner({
   project,
   now,
@@ -44,91 +67,144 @@ function ProjectCardViewInner({
   const meta = STAGE_META[project.stage];
   const progress = effectiveProgress(project);
   const running = runningSince !== null;
-  const stack = project.techStack.slice(0, 4);
+  const stack = project.techStack.slice(0, 3);
   const extraStack = project.techStack.length - stack.length;
+  const links = project.links.filter((l) => l.url.trim()).slice(0, 3);
+  const surface = ghost ? 'ghost' : overlay ? 'overlay' : running ? 'running' : 'idle';
 
   return (
     <div
       className={cn(
-        'group relative rounded-lg border p-2.5 backdrop-blur-sm transition-colors',
-        overlay
-          ? 'rotate-[1.2deg] border-cyan-400/60 bg-[#0d1522]/95 shadow-2xl shadow-black/60'
-          : running
-            ? 'border-cyan-400/50 bg-cyan-400/[0.07] shadow-[0_0_18px_rgba(0,240,255,0.15)]'
-            : 'border-white/10 bg-white/[0.04] hover:border-white/20 hover:bg-white/[0.07]',
-        ghost && 'opacity-40'
+        'group/card relative rounded-card border p-3',
+        'transition-[border-color,background-color,box-shadow] duration-120 ease-out-quint',
+        SURFACE[surface]
       )}
     >
-      <div className="flex items-start gap-2">
-        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-white/90">{project.name}</p>
-        {onToggleTimer && !overlay && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleTimer(project.id);
-            }}
-            // Keep Enter/Space on this button from reaching the card's
-            // open/drag key handling. A plain click never starts a drag
-            // because the mouse sensor needs 6px of movement first.
-            onKeyDown={(e) => e.stopPropagation()}
-            aria-label={running ? `Stop timer for ${project.name}` : `Start timer for ${project.name}`}
-            title={running ? 'Stop timer' : 'Start timer'}
-            className={cn(
-              'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors',
-              running
-                ? 'border-cyan-400/50 bg-cyan-400/20 text-cyan-200 hover:bg-cyan-400/30'
-                : 'border-white/10 text-white/45 hover:border-cyan-400/40 hover:text-cyan-300'
-            )}
-          >
-            {running ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-          </button>
+      <div className={cn('flex flex-col gap-2.5', ghost && 'invisible')}>
+        {/* Name + timer toggle */}
+        <div className="flex items-start gap-2">
+          <p className="min-w-0 flex-1 truncate pt-0.5 text-ui font-semibold text-fg" title={project.name}>
+            {project.name}
+          </p>
+          {onToggleTimer && !overlay && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleTimer(project.id);
+              }}
+              // Keep Enter/Space on this button from reaching the card's
+              // open/drag key handling. A plain click never starts a drag
+              // because the mouse sensor needs 6px of movement first.
+              onKeyDown={(e) => e.stopPropagation()}
+              aria-label={running ? `Stop timer for ${project.name}` : `Start timer for ${project.name}`}
+              title={running ? 'Stop timer' : 'Start timer'}
+              className={cn(
+                'focus-ring flex size-6 shrink-0 items-center justify-center rounded-control border',
+                'transition-[background-color,border-color,color,filter] duration-120 ease-out-quint',
+                running
+                  ? 'border-transparent bg-linear-to-b from-ember-400 to-ember-500 text-ink-950 hover:brightness-110 active:brightness-95'
+                  : 'border-line-strong text-fg-subtle hover:border-ember-500/45 hover:bg-ember-500/10 hover:text-ember-400 active:bg-ember-500/15'
+              )}
+            >
+              {running ? (
+                <Square size={10} strokeWidth={2.5} fill="currentColor" aria-hidden />
+              ) : (
+                <Play size={11} strokeWidth={2.25} fill="currentColor" className="translate-x-px" aria-hidden />
+              )}
+            </button>
+          )}
+        </div>
+
+        {project.description && (
+          <p className="-mt-1 line-clamp-2 text-xs leading-4 text-fg-muted">{project.description}</p>
         )}
-      </div>
 
-      {project.description && (
-        <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-white/50">{project.description}</p>
-      )}
+        {(stack.length > 0 || project.onHold) && (
+          <div className="flex flex-wrap items-center gap-1">
+            {project.onHold && (
+              <Badge tone="warning" size="sm" icon={Pause}>
+                On hold
+              </Badge>
+            )}
+            {stack.map((tech) => (
+              <Chip key={tech} size="sm">
+                {tech}
+              </Chip>
+            ))}
+            {extraStack > 0 && (
+              <span
+                className="tabular px-1 font-mono text-2xs text-fg-subtle"
+                title={project.techStack.slice(stack.length).join(', ')}
+              >
+                +{extraStack}
+              </span>
+            )}
+          </div>
+        )}
 
-      {(stack.length > 0 || project.onHold) && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {project.onHold && (
-            <span className="flex items-center gap-0.5 rounded border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-300">
-              <Pause className="h-2.5 w-2.5" /> On hold
+        <div className="flex items-center gap-2.5">
+          <ProgressBar
+            value={progress}
+            size="sm"
+            tone={meta.progress}
+            animated={false}
+            aria-label={`${project.name} progress`}
+            className="flex-1"
+          />
+          <span className="tabular w-8 text-right font-mono text-2xs text-fg-muted">{progress}%</span>
+        </div>
+
+        {/* Meta: tracked time · links · last activity */}
+        <div className="flex h-5 items-center gap-2 text-xs text-fg-subtle">
+          {running && runningSince !== null ? (
+            <span className="flex items-center gap-1.5 text-ember-300" title="Timer running">
+              <span aria-hidden className="size-1.5 rounded-full bg-ember-400 shadow-[0_0_6px_var(--color-ember-400)] animate-pulse-soft" />
+              <RunningClock startedAt={runningSince} className="text-2xs" />
+            </span>
+          ) : weekMs > 0 ? (
+            <span className="flex items-center gap-1" title="Tracked this week">
+              <Clock size={12} strokeWidth={1.75} aria-hidden />
+              <span className="tabular font-mono text-2xs">{formatHours(weekMs)}</span>
+              <span>this week</span>
+            </span>
+          ) : null}
+
+          <span className="flex-1" />
+
+          {links.length > 0 && (
+            <span className="flex items-center gap-0.5">
+              {links.map((link) => {
+                const Icon = linkIcon(link);
+                const name = link.label.trim() || displayUrl(link.url);
+                return overlay ? (
+                  <span key={link.id} className="flex size-5 items-center justify-center text-fg-subtle">
+                    <Icon size={12} strokeWidth={1.75} aria-hidden />
+                  </span>
+                ) : (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    draggable={false}
+                    onClick={stop}
+                    onKeyDown={stop}
+                    aria-label={`Open ${name}: ${displayUrl(link.url)}`}
+                    title={`${name} · ${displayUrl(link.url)}`}
+                    className="focus-ring flex size-5 items-center justify-center rounded-[5px] text-fg-subtle transition-colors duration-120 hover:bg-surface-active hover:text-fg"
+                  >
+                    <Icon size={12} strokeWidth={1.75} aria-hidden />
+                  </a>
+                );
+              })}
             </span>
           )}
-          {stack.map((tech) => (
-            <span
-              key={tech}
-              className="rounded border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-[9px] text-white/70"
-            >
-              {tech}
-            </span>
-          ))}
-          {extraStack > 0 && <span className="px-1 py-0.5 text-[9px] text-white/40">+{extraStack}</span>}
-        </div>
-      )}
 
-      <div className="mt-2 flex items-center gap-2">
-        <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
-          <div className={cn('h-full rounded-full transition-all', meta.bar)} style={{ width: `${progress}%` }} />
+          <span className="tabular shrink-0 font-mono text-2xs" title="Last activity">
+            {running ? 'active now' : formatRelative(lastActivity, now)}
+          </span>
         </div>
-        <span className="w-8 text-right text-[10px] tabular-nums text-white/55">{progress}%</span>
-      </div>
-
-      <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-white/45">
-        {running && runningSince !== null ? (
-          <span className="flex items-center gap-1 text-cyan-300">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400" />
-            <RunningClock startedAt={runningSince} />
-          </span>
-        ) : (
-          <span className="flex items-center gap-1" title="Tracked this week">
-            <Clock className="h-3 w-3" />
-            {weekMs > 0 ? `${formatHours(weekMs)} this wk` : 'no time this wk'}
-          </span>
-        )}
-        <span title="Last activity">{running ? 'active now' : formatRelative(lastActivity, now)}</span>
       </div>
     </div>
   );
@@ -170,7 +246,7 @@ function SortableProjectCardInner({ onOpen, ...cardProps }: SortableProjectCardP
       onKeyDown={handleKeyDown}
       onClick={() => onOpen(project.id)}
       aria-label={`${project.name}, ${STAGE_META[project.stage].label}, ${effectiveProgress(project)}% done`}
-      className="touch-manipulation rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60"
+      className="focus-ring touch-manipulation cursor-pointer rounded-card"
     >
       <ProjectCardView {...cardProps} ghost={isDragging} />
     </div>

@@ -3,64 +3,86 @@
 // Stage styling, week/time maths and formatting for the Forge UI
 // ═══════════════════════════════════════════════════════════
 
+import { FlaskConical, Hammer, Lightbulb, Rocket, type LucideIcon } from 'lucide-react';
+import type { ProgressTone, Tone } from '@/components/ui';
+import { EMBER, PLASMA, STATUS } from '@/styles/tokens';
 import type { ForgeActiveTimer, ForgeSession, ForgeStage } from '@/types/project-forge';
 
 export const MINUTE_MS = 60_000;
 export const HOUR_MS = 3_600_000;
 
 // ─── Stage styling (full class strings so Tailwind can see them) ───
+// Forge narrative: a gold spark (idea) goes into the ember fire (building),
+// is quenched and checked (testing, azure) and ships tempered (success).
 
 export interface StageMeta {
   label: string;
   hint: string;
+  /** Short line for an empty column. */
+  empty: string;
+  Icon: LucideIcon;
+  /** Badge / Chip tone. */
+  tone: Tone;
+  /** ProgressBar tone. */
+  progress: ProgressTone;
+  /** Status dot fill. */
   dot: string;
+  /** Icon / text colour. */
   text: string;
-  border: string;
-  chip: string;
-  bar: string;
-  activeButton: string;
+  /** Gradient start for the column's top heat line (used with bg-linear-to-r … to-transparent). */
+  line: string;
+  /** Selected look for stage pickers. */
+  selected: string;
 }
 
 export const STAGE_META: Record<ForgeStage, StageMeta> = {
   ideas: {
     label: 'Ideas',
     hint: 'Sparks worth exploring',
-    dot: 'bg-amber-400',
-    text: 'text-amber-300',
-    border: 'border-amber-400/20',
-    chip: 'bg-amber-400/10 text-amber-300 border-amber-400/25',
-    bar: 'bg-amber-400',
-    activeButton: 'bg-amber-400/20 text-amber-200 border-amber-400/50',
+    empty: 'No sparks parked here',
+    Icon: Lightbulb,
+    tone: 'gold',
+    progress: 'gold',
+    dot: 'bg-gold',
+    text: 'text-gold',
+    line: 'from-gold/70',
+    selected: 'border-gold/40 bg-gold/10 text-gold',
   },
   building: {
     label: 'Building',
     hint: 'In the forge right now',
-    dot: 'bg-cyan-400',
-    text: 'text-cyan-300',
-    border: 'border-cyan-400/20',
-    chip: 'bg-cyan-400/10 text-cyan-300 border-cyan-400/25',
-    bar: 'bg-cyan-400',
-    activeButton: 'bg-cyan-400/20 text-cyan-200 border-cyan-400/50',
+    empty: 'Nothing on the anvil',
+    Icon: Hammer,
+    tone: 'ember',
+    progress: 'ember',
+    dot: 'bg-ember-400',
+    text: 'text-ember-400',
+    line: 'from-ember-400/80',
+    selected: 'border-ember-500/45 bg-ember-500/12 text-ember-300',
   },
   testing: {
     label: 'Testing',
     hint: 'Polish, QA and feedback',
-    dot: 'bg-violet-400',
-    text: 'text-violet-300',
-    border: 'border-violet-400/20',
-    chip: 'bg-violet-400/10 text-violet-300 border-violet-400/25',
-    bar: 'bg-violet-400',
-    activeButton: 'bg-violet-400/20 text-violet-200 border-violet-400/50',
+    empty: 'Nothing in QA',
+    Icon: FlaskConical,
+    tone: 'info',
+    progress: 'info',
+    dot: 'bg-info',
+    text: 'text-info',
+    line: 'from-info/70',
+    selected: 'border-info/40 bg-info/10 text-info',
   },
   shipped: {
     label: 'Shipped',
     hint: 'Live in the world',
-    dot: 'bg-emerald-400',
-    text: 'text-emerald-300',
-    border: 'border-emerald-400/20',
-    chip: 'bg-emerald-400/10 text-emerald-300 border-emerald-400/25',
-    bar: 'bg-emerald-400',
-    activeButton: 'bg-emerald-400/20 text-emerald-200 border-emerald-400/50',
+    empty: 'Nothing shipped yet',
+    Icon: Rocket,
+    tone: 'success',
+    progress: 'success',
+    dot: 'bg-success',
+    text: 'text-success',
+    line: 'from-success/70',
+    selected: 'border-success/40 bg-success/10 text-success',
   },
 };
 
@@ -284,7 +306,7 @@ export function celebrateShip(): void {
         startVelocity: 42,
         origin: { x: 0.5, y: 0.65 },
         zIndex: 9000,
-        colors: ['#00f0ff', '#7b61ff', '#00e676', '#ffab00', '#ff3d71'],
+        colors: [EMBER[400], EMBER[300], STATUS.gold, EMBER[500], PLASMA[300]],
         disableForReducedMotion: true,
       });
     })

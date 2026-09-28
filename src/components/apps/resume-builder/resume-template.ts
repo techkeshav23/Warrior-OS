@@ -34,25 +34,28 @@ export const RESUME_TEMPLATE_CSS = `
   min-height: ${PAGE_HEIGHT_MM}mm;
   padding: ${PAGE_MARGIN_Y_MM}mm ${PAGE_MARGIN_X_MM}mm;
   background: #ffffff;
-  border-radius: 2px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  box-shadow: var(--shadow-e3);
 }
 .wr-page-break {
   position: absolute;
   left: 0;
   right: 0;
   height: 0;
-  border-top: 1px dashed rgba(220, 38, 38, 0.55);
+  border-top: 1px dashed color-mix(in oklab, var(--color-danger) 65%, transparent);
   pointer-events: none;
 }
 .wr-page-break > span {
   position: absolute;
   right: 3mm;
   top: 0.8mm;
-  font: 600 7pt/1 system-ui, sans-serif;
-  letter-spacing: 0.05em;
+  padding: 0.6mm 1.4mm;
+  border-radius: 1mm;
+  background: color-mix(in oklab, var(--color-danger) 10%, #ffffff);
+  font: 600 6.5pt/1 var(--font-mono), ui-monospace, monospace;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(220, 38, 38, 0.75);
+  color: color-mix(in oklab, var(--color-danger) 85%, #000000);
 }
 .wr-doc {
   --wr-accent: #1f2937;

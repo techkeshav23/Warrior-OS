@@ -223,9 +223,9 @@ test('boots to the desktop, Ctrl+K opens the palette, every app opens and closes
         return;
       }
 
-      // The app chunk is lazy: wait for AppLoading to hand over to the app.
+      // The app chunk is lazy: wait for AppLoading ("Loading app…") to hand over to the app.
       try {
-        await expect(page.getByText(/Loading module/i)).toHaveCount(0, { timeout: 20_000 });
+        await expect(page.getByText(/Loading app…/i)).toHaveCount(0, { timeout: 20_000 });
       } catch {
         problems.push(`[${id}] app was still loading after 20 s`);
       }

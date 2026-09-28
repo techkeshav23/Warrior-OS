@@ -5,9 +5,13 @@
 // habits, focus) + marathon / mixed / idle / void. DreamEngine picks
 // one from yesterday's real activity and mixes the user's own names
 // (decks, note titles, projects, habits) into the glowing text.
+// `color` is the theme's glow, taken from the FORGE HUD palette
+// (src/styles/tokens.ts); `ambientColor` is the near-black fog tint
+// behind it.
 // ═══════════════════════════════════════════════════════════
 
 import type { DreamActivityKey, DreamTheme, DreamThemeKey } from '@/types/dream';
+import { EMBER, INK, PLASMA, STATUS, VIZ } from '@/styles/tokens';
 
 export const DREAM_THEMES: Record<DreamThemeKey, DreamTheme> = {
   // ─── ACTIVITY THEMES ───
@@ -15,7 +19,7 @@ export const DREAM_THEMES: Record<DreamThemeKey, DreamTheme> = {
     key: 'decks',
     label: 'Training Grounds',
     objects: ['flash-card', 'recall-ring', 'checkmark-orb', 'flash-card'],
-    color: '#22D3EE',
+    color: PLASMA[400],
     ambientColor: '#04121a',
     ambient: 'recall-hum',
     narration: [
@@ -29,7 +33,7 @@ export const DREAM_THEMES: Record<DreamThemeKey, DreamTheme> = {
     key: 'notes',
     label: 'The Archive',
     objects: ['note-page', 'quill', 'graph-edge', 'tree-node'],
-    color: '#FFCA28',
+    color: STATUS.gold,
     ambientColor: '#161004',
     ambient: 'paper-hush',
     narration: [
@@ -43,7 +47,7 @@ export const DREAM_THEMES: Record<DreamThemeKey, DreamTheme> = {
     key: 'project',
     label: 'The Forge',
     objects: ['kanban-card', 'rocket', 'checkmark-orb', 'gantt-bar'],
-    color: '#00E676',
+    color: VIZ[3], // mint
     ambientColor: '#03140a',
     ambient: 'builder-hum',
     narration: [
@@ -57,7 +61,7 @@ export const DREAM_THEMES: Record<DreamThemeKey, DreamTheme> = {
     key: 'code',
     label: 'Building',
     objects: ['code-block', 'terminal-line', 'brace-glyph', 'binary-stream', 'circuit-trace', 'sorting-bar'],
-    color: '#00F0FF',
+    color: PLASMA[300],
     ambientColor: '#031116',
     ambient: 'flow-hum',
     narration: [
@@ -71,7 +75,7 @@ export const DREAM_THEMES: Record<DreamThemeKey, DreamTheme> = {
     key: 'music',
     label: 'Soundscape',
     objects: ['music-note', 'sound-wave', 'equalizer', 'music-note'],
-    color: '#F472B6',
+    color: VIZ[4], // rose
     ambientColor: '#1a0714',
     ambient: 'melody-drift',
     narration: [
@@ -85,7 +89,7 @@ export const DREAM_THEMES: Record<DreamThemeKey, DreamTheme> = {
     key: 'habits',
     label: 'The Discipline Machine',
     objects: ['flame', 'habit-grid', 'checkmark-orb', 'flame'],
-    color: '#FF7043',
+    color: EMBER[400],
     ambientColor: '#1a0904',
     ambient: 'ember-crackle',
     narration: [
@@ -99,7 +103,7 @@ export const DREAM_THEMES: Record<DreamThemeKey, DreamTheme> = {
     key: 'focus',
     label: 'Deep Focus',
     objects: ['hourglass', 'clock-orb', 'nebula-swirl', 'hourglass'],
-    color: '#7C4DFF',
+    color: VIZ[2], // violet
     ambientColor: '#0a0619',
     ambient: 'still-drone',
     narration: [
@@ -115,7 +119,7 @@ export const DREAM_THEMES: Record<DreamThemeKey, DreamTheme> = {
     key: 'marathon',
     label: 'Iron Day',
     objects: ['flame', 'rocket', 'checkmark-orb', 'clock-orb'],
-    color: '#FFAB00',
+    color: EMBER[300],
     ambientColor: '#1a1003',
     ambient: 'forge-roar',
     narration: [
@@ -129,7 +133,7 @@ export const DREAM_THEMES: Record<DreamThemeKey, DreamTheme> = {
     key: 'mixed',
     label: 'Many Paths',
     objects: ['star-cluster', 'graph-edge', 'nebula-swirl', 'star-cluster'],
-    color: '#7B61FF',
+    color: VIZ[2], // violet
     ambientColor: '#0a0719',
     ambient: 'constellation-hum',
     narration: [
@@ -143,7 +147,7 @@ export const DREAM_THEMES: Record<DreamThemeKey, DreamTheme> = {
     key: 'idle',
     label: 'Stillness',
     objects: ['void-particles', 'distant-stars', 'dark-fog'],
-    color: '#3a3a5e',
+    color: INK[500],
     ambientColor: '#05050a',
     ambient: 'silence',
     narration: [
@@ -157,7 +161,7 @@ export const DREAM_THEMES: Record<DreamThemeKey, DreamTheme> = {
     key: 'void',
     label: 'The Void',
     objects: ['void-particles', 'dark-fog', 'distant-stars'],
-    color: '#2a2a44',
+    color: INK[600],
     ambientColor: '#010103',
     ambient: 'deep-void',
     narration: [

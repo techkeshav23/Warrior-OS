@@ -1,23 +1,28 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Campfire Widget
-// Pixel-art campfire (drawn into an 80×64 buffer, scaled ×2.5 with
-// image-rendering: pixelated). Flame size/brightness follows the online
-// count: 1 = ember, 5 = campfire, 10 = bonfire, 20+ = inferno with
-// sparks. Warrior silhouettes sit around it. Draggable (position is
-// remembered). Procedural crackle via Web Audio when sound is enabled.
-// War cry button opens the composer.
+// Glass desktop widget around a pixel-art campfire (drawn into an 80×64
+// buffer, scaled ×2.5 with image-rendering: pixelated, in the Ember
+// ramp). Flame size/brightness follows the online count: 1 = ember,
+// 5 = campfire, 10 = bonfire, 20+ = inferno with sparks; a five-pip
+// meter in the footer shows the stage. Warrior silhouettes sit around
+// it. Draggable by the header (position is remembered). Procedural
+// crackle via Web Audio when sound is enabled. The megaphone opens the
+// war-cry composer.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useDragControls } from 'framer-motion';
-import { Flame, GripVertical, Megaphone, Minus, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Flame, GripVertical, Megaphone } from 'lucide-react';
 import { useGhostStore } from '@/stores/useGhostStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { getAudioContext } from '@/lib/audio-engine';
 import type { CampfireStage } from '@/types/ghost';
 import { cn } from '@/lib/utils';
+import { EASE_OUT_QUINT, EMBER, INK } from '@/styles/tokens';
+import { Badge } from '@/components/ui/Badge';
+import { IconButton } from '@/components/ui/Button';
 import { WarCryComposer } from './WarCrySystem';
 
 const PX_W = 80;
@@ -25,6 +30,10 @@ const PX_H = 64;
 const SCALE = 2.5;
 const W = PX_W * SCALE; // 200 css px
 const H = PX_H * SCALE; // 160 css px
+/** Widget width: the canvas sits centred in a full-width fire pit. */
+const WIDGET_W = 248;
+/** Header + footer + hairlines around the canvas. */
+const CHROME_H = 36 + 32 + 2;
 const STORAGE_KEY = 'warrior-campfire-pos';
 const FRAME_MS = 1000 / 20; // pixel art reads best at a low frame rate
 
@@ -44,8 +53,18 @@ const STAGE_LABEL: Record<CampfireStage, string> = {
   inferno: 'Inferno',
 };
 
-// Flame palette from white-hot core to smoke.
-const PALETTE = ['#fff8e1', '#ffe082', '#ffca28', '#ffa000', '#ff6f00', '#e64a19', '#b71c1c', '#4e342e', '#3e2723'];
+// Flame palette: white-hot core → the Ember ramp → embers → smoke.
+const PALETTE = ['#fff4e0', '#ffd9a8', EMBER[300], EMBER[400], EMBER[500], EMBER[600], '#9c3a0a', '#4a2a1e', '#2a1d18'];
+const STONE = [INK[500], INK[600]];
+const LOG = ['#5a3a28', '#4a2e20'];
+const SILHOUETTE = { front: INK[950], back: INK[850] };
+const STAGE_ORDER: CampfireStage[] = ['ember', 'small', 'fire', 'bonfire', 'inferno'];
+
+/**
+ * Collapsed state for this visit. The widget lives in the workspace face
+ * (below the windows) and remounts on every workspace switch.
+ */
+let collapsedMemory = false;
 
 interface Ember {
   x: number;
@@ -60,7 +79,7 @@ interface Ember {
 function loadPos(): { x: number; y: number } {
   // Default: top-right, but left of the Vitals HUD / desktop-widget column.
   const fallback =
-    typeof window === 'undefined' ? { x: 40, y: 90 } : { x: Math.max(16, window.innerWidth - W - 300), y: 90 };
+    typeof window === 'undefined' ? { x: 40, y: 90 } : { x: Math.max(16, window.innerWidth - WIDGET_W - 290), y: 90 };
   if (typeof window === 'undefined') return fallback;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -69,8 +88,8 @@ function loadPos(): { x: number; y: number } {
       if (typeof p.x === 'number' && typeof p.y === 'number') {
         // Keep it on screen if the viewport shrank.
         return {
-          x: Math.min(Math.max(0, p.x), Math.max(0, window.innerWidth - W - 8)),
-          y: Math.min(Math.max(0, p.y), Math.max(0, window.innerHeight - H - 110)),
+          x: Math.min(Math.max(0, p.x), Math.max(0, window.innerWidth - WIDGET_W - 8)),
+          y: Math.min(Math.max(0, p.y), Math.max(0, window.innerHeight - H - CHROME_H - 64)),
         };
       }
     }
@@ -169,7 +188,7 @@ function CampfireWidgetInner() {
   const [pos] = useState(loadPos);
   // Current drag position (the initial state never changes; drags accumulate).
   const posRef = useRef(pos);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => collapsedMemory);
   const [composerOpen, setComposerOpen] = useState(false);
 
   useEffect(() => {
@@ -225,20 +244,20 @@ function CampfireWidgetInner() {
 
       // Ground glow (smooth gradient, pixelated by the upscale).
       const glow = ctx.createRadialGradient(cx, baseY, 1, cx, baseY, 14 + 26 * scale);
-      glow.addColorStop(0, `rgba(255,140,40,${0.28 + intensity * 0.35})`);
-      glow.addColorStop(1, 'rgba(255,80,0,0)');
+      glow.addColorStop(0, `rgba(247,107,21,${0.26 + intensity * 0.32})`);
+      glow.addColorStop(1, 'rgba(212,82,11,0)');
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, PX_W, PX_H);
 
       // Stones ring.
       for (let i = 0; i < 9; i++) {
         const a = Math.PI + (i / 8) * Math.PI;
-        px(cx + Math.cos(a) * 9, baseY + 3 + Math.sin(a) * -2.2, i % 2 === 0 ? '#5d5d6b' : '#44444f', 2);
+        px(cx + Math.cos(a) * 9, baseY + 3 + Math.sin(a) * -2.2, STONE[i % 2], 2);
       }
       // Logs (crossed).
       for (let i = -7; i <= 7; i++) {
-        px(cx + i, baseY + 1 + Math.round(i * 0.25), '#6d4c41');
-        px(cx + i, baseY + 1 - Math.round(i * 0.25), '#5d4037');
+        px(cx + i, baseY + 1 + Math.round(i * 0.25), LOG[0]);
+        px(cx + i, baseY + 1 - Math.round(i * 0.25), LOG[1]);
       }
 
       // Spawn flame pixels.
@@ -265,7 +284,7 @@ function CampfireWidgetInner() {
         if (!e.spark) e.x += (cx - e.x) * 0.04;
         const t = e.life / e.max;
         if (e.spark) {
-          px(e.x, e.y, t < 0.5 ? '#fff8e1' : '#ffca28');
+          px(e.x, e.y, t < 0.5 ? PALETTE[0] : EMBER[300]);
         } else {
           const idx = Math.min(PALETTE.length - 1, Math.floor(t * PALETTE.length));
           px(e.x, e.y, PALETTE[idx], t < 0.35 ? 2 : 1);
@@ -282,7 +301,7 @@ function CampfireWidgetInner() {
         const back = row >= 2;
         const sx = Math.round(cx + side * (14 + (row % 2) * 9 + (back ? 4 : 0)));
         const sy = Math.round(baseY + 2 - (back ? 7 : 0));
-        const body = back ? '#16121f' : '#0b0911';
+        const body = back ? SILHOUETTE.back : SILHOUETTE.front;
         // head
         ctx.fillStyle = body;
         ctx.fillRect(sx - 1, sy - 9, 3, 3);
@@ -290,7 +309,7 @@ function CampfireWidgetInner() {
         ctx.fillRect(sx - 2, sy - 6, 5, 4);
         ctx.fillRect(sx - 2 + (side < 0 ? 1 : -1), sy - 2, 5, 2);
         // rim light from the fire
-        px(side < 0 ? sx + 1 : sx - 1, sy - 8, `rgba(255,160,60,${0.35 + intensity * 0.5})`);
+        px(side < 0 ? sx + 1 : sx - 1, sy - 8, `rgba(255,178,122,${0.35 + intensity * 0.5})`);
       }
     };
     raf = requestAnimationFrame(render);
@@ -298,18 +317,17 @@ function CampfireWidgetInner() {
   }, [collapsed]);
 
   const stage = campfireStageFor(onlineCount);
+  const stageIndex = STAGE_ORDER.indexOf(stage);
   const simulated = mode === 'local';
 
   return (
     <motion.div
-      className="glass-border pointer-events-auto fixed rounded-xl shadow-2xl"
+      className="glass-window pointer-events-auto fixed overflow-hidden rounded-window"
       style={{
         left: 0,
         top: 0,
         zIndex: 'var(--z-desktop)',
-        width: W + 2,
-        background: 'rgba(8, 8, 14, 0.82)',
-        backdropFilter: 'blur(14px)',
+        width: WIDGET_W,
       }}
       drag
       dragControls={dragControls}
@@ -320,70 +338,93 @@ function CampfireWidgetInner() {
     >
       {/* Drag handle / header */}
       <div
-        className="flex cursor-grab items-center justify-between rounded-t-xl border-b border-white/10 bg-white/5 px-2 py-1 active:cursor-grabbing"
+        data-drag-handle=""
+        className="flex h-9 cursor-grab touch-none items-center justify-between gap-1 pl-1.5 pr-1 active:cursor-grabbing"
         onPointerDown={(e) => dragControls.start(e)}
       >
-        <span className="flex items-center gap-1 text-[10px] text-text-secondary">
-          <GripVertical size={11} className="text-text-muted" />
-          <Flame size={11} className="text-accent-warning" />
-          {STAGE_LABEL[stage]}
-          {simulated && <span className="rounded bg-accent-warning/15 px-1 text-[8px] text-accent-warning">OFFLINE</span>}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <GripVertical size={14} strokeWidth={1.75} className="shrink-0 text-fg-faint" aria-hidden />
+          <Flame size={14} strokeWidth={1.75} className="shrink-0 text-ember-400" aria-hidden />
+          <span className="truncate text-xs font-medium text-fg">{STAGE_LABEL[stage]}</span>
+          {simulated && (
+            <Badge tone="warning" size="sm">
+              Offline
+            </Badge>
+          )}
         </span>
-        <span className="flex items-center gap-0.5">
-          <button
-            type="button"
+        <span className="flex shrink-0 items-center">
+          <IconButton
+            icon={Megaphone}
+            size="xs"
+            iconSize={14}
+            active={composerOpen}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => setComposerOpen((o) => !o)}
-            className={cn(
-              'rounded p-1 transition-colors focus-ring',
-              composerOpen ? 'text-accent-secondary' : 'text-text-muted hover:text-text-primary'
-            )}
             aria-label="Send a war cry"
             title="Send a war cry"
-          >
-            <Megaphone size={11} />
-          </button>
-          <button
-            type="button"
+          />
+          <IconButton
+            icon={collapsed ? ChevronDown : ChevronUp}
+            size="xs"
+            iconSize={14}
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => setCollapsed((c) => !c)}
-            className="rounded p-1 text-text-muted transition-colors hover:text-text-primary focus-ring"
+            onClick={() => {
+              collapsedMemory = !collapsed;
+              setCollapsed(!collapsed);
+            }}
             aria-label={collapsed ? 'Expand campfire' : 'Collapse campfire'}
-          >
-            {collapsed ? <Plus size={11} /> : <Minus size={11} />}
-          </button>
+            aria-expanded={!collapsed}
+          />
         </span>
       </div>
 
       {!collapsed && (
-        <div className="relative">
-          <canvas
-            ref={canvasRef}
-            width={PX_W}
-            height={PX_H}
-            style={{ width: W, height: H, imageRendering: 'pixelated' }}
-            className="block"
-            aria-label={`${STAGE_LABEL[stage]}: ${onlineCount} warriors around the fire`}
-          />
-          <div className="pointer-events-none absolute bottom-1.5 left-0 right-0 text-center">
-            <span className={cn('font-mono text-[10px]', onlineCount > 0 ? 'text-accent-warning text-glow-sm' : 'text-text-secondary')}>
-              {onlineCount} around the fire{simulated ? ' (offline)' : ''}
+        <>
+          <div className="relative flex justify-center border-y border-line bg-ink-950/40">
+            <canvas
+              ref={canvasRef}
+              width={PX_W}
+              height={PX_H}
+              style={{ width: W, height: H, imageRendering: 'pixelated' }}
+              className="block"
+              aria-label={`${STAGE_LABEL[stage]}: ${onlineCount} warriors around the fire`}
+            />
+          </div>
+          <div className="flex h-8 items-center justify-between gap-2 px-3">
+            <span className="truncate text-xs text-fg-muted">
+              <span className={cn('font-mono font-medium tabular', onlineCount > 0 ? 'text-ember-300' : 'text-fg-subtle')}>
+                {onlineCount}
+              </span>{' '}
+              around the fire
+            </span>
+            <span className="flex shrink-0 items-center gap-0.5" title={`Fire: ${STAGE_LABEL[stage]}`} aria-hidden>
+              {STAGE_ORDER.map((s, i) => (
+                <span
+                  key={s}
+                  className={cn(
+                    'h-1 w-2.5 rounded-full transition-colors duration-260 ease-out-quint',
+                    i <= stageIndex ? 'bg-ember-400' : 'bg-surface-active'
+                  )}
+                />
+              ))}
             </span>
           </div>
-        </div>
+        </>
       )}
 
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {composerOpen && (
           <motion.div
-            className="border-t border-white/10 p-3"
+            className="overflow-hidden border-t border-line"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.18 }}
+            transition={{ duration: 0.18, ease: EASE_OUT_QUINT }}
             onPointerDown={(e) => e.stopPropagation()}
           >
-            <WarCryComposer compact />
+            <div className="p-3">
+              <WarCryComposer compact />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

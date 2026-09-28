@@ -42,7 +42,7 @@ export function DreamTransition({
 
   return (
     <motion.div
-      className="pointer-events-none absolute inset-0 z-30 bg-black"
+      className="pointer-events-none absolute inset-0 z-30 bg-ink-950"
       initial={false}
       animate={{ opacity: active ? 1 : 0 }}
       transition={{ duration: fadeMs / 1000, ease: 'easeInOut' }}

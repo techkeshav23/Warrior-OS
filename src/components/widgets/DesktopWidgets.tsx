@@ -24,20 +24,21 @@ import { computeStreak, utcDayKey } from './widget-data';
 export const WIDGET_WIDTH = 240;
 
 export const WIDGET_SIZES: Record<WidgetId, { width: number; height: number }> = {
-  clock: { width: WIDGET_WIDTH, height: 108 },
-  streak: { width: WIDGET_WIDTH, height: 88 },
-  target: { width: WIDGET_WIDTH, height: 112 },
+  clock: { width: WIDGET_WIDTH, height: 128 },
+  streak: { width: WIDGET_WIDTH, height: 116 },
+  target: { width: WIDGET_WIDTH, height: 128 },
 };
 
 const STACK_ORDER: readonly WidgetId[] = ['clock', 'streak', 'target'];
 const STACK_GAP = 12;
 const RIGHT_MARGIN = 24;
 const TASKBAR_HEIGHT = 48;
-// The biometrics Vitals HUD sits at top:80 / right:24 (≈224px wide,
-// up to ≈252px tall once typing stats show). Default slots stack below
-// it, or beside it when the screen is too short for a full column.
+// The biometrics Vitals HUD sits at top:80 / right:24 (240px wide, the
+// same column as these widgets, up to ≈252px tall once typing stats
+// show). Default slots stack below it, or beside it when the screen is
+// too short for a full column.
 const BELOW_VITALS_Y = 344;
-const BESIDE_VITALS_OFFSET = 224 + 16;
+const BESIDE_VITALS_OFFSET = 240 + 16;
 const TOP_Y = 80;
 
 /** Default widget slots for a viewport (right-hand column). */

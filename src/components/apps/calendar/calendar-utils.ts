@@ -23,6 +23,7 @@ import {
 import { FolderKanban, GraduationCap, User } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { CALENDAR_CATEGORY_COLORS } from '@/stores/useCalendarStore';
+import { VIZ } from '@/styles/tokens';
 import type {
   CalendarEvent,
   CalendarEventCategory,
@@ -39,11 +40,47 @@ export interface CalendarCategoryMeta {
   Icon: LucideIcon;
 }
 
-export const CALENDAR_CATEGORY_MAP: Record<CalendarEventCategory, CalendarCategoryMeta> = {
-  study: { id: 'study', label: 'Study', color: CALENDAR_CATEGORY_COLORS.study, Icon: GraduationCap },
-  project: { id: 'project', label: 'Project', color: CALENDAR_CATEGORY_COLORS.project, Icon: FolderKanban },
-  personal: { id: 'personal', label: 'Personal', color: CALENDAR_CATEGORY_COLORS.personal, Icon: User },
+/** Category colours on the FORGE HUD chart palette (plasma, violet, rose). */
+export const CATEGORY_COLOR: Record<CalendarEventCategory, string> = {
+  study: VIZ[0],
+  project: VIZ[2],
+  personal: VIZ[4],
 };
+
+export const CALENDAR_CATEGORY_MAP: Record<CalendarEventCategory, CalendarCategoryMeta> = {
+  study: { id: 'study', label: 'Study', color: CATEGORY_COLOR.study, Icon: GraduationCap },
+  project: { id: 'project', label: 'Project', color: CATEGORY_COLOR.project, Icon: FolderKanban },
+  personal: { id: 'personal', label: 'Personal', color: CATEGORY_COLOR.personal, Icon: User },
+};
+
+/** Pre-FORGE event colours still in storage → their on-palette successor. */
+const LEGACY_EVENT_COLORS: Readonly<Record<string, string>> = {
+  '#00f0ff': VIZ[0],
+  '#7b61ff': VIZ[2],
+  '#ff3d71': VIZ[4],
+  '#00e676': VIZ[3],
+  '#ffab00': VIZ[6],
+  '#ff6e40': VIZ[1],
+  '#40c4ff': VIZ[5],
+  '#e040fb': VIZ[2],
+};
+
+/** The colour to paint for a stored event colour (legacy neons mapped onto the palette). */
+export function eventColor(color: string): string {
+  const hex = color.toLowerCase();
+  return LEGACY_EVENT_COLORS[hex] ?? hex;
+}
+
+/** True when `color` is the category's default (today's or the pre-FORGE one). */
+export function isCategoryDefaultColor(color: string, category: CalendarEventCategory): boolean {
+  const hex = color.toLowerCase();
+  return hex === CATEGORY_COLOR[category] || hex === CALENDAR_CATEGORY_COLORS[category].toLowerCase();
+}
+
+/** `color` mixed toward transparent (tints for chips, bars and pills). */
+export function tintColor(color: string, percent: number): string {
+  return `color-mix(in oklab, ${color} ${percent}%, transparent)`;
+}
 
 export const CALENDAR_CATEGORIES: readonly CalendarCategoryMeta[] = [
   CALENDAR_CATEGORY_MAP.study,
@@ -51,17 +88,8 @@ export const CALENDAR_CATEGORIES: readonly CalendarCategoryMeta[] = [
   CALENDAR_CATEGORY_MAP.personal,
 ];
 
-/** Colour choices in the event modal (category defaults first). */
-export const EVENT_COLOR_SWATCHES: readonly string[] = [
-  '#00f0ff',
-  '#7b61ff',
-  '#ff3d71',
-  '#00e676',
-  '#ffab00',
-  '#ff6e40',
-  '#40c4ff',
-  '#e040fb',
-];
+/** Colour choices in the event modal: the chart palette, in order. */
+export const EVENT_COLOR_SWATCHES: readonly string[] = [...VIZ];
 
 export const RECURRENCE_OPTIONS: readonly { id: CalendarRecurrence; label: string }[] = [
   { id: 'none', label: 'None' },

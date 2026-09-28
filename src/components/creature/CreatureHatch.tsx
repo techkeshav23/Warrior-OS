@@ -14,6 +14,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useCreatureStore } from '@/stores/useCreatureStore';
 import { CreatureCanvas } from './CreatureRenderer';
 import { paintEgg } from './CreatureEvolution';
+import { PLASMA } from '@/styles/tokens';
 import { sayViaNexus, unlockPhase6Achievement } from './osBridge';
 
 type Phase = 'idle' | 'crack' | 'burst' | 'emerge' | 'done';
@@ -123,7 +124,7 @@ function HatchEggCanvas({ phase }: { phase: Phase }) {
         ctx.translate(c, c + 10);
         ctx.rotate(Math.sin(pt * 38) * shake);
         ctx.scale(EGG_SCALE, EGG_SCALE);
-        paintEgg(ctx, pt, Math.min(1, p * 1.15), '#00f0ff');
+        paintEgg(ctx, pt, Math.min(1, p * 1.15), PLASMA[400]);
         ctx.restore();
         // Growing inner glow.
         const g = ctx.createRadialGradient(c, c, 0, c, c, 170);
@@ -238,7 +239,7 @@ function CreatureHatchInner() {
           className="fixed inset-0 flex items-center justify-center pointer-events-none"
           style={{
             zIndex: 'var(--z-modal)',
-            background: 'radial-gradient(circle, rgba(0,20,30,0.55) 0%, rgba(0,0,0,0.88) 70%)',
+            background: 'radial-gradient(circle, color-mix(in srgb, var(--color-ink-850) 55%, transparent) 0%, color-mix(in srgb, var(--color-ink-950) 88%, transparent) 70%)',
           }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -267,13 +268,13 @@ function CreatureHatchInner() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.9, duration: 0.6 }}
             >
-              <span className="block text-[11px] tracking-[0.3em] text-text-secondary mb-1">NEXUS</span>
-              <span className="text-sm text-accent-primary text-glow-sm">{HATCH_NEXUS_LINE}</span>
+              <span className="hud-label mb-1.5 block text-fg-muted">NEXUS</span>
+              <span className="text-sm font-medium text-accent text-glow-sm">{HATCH_NEXUS_LINE}</span>
             </motion.div>
           )}
           {phase === 'crack' && (
             <motion.p
-              className="absolute left-0 right-0 text-center font-display text-xs tracking-[0.4em] text-accent-primary/80"
+              className="absolute left-0 right-0 text-center font-display text-xs tracking-[0.4em] text-accent/80"
               style={{ top: 'calc(50% + 200px)' }}
               initial={{ opacity: 0 }}
               animate={{ opacity: [0, 1, 0.6, 1] }}

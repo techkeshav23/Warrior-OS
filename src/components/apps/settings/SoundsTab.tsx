@@ -1,101 +1,104 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Sounds Tab
-// Sound effects + music volume controls
+// Sound effects and music: on/off, volume, and the procedural music's
+// auto-mood (spec 6.53).
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo } from 'react';
-import { cn } from '@/lib/utils';
+import { Slider } from '@/components/ui';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useMusicGenStore } from '@/stores/useMusicGenStore';
+import { RowValue, SettingRow, SettingsCard, SettingsPage, SettingsSection, SwitchRow } from './parts';
+
+function VolumeRow({
+  id,
+  value,
+  enabled,
+  onChange,
+}: {
+  id: string;
+  value: number;
+  enabled: boolean;
+  onChange: (value: number) => void;
+}) {
+  const pct = Math.round(value * 100);
+  return (
+    <SettingRow
+      label="Volume"
+      htmlFor={id}
+      disabled={!enabled}
+      description={enabled ? undefined : 'Turn it on to adjust the volume.'}
+      control={<RowValue muted={!enabled}>{pct}%</RowValue>}
+    >
+      <Slider
+        id={id}
+        min={0}
+        max={1}
+        step={0.05}
+        value={value}
+        disabled={!enabled}
+        onValueChange={onChange}
+        aria-valuetext={`${pct}%`}
+      />
+    </SettingRow>
+  );
+}
 
 function SoundsTabInner() {
-  const {
-    soundEnabled, soundVolume, musicEnabled, musicVolume,
-    toggleSound, setSoundVolume, toggleMusic, setMusicVolume,
-  } = useSettingsStore();
+  const soundEnabled = useSettingsStore((s) => s.soundEnabled);
+  const soundVolume = useSettingsStore((s) => s.soundVolume);
+  const musicEnabled = useSettingsStore((s) => s.musicEnabled);
+  const musicVolume = useSettingsStore((s) => s.musicVolume);
+  const autoMood = useMusicGenStore((s) => s.autoMood);
+  const settings = useSettingsStore.getState;
 
   return (
-    <div className="p-6 space-y-6">
-      <h3 className="text-lg font-bold text-white">Sounds</h3>
+    <SettingsPage>
+      <SettingsSection
+        title="Sound effects"
+        description="Window open and close, notifications and other OS interactions."
+      >
+        <SettingsCard>
+          <SwitchRow
+            label="Sound effects"
+            description="Play interface sounds."
+            checked={soundEnabled}
+            onCheckedChange={() => settings().toggleSound()}
+          />
+          <VolumeRow
+            id="settings-sound-volume"
+            value={soundVolume}
+            enabled={soundEnabled}
+            onChange={(v) => settings().setSoundVolume(v)}
+          />
+        </SettingsCard>
+      </SettingsSection>
 
-      {/* Sound Effects */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-white/70">Sound Effects</span>
-          <button
-            onClick={toggleSound}
-            className={cn(
-              'w-10 h-5 rounded-full transition-all relative',
-              soundEnabled ? 'bg-cyan-500' : 'bg-white/20'
-            )}
-          >
-            <div className={cn(
-              'w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all',
-              soundEnabled ? 'left-5.5' : 'left-0.5'
-            )} />
-          </button>
-        </div>
-        {soundEnabled && (
-          <div className="space-y-1">
-            <div className="flex justify-between">
-              <label className="text-xs text-white/50">Volume</label>
-              <span className="text-xs text-white/40">{Math.round(soundVolume * 100)}%</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={soundVolume}
-              onChange={(e) => setSoundVolume(Number(e.target.value))}
-              className="w-full accent-cyan-500"
-            />
-          </div>
-        )}
-      </section>
-
-      {/* Music */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-white/70">Background Music</span>
-          <button
-            onClick={toggleMusic}
-            className={cn(
-              'w-10 h-5 rounded-full transition-all relative',
-              musicEnabled ? 'bg-purple-500' : 'bg-white/20'
-            )}
-          >
-            <div className={cn(
-              'w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all',
-              musicEnabled ? 'left-5.5' : 'left-0.5'
-            )} />
-          </button>
-        </div>
-        {musicEnabled && (
-          <div className="space-y-1">
-            <div className="flex justify-between">
-              <label className="text-xs text-white/50">Volume</label>
-              <span className="text-xs text-white/40">{Math.round(musicVolume * 100)}%</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={musicVolume}
-              onChange={(e) => setMusicVolume(Number(e.target.value))}
-              className="w-full accent-purple-500"
-            />
-          </div>
-        )}
-      </section>
-
-      <p className="text-xs text-white/30">
-        Sound effects play on window open/close, notifications, and OS interactions.
-        Background music plays while using the OS.
-      </p>
-    </div>
+      <SettingsSection title="Music" description="Background music plays while you use the OS.">
+        <SettingsCard>
+          <SwitchRow
+            label="Background music"
+            description="Play music in the background."
+            checked={musicEnabled}
+            onCheckedChange={() => settings().toggleMusic()}
+          />
+          <VolumeRow
+            id="settings-music-volume"
+            value={musicVolume}
+            enabled={musicEnabled}
+            onChange={(v) => settings().setMusicVolume(v)}
+          />
+          <SwitchRow
+            label="Auto-mood music"
+            description="Pick the mood from the time of day; your typing rhythm can override it."
+            checked={autoMood}
+            onCheckedChange={() => useMusicGenStore.getState().setAutoMood(!autoMood)}
+          />
+        </SettingsCard>
+      </SettingsSection>
+    </SettingsPage>
   );
 }
 

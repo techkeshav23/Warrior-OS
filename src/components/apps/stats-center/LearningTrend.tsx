@@ -7,7 +7,7 @@
 
 'use client';
 
-import { memo, useMemo, type ReactNode } from 'react';
+import { memo, useId, useMemo, type ReactNode } from 'react';
 import {
   Area,
   CartesianGrid,
@@ -19,13 +19,13 @@ import {
   YAxis,
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
+import { ChartSpline } from 'lucide-react';
+import { Card, EmptyState } from '@/components/ui';
 import { useLearningStore } from '@/stores/useLearningStore';
 import { useNow } from '@/components/widgets/hooks';
 import { utcDayKey } from '@/components/widgets/widget-data';
+import { CHART, INK } from '@/styles/tokens';
 import { ACCURACY_COLOR, MASTERY_COLOR, TREND_DAYS, buildLearningTrend, type TrendRow } from './learning-stats';
-
-const SURFACE = '#0c0c12';
-const AXIS_TICK = { fill: '#8888a0', fontSize: 10 };
 
 interface ChartRow extends TrendRow {
   label: string;
@@ -37,23 +37,27 @@ interface ChartTooltipProps {
   payload?: ReadonlyArray<{ payload?: unknown }>;
 }
 
+function TooltipRow({ color, label, value }: { color: string; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="size-2 shrink-0 rounded-full" style={{ background: color }} />
+      <span className="text-fg-muted">{label}</span>
+      <span className="tabular ml-auto pl-4 font-mono text-fg">{value}</span>
+    </div>
+  );
+}
+
 function renderTooltip({ active, payload }: ChartTooltipProps): ReactNode {
   const row = payload?.[0]?.payload as ChartRow | undefined;
   if (!active || !row) return null;
   return (
-    <div className="rounded-lg border border-white/10 bg-[rgba(10,10,16,0.94)] px-2.5 py-1.5 text-xs shadow-lg">
-      <p className="font-semibold text-white">{format(parseISO(row.key), 'EEE, d MMM')}</p>
-      <p className="mt-0.5 flex items-center gap-1.5 text-white/85">
-        <span className="h-0.5 w-3 rounded" style={{ background: MASTERY_COLOR }} />
-        <span className="font-mono font-semibold">{row.mastery === null ? '—' : `${row.mastery}%`}</span>
-        <span className="text-white/50">mastery</span>
-      </p>
-      <p className="flex items-center gap-1.5 text-white/85">
-        <span className="h-0.5 w-3 rounded" style={{ background: ACCURACY_COLOR }} />
-        <span className="font-mono font-semibold">{row.accuracy === null ? '—' : `${row.accuracy}%`}</span>
-        <span className="text-white/50">accuracy</span>
-      </p>
-      <p className="mt-0.5 text-[11px] text-white/50">
+    <div className="glass-popover min-w-40 rounded-control px-3 py-2 font-sans text-xs">
+      <p className="hud-label mb-1.5">{format(parseISO(row.key), 'EEE d MMM')}</p>
+      <div className="space-y-1">
+        <TooltipRow color={MASTERY_COLOR} label="Mastery" value={row.mastery === null ? '—' : `${row.mastery}%`} />
+        <TooltipRow color={ACCURACY_COLOR} label="Accuracy" value={row.accuracy === null ? '—' : `${row.accuracy}%`} />
+      </div>
+      <p className="mt-1.5 border-t border-line pt-1.5 text-fg-subtle">
         {row.answered === 0 ? 'No cards answered' : `${row.answered} ${row.answered === 1 ? 'card' : 'cards'} answered`}
       </p>
     </div>
@@ -63,13 +67,14 @@ function renderTooltip({ active, payload }: ChartTooltipProps): ReactNode {
 function LegendKey({ color, label }: { color: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className="h-0.5 w-4 rounded" style={{ background: color }} />
+      <span className="size-2 rounded-full" style={{ background: color }} />
       {label}
     </span>
   );
 }
 
 function LearningTrendInner() {
+  const fillId = `trend-fill-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const decks = useLearningStore((s) => s.decks);
   const reviews = useLearningStore((s) => s.reviews);
   const attempts = useLearningStore((s) => s.attempts);
@@ -85,6 +90,15 @@ function LearningTrendInner() {
     [decks, reviews, attempts, todayKey]
   );
 
+  // Mark the latest mastery reading (a lone point would otherwise be invisible).
+  const lastMastery = rows.reduce((last, r, i) => (r.mastery !== null ? i : last), -1);
+  const renderMasteryEnd = (props: { cx?: number; cy?: number; index?: number }) =>
+    props.index === lastMastery && props.cx != null && props.cy != null ? (
+      <circle key="mastery-end" cx={props.cx} cy={props.cy} r={4} fill={MASTERY_COLOR} stroke={INK[950]} strokeWidth={2} />
+    ) : (
+      <g key={`mastery-dot-${props.index}`} />
+    );
+
   const summary = useMemo(() => {
     let answered = 0;
     let first: number | null = null;
@@ -98,76 +112,86 @@ function LearningTrendInner() {
   }, [rows]);
 
   return (
-    <section
-      className="rounded-xl border border-white/10 bg-black/20 p-4"
+    <Card
+      eyebrow={`Last ${TREND_DAYS} days`}
+      title="Learning trend"
+      description={
+        summary.last === null
+          ? 'No cards yet'
+          : `Mastery ${Math.round(summary.last)}%${
+              summary.delta ? ` (${summary.delta > 0 ? '+' : ''}${summary.delta} pts)` : ''
+            } · ${summary.answered} ${summary.answered === 1 ? 'card' : 'cards'} answered`
+      }
+      role="region"
       aria-label={`Mastery and accuracy over the last ${TREND_DAYS} days`}
+      className="h-full"
+      actions={
+        summary.answered > 0 ? (
+          <div className="flex items-center gap-3 text-xs text-fg-muted">
+            <LegendKey color={MASTERY_COLOR} label="Mastery" />
+            <LegendKey color={ACCURACY_COLOR} label="Accuracy" />
+          </div>
+        ) : undefined
+      }
     >
-      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-xs text-white/60">Learning trend · {TREND_DAYS} days</p>
-          <p className="text-[11px] text-white/45">
-            {summary.last === null
-              ? 'No cards yet'
-              : `Mastery ${Math.round(summary.last)}%${
-                  summary.delta ? ` (${summary.delta > 0 ? '+' : ''}${summary.delta} pts)` : ''
-                } · ${summary.answered} ${summary.answered === 1 ? 'card' : 'cards'} answered`}
-          </p>
-        </div>
-        <div className="flex items-center gap-3 text-[10px] text-white/55">
-          <LegendKey color={MASTERY_COLOR} label="Mastery" />
-          <LegendKey color={ACCURACY_COLOR} label="Daily accuracy" />
-        </div>
-      </div>
-
       {summary.answered === 0 ? (
-        <p className="py-8 text-center text-[11px] text-white/40">
-          No answers in the last {TREND_DAYS} days. Review a few cards and your trend starts here.
-        </p>
+        <EmptyState
+          size="sm"
+          icon={ChartSpline}
+          title="No answers yet"
+          description={`Nothing answered in the last ${TREND_DAYS} days. Review a few cards and your trend starts here.`}
+        />
       ) : (
         <>
-          <div className="h-44 w-full">
+          <div className="h-44 w-full font-mono">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
+              <ComposedChart data={rows} margin={{ top: 8, right: 8, left: -4, bottom: 0 }}>
+                <defs>
+                  <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={MASTERY_COLOR} stopOpacity={CHART.areaOpacity} />
+                    <stop offset="100%" stopColor={MASTERY_COLOR} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} stroke={CHART.grid} />
                 <XAxis
                   dataKey="label"
-                  tick={AXIS_TICK}
-                  stroke="rgba(255,255,255,0.1)"
+                  tick={CHART.tick}
+                  axisLine={false}
                   tickLine={false}
                   interval="preserveStartEnd"
-                  minTickGap={24}
+                  minTickGap={28}
+                  tickMargin={6}
                 />
                 <YAxis
-                  width={36}
+                  width={44}
                   domain={[0, 100]}
                   ticks={[0, 25, 50, 75, 100]}
-                  tick={AXIS_TICK}
-                  stroke="rgba(255,255,255,0.1)"
+                  tick={CHART.tick}
+                  axisLine={false}
                   tickLine={false}
                   tickFormatter={(v: number) => `${v}%`}
                 />
-                <Tooltip content={renderTooltip} cursor={{ stroke: 'rgba(255,255,255,0.15)' }} />
+                <Tooltip content={renderTooltip} cursor={{ stroke: CHART.cursor, strokeWidth: 1 }} />
                 <Area
                   type="monotone"
                   dataKey="mastery"
                   name="Mastery"
                   stroke={MASTERY_COLOR}
-                  strokeWidth={2}
-                  fill={MASTERY_COLOR}
-                  fillOpacity={0.1}
-                  dot={false}
-                  activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }}
+                  strokeWidth={CHART.strokeWidth}
+                  fill={`url(#${fillId})`}
+                  dot={renderMasteryEnd}
+                  activeDot={{ r: 4, stroke: INK[950], strokeWidth: 2 }}
                   isAnimationActive={false}
                 />
                 <Line
                   type="monotone"
                   dataKey="accuracy"
-                  name="Daily accuracy"
+                  name="Accuracy"
                   stroke={ACCURACY_COLOR}
-                  strokeWidth={2}
+                  strokeWidth={CHART.strokeWidth}
                   connectNulls
-                  dot={{ r: 4, fill: ACCURACY_COLOR, stroke: SURFACE, strokeWidth: 2 }}
-                  activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }}
+                  dot={{ r: 2.5, fill: ACCURACY_COLOR, stroke: INK[950], strokeWidth: 1.5 }}
+                  activeDot={{ r: 4, stroke: INK[950], strokeWidth: 2 }}
                   isAnimationActive={false}
                 />
               </ComposedChart>
@@ -200,7 +224,7 @@ function LearningTrendInner() {
           </table>
         </>
       )}
-    </section>
+    </Card>
   );
 }
 

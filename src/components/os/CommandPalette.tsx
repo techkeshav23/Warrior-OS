@@ -10,11 +10,10 @@
 
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Search,
-  ArrowRight,
   Sparkles,
   WandSparkles,
   FileText,
@@ -22,6 +21,22 @@ import {
   IndianRupee,
   GraduationCap,
   Layers,
+  CornerDownLeft,
+  Zap,
+  Headphones,
+  CircleQuestionMark,
+  ClipboardCheck,
+  Map as MapIcon,
+  Timer,
+  TimerOff,
+  FileSearch,
+  ChartColumn,
+  Coffee,
+  SquarePen,
+  BrainCircuit,
+  FileChartColumn,
+  SearchX,
+  type LucideIcon,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
 import { collectDueCards, useLearningStore } from '@/stores/useLearningStore';
@@ -40,6 +55,9 @@ import { findMatchingNotes, loadNotesLite, type NoteLite } from '@/lib/nexus/con
 import { emitWarriorEvent, WARRIOR_EVENTS } from '@/lib/nexus/events';
 import { openOrFocusApp } from '@/lib/nexus/windows';
 import { listHabits, type HabitRef } from '@/lib/nexus/quick-actions';
+import { AppIcon } from '@/components/ui/AppIcon';
+import { Kbd } from '@/components/ui/Badge';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { cn } from '@/lib/utils';
 import type { NexusCommand } from '@/types/nexus';
 
@@ -58,6 +76,10 @@ interface CommandItem {
   action: () => void;
   /** The NEXUS command the row runs (lets a typed intent skip a duplicate row). */
   command?: NexusCommand;
+  /** App rows: the app id (drawn as its AppIcon). */
+  appId?: string;
+  /** App rows: the registry shortcut ("ctrl+shift+m"), shown as a key hint. */
+  shortcut?: string;
 }
 
 /** Show the outcome of palette-run NEXUS commands as a toast. */
@@ -103,6 +125,77 @@ function opensInChat(intent: LocalIntent): boolean {
   return intent.type === 'help' || intent.type === 'easter_egg' || intent.type === 'show_decks';
 }
 
+// ─── Visual layer helpers ───
+
+const EASE = [0.16, 1, 0.3, 1] as const;
+
+/** Group heading for a row (rows stay in `filtered` order; a heading shows when the group changes). */
+function groupOf(cmd: CommandItem): string {
+  if (cmd.kind === 'nexus') return 'Suggested';
+  if (cmd.kind === 'ask') return 'Ask NEXUS';
+  if (cmd.category === 'Quick Action') return 'Quick actions';
+  return cmd.category;
+}
+
+/** Glyph per quick action id (falls back to the row kind). */
+const ACTION_ICON: Record<string, LucideIcon> = {
+  'action-study-mode': GraduationCap,
+  'action-chill-mode': Headphones,
+  'action-quiz': CircleQuestionMark,
+  'action-mock': ClipboardCheck,
+  'action-planner': MapIcon,
+  'action-pomodoro': Timer,
+  'action-pomodoro-stop': TimerOff,
+  'action-notes-search': FileSearch,
+  'action-stats': ChartColumn,
+  'action-break': Coffee,
+  'action-new-note': SquarePen,
+  'action-expense': IndianRupee,
+  'action-nexus': BrainCircuit,
+  'training-decks': FileChartColumn,
+};
+
+const KIND_ICON: Record<CommandKind, { icon: LucideIcon; tint: string }> = {
+  app: { icon: Zap, tint: 'text-fg-muted' },
+  action: { icon: Zap, tint: 'text-fg-muted' },
+  deck: { icon: GraduationCap, tint: 'text-viz-3' },
+  review: { icon: Layers, tint: 'text-gold' },
+  nexus: { icon: WandSparkles, tint: 'text-accent' },
+  note: { icon: FileText, tint: 'text-fg-muted' },
+  habit: { icon: CircleCheck, tint: 'text-success' },
+  ask: { icon: Sparkles, tint: 'text-accent' },
+};
+
+function RowIcon({ cmd }: { cmd: CommandItem }) {
+  if (cmd.appId) return <AppIcon appId={cmd.appId} size={28} />;
+  const kind = KIND_ICON[cmd.kind];
+  const Icon = ACTION_ICON[cmd.id] ?? kind.icon;
+  const nexus = cmd.kind === 'nexus' || cmd.kind === 'ask';
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'flex size-7 shrink-0 items-center justify-center rounded-control border inset-shadow-[0_1px_0_rgb(255_255_255/0.06)]',
+        nexus ? 'border-accent/30 bg-accent/10' : 'border-line-strong bg-linear-to-b from-ink-750 to-ink-850',
+        kind.tint
+      )}
+    >
+      <Icon size={16} strokeWidth={1.75} />
+    </span>
+  );
+}
+
+/** "ctrl+shift+m" → ["Ctrl", "Shift", "M"] (⌘ on a Mac). */
+function shortcutKeys(shortcut: string, isMac: boolean): string[] {
+  return shortcut.split('+').map((part) => {
+    const p = part.trim().toLowerCase();
+    if (p === 'ctrl') return isMac ? '⌘' : 'Ctrl';
+    if (p === 'shift') return isMac ? '⇧' : 'Shift';
+    if (p === 'alt') return isMac ? '⌥' : 'Alt';
+    return p.length === 1 ? p.toUpperCase() : p.charAt(0).toUpperCase() + p.slice(1);
+  });
+}
+
 export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -110,6 +203,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const [habits, setHabits] = useState<HabitRef[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
+  const [isMac] = useState(
+    () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent)
+  );
 
   const registeredApps = useAppStore((s) => s.registeredApps);
   const launchApp = useAppStore((s) => s.launchApp);
@@ -148,6 +245,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       label: `Open ${app.name}`,
       category: 'Applications',
       kind: 'app',
+      appId: app.id,
+      shortcut: app.shortcut,
       action: () => {
         markUsed();
         launchApp(app.id, activeWorkspaceId);
@@ -164,6 +263,30 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         command: qa.command,
         action: runCommand(qa.command),
       });
+    });
+
+    // (Listed with the quick actions above so the group reads as one.)
+    cmds.push({
+      id: 'action-new-note',
+      label: 'New Note',
+      category: 'Quick Action',
+      kind: 'action',
+      action: () => {
+        markUsed();
+        launchApp('notes', activeWorkspaceId);
+        onClose();
+      },
+    });
+    cmds.push({
+      id: 'action-expense',
+      label: 'Log Expense (type: add expense 120 chai)',
+      category: 'Quick Action',
+      kind: 'action',
+      action: () => {
+        markUsed();
+        setQuery('add expense ');
+        focusPaletteInput();
+      },
     });
 
     // Training: review what is due, quiz (or review) one deck.
@@ -212,28 +335,6 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       },
     });
 
-    cmds.push({
-      id: 'action-new-note',
-      label: 'New Note',
-      category: 'Quick Action',
-      kind: 'action',
-      action: () => {
-        markUsed();
-        launchApp('notes', activeWorkspaceId);
-        onClose();
-      },
-    });
-    cmds.push({
-      id: 'action-expense',
-      label: 'Log Expense (type: add expense 120 chai)',
-      category: 'Quick Action',
-      kind: 'action',
-      action: () => {
-        markUsed();
-        setQuery('add expense ');
-        focusPaletteInput();
-      },
-    });
     cmds.push({
       id: 'action-nexus',
       label: 'Ask NEXUS (open chat)',
@@ -424,107 +525,123 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     <AnimatePresence>
       {isOpen && (
         <div
-          className="fixed inset-0 flex items-start justify-center pt-[15vh]"
+          className="fixed inset-0 flex items-start justify-center pt-[14vh]"
           style={{ zIndex: 'var(--z-command-palette)' }}
         >
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            exit={{ opacity: 0, transition: { duration: 0.14 } }}
+            transition={{ duration: 0.18 }}
+            className="absolute inset-0 bg-ink-950/60 backdrop-blur-[3px]"
             onClick={onClose}
           />
 
           {/* Palette */}
           <motion.div
             data-tour="command-bar"
-            initial={{ opacity: 0, y: -20, scale: 0.98 }}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.98 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-lg rounded-[var(--radius-lg)] overflow-hidden mx-4"
-            style={{
-              background: 'rgba(12, 12, 20, 0.95)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              boxShadow: '0 16px 60px rgba(0,0,0,0.5), 0 0 40px rgba(0,240,255,0.03)',
-            }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.985, transition: { duration: 0.14, ease: EASE } }}
+            transition={{ duration: 0.2, ease: EASE }}
+            className="glass-popover relative mx-4 flex w-full max-w-[640px] flex-col overflow-hidden rounded-sheet shadow-e3"
           >
+            {/* Signature hairline */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-x-12 top-0 h-px bg-linear-to-r from-transparent via-accent/50 to-transparent"
+            />
+
             {/* Search Input */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
-              <Search className="w-4 h-4 text-text-muted flex-shrink-0" />
+            <div className="flex h-14 shrink-0 items-center gap-3 border-b border-line px-5 transition-colors duration-180 focus-within:border-accent/30">
+              <Search size={18} strokeWidth={1.75} aria-hidden className="shrink-0 text-fg-subtle" />
               <input
                 ref={inputRef}
                 id={PALETTE_INPUT_ID}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder='Search apps, or tell NEXUS: "study mode", "review due cards", "quiz me on <deck>"…'
+                placeholder='Search apps, or tell NEXUS: "study mode", "quiz me on <deck>"…'
                 aria-label="Command palette"
-                className="flex-1 bg-transparent text-sm font-mono text-text-primary placeholder:text-text-muted outline-none"
+                autoComplete="off"
+                spellCheck={false}
+                className="h-full min-w-0 flex-1 bg-transparent text-base text-fg outline-none placeholder:text-fg-subtle"
               />
-              <kbd className="text-[9px] font-mono text-text-muted bg-white/5 px-1.5 py-0.5 rounded">
-                ESC
-              </kbd>
+              <Kbd>Esc</Kbd>
             </div>
 
             {/* Results */}
-            <div ref={listRef} className="max-h-[320px] overflow-y-auto py-2">
+            <div ref={listRef} className="scrollbar-thin max-h-[min(420px,52vh)] overflow-y-auto py-2">
               {filtered.length === 0 ? (
-                <p className="text-center text-xs font-mono text-text-muted py-8">
-                  No results found
-                </p>
+                <EmptyState
+                  size="sm"
+                  icon={SearchX}
+                  title="No results"
+                  description="Try an app name, or type a request for NEXUS."
+                />
               ) : (
                 filtered.map((cmd, i) => {
-                  const nexusRow = cmd.kind === 'nexus' || cmd.kind === 'ask';
+                  const group = groupOf(cmd);
+                  const showHeading = i === 0 || groupOf(filtered[i - 1]) !== group;
+                  const selected = i === selectedIndex;
                   return (
-                    <button
-                      key={cmd.id}
-                      data-index={i}
-                      onClick={cmd.action}
-                      onMouseEnter={() => setSelectedIndex(i)}
-                      className={cn(
-                        'w-full flex items-center gap-3 px-4 py-2 text-left',
-                        'transition-colors duration-75',
-                        i === selectedIndex
-                          ? nexusRow
-                            ? 'bg-cyan-500/10 text-cyan-300'
-                            : 'bg-accent-primary/10 text-accent-primary'
-                          : 'text-text-secondary hover:bg-white/5'
+                    <Fragment key={cmd.id}>
+                      {showHeading && (
+                        <div className={cn('hud-label px-5 pb-1.5', i === 0 ? 'pt-1.5' : 'pt-3')}>{group}</div>
                       )}
-                    >
-                      {cmd.kind === 'ask' ? (
-                        <Sparkles className="w-3 h-3 flex-shrink-0 opacity-80 text-cyan-400" />
-                      ) : cmd.kind === 'nexus' ? (
-                        <WandSparkles className="w-3 h-3 flex-shrink-0 opacity-90 text-cyan-300" />
-                      ) : cmd.kind === 'note' ? (
-                        <FileText className="w-3 h-3 flex-shrink-0 opacity-70" />
-                      ) : cmd.kind === 'habit' ? (
-                        <CircleCheck className="w-3 h-3 flex-shrink-0 opacity-80 text-emerald-300" />
-                      ) : cmd.kind === 'deck' ? (
-                        <GraduationCap className="w-3 h-3 flex-shrink-0 opacity-80 text-violet-300" />
-                      ) : cmd.kind === 'review' ? (
-                        <Layers className="w-3 h-3 flex-shrink-0 opacity-80 text-amber-300" />
-                      ) : cmd.id === 'action-expense' ? (
-                        <IndianRupee className="w-3 h-3 flex-shrink-0 opacity-70" />
-                      ) : (
-                        <ArrowRight className="w-3 h-3 flex-shrink-0 opacity-50" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-mono truncate">{cmd.label}</p>
-                      </div>
-                      <span className="text-[9px] font-mono text-text-muted">
-                        {cmd.category}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        data-index={i}
+                        onClick={cmd.action}
+                        onMouseMove={() => {
+                          if (!selected) setSelectedIndex(i);
+                        }}
+                        className={cn(
+                          'relative mx-2 flex h-11 w-[calc(100%-16px)] items-center gap-3 rounded-control px-2.5 text-left',
+                          'transition-colors duration-75 focus-ring-inset',
+                          selected ? 'bg-accent-soft text-fg' : 'text-fg-muted'
+                        )}
+                      >
+                        {selected && (
+                          <span aria-hidden className="absolute inset-y-2.5 left-0 w-0.5 rounded-full bg-accent" />
+                        )}
+                        <RowIcon cmd={cmd} />
+                        <span className="min-w-0 flex-1 truncate text-ui">{cmd.label}</span>
+                        {cmd.shortcut && (
+                          <Kbd size="sm" keys={shortcutKeys(cmd.shortcut, isMac)} className="shrink-0 opacity-80" />
+                        )}
+                        <CornerDownLeft
+                          size={14}
+                          strokeWidth={1.75}
+                          aria-hidden
+                          className={cn('shrink-0 text-accent transition-opacity duration-120', selected ? 'opacity-100' : 'opacity-0')}
+                        />
+                      </button>
+                    </Fragment>
                   );
                 })
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-white/5 px-4 py-1.5 text-[9px] font-mono text-text-muted">
-              <span>↑↓ navigate · Enter run · Esc close</span>
-              <span className="text-cyan-300/60">NEXUS understands English + Hinglish</span>
+            {/* Footer: key hints */}
+            <div className="flex h-10 shrink-0 items-center gap-4 border-t border-line bg-ink-950/30 px-5 text-xs text-fg-subtle">
+              <span className="flex items-center gap-1.5">
+                <Kbd size="sm">↑</Kbd>
+                <Kbd size="sm">↓</Kbd>
+                Navigate
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Kbd size="sm">↵</Kbd>
+                Run
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Kbd size="sm">Esc</Kbd>
+                Close
+              </span>
+              <span className="ml-auto flex items-center gap-1.5 truncate">
+                <Sparkles size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-accent" />
+                <span className="truncate">NEXUS understands English + Hinglish</span>
+              </span>
             </div>
           </motion.div>
         </div>

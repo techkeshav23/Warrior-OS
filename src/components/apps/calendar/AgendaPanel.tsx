@@ -7,12 +7,13 @@
 'use client';
 
 import { memo } from 'react';
-import { Bell, CalendarPlus, Repeat, Trophy } from 'lucide-react';
+import { Bell, CalendarCheck2, CalendarPlus, CalendarRange, Repeat, Trophy } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Button, EmptyState, ProgressBar } from '@/components/ui';
 import type { CalendarOccurrence } from '@/types/calendar';
 import { CALENDAR_PLANNER_TARGET } from './calendar-achievements';
-import { CALENDAR_CATEGORY_MAP, formatTime12 } from './calendar-utils';
+import { CALENDAR_CATEGORY_MAP, eventColor, formatTime12 } from './calendar-utils';
 
 interface AgendaPanelProps {
   className?: string;
@@ -43,28 +44,48 @@ interface OccurrenceRowProps {
 const OccurrenceRow = memo(function OccurrenceRow({ occ, showDate = false, onOpen }: OccurrenceRowProps) {
   const { event } = occ;
   const meta = CALENDAR_CATEGORY_MAP[event.category];
+  const color = eventColor(event.color);
   return (
     <button
       type="button"
       onClick={() => onOpen(occ)}
-      className="flex w-full items-stretch gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-white/5 focus-visible:bg-white/5 focus-visible:outline-none"
+      className="focus-ring-inset group/occ flex w-full items-stretch gap-3 rounded-control px-2 py-2 text-left transition-colors duration-120 ease-out-quint hover:bg-surface-hover active:bg-surface-active"
       aria-label={`${event.title}, ${showDate ? `${format(parseISO(occ.date), 'EEEE d MMMM')}, ` : ''}${
         event.time ? formatTime12(event.time) : 'all day'
       }, ${meta.label}. Edit`}
     >
-      <span className="w-1 shrink-0 rounded-full" style={{ background: event.color }} />
+      {/* Time column */}
+      <span className="tabular w-16 shrink-0 pt-px font-mono text-xs leading-5 text-fg-muted">
+        {showDate ? (
+          <>
+            <span className="block text-fg">{format(parseISO(occ.date), 'd MMM')}</span>
+            <span className="block text-2xs leading-4 text-fg-subtle">{format(parseISO(occ.date), 'EEE')}</span>
+          </>
+        ) : event.time ? (
+          formatTime12(event.time)
+        ) : (
+          'All day'
+        )}
+      </span>
+      <span className="w-0.5 shrink-0 rounded-full" style={{ background: color }} />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm text-white/90">{event.title}</span>
-        <span className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-white/50">
-          {showDate && <span>{format(parseISO(occ.date), 'EEE d MMM')} ·</span>}
-          <span>{event.time ? formatTime12(event.time) : 'All day'}</span>
-          <span style={{ color: meta.color }}>{meta.label}</span>
-          {event.recurrence !== 'none' && <Repeat className="h-3 w-3 text-white/40" aria-hidden="true" />}
-          {event.time && event.reminderMinutes !== null && (
-            <Bell className="h-3 w-3 text-white/40" aria-hidden="true" />
-          )}
+        <span className="block truncate text-ui font-medium text-fg" title={event.title}>
+          {event.title}
         </span>
-        {event.notes && <span className="block truncate text-[11px] text-white/40">{event.notes}</span>}
+        <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-fg-subtle">
+          {showDate && <span className="tabular font-mono">{event.time ? formatTime12(event.time) : 'All day'}</span>}
+          <span className="flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full" style={{ background: meta.color }} aria-hidden />
+            {meta.label}
+          </span>
+          {event.recurrence !== 'none' && <Repeat size={12} strokeWidth={1.75} aria-hidden />}
+          {event.time && event.reminderMinutes !== null && <Bell size={12} strokeWidth={1.75} aria-hidden />}
+        </span>
+        {event.notes && (
+          <span className="mt-0.5 block truncate text-xs text-fg-subtle" title={event.notes}>
+            {event.notes}
+          </span>
+        )}
       </span>
     </button>
   );
@@ -83,37 +104,38 @@ function AgendaPanelInner({
 }: AgendaPanelProps) {
   const selected = parseISO(selectedDate);
   const isPast = selectedDate < todayKey;
+  const isToday = selectedDate === todayKey;
 
   return (
-    <aside aria-label="Agenda" className={cn('flex min-h-0 flex-col overflow-y-auto bg-black/15', className)}>
+    <aside aria-label="Agenda" className={cn('scrollbar-thin flex min-h-0 flex-col overflow-y-auto bg-ink-950/25', className)}>
       {/* Selected day */}
-      <div className="border-b border-white/10 p-3">
-        <div className="flex items-start justify-between gap-2">
+      <div className="border-b border-line px-3 pb-3 pt-4">
+        <div className="flex items-start justify-between gap-2 px-2">
           <div className="min-w-0">
             <p
               className={cn(
-                'text-[11px] font-semibold uppercase tracking-wider',
-                selectedDate === todayKey ? 'text-cyan-300' : 'text-white/50'
+                'font-mono text-2xs font-medium uppercase tracking-[0.14em]',
+                isToday ? 'text-accent' : 'text-fg-subtle'
               )}
             >
               {relativeDayLabel(selectedDate, todayKey)}
             </p>
-            <p className="truncate text-sm font-semibold text-white">{format(selected, 'd MMMM yyyy')}</p>
+            <p className="mt-0.5 truncate text-base font-semibold text-fg">{format(selected, 'd MMMM yyyy')}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => onAdd(selectedDate)}
-            className="flex shrink-0 items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-[11px] text-cyan-200 transition-colors hover:bg-cyan-500/20"
-          >
-            <CalendarPlus className="h-3.5 w-3.5" /> Add
-          </button>
+          <Button size="sm" variant="secondary" leadingIcon={CalendarPlus} onClick={() => onAdd(selectedDate)}>
+            Add
+          </Button>
         </div>
 
-        <div className="mt-2 space-y-0.5">
+        <div className="mt-3 space-y-0.5">
           {dayOccurrences.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-white/10 px-3 py-3 text-center text-[11px] text-white/45">
-              {isPast ? 'Nothing was planned for this day.' : 'Nothing planned. Double-click a day or press Add.'}
-            </p>
+            <EmptyState
+              size="sm"
+              grid={false}
+              icon={isPast ? CalendarCheck2 : CalendarRange}
+              title={isPast ? 'Nothing was planned' : 'Nothing planned'}
+              description={isPast ? 'This day had no events.' : 'Double-click a day or press Add.'}
+            />
           ) : (
             dayOccurrences.map((occ) => <OccurrenceRow key={occ.key} occ={occ} onOpen={onOpen} />)
           )}
@@ -121,12 +143,10 @@ function AgendaPanelInner({
       </div>
 
       {/* Upcoming */}
-      <div className="flex-1 p-3">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-white/50">
-          Coming up · next {upcomingDays} days
-        </p>
+      <div className="flex-1 px-3 py-4">
+        <p className="hud-label mb-2 px-2">Coming up · next {upcomingDays} days</p>
         {upcoming.length === 0 ? (
-          <p className="text-[11px] text-white/40">No upcoming events.</p>
+          <p className="px-2 text-xs text-fg-subtle">Nothing on the horizon. Plan something worth showing up for.</p>
         ) : (
           <div className="space-y-0.5">
             {upcoming.map((occ) => (
@@ -138,21 +158,23 @@ function AgendaPanelInner({
 
       {/* Achievement progress */}
       {plannedCount < CALENDAR_PLANNER_TARGET && (
-        <div className="border-t border-white/10 px-3 py-2">
-          <div className="flex items-center justify-between text-[11px] text-white/50">
-            <span className="flex items-center gap-1">
-              <Trophy className="h-3 w-3 text-amber-300" /> Master Planner
+        <div className="border-t border-line px-5 py-3">
+          <div className="mb-2 flex items-center justify-between text-xs text-fg-muted">
+            <span className="flex items-center gap-1.5">
+              <Trophy size={14} strokeWidth={1.75} className="text-gold" aria-hidden /> Master Planner
             </span>
-            <span className="font-mono">
+            <span className="tabular font-mono text-fg-subtle">
               {plannedCount}/{CALENDAR_PLANNER_TARGET}
             </span>
           </div>
-          <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-amber-300/80"
-              style={{ width: `${(plannedCount / CALENDAR_PLANNER_TARGET) * 100}%` }}
-            />
-          </div>
+          <ProgressBar
+            value={plannedCount}
+            max={CALENDAR_PLANNER_TARGET}
+            segments={CALENDAR_PLANNER_TARGET}
+            tone="gold"
+            size="sm"
+            aria-label="Master Planner progress"
+          />
         </div>
       )}
     </aside>

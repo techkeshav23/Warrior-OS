@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — LockScreen Component
-// Parallax lock screen with biometric-style unlock animation,
-// live clock and current weather (fails silently when offline).
-// Shows the machine's owner and offers two ways in:
+// FORGE HUD lock screen over the Deep Space wallpaper: display clock
+// and date, a status strip (level, streak, weather), and a glass unlock
+// card with the owner's identity. Two ways in:
 //   • owner  — type a password + Enter (any password unlocks)
 //   • guest  — "Explore as Guest" for portfolio visitors
-// Both run the same unlock cinematic and record the visitor mode.
+// Both run the same scan → exit cinematic and record the visitor mode.
 //
 // Test hooks: [data-lock-screen] (data-state="locked|unlocking",
 // data-visitor-mode once chosen), [data-testid="lock-password"],
@@ -14,22 +14,23 @@
 
 'use client';
 
-import { useState, useCallback, useEffect, useRef, memo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, memo, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Eye, Lock, Shield, Zap } from 'lucide-react';
-import { useParallax } from '@/hooks/useParallax';
-import { useClock } from '@/hooks/useClock';
-import { GlitchText } from '@/components/ui/GlitchText';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { ArrowRight, Eye, Flame, Lock, ScanFace, ShieldCheck, Sparkles } from 'lucide-react';
 import { WeatherIcon } from '@/components/apps/weather/WeatherIcon';
 import { getQuoteOfDay } from '@/data/quotes';
 import { useXPStore } from '@/stores/useXPStore';
 import { useCreatureStore } from '@/stores/useCreatureStore';
 import { getLocalWeather, type WeatherData } from '@/lib/weather';
+import { useLiteMode } from '@/lib/lite-mode';
 import { cn } from '@/lib/utils';
 import { OWNER } from '@/config/owner';
 import { setVisitorMode, type VisitorMode } from '@/lib/visitor';
-import { getOwnerInitials } from '@/components/showcase/OwnerCard';
+import { OwnerAvatar } from '@/components/showcase/OwnerCard';
+import { BrandMark } from '@/components/showcase/BrandMark';
+import { useHabits } from '@/components/widgets/hooks';
+import { computeStreak, utcDayKey } from '@/components/widgets/widget-data';
 
 // The creature sprite (canvas painters) is a lazy client-only chunk; the
 // creature barrel would also drag the stats popup and recharts into the
@@ -44,33 +45,75 @@ interface LockScreenProps {
   onUnlock: (mode: VisitorMode) => void;
 }
 
-// Unlock cinematic timing (ms): biometric scan, then the shatter/exit.
+// Unlock cinematic timing (ms): biometric scan, then the exit.
 const SCAN_MS = 1200;
 const SHATTER_MS = 800;
 
-// ─── Clock: ticks every second without re-rendering the whole screen ───
+const EASE = [0.16, 1, 0.3, 1] as const;
+
+/** Calms the centre column over the wallpaper. */
+const SCRIM =
+  'radial-gradient(ellipse 60% 58% at 50% 50%, color-mix(in oklab, var(--color-ink-950) 58%, transparent), color-mix(in oklab, var(--color-ink-950) 22%, transparent) 60%, transparent 85%)';
+
+// ─── Clock: ticks on its own, without re-rendering the whole screen ───
+function useNow(intervalMs: number): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), intervalMs);
+    return () => window.clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
 function LockClockInner() {
-  const clock = useClock();
+  const now = useNow(1000);
+  const hours = now.getHours();
+  const h12 = hours % 12 || 12;
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const period = hours < 12 ? 'AM' : 'PM';
+  const weekday = now.toLocaleDateString('en-GB', { weekday: 'long' });
+  const dayMonth = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+
   return (
-    <>
-      <h1 className="text-7xl [@media(max-height:760px)]:text-5xl font-display font-bold text-text-primary tracking-wider">
-        {clock.timeShort}
-      </h1>
-      <p className="text-text-secondary text-sm font-mono mt-2">
-        {clock.date}
+    <div className="flex flex-col items-center text-center">
+      <p className="font-mono text-xs font-medium uppercase tracking-[0.22em] text-fg-muted">
+        {weekday}
+        <span className="mx-2 text-fg-faint">/</span>
+        {dayMonth}
       </p>
-    </>
+      <h1
+        className={cn(
+          'mt-3 flex items-start font-display font-medium leading-none text-fg tabular',
+          'text-[112px] tracking-[-0.02em] [@media(max-height:760px)]:text-[84px]'
+        )}
+        style={{ textShadow: '0 2px 40px color-mix(in oklab, var(--color-ink-950) 60%, transparent)' }}
+        aria-label={`${h12}:${minutes} ${period}`}
+      >
+        <span>{h12}</span>
+        <span className="mx-1 text-fg-muted/70">:</span>
+        <span>{minutes}</span>
+        <span className="ml-3 mt-3 font-mono text-sm font-medium tracking-[0.16em] text-fg-subtle">{period}</span>
+      </h1>
+    </div>
   );
 }
 
 const LockClock = memo(LockClockInner);
 
-// ─── Weather: temp + icon. Never prompts for location (uses a saved
-// city or an existing permission, else the default city) and renders
-// nothing at all if the weather service is unavailable. ───
-function LockWeatherInner() {
+// ─── Status strip: level, streak, weather ───
+const CHIP =
+  'inline-flex h-7 min-w-0 items-center gap-1.5 rounded-full border border-line-strong bg-ink-950/55 px-2.5 text-xs text-fg-muted backdrop-blur-md lite:backdrop-blur-none';
+
+function LockStatusInner() {
+  const level = useXPStore((s) => s.level);
+  const levelTitle = useXPStore((s) => s.getLevelTitle());
+  const habits = useHabits();
+  const [dayKey] = useState(() => utcDayKey(Date.now()));
+  const streak = useMemo(() => computeStreak(habits, Date.parse(`${dayKey}T12:00:00Z`)).current, [habits, dayKey]);
   const [weather, setWeather] = useState<WeatherData | null>(null);
 
+  // Never prompts for location (uses a saved city or an existing
+  // permission, else the default city); silently absent when offline.
   useEffect(() => {
     const controller = new AbortController();
     getLocalWeather({ allowPrompt: false, signal: controller.signal })
@@ -84,28 +127,83 @@ function LockWeatherInner() {
   }, []);
 
   return (
-    <div className="h-7 mt-3 flex items-center justify-center">
-      {weather && (
-        <motion.div
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-mono text-text-secondary max-w-[20rem]"
-          title={weather.description}
-        >
-          <WeatherIcon code={weather.icon} className="w-4 h-4 shrink-0" />
-          <span className="text-text-primary">{weather.temp}°C</span>
-          <span className="capitalize truncate">{weather.condition}</span>
-          <span className="truncate">· {weather.city}</span>
-        </motion.div>
+    <ul className="flex h-7 flex-wrap items-center justify-center gap-2" aria-label="Status">
+      <li className={CHIP} title={`Level ${level} · ${levelTitle}`}>
+        <Sparkles className="size-3.5 text-gold" strokeWidth={1.75} aria-hidden />
+        <span className="font-mono font-medium text-fg tabular">Lv {level}</span>
+        <span className="text-fg-subtle">{levelTitle}</span>
+      </li>
+      {streak > 0 && (
+        <li className={CHIP} title={`${streak}-day streak`}>
+          <Flame className="size-3.5 text-ember-400" strokeWidth={1.75} aria-hidden />
+          <span className="font-mono font-medium text-fg tabular">{streak}</span>
+          <span className="text-fg-subtle">day streak</span>
+        </li>
       )}
-    </div>
+      <AnimatePresence>
+        {weather && (
+          <motion.li
+            key="weather"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.26, ease: EASE }}
+            className={cn(CHIP, 'max-w-[18rem]')}
+            title={weather.description}
+          >
+            <WeatherIcon code={weather.icon} className="size-4 shrink-0" />
+            <span className="font-mono font-medium text-fg tabular">{weather.temp}°</span>
+            <span className="truncate capitalize text-fg-subtle">
+              {weather.condition} · {weather.city}
+            </span>
+          </motion.li>
+        )}
+      </AnimatePresence>
+    </ul>
   );
 }
 
-const LockWeather = memo(LockWeatherInner);
+const LockStatus = memo(LockStatusInner);
 
-const OWNER_INITIALS = getOwnerInitials(OWNER.name);
+// ─── Unlocking: scan ring + progress over SCAN_MS ───
+function UnlockProgress({ mode }: { mode: VisitorMode }) {
+  const guest = mode === 'guest';
+  const Icon = guest ? ScanFace : ShieldCheck;
+  return (
+    <motion.div
+      key="unlocking"
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.18, ease: EASE }}
+      className="flex h-full flex-col items-center justify-center gap-4 text-center"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="relative flex size-16 items-center justify-center">
+        <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 64 64" aria-hidden>
+          <circle cx="32" cy="32" r="29" fill="none" stroke="var(--color-line-strong)" strokeWidth="2" />
+          <motion.circle
+            cx="32"
+            cy="32"
+            r="29"
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: SCAN_MS / 1000, ease: [0.45, 0, 0.2, 1] }}
+          />
+        </svg>
+        <span className="absolute inset-2 rounded-full bg-accent/10 motion-safe:animate-pulse-soft" aria-hidden />
+        <Icon className="relative size-6 text-accent" strokeWidth={1.75} aria-hidden />
+      </div>
+      <div>
+        <p className="text-sm font-medium text-fg">{guest ? 'Opening guest session…' : 'Authenticating…'}</p>
+        <p className="mt-1 hud-label">{guest ? 'Preparing demo workspace' : 'Verifying owner signature'}</p>
+      </div>
+    </motion.div>
+  );
+}
 
 export function LockScreen({ onUnlock }: LockScreenProps) {
   const [password, setPassword] = useState('');
@@ -114,24 +212,37 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
   const [shattered, setShattered] = useState(false);
   const isUnlocking = unlockMode !== null;
 
-  const parallax = useParallax(0.3);
-  const level = useXPStore((s) => s.level);
-  const levelTitle = useXPStore((s) => s.getLevelTitle());
+  const lite = useLiteMode();
+  const reduced = useReducedMotion() ?? false;
   // The creature exists once it was born on a first desktop session.
   const creatureKnown = useCreatureStore((s) => s.lastSyncedUserXP !== null);
-  const quote = getQuoteOfDay();
+  const [quote] = useState(getQuoteOfDay);
+  const rootRef = useRef<HTMLDivElement>(null);
 
-  // useState initializer runs exactly once — the canonical pattern for
-  // generating non-deterministic initial state without violating render purity.
-  const [particles] = useState(() =>
-    Array.from({ length: 30 }, () => ({
-      size: Math.random() * 3 + 1,
-      left: Math.random() * 100,
-      top: Math.random() * 100,
-      duration: 6 + Math.random() * 8,
-      delay: Math.random() * 5,
-    }))
-  );
+  // Pointer parallax through CSS variables (--lx / --ly, -1…1): no React
+  // re-render per move. Unset (lite mode, reduced motion) → no offset.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || lite || reduced) return;
+    let frame = 0;
+    let x = 0;
+    let y = 0;
+    const onMove = (e: PointerEvent) => {
+      x = (e.clientX / window.innerWidth) * 2 - 1;
+      y = (e.clientY / window.innerHeight) * 2 - 1;
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        root.style.setProperty('--lx', x.toFixed(3));
+        root.style.setProperty('--ly', y.toFixed(3));
+      });
+    };
+    window.addEventListener('pointermove', onMove, { passive: true });
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [lite, reduced]);
 
   // Guards against double unlocks (Enter mashing, Enter + click) and
   // cancels the cinematic if the lock screen unmounts mid-way.
@@ -174,288 +285,220 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
     [handleUnlock]
   );
 
+  const rise = (delay: number) =>
+    reduced
+      ? { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: 0.2, delay } }
+      : {
+          initial: { opacity: 0, y: 10 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.5, delay, ease: EASE },
+        };
+
   return (
     <AnimatePresence>
       {!shattered ? (
         <motion.div
-          className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden"
+          ref={rootRef}
+          className="fixed inset-0 overflow-hidden bg-ink-950 text-fg"
           style={{ zIndex: 'var(--z-boot)' }}
           data-lock-screen=""
           data-state={isUnlocking ? 'unlocking' : 'locked'}
           data-visitor-mode={unlockMode ?? undefined}
           exit={{
-            scale: 1.1,
+            scale: 1.04,
             opacity: 0,
-            filter: 'blur(10px)',
+            filter: 'blur(8px)',
           }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.8, ease: EASE }}
         >
-          {/* ─── Layer 0: Background ─── */}
+          {/* ─── Wallpaper: Deep Space, with a gentle two-depth parallax ─── */}
           <div
-            className="absolute inset-0 bg-gradient-to-b from-[#050510] via-[#0a0a20] to-[#050510]"
-            style={{
-              transform: `translate(${parallax.x * -10}px, ${parallax.y * -10}px) scale(1.05)`,
-            }}
-          />
-
-          {/* ─── Layer 1: Floating Particles ─── */}
-          <div
-            className="absolute inset-0 overflow-hidden"
-            style={{
-              transform: `translate(${parallax.x * -5}px, ${parallax.y * -5}px)`,
-            }}
+            className="wos-deep-space"
+            aria-hidden="true"
+            style={{ '--wp-mx': 'var(--lx, 0)', '--wp-my': 'var(--ly, 0)' } as CSSProperties}
           >
-            {particles.map((p, i) => (
-              <div
-                key={i}
-                className="absolute rounded-full bg-accent-primary/20"
-                style={{
-                  width: p.size,
-                  height: p.size,
-                  left: `${p.left}%`,
-                  top: `${p.top}%`,
-                  animation: `particle-float ${p.duration}s ease-in-out infinite`,
-                  animationDelay: `${p.delay}s`,
-                }}
-              />
-            ))}
+            <div className="wos-deep-space__aurora" />
+            <div className="wos-deep-space__field" />
           </div>
+          {/* Legibility scrim: calm the centre column, deepen the edges */}
+          <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: SCRIM }} />
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-linear-to-b from-ink-950/70 to-transparent" />
 
-          {/* ─── System mark (top-left) ─── */}
-          <motion.div
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="absolute top-6 left-6 z-10 flex items-center gap-3"
+          {/* ─── Top bar: system mark + visitor note ─── */}
+          <motion.header
+            {...rise(0.15)}
+            className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-6 py-5"
           >
-            <Shield className="w-5 h-5 text-accent-primary" aria-hidden />
-            <div className="leading-tight">
-              <p className="font-display text-xs font-bold tracking-[0.3em] text-text-primary">
-                WARRIOR OS
-              </p>
-              <p className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
-                {OWNER.shortName}&apos;s system · v4.0
-              </p>
+            <div className="flex items-center gap-3">
+              <BrandMark size={28} />
+              <div className="leading-tight">
+                <p className="font-display text-xs font-semibold tracking-[0.28em] text-fg">WARRIOR OS</p>
+                <p className="mt-0.5 hud-label">{OWNER.shortName}&apos;s system · v4.0</p>
+              </div>
             </div>
-          </motion.div>
+            <p className="hidden items-center gap-2 font-mono text-2xs uppercase tracking-[0.14em] text-fg-subtle sm:flex">
+              <span className="size-1.5 rounded-full bg-success motion-safe:animate-pulse-soft" aria-hidden />
+              Secure session · local only
+            </p>
+          </motion.header>
 
-          {/* ─── Layer 2: Main Content ───
-              Short laptop screens (≈720p browsers) get a tighter rhythm. */}
-          <motion.div
-            className="relative z-10 flex flex-col items-center gap-6 [@media(max-height:760px)]:gap-4"
-            style={{
-              transform: `translate(${parallax.x * 3}px, ${parallax.y * 3}px)`,
-            }}
+          {/* ─── Centre column ─── */}
+          <div
+            className={cn(
+              'relative z-10 flex h-full flex-col items-center justify-center gap-8 px-4',
+              '[@media(max-height:760px)]:gap-5'
+            )}
+            style={{ transform: 'translate3d(calc(var(--lx, 0) * 4px), calc(var(--ly, 0) * 3px), 0)' }}
           >
-            {/* Time */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-center"
-            >
+            <motion.div {...rise(0.1)} className="flex flex-col items-center gap-5 [@media(max-height:760px)]:gap-3">
               <LockClock />
-              <LockWeather />
+              <LockStatus />
             </motion.div>
 
-            {/* Avatar Ring */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.4, type: 'spring', damping: 15 }}
-              className="relative"
+            {/* ─── Unlock card ─── */}
+            <motion.section
+              {...rise(0.25)}
+              aria-label={`Sign in to ${OWNER.shortName}'s system`}
+              className="relative w-full max-w-[380px] rounded-sheet glass-window hud-corners p-6 [@media(max-height:760px)]:p-5"
+              style={{ '--hud-corner-inset': '8px' } as CSSProperties}
             >
-              {/* Rotating ring */}
-              <div className="absolute inset-0 m-auto w-28 h-28 rounded-full border-2 border-accent-primary/30 animate-spin-slow" />
-              <div className="absolute inset-0 m-auto w-32 h-32 rounded-full border border-accent-primary/10 animate-spin-slow"
-                style={{ animationDirection: 'reverse', animationDuration: '12s' }}
-              />
-
-              {/* Avatar: owner initials */}
-              <div className="relative w-24 h-24 rounded-full bg-surface border-2 border-accent-primary/40 flex items-center justify-center overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(0,240,255,0.18),transparent_65%)]" />
-                <span
-                  className="relative font-display font-bold text-3xl tracking-wider bg-gradient-to-br from-accent-primary to-accent-secondary bg-clip-text text-transparent"
-                  aria-hidden
-                >
-                  {OWNER_INITIALS}
-                </span>
+              {/* Owner identity */}
+              <div className="flex items-center gap-4">
+                <OwnerAvatar size="md" />
+                <div className="min-w-0 flex-1">
+                  <p className="hud-label">System owner</p>
+                  <p className="mt-0.5 truncate text-lg font-semibold text-fg" title={OWNER.name}>
+                    {OWNER.name}
+                  </p>
+                  <p className="truncate text-xs text-fg-subtle" title={OWNER.tagline}>
+                    <span className="font-mono text-accent">@{OWNER.handle}</span>
+                    {OWNER.tagline && <span> · {OWNER.tagline}</span>}
+                  </p>
+                </div>
               </div>
-
-              {/* Level badge */}
-              <div
-                className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-accent-primary/20 border border-accent-primary/40 rounded-full px-3 py-0.5"
-                title={`Level ${level} · ${levelTitle}`}
-              >
-                <span className="text-xs font-mono text-accent-primary font-bold">
-                  Lv.{level}
-                </span>
-              </div>
-            </motion.div>
-
-            {/* Owner */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="text-center"
-            >
-              <p className="text-[10px] font-mono uppercase tracking-[0.35em] text-text-muted mb-1.5">
-                System owner
-              </p>
-              <GlitchText
-                text={OWNER.name.toUpperCase()}
-                className="text-xl font-display font-bold text-accent-primary tracking-wider"
-                intensity="low"
-              />
-              <p className="text-xs font-mono mt-1.5">
-                <span className="text-accent-primary/80">@{OWNER.handle}</span>
-                {OWNER.tagline && (
-                  <span className="text-text-muted"> · {OWNER.tagline}</span>
-                )}
-              </p>
               {/* Creature badge: its row is reserved up front, so nothing
                   shifts when the lazy sprite chunk arrives. */}
               {creatureKnown && (
-                <div className="mt-2 flex min-h-6 items-center justify-center">
+                <div className="mt-3 flex min-h-6 items-center">
                   <CreatureLockBadge />
                 </div>
               )}
-            </motion.div>
 
-            {/* Password Input / Unlock */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 }}
-              className="flex flex-col items-center gap-3"
-            >
-              {!isUnlocking ? (
-                <>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Enter to unlock..."
-                      aria-label={`Password for ${OWNER.name}`}
-                      data-testid="lock-password"
-                      className={cn(
-                        'w-64 h-10 pl-10 pr-4 rounded-full',
-                        'bg-white/5 border border-white/10',
-                        'text-text-primary text-sm font-mono',
-                        'focus:outline-none focus:border-accent-primary/40',
-                        'placeholder:text-text-muted',
-                        'transition-all duration-200',
-                        error && 'border-accent-danger animate-shake'
-                      )}
-                      autoFocus
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleUnlock}
-                    data-testid="lock-unlock"
-                    className="text-text-muted text-xs font-mono hover:text-accent-primary transition-colors rounded focus-ring"
-                  >
-                    Click or press Enter to unlock
-                  </button>
+              <div className="mt-5 h-px bg-line" aria-hidden />
 
-                  {/* Divider */}
-                  <div className="flex items-center gap-3 w-64" aria-hidden>
-                    <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/15" />
-                    <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-text-muted">
-                      or
-                    </span>
-                    <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/15" />
-                  </div>
-
-                  {/* Guest access: the portfolio visitor's way in */}
-                  <motion.button
-                    type="button"
-                    onClick={handleGuest}
-                    data-testid="lock-guest"
-                    aria-describedby="lock-guest-hint"
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    className={cn(
-                      'group relative w-64 h-11 rounded-full overflow-hidden',
-                      'flex items-center justify-center gap-2',
-                      'border border-accent-primary/50 bg-accent-primary/10 text-accent-primary',
-                      'font-display text-xs font-bold uppercase tracking-[0.2em]',
-                      'shadow-[0_0_24px_rgba(0,240,255,0.15)]',
-                      'hover:bg-accent-primary/20 hover:border-accent-primary hover:shadow-[0_0_32px_rgba(0,240,255,0.35)]',
-                      'transition-[background-color,border-color,box-shadow] duration-200',
-                      'focus-ring'
-                    )}
-                  >
-                    {/* Light sweep */}
-                    <motion.span
-                      aria-hidden
-                      className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/15 to-transparent"
-                      initial={{ x: '-120%' }}
-                      animate={{ x: ['-120%', '320%'] }}
-                      transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 2.4, ease: 'easeInOut', delay: 1.4 }}
-                    />
-                    <Eye className="relative w-4 h-4" aria-hidden />
-                    <span className="relative">Explore as Guest</span>
-                    <ArrowRight
-                      className="relative w-4 h-4 transition-transform group-hover:translate-x-0.5"
-                      aria-hidden
-                    />
-                  </motion.button>
-                  <p id="lock-guest-hint" className="text-[10px] font-mono text-text-muted">
-                    No password needed · everything stays in your browser
-                  </p>
-                </>
-              ) : (
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="flex flex-col items-center gap-2"
-                  role="status"
-                  aria-live="polite"
-                >
-                  {/* Biometric scan ring */}
-                  <div className="relative w-16 h-16">
+              {/* Password / guest — or the scan while unlocking (same height: no jump) */}
+              <div className="mt-5 min-h-[164px]">
+                <AnimatePresence mode="wait" initial={false}>
+                  {!isUnlocking ? (
                     <motion.div
-                      className="absolute inset-0 rounded-full border-2 border-accent-primary"
-                      animate={{
-                        scale: [1, 1.3, 1],
-                        opacity: [1, 0.3, 1],
-                      }}
-                      transition={{ duration: 0.8, repeat: 1 }}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      {unlockMode === 'guest' ? (
-                        <Eye className="w-6 h-6 text-accent-primary animate-pulse" />
-                      ) : (
-                        <Zap className="w-6 h-6 text-accent-primary animate-pulse" />
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-xs font-mono text-accent-primary animate-pulse">
-                    {unlockMode === 'guest' ? 'Opening guest session...' : 'Authenticating...'}
-                  </span>
-                </motion.div>
-              )}
-            </motion.div>
+                      key="form"
+                      exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                      className="flex flex-col"
+                    >
+                      <div
+                        className={cn(
+                          'group relative flex h-11 items-center rounded-card border bg-ink-950/60',
+                          'transition-[border-color,box-shadow] duration-120 ease-out-quint',
+                          'focus-within:border-accent/70 focus-within:ring-3 focus-within:ring-accent/15',
+                          error ? 'border-danger/60 animate-shake' : 'border-line-strong hover:border-fg-faint'
+                        )}
+                      >
+                        <Lock
+                          className="pointer-events-none absolute left-3.5 size-4 text-fg-subtle transition-colors duration-120 group-focus-within:text-accent"
+                          strokeWidth={1.75}
+                          aria-hidden
+                        />
+                        <input
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder="Password"
+                          aria-label={`Password for ${OWNER.name}`}
+                          aria-invalid={error || undefined}
+                          data-testid="lock-password"
+                          className={cn(
+                            'h-full w-full min-w-0 rounded-card bg-transparent pl-10 pr-12 text-sm text-fg',
+                            'placeholder:text-fg-subtle outline-none focus-visible:outline-none'
+                          )}
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={handleUnlock}
+                          data-testid="lock-unlock"
+                          aria-label="Unlock"
+                          title="Unlock (Enter)"
+                          className={cn(
+                            'absolute right-1.5 flex size-8 items-center justify-center rounded-control',
+                            'bg-accent text-accent-fg inset-shadow-[0_1px_0_rgb(255_255_255/0.28)]',
+                            'transition-[filter,box-shadow] duration-120 ease-out-quint',
+                            'hover:brightness-110 hover:shadow-glow active:brightness-95 focus-ring'
+                          )}
+                        >
+                          <ArrowRight className="size-4" strokeWidth={2} aria-hidden />
+                        </button>
+                      </div>
+                      <p className="mt-2 flex items-center justify-between text-xs text-fg-subtle">
+                        <span>Owner sign-in</span>
+                        <span className="flex items-center gap-1.5">
+                          Press
+                          <kbd className="inline-flex h-5 items-center rounded-[5px] border border-line-strong bg-surface-2 px-1.5 font-mono text-2xs text-fg-muted">
+                            Enter
+                          </kbd>
+                        </span>
+                      </p>
+
+                      {/* Divider */}
+                      <div className="my-4 flex items-center gap-3" aria-hidden>
+                        <span className="h-px flex-1 bg-line" />
+                        <span className="hud-label text-fg-faint">or</span>
+                        <span className="h-px flex-1 bg-line" />
+                      </div>
+
+                      {/* Guest access: the portfolio visitor's way in */}
+                      <button
+                        type="button"
+                        onClick={handleGuest}
+                        data-testid="lock-guest"
+                        aria-describedby="lock-guest-hint"
+                        className={cn(
+                          'group relative flex h-11 w-full items-center gap-3 overflow-hidden rounded-card px-3.5',
+                          'border border-accent/30 bg-accent/8 text-left text-fg',
+                          'transition-[background-color,border-color,box-shadow] duration-120 ease-out-quint',
+                          'hover:border-accent/55 hover:bg-accent/14 hover:shadow-glow active:bg-accent/20 focus-ring'
+                        )}
+                      >
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-control bg-accent/15 text-accent">
+                          <Eye className="size-4" strokeWidth={1.75} aria-hidden />
+                        </span>
+                        <span className="flex-1 text-sm font-medium">Explore as Guest</span>
+                        <ArrowRight
+                          className="size-4 text-accent transition-transform duration-180 ease-out-quint group-hover:translate-x-0.5"
+                          strokeWidth={1.75}
+                          aria-hidden
+                        />
+                      </button>
+                      <p id="lock-guest-hint" className="mt-2 text-center text-xs text-fg-subtle">
+                        No password needed · everything stays in your browser
+                      </p>
+                    </motion.div>
+                  ) : (
+                    <UnlockProgress key="progress" mode={unlockMode ?? 'owner'} />
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.section>
 
             {/* Quote */}
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 1.2 }}
-              className="text-text-muted text-xs font-mono text-center max-w-sm mt-4 [@media(max-height:760px)]:mt-0 [@media(max-height:700px)]:hidden italic"
+            <motion.figure
+              {...rise(0.5)}
+              className="max-w-md text-center [@media(max-height:700px)]:hidden"
             >
-              &ldquo;{quote}&rdquo;
-            </motion.p>
-          </motion.div>
-
-          {/* Vignette */}
-          <div className="absolute inset-0 vignette pointer-events-none" />
+              <blockquote className="text-sm text-fg-muted">&ldquo;{quote}&rdquo;</blockquote>
+              <figcaption className="mt-1.5 hud-label text-fg-faint">Quote of the day</figcaption>
+            </motion.figure>
+          </div>
         </motion.div>
       ) : null}
     </AnimatePresence>

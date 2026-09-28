@@ -25,9 +25,9 @@ export const REMINDER_OPTIONS: readonly number[] = [0, 5, 10, 15, 30, 60, 1440];
 
 /** Default colour per category (also the first swatches in the picker). */
 export const CALENDAR_CATEGORY_COLORS: Record<CalendarEventCategory, string> = {
-  study: '#00f0ff',
-  project: '#7b61ff',
-  personal: '#ff3d71',
+  study: '#2fd6f5',
+  project: '#a78bfa',
+  personal: '#ff6b8a',
 };
 
 const CATEGORY_IDS: readonly CalendarEventCategory[] = ['study', 'project', 'personal'];

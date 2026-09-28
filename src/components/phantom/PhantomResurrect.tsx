@@ -122,8 +122,8 @@ export function usePhantomResurrect() {
       {flash && (
         <motion.div
           key={flash.id}
-          initial={{ opacity: 0, scale: 0.92 }}
-          animate={{ opacity: [0, 0.95, 0], scale: [0.92, 1.04, 1] }}
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: [0, 0.9, 0], scale: [0.96, 1.01, 1] }}
           exit={{ opacity: 0 }}
           transition={{ duration: FLASH_MS / 1000, ease: 'easeOut' }}
           className="pointer-events-none absolute"
@@ -132,9 +132,10 @@ export function usePhantomResurrect() {
             top: flash.y,
             width: flash.width,
             height: flash.height,
-            borderRadius: 16,
-            background: `radial-gradient(circle at 50% 50%, ${flash.accent}66, transparent 70%)`,
-            boxShadow: `0 0 60px 14px ${flash.accent}aa`,
+            borderRadius: 'var(--radius-window)',
+            border: `1px solid color-mix(in oklab, ${flash.accent} 60%, transparent)`,
+            background: `radial-gradient(circle at 50% 50%, color-mix(in oklab, ${flash.accent} 34%, transparent), transparent 72%)`,
+            boxShadow: `0 0 48px 6px color-mix(in oklab, ${flash.accent} 45%, transparent)`,
           }}
         />
       )}

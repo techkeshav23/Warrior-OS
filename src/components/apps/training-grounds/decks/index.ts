@@ -4,4 +4,4 @@
 
 export { DecksPanel, type DecksPanelProps } from './DecksPanel';
 export { loadNotes, parseNote, splitTermDefinition, type NoteSource, type ParsedNote } from './note-to-deck';
-export { summarizeDeck, type DeckSummary } from './deck-ui';
+export { TAB_ICONS, countDueCards, deckHue, summarizeDeck, useMinuteNow, type DeckSummary } from './deck-ui';

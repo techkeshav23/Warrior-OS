@@ -13,11 +13,15 @@ export interface Workspace {
 
 export type WorkspaceId = 'study' | 'build' | 'chill';
 
+/** The parts of a workspace a user can change (Settings, the desktop menu). */
+export type WorkspacePatch = Partial<Pick<Workspace, 'name' | 'accentColor' | 'wallpaper' | 'icon'>>;
+
+/** Default looks use the FORGE HUD palette (see src/styles/tokens.ts). */
 export const DEFAULT_WORKSPACES: Workspace[] = [
   {
     id: 'study',
     name: 'Study',
-    accentColor: '#00f0ff',
+    accentColor: '#2fd6f5', // Plasma
     wallpaper: 'nebula',
     openWindowIds: [],
     icon: 'GraduationCap',
@@ -25,7 +29,7 @@ export const DEFAULT_WORKSPACES: Workspace[] = [
   {
     id: 'build',
     name: 'Build',
-    accentColor: '#00e676',
+    accentColor: '#3ddc97', // Mint
     wallpaper: 'matrix',
     openWindowIds: [],
     icon: 'Code2',
@@ -33,7 +37,7 @@ export const DEFAULT_WORKSPACES: Workspace[] = [
   {
     id: 'chill',
     name: 'Chill',
-    accentColor: '#7b61ff',
+    accentColor: '#a78bfa', // Violet
     wallpaper: 'aurora',
     openWindowIds: [],
     icon: 'Music',

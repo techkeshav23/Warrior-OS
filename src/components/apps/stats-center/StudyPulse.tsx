@@ -8,28 +8,12 @@
 'use client';
 
 import { memo, useMemo, type ReactNode } from 'react';
+import { ArrowRight, CalendarClock, CircleCheck, Crosshair, Layers } from 'lucide-react';
+import { Button, ProgressBar, StatTile } from '@/components/ui';
 import { useLearningStore } from '@/stores/useLearningStore';
 import { useNow } from '@/components/widgets/hooks';
 import { openTrainingGrounds } from '@/components/widgets/os-events';
-import { ACCURACY_DAYS, MASTERY_COLOR, summarizeLearning } from './learning-stats';
-
-interface TileProps {
-  label: string;
-  value: ReactNode;
-  sub: ReactNode;
-  children?: ReactNode;
-}
-
-function Tile({ label, value, sub, children }: TileProps) {
-  return (
-    <div className="flex min-w-0 flex-col rounded-xl border border-white/10 bg-black/20 p-3">
-      <p className="text-[11px] text-white/55">{label}</p>
-      <p className="mt-0.5 text-2xl font-bold text-white">{value}</p>
-      <p className="mt-0.5 truncate text-[10px] text-white/40">{sub}</p>
-      {children}
-    </div>
-  );
-}
+import { ACCURACY_COLOR, ACCURACY_DAYS, MASTERY_COLOR, summarizeLearning } from './learning-stats';
 
 function StudyPulseInner() {
   const decks = useLearningStore((s) => s.decks);
@@ -44,63 +28,91 @@ function StudyPulseInner() {
 
   const { mastery, dueNow, dueToday, newCards, recentAnswers, recentAccuracy } = summary;
   const masteryPct = Math.round(mastery.value * 100);
+  const accuracyPct = recentAccuracy === null ? null : Math.round(recentAccuracy * 100);
   const canReview = dueNow + newCards > 0;
 
   return (
-    <div className="grid grid-cols-1 gap-3 @sm:grid-cols-3">
-      <Tile
-        label="Due today"
-        value={mastery.total === 0 ? '—' : dueToday}
-        sub={
-          mastery.total === 0
-            ? 'No cards yet'
-            : dueToday === 0 && newCards === 0
-              ? 'All caught up'
-              : `${dueNow} ready now · ${newCards} new`
+    <div className="grid grid-cols-1 gap-3 @lg:grid-cols-3">
+      <PulseTile
+        footer={
+          canReview ? (
+            <Button size="sm" variant="secondary" fullWidth trailingIcon={ArrowRight} onClick={() => openTrainingGrounds('flashcards')}>
+              Review now
+            </Button>
+          ) : (
+            <p className="flex h-7 items-center gap-1.5 text-xs text-fg-subtle">
+              <CircleCheck size={14} strokeWidth={1.75} className="text-success" aria-hidden />
+              {mastery.total === 0 ? 'Create a deck to start' : 'Queue is clear'}
+            </p>
+          )
         }
       >
-        {canReview && (
-          <button
-            type="button"
-            onClick={() => openTrainingGrounds('flashcards')}
-            className="mt-2 self-start rounded-md border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[11px] text-cyan-200 transition-colors hover:bg-cyan-500/20 focus-ring"
-          >
-            Review now
-          </button>
-        )}
-      </Tile>
+        <StatTile
+          bare
+          size="sm"
+          label="Due today"
+          icon={CalendarClock}
+          value={mastery.total === 0 ? '—' : dueToday}
+          deltaLabel={
+            mastery.total === 0
+              ? 'No cards yet'
+              : dueToday === 0 && newCards === 0
+                ? 'All caught up'
+                : `${dueNow} ready · ${newCards} new`
+          }
+        />
+      </PulseTile>
 
-      <Tile
-        label="Cards mastered"
-        value={
-          <>
-            {mastery.mastered}
-            <span className="text-sm font-semibold text-white/40"> / {mastery.total}</span>
-          </>
+      <PulseTile
+        footer={
+          <ProgressBar value={masteryPct} size="sm" color={MASTERY_COLOR} animated={false} aria-label="Overall mastery" />
         }
-        sub={`${masteryPct}% overall mastery · ${mastery.seen} studied`}
       >
-        <div
-          className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"
-          role="progressbar"
-          aria-label="Overall mastery"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={masteryPct}
-        >
-          <div className="h-full rounded-full" style={{ width: `${masteryPct}%`, background: MASTERY_COLOR }} />
-        </div>
-      </Tile>
+        <StatTile
+          bare
+          size="sm"
+          label="Cards mastered"
+          icon={Layers}
+          value={mastery.mastered}
+          unit={`/ ${mastery.total}`}
+          deltaLabel={`${masteryPct}% · ${mastery.seen} studied`}
+        />
+      </PulseTile>
 
-      <Tile
-        label={`Accuracy · ${ACCURACY_DAYS} days`}
-        value={recentAccuracy === null ? '—' : `${Math.round(recentAccuracy * 100)}%`}
-        sub={
-          recentAnswers === 0
-            ? 'No answers this week'
-            : `${recentAnswers} ${recentAnswers === 1 ? 'answer' : 'answers'} this week`
+      <PulseTile
+        footer={
+          <ProgressBar
+            value={accuracyPct ?? 0}
+            size="sm"
+            color={ACCURACY_COLOR}
+            animated={false}
+            aria-label={`Accuracy over ${ACCURACY_DAYS} days`}
+          />
         }
-      />
+      >
+        <StatTile
+          bare
+          size="sm"
+          label={`Accuracy · ${ACCURACY_DAYS}d`}
+          icon={Crosshair}
+          value={accuracyPct === null ? '—' : accuracyPct}
+          unit={accuracyPct === null ? undefined : '%'}
+          deltaLabel={
+            recentAnswers === 0
+              ? 'No answers this week'
+              : `${recentAnswers} ${recentAnswers === 1 ? 'answer' : 'answers'} this week`
+          }
+        />
+      </PulseTile>
+    </div>
+  );
+}
+
+function PulseTile({ children, footer }: { children: ReactNode; footer: ReactNode }) {
+  return (
+    <div className="glass-panel flex min-w-0 flex-col gap-4 rounded-card p-4">
+      {children}
+      <div className="mt-auto">{footer}</div>
     </div>
   );
 }

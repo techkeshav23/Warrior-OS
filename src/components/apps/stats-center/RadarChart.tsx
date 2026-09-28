@@ -7,18 +7,21 @@
 
 'use client';
 
-import { memo, useMemo } from 'react';
+import { memo, useId, useMemo } from 'react';
+import { Compass, Swords } from 'lucide-react';
+import { Button, Card, EmptyState, ProgressBar } from '@/components/ui';
 import { useLearningStore } from '@/stores/useLearningStore';
 import { openTrainingGrounds } from '@/components/widgets/os-events';
+import { CHART, INK, LINE } from '@/styles/tokens';
 import { MASTERY_COLOR, RADAR_MAX_DECKS, rankDeckMastery, type DeckMasteryRow } from './learning-stats';
 
 // Wider than tall so side labels have room.
 const WIDTH = 300;
-const HEIGHT = 240;
+const HEIGHT = 236;
 const CX = WIDTH / 2;
 const CY = HEIGHT / 2;
-const MAX_R = 80;
-const LABEL_R = 1.12;
+const MAX_R = 78;
+const LABEL_R = 1.16;
 const GRID_LEVELS = [0.25, 0.5, 0.75, 1];
 
 function pct(value: number): number {
@@ -26,7 +29,7 @@ function pct(value: number): number {
 }
 
 function shortName(row: DeckMasteryRow): string {
-  const name = row.name.length > 8 ? `${row.name.slice(0, 7)}…` : row.name;
+  const name = row.name.length > 9 ? `${row.name.slice(0, 8)}…` : row.name;
   return `${row.icon} ${name}`;
 }
 
@@ -40,52 +43,26 @@ function point(index: number, count: number, value: number) {
   return { x: CX + MAX_R * value * Math.cos(angle), y: CY + MAX_R * value * Math.sin(angle), angle };
 }
 
-function EmptyDecks() {
-  return (
-    <div className="flex flex-col items-center gap-2 py-6 text-center">
-      <span className="text-3xl" aria-hidden="true">
-        🧭
-      </span>
-      <p className="text-sm font-semibold text-white/80">No decks yet</p>
-      <p className="max-w-[260px] text-[11px] text-white/45">
-        Build a deck on anything you want to learn. Your mastery map lights up here as you answer cards.
-      </p>
-      <button
-        type="button"
-        onClick={() => openTrainingGrounds()}
-        className="mt-1 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-1.5 text-xs text-cyan-200 transition-colors hover:bg-cyan-500/20 focus-ring"
-      >
-        Open Training Grounds
-      </button>
-    </div>
-  );
-}
-
 function DeckList({ rows }: { rows: DeckMasteryRow[] }) {
   return (
-    <ul className="min-w-[180px] flex-1 space-y-2">
+    <ul className="min-w-[180px] flex-1 divide-y divide-line">
       {rows.map((row) => (
-        <li key={row.id} title={describe(row)}>
-          <div className="flex items-baseline justify-between gap-2 text-[11px]">
-            <span className="truncate text-white/70">
+        <li key={row.id} title={describe(row)} className="py-2 first:pt-0 last:pb-0">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="truncate text-ui text-fg">
               <span aria-hidden="true">{row.icon}</span> {row.name}
             </span>
-            <span className="shrink-0 font-mono text-white/80">{pct(row.mastery.value)}%</span>
+            <span className="tabular shrink-0 font-mono text-xs text-fg">{pct(row.mastery.value)}%</span>
           </div>
-          <div
-            className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10"
-            role="progressbar"
+          <ProgressBar
+            className="mt-1.5"
+            value={row.mastery.value * 100}
+            size="sm"
+            color={MASTERY_COLOR}
+            animated={false}
             aria-label={`${row.name} mastery`}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={pct(row.mastery.value)}
-          >
-            <div
-              className="h-full rounded-full"
-              style={{ width: `${row.mastery.value * 100}%`, background: MASTERY_COLOR }}
-            />
-          </div>
-          <p className="mt-0.5 text-[10px] text-white/35">
+          />
+          <p className="tabular mt-1 font-mono text-2xs text-fg-subtle">
             {row.mastery.mastered}/{row.mastery.total} mastered · {row.mastery.seen} studied
           </p>
         </li>
@@ -95,6 +72,7 @@ function DeckList({ rows }: { rows: DeckMasteryRow[] }) {
 }
 
 function Radar({ rows }: { rows: DeckMasteryRow[] }) {
+  const fillId = `radar-fill-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const n = rows.length;
   const outline = (level: number) =>
     rows
@@ -107,19 +85,33 @@ function Radar({ rows }: { rows: DeckMasteryRow[] }) {
   return (
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      className="mx-auto w-full max-w-[300px] shrink-0 overflow-visible"
+      className="mx-auto w-full max-w-[300px] shrink-0 overflow-visible font-mono"
       role="img"
       aria-label={`Deck mastery radar. ${rows.map(describe).join('. ')}`}
     >
+      <defs>
+        <radialGradient id={fillId} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={MASTERY_COLOR} stopOpacity={0.08} />
+          <stop offset="100%" stopColor={MASTERY_COLOR} stopOpacity={CHART.areaOpacity} />
+        </radialGradient>
+      </defs>
       {GRID_LEVELS.map((level) => (
-        <polygon key={level} points={outline(level)} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+        <polygon
+          key={level}
+          points={outline(level)}
+          fill="none"
+          stroke={level === 1 ? LINE.strong : CHART.grid}
+          strokeWidth="1"
+        />
       ))}
       {rows.map((row, i) => {
         const p = point(i, n, 1);
-        return (
-          <line key={row.id} x1={CX} y1={CY} x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-        );
+        return <line key={row.id} x1={CX} y1={CY} x2={p.x} y2={p.y} stroke={CHART.grid} strokeWidth="1" />;
       })}
+      {/* 50% ring label */}
+      <text x={CX + 3} y={CY - MAX_R * 0.5 - 3} fontSize="9" fill={CHART.axis} opacity={0.8}>
+        50
+      </text>
 
       <polygon
         points={rows
@@ -128,10 +120,9 @@ function Radar({ rows }: { rows: DeckMasteryRow[] }) {
             return `${p.x},${p.y}`;
           })
           .join(' ')}
-        fill={MASTERY_COLOR}
-        fillOpacity="0.14"
+        fill={`url(#${fillId})`}
         stroke={MASTERY_COLOR}
-        strokeWidth="2"
+        strokeWidth={CHART.strokeWidth}
         strokeLinejoin="round"
       />
 
@@ -142,7 +133,7 @@ function Radar({ rows }: { rows: DeckMasteryRow[] }) {
             <title>{describe(row)}</title>
             {/* Hover target bigger than the mark. */}
             <circle cx={p.x} cy={p.y} r="12" fill="transparent" />
-            <circle cx={p.x} cy={p.y} r="4" fill={MASTERY_COLOR} stroke="#0c0c12" strokeWidth="2" />
+            <circle cx={p.x} cy={p.y} r="3.5" fill={MASTERY_COLOR} stroke={INK[950]} strokeWidth="2" />
           </g>
         );
       })}
@@ -158,8 +149,8 @@ function Radar({ rows }: { rows: DeckMasteryRow[] }) {
             y={p.y}
             textAnchor={anchor}
             dominantBaseline="central"
-            className="fill-white/55"
-            fontSize="10"
+            fill={CHART.axis}
+            fontSize={CHART.axisFontSize}
           >
             <title>{describe(row)}</title>
             {shortName(row)}
@@ -178,33 +169,49 @@ function RadarChartInner() {
   const studied = shown.some((row) => row.mastery.seen > 0);
 
   return (
-    <section className="rounded-xl border border-white/10 bg-black/20 p-4" aria-label="Deck mastery">
-      <div className="mb-2 flex items-baseline justify-between gap-2">
-        <p className="text-xs text-white/60">Deck mastery</p>
-        {ranked.length > RADAR_MAX_DECKS && (
-          <p className="text-[10px] text-white/35">
-            Top {RADAR_MAX_DECKS} of {ranked.length} decks · most studied
-          </p>
-        )}
-      </div>
-
-      {shown.length === 0 ? (
-        <EmptyDecks />
-      ) : (
-        <>
-          <div className="flex flex-wrap items-center gap-4">
-            {/* A radar needs three axes; fewer decks read fine as the list alone. */}
-            {shown.length >= 3 && <Radar rows={shown} />}
-            <DeckList rows={shown} />
-          </div>
-          <p className="mt-3 text-center text-[10px] text-white/30">
+    <Card
+      eyebrow="Decks"
+      title="Mastery map"
+      role="region"
+      aria-label="Deck mastery"
+      className="h-full"
+      actions={
+        ranked.length > RADAR_MAX_DECKS ? (
+          <span className="tabular font-mono text-2xs text-fg-subtle">
+            Top {RADAR_MAX_DECKS} of {ranked.length}
+          </span>
+        ) : undefined
+      }
+      footer={
+        shown.length > 0 ? (
+          <p className="text-xs text-fg-subtle">
             {studied
-              ? 'Mastery updates as you answer cards'
-              : 'Answer a few cards in Training Grounds to light up your map'}
+              ? 'Mastery updates as you answer cards.'
+              : 'Answer a few cards in Training Grounds to light up your map.'}
           </p>
-        </>
+        ) : undefined
+      }
+    >
+      {shown.length === 0 ? (
+        <EmptyState
+          size="sm"
+          icon={Compass}
+          title="No decks yet"
+          description="Build a deck on anything you want to learn. Your mastery map lights up as you answer cards."
+          actions={
+            <Button size="sm" variant="secondary" leadingIcon={Swords} onClick={() => openTrainingGrounds()}>
+              Open Training Grounds
+            </Button>
+          }
+        />
+      ) : (
+        <div className="flex flex-wrap items-center gap-5">
+          {/* A radar needs three axes; fewer decks read fine as the list alone. */}
+          {shown.length >= 3 && <Radar rows={shown} />}
+          <DeckList rows={shown} />
+        </div>
       )}
-    </section>
+    </Card>
   );
 }
 

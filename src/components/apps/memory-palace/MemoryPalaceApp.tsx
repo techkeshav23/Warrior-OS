@@ -10,13 +10,25 @@
 
 import { memo, useSyncExternalStore } from 'react';
 import dynamic from 'next/dynamic';
-import { Landmark, MonitorX } from 'lucide-react';
+import { MonitorX } from 'lucide-react';
+import { AppIcon, EmptyState } from '@/components/ui';
 
 function PalaceLoading() {
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#04040a]">
-      <Landmark className="h-10 w-10 animate-pulse text-accent-primary" />
-      <div className="font-display text-xs tracking-[0.3em] text-accent-primary/80">RAISING THE PALACE…</div>
+    <div
+      className="flex h-full w-full flex-col items-center justify-center gap-4 bg-ink-950"
+      role="status"
+      aria-label="Raising the palace"
+    >
+      <div className="motion-safe:animate-pulse-soft">
+        <AppIcon appId="memory-palace" size={48} active />
+      </div>
+      <div className="flex flex-col items-center gap-2">
+        <div className="hud-label text-accent">Raising the palace</div>
+        <div className="h-0.5 w-40 overflow-hidden rounded-full bg-ink-700">
+          <div className="h-full w-1/3 rounded-full bg-linear-to-r from-transparent via-accent to-transparent bg-[length:200%_100%] motion-safe:animate-shimmer" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -44,12 +56,13 @@ function MemoryPalaceAppInner() {
   if (webgl === null) return <PalaceLoading />;
   if (!webgl) {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#04040a] p-6 text-center">
-        <MonitorX className="h-10 w-10 text-accent-danger" />
-        <div className="font-display text-sm font-bold text-white">WebGL unavailable</div>
-        <div className="max-w-sm text-xs text-white/50">
-          The Memory Palace needs hardware-accelerated 3D. Enable graphics acceleration in your browser settings, then reopen the app.
-        </div>
+      <div className="flex h-full w-full items-center justify-center bg-ink-950 p-6">
+        <EmptyState
+          tone="danger"
+          icon={MonitorX}
+          title="WebGL unavailable"
+          description="The Memory Palace needs hardware-accelerated 3D. Turn on graphics acceleration in your browser settings, then reopen the app."
+        />
       </div>
     );
   }

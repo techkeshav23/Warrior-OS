@@ -1,18 +1,16 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Resume Editor Fields
-// Labelled inputs, entry cards with reorder/remove, add buttons
+// Kit-backed labelled inputs, entry wells with reorder/remove,
+// and the dashed "add" row used by every repeatable section.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useId, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge, IconButton, Input, Textarea, type IconLike, type Tone } from '@/components/ui';
 import { ConfirmButton } from '@/components/apps/project-forge/ConfirmButton';
-
-export const FIELD_INPUT =
-  'w-full rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white/90 outline-none transition-colors placeholder:text-white/30 focus:border-cyan-400/50 focus:bg-white/[0.06]';
-export const FIELD_LABEL = 'text-[10px] font-semibold uppercase tracking-wider text-white/45';
 
 interface TextFieldProps {
   label: string;
@@ -33,20 +31,15 @@ export function TextField({
   className,
   maxLength = 200,
 }: TextFieldProps) {
-  const id = useId();
   return (
-    <div className={cn('flex min-w-0 flex-col gap-1', className)}>
-      <label htmlFor={id} className={FIELD_LABEL}>
-        {label}
-      </label>
-      <input
-        id={id}
+    <div className={cn('min-w-0', className)}>
+      <Input
+        label={label}
         type={type}
         value={value}
         maxLength={maxLength}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={FIELD_INPUT}
       />
     </div>
   );
@@ -71,51 +64,26 @@ export function TextAreaField({
   hint,
   className,
 }: TextAreaFieldProps) {
-  const id = useId();
   return (
-    <div className={cn('flex min-w-0 flex-col gap-1', className)}>
-      <label htmlFor={id} className={FIELD_LABEL}>
-        {label}
-      </label>
-      <textarea
-        id={id}
+    <div className={cn('min-w-0', className)}>
+      <Textarea
+        label={label}
         value={value}
         rows={rows}
         maxLength={4000}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={cn(FIELD_INPUT, 'resize-y leading-snug')}
+        hint={hint}
       />
-      {hint && <p className="text-[10px] text-white/35">{hint}</p>}
     </div>
-  );
-}
-
-interface IconButtonProps {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  children: ReactNode;
-}
-
-export function IconButton({ label, onClick, disabled, children }: IconButtonProps) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="rounded p-1 text-white/45 transition-colors hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-25"
-    >
-      {children}
-    </button>
   );
 }
 
 interface EntryCardProps {
   title: string;
   badge?: string;
+  badgeTone?: Tone;
+  badgeIcon?: IconLike;
   index: number;
   count: number;
   onMove: (delta: -1 | 1) => void;
@@ -123,45 +91,61 @@ interface EntryCardProps {
   children: ReactNode;
 }
 
-export function EntryCard({ title, badge, index, count, onMove, onRemove, children }: EntryCardProps) {
+/** One repeatable entry: an unbordered well inside its section card. */
+export function EntryCard({
+  title,
+  badge,
+  badgeTone = 'neutral',
+  badgeIcon,
+  index,
+  count,
+  onMove,
+  onRemove,
+  children,
+}: EntryCardProps) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.03]">
-      <div className="flex items-center gap-1 border-b border-white/5 py-1 pl-2.5 pr-1">
-        <p className="min-w-0 flex-1 truncate text-xs font-semibold text-white/80">{title}</p>
+    <div className="rounded-card bg-ink-950/45 inset-shadow-[0_1px_0_var(--color-surface-2)]">
+      <div className="flex h-10 items-center gap-2 pl-3 pr-1.5">
+        <span className="tabular font-mono text-2xs text-fg-subtle">{String(index + 1).padStart(2, '0')}</span>
+        <p className="min-w-0 flex-1 truncate text-ui font-medium text-fg" title={title}>
+          {title}
+        </p>
         {badge && (
-          <span className="rounded border border-cyan-400/30 bg-cyan-400/10 px-1.5 text-[9px] font-semibold uppercase tracking-wide text-cyan-200">
+          <Badge size="sm" tone={badgeTone} icon={badgeIcon}>
             {badge}
-          </span>
+          </Badge>
         )}
-        <IconButton label="Move up" disabled={index === 0} onClick={() => onMove(-1)}>
-          <ArrowUp className="h-3.5 w-3.5" />
-        </IconButton>
-        <IconButton label="Move down" disabled={index === count - 1} onClick={() => onMove(1)}>
-          <ArrowDown className="h-3.5 w-3.5" />
-        </IconButton>
-        <ConfirmButton
-          label="Remove entry"
-          onConfirm={onRemove}
-          armedChildren="Remove?"
-          className="rounded p-1 text-white/40 transition-colors hover:bg-red-500/10 hover:text-red-300"
-          armedClassName="rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-200"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </ConfirmButton>
+        <span className="flex items-center">
+          <IconButton icon={ArrowUp} size="xs" aria-label="Move up" title="Move up" disabled={index === 0} onClick={() => onMove(-1)} />
+          <IconButton
+            icon={ArrowDown}
+            size="xs"
+            aria-label="Move down"
+            title="Move down"
+            disabled={index === count - 1}
+            onClick={() => onMove(1)}
+          />
+          <ConfirmButton label="Remove entry" icon={Trash2} size="xs" onConfirm={onRemove} armedChildren="Remove?" />
+        </span>
       </div>
-      <div className="grid grid-cols-2 gap-2 p-2.5">{children}</div>
+      <div className="grid grid-cols-2 gap-3 px-3 pb-3.5 pt-1">{children}</div>
     </div>
   );
 }
 
+/** Dashed "add another" row. */
 export function AddButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 py-2 text-xs text-white/55 transition-colors hover:border-cyan-400/40 hover:text-cyan-300"
+      className={cn(
+        'focus-ring flex h-8 w-full items-center justify-center gap-1.5 rounded-control border border-dashed border-line-strong',
+        'text-ui font-medium text-fg-muted transition-[background-color,border-color,color] duration-120 ease-out-quint',
+        'hover:border-accent/45 hover:bg-accent/[0.05] hover:text-accent active:bg-accent/10'
+      )}
     >
-      <Plus className="h-3.5 w-3.5" />
+      <Plus size={16} strokeWidth={1.75} aria-hidden />
       {children}
     </button>
   );

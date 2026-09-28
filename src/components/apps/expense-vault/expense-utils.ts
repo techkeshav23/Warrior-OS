@@ -8,6 +8,7 @@ import { addMonths, format, isValid, parseISO } from 'date-fns';
 import { BookOpen, Bus, Clapperboard, Package, UtensilsCrossed } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { MAX_EXPENSE_AMOUNT } from '@/stores/useExpenseStore';
+import { FG, VIZ } from '@/styles/tokens';
 import type { ExpenseCategory } from '@/types/expense';
 
 // ─── Categories ───
@@ -15,17 +16,21 @@ import type { ExpenseCategory } from '@/types/expense';
 export interface ExpenseCategoryMeta {
   id: ExpenseCategory;
   label: string;
-  /** Hex colour used by the donut, legend and list icons. */
+  /**
+   * Series colour (viz palette in order, fixed per category so a filter
+   * never repaints the survivors; "Other" is the neutral rest series).
+   * Used by the donut, legend, chips and list icons.
+   */
   color: string;
   Icon: LucideIcon;
 }
 
 export const EXPENSE_CATEGORY_MAP: Record<ExpenseCategory, ExpenseCategoryMeta> = {
-  food: { id: 'food', label: 'Food', color: '#ffab00', Icon: UtensilsCrossed },
-  transport: { id: 'transport', label: 'Transport', color: '#00f0ff', Icon: Bus },
-  books: { id: 'books', label: 'Books', color: '#7b61ff', Icon: BookOpen },
-  entertainment: { id: 'entertainment', label: 'Entertainment', color: '#ff3d71', Icon: Clapperboard },
-  other: { id: 'other', label: 'Other', color: '#00e676', Icon: Package },
+  food: { id: 'food', label: 'Food', color: VIZ[0], Icon: UtensilsCrossed },
+  transport: { id: 'transport', label: 'Transport', color: VIZ[1], Icon: Bus },
+  books: { id: 'books', label: 'Books', color: VIZ[2], Icon: BookOpen },
+  entertainment: { id: 'entertainment', label: 'Entertainment', color: VIZ[3], Icon: Clapperboard },
+  other: { id: 'other', label: 'Other', color: FG.subtle, Icon: Package },
 };
 
 /** Categories in form / legend order. */

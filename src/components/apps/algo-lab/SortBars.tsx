@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Algo Lab Sort Bars
-// Renders one sorting frame as a bar chart coloured by state:
-// comparing yellow, swapping red, sorted green, pivot/key purple
+// WARRIOR OS — Algo Lab Sort Bars (FORGE HUD)
+// One sorting frame as a bar chart coloured by state: comparing =
+// warning, swapping/writing = danger, pivot/key/min = live accent,
+// sorted = success, the rest a quiet ink → plasma gradient.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -10,25 +11,27 @@ import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import type { AlgoSortFrame } from '@/types/algo';
 import { BAR_LABEL_LIMIT } from '@/lib/algorithms/constants';
+import { ACCENT, LAB } from './labTheme';
+import { StageLegend, type LegendItem } from './LabLayout';
 
 type BarState = 'idle' | 'dim' | 'comparing' | 'swapping' | 'pivot' | 'sorted';
 
 const BAR_CLASS: Record<BarState, string> = {
-  idle: 'bg-cyan-500/55',
-  dim: 'bg-cyan-500/20',
-  comparing: 'bg-yellow-300 shadow-[0_0_10px_rgba(253,224,71,0.55)]',
-  swapping: 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.6)]',
-  pivot: 'bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.5)]',
-  sorted: 'bg-emerald-400/85',
+  idle: 'bg-linear-to-t from-ink-600/70 to-plasma-600/75',
+  dim: 'bg-ink-700/80',
+  comparing: 'bg-warning shadow-[0_0_14px_-2px_var(--color-warning)]',
+  swapping: 'bg-danger shadow-[0_0_14px_-2px_var(--color-danger)]',
+  pivot: 'bg-accent shadow-[0_0_14px_-2px_var(--accent)]',
+  sorted: 'bg-linear-to-t from-success/45 to-success/85',
 };
 
 const LABEL_CLASS: Record<BarState, string> = {
-  idle: 'text-white/55',
-  dim: 'text-white/30',
-  comparing: 'text-yellow-200',
-  swapping: 'text-rose-300',
-  pivot: 'text-violet-300',
-  sorted: 'text-emerald-300',
+  idle: 'text-fg-subtle',
+  dim: 'text-fg-faint',
+  comparing: 'text-warning',
+  swapping: 'text-danger',
+  pivot: 'text-accent',
+  sorted: 'text-success',
 };
 
 interface SortBarsProps {
@@ -56,10 +59,20 @@ function SortBarsInner({ frame, maxValue, animate }: SortBarsProps) {
 
   return (
     <div
-      className={cn('flex h-full w-full items-end px-2 pb-1', showLabels ? 'pt-6' : 'pt-3', n > 60 ? 'gap-px' : 'gap-0.5')}
+      className={cn(
+        'relative flex h-full w-full items-end px-3 pb-2',
+        showLabels ? 'pt-7' : 'pt-4',
+        n > 60 ? 'gap-px' : n > 24 ? 'gap-[3px]' : 'gap-1'
+      )}
       role="img"
       aria-label={`Array of ${n} values: ${frame.array.join(', ')}`}
     >
+      {/* Quiet horizontal guides at 25 / 50 / 75 % */}
+      <div aria-hidden className={cn('pointer-events-none absolute inset-x-3 bottom-2', showLabels ? 'top-7' : 'top-4')}>
+        {[0.25, 0.5, 0.75].map((f) => (
+          <div key={f} className="absolute inset-x-0 border-t border-dashed border-line" style={{ bottom: `${f * 100}%` }} />
+        ))}
+      </div>
       {frame.array.map((value, i) => {
         const state = stateOf(i);
         return (
@@ -68,14 +81,14 @@ function SortBarsInner({ frame, maxValue, animate }: SortBarsProps) {
             className={cn(
               'relative min-w-0 flex-1 rounded-t-[3px]',
               BAR_CLASS[state],
-              animate && 'transition-[height,background-color] duration-150 ease-out'
+              animate && 'transition-[height,background-color,box-shadow] duration-180 ease-out-quint'
             )}
             style={{ height: `${Math.max(1.5, (value / maxValue) * 100)}%` }}
           >
             {showLabels && (
               <span
                 className={cn(
-                  'absolute inset-x-0 -top-4 text-center font-mono text-[9.5px] leading-none tabular-nums',
+                  'tabular absolute inset-x-0 -top-4.5 text-center font-mono text-[10px] leading-none',
                   LABEL_CLASS[state]
                 )}
               >
@@ -91,23 +104,14 @@ function SortBarsInner({ frame, maxValue, animate }: SortBarsProps) {
 
 export const SortBars = memo(SortBarsInner);
 
-const LEGEND: { label: string; className: string }[] = [
-  { label: 'Comparing', className: 'bg-yellow-300' },
-  { label: 'Swapping / writing', className: 'bg-rose-500' },
-  { label: 'Pivot / key / min', className: 'bg-violet-400' },
-  { label: 'Sorted', className: 'bg-emerald-400' },
-  { label: 'Unsorted', className: 'bg-cyan-500/60' },
+const LEGEND: LegendItem[] = [
+  { label: 'Comparing', color: LAB.compare },
+  { label: 'Swapping / writing', color: LAB.swap },
+  { label: 'Pivot / key / min', color: ACCENT },
+  { label: 'Sorted', color: LAB.sorted },
+  { label: 'Unsorted', color: LAB.plasma[600] },
 ];
 
 export function SortLegend() {
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2 text-[10.5px] text-white/60">
-      {LEGEND.map((item) => (
-        <span key={item.label} className="flex items-center gap-1.5">
-          <span className={cn('h-2 w-2 rounded-sm', item.className)} aria-hidden />
-          {item.label}
-        </span>
-      ))}
-    </div>
-  );
+  return <StageLegend items={LEGEND} />;
 }

@@ -1,9 +1,10 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — DraggableWidget
-// Glass shell for a desktop widget: pointer drag with a small
-// dead-zone, position persisted on drop, clamped to the viewport
-// (so nothing overflows from 1024px to 1920px+), arrow-key nudging,
-// and a hover close button that turns the widget off.
+// WARRIOR OS — DraggableWidget (FORGE HUD)
+// glass-window shell for a desktop widget: HUD label header (grip
+// appears on hover), pointer drag with a small dead-zone, position
+// persisted on drop, clamped to the viewport (so nothing overflows
+// from 1024px to 1920px+), arrow-key nudging, and a hover close
+// button that turns the widget off.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -11,6 +12,7 @@
 import { memo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { GripVertical, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { IconButton } from '@/components/ui/Button';
 import { useNotificationStore } from '@/stores/useNotificationStore';
 import { useViewportSize } from './hooks';
 import {
@@ -183,12 +185,10 @@ function DraggableWidgetInner({
       onDoubleClick={onOpen}
       onKeyDown={onKeyDown}
       className={cn(
-        'group absolute glass glass-border rounded-xl shadow-lg select-none touch-none',
-        'transition-[opacity,box-shadow,border-color] duration-300 outline-none',
-        'hover:border-accent-primary/20 focus-visible:border-accent-primary/40',
-        dragging
-          ? 'cursor-grabbing shadow-[0_12px_40px_rgba(0,0,0,0.55),0_0_24px_rgba(0,240,255,0.12)]'
-          : 'cursor-grab',
+        'group absolute glass-window rounded-window shadow-e2 select-none touch-none',
+        'transition-[opacity,box-shadow,border-color] duration-260 ease-out-quint outline-none',
+        'hover:border-fg-faint focus-visible:border-accent/50 focus-visible:shadow-glow',
+        dragging ? 'cursor-grabbing border-accent/40 shadow-e3' : 'cursor-grab',
         hidden ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto',
         className
       )}
@@ -197,26 +197,30 @@ function DraggableWidgetInner({
         top: pos.y,
         width,
         height,
-        transform: dragging ? 'scale(1.02)' : undefined,
+        transform: dragging ? 'scale(1.015)' : undefined,
       }}
     >
-      {/* Header: label + drag hint + close */}
-      <div className="flex h-6 items-center justify-between px-3 pt-1">
-        <span className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-[0.18em] text-text-secondary/80">
-          <GripVertical className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
-          {label}
+      {/* Header: HUD label + drag hint + close */}
+      <div className="flex h-8 items-center justify-between pl-4 pr-1.5 pt-1">
+        <span className="hud-label flex min-w-0 items-center gap-1">
+          <span className="truncate">{label}</span>
+          <GripVertical
+            size={12}
+            strokeWidth={2}
+            aria-hidden="true"
+            className="shrink-0 text-fg-faint opacity-0 transition-opacity duration-120 group-hover:opacity-100"
+          />
         </span>
-        <button
-          type="button"
+        <IconButton
+          icon={X}
+          size="xs"
           onClick={hide}
           aria-label={`Hide ${label} widget`}
-          title="Hide widget"
-          className="rounded p-0.5 text-text-secondary opacity-0 transition-opacity hover:bg-white/10 hover:text-text-primary focus-visible:opacity-100 group-hover:opacity-100 focus-ring"
-        >
-          <X className="h-3 w-3" aria-hidden="true" />
-        </button>
+          tooltip="Hide widget"
+          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+        />
       </div>
-      <div className="px-3 pb-2.5">{children}</div>
+      <div className="px-4 pb-3">{children}</div>
     </div>
   );
 }

@@ -16,6 +16,7 @@
 import { memo, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { DUE_HEX, NEW_HEX } from './palaceTheme';
 import type { RoomDecorData, RoomStyle, RoomTheme } from './palaceData';
 import { useLabelTexture } from './palaceTextures';
 
@@ -515,8 +516,8 @@ function LaboratoryDecor({ t, d }: DecorProps) {
   );
 }
 
-const DUE_LED = new THREE.Color('#ff1744');
-const NEW_LED = new THREE.Color('#ffab00');
+const DUE_LED = new THREE.Color(DUE_HEX);
+const NEW_LED = new THREE.Color(NEW_HEX);
 
 /** Rack cabinets whose recall lights show the deck: red = due, amber = never studied. */
 function VaultDecor({ t, d, seed }: DecorProps) {

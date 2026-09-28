@@ -5,10 +5,11 @@
 // portalled into the window manager's own container (same stacking
 // context and coordinates as the windows, z-index under them); if
 // that container can't be found it falls back to an overlay.
-// Each ghost: the captured window image at 30 % opacity with a
-// blue-white tint, slow upward drift (2 px/s), accent edge glow and
-// a soft blur + brightness "ghost" filter. Click → resurrect;
-// after 8 s → pixel dissolve (timers live in PhantomEngine).
+// Each ghost: the captured window image at ~34 % opacity, tinted and
+// edge-lit in its app's hue, with faint hologram scanlines, a slow
+// upward drift (2 px/s) and a soft blur "ghost" filter. Hover / focus
+// brightens it and shows a glass "Click to resurrect" pill. Click →
+// resurrect; after 8 s → pixel dissolve (timers live in PhantomEngine).
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -16,6 +17,9 @@
 import { useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { RotateCcw } from 'lucide-react';
+import { AppIcon } from '@/components/ui/AppIcon';
+import { EASE_OUT_QUINT } from '@/styles/tokens';
 import {
   usePhantomStore,
   PHANTOM_LIFETIME_MS,
@@ -49,7 +53,7 @@ interface GhostCardProps {
 }
 
 function GhostCard({ phantom, onResurrect }: GhostCardProps) {
-  const { size, position, accent, icon, title, state, snapshot, createdAt } = phantom;
+  const { size, position, accent, appId, title, state, snapshot, createdAt } = phantom;
   // Resume the drift where it is if this card (re)mounts mid-life.
   const [drift] = useState(() => {
     const elapsed = Math.min(PHANTOM_LIFETIME_MS, Math.max(0, Date.now() - createdAt));
@@ -58,28 +62,30 @@ function GhostCard({ phantom, onResurrect }: GhostCardProps) {
       seconds: Math.max(0.1, (PHANTOM_LIFETIME_MS - elapsed) / 1000),
     };
   });
+  const tint = (pct: number) => `color-mix(in oklab, ${accent} ${pct}%, transparent)`;
 
   return (
     <motion.button
       type="button"
       onClick={() => onResurrect(phantom)}
-      className="group pointer-events-auto absolute overflow-hidden rounded-[var(--radius-lg)] text-left outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+      className="group focus-ring pointer-events-auto absolute overflow-hidden rounded-window text-left"
       style={{
         left: position.x,
         top: position.y,
         width: size.width,
         height: size.height,
-        border: `1px solid ${accent}66`,
-        boxShadow: `0 0 26px ${accent}70, inset 0 0 36px rgba(190,215,255,0.12)`,
-        background: 'rgba(160,190,255,0.06)',
+        border: `1px solid ${tint(42)}`,
+        boxShadow: `0 0 0 1px ${tint(10)}, 0 0 36px -6px ${tint(55)}, inset 0 0 44px ${tint(14)}`,
+        background: tint(5),
       }}
       initial={{ opacity: 0, y: drift.from, scale: 0.985 }}
-      animate={{ opacity: state === 'resurrecting' ? 0 : 0.3, y: END_DRIFT, scale: 1 }}
-      whileHover={{ opacity: state === 'drifting' ? 0.45 : 0 }}
+      animate={{ opacity: state === 'resurrecting' ? 0 : 0.34, y: END_DRIFT, scale: 1 }}
+      whileHover={{ opacity: state === 'drifting' ? 0.55 : 0 }}
+      whileFocus={{ opacity: state === 'drifting' ? 0.55 : 0 }}
       exit={{ opacity: 0, transition: { duration: 0.25 } }}
       transition={{
-        opacity: { duration: 0.45 },
-        scale: { duration: 0.45 },
+        opacity: { duration: 0.45, ease: EASE_OUT_QUINT },
+        scale: { duration: 0.45, ease: EASE_OUT_QUINT },
         y: { duration: drift.seconds, ease: 'linear' },
       }}
       aria-label={`Resurrect ${title}`}
@@ -92,33 +98,45 @@ function GhostCard({ phantom, onResurrect }: GhostCardProps) {
           style={{
             backgroundImage: `url("${snapshot}")`,
             backgroundSize: '100% 100%',
-            filter: 'blur(0.6px) brightness(1.18) saturate(0.7)',
+            filter: 'blur(0.6px) brightness(1.12) saturate(0.55)',
           }}
         />
       ) : (
         // No image (minimised / capture unsupported): a ghost of the chrome.
-        <div aria-hidden className="absolute inset-0 flex flex-col">
+        <div aria-hidden className="absolute inset-0 flex flex-col bg-ink-900/70">
           <div
-            className="flex h-9 items-center gap-2 border-b border-white/10 px-3"
-            style={{ background: `linear-gradient(90deg, ${accent}33, transparent)` }}
+            className="flex h-10 shrink-0 items-center gap-2.5 border-b border-line px-3"
+            style={{ backgroundImage: `linear-gradient(90deg, ${tint(18)}, transparent 70%)` }}
           >
-            <span className="text-sm">{icon}</span>
-            <span className="truncate font-mono text-xs text-white">{title}</span>
+            <AppIcon appId={appId} size={20} />
+            <span className="truncate text-ui font-medium text-fg">{title}</span>
           </div>
-          <div className="flex-1" style={{ background: 'rgba(15,15,25,0.6)' }} />
+          <div className="flex flex-1 flex-col gap-2.5 p-5">
+            <span className="h-2 w-2/5 rounded-full bg-surface-active" />
+            <span className="h-2 w-3/4 rounded-full bg-surface-hover" />
+            <span className="h-2 w-3/5 rounded-full bg-surface-hover" />
+          </div>
         </div>
       )}
-      {/* Blue-white spectral tint */}
+      {/* Spectral tint in the app's hue */}
       <div
         aria-hidden
-        className="absolute inset-0"
+        className="absolute inset-0 mix-blend-screen"
         style={{
-          background: 'linear-gradient(160deg, rgba(214,232,255,0.30), rgba(150,185,255,0.12) 60%, rgba(214,232,255,0.2))',
-          mixBlendMode: 'screen',
+          backgroundImage: `linear-gradient(160deg, color-mix(in oklab, var(--color-fg) 22%, transparent), ${tint(16)} 55%, color-mix(in oklab, var(--color-fg) 12%, transparent))`,
         }}
       />
-      <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
-        <span className="rounded-full bg-black/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-white">
+      {/* Hologram scanlines */}
+      <div
+        aria-hidden
+        className="absolute inset-0 opacity-60"
+        style={{
+          backgroundImage: `repeating-linear-gradient(0deg, transparent 0 2px, ${tint(9)} 2px 3px)`,
+        }}
+      />
+      <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center opacity-0 transition-opacity duration-180 ease-out-quint group-hover:opacity-100 group-focus-visible:opacity-100">
+        <span className="glass-popover inline-flex h-8 items-center gap-2 rounded-full pl-2.5 pr-3.5 text-xs font-medium text-fg">
+          <RotateCcw size={14} strokeWidth={1.75} aria-hidden style={{ color: accent }} />
           Click to resurrect
         </span>
       </div>

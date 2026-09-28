@@ -1,15 +1,17 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Transaction List
 // The month's expenses grouped by day, with category filter chips,
-// note search, and edit / delete actions on every row
+// note search, and edit / delete actions on every row (revealed
+// on hover / focus; always on for the row being edited).
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo, useId, useMemo, useState } from 'react';
-import { Pencil, Search, Trash2, X } from 'lucide-react';
+import { memo, useMemo, useState, type CSSProperties } from 'react';
+import { Pencil, Receipt, SearchX, Trash2 } from 'lucide-react';
 import { format, isValid, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Button, Chip, EmptyState, IconButton, SearchField } from '@/components/ui';
 import { sumExpenses } from '@/stores/useExpenseStore';
 import type { Expense, ExpenseCategory } from '@/types/expense';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_MAP, dayLabel, formatINR, toDateKey } from './expense-utils';
@@ -47,6 +49,11 @@ function compareNewestFirst(a: Expense, b: Expense): number {
   return 0;
 }
 
+/** Re-tints the accent utilities of a subtree to a category colour. */
+function tint(color: string): CSSProperties {
+  return { '--accent': color } as CSSProperties;
+}
+
 function TransactionListInner({
   className,
   expenses,
@@ -58,7 +65,6 @@ function TransactionListInner({
   onEdit,
   onDelete,
 }: TransactionListProps) {
-  const searchId = useId();
   const [query, setQuery] = useState('');
 
   const countByCategory = useMemo(() => {
@@ -96,98 +102,80 @@ function TransactionListInner({
   return (
     <section
       aria-label="Transactions"
-      className={cn('flex min-h-0 flex-col rounded-xl border border-white/10 bg-white/[0.03]', className)}
+      className={cn('glass-panel flex min-h-0 flex-col rounded-card', className)}
     >
-      <div className="border-b border-white/10 p-3">
+      <div className="space-y-3 border-b border-line p-4">
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="text-sm font-semibold text-white">Transactions</h3>
-          <p className="text-[11px] text-white/50">
+          <h3 className="text-sm font-semibold text-fg">Transactions</h3>
+          <p className="text-xs text-fg-subtle">
             {filtered.length} {isFiltered ? 'shown' : filtered.length === 1 ? 'entry' : 'entries'} ·{' '}
-            <span className="font-mono text-white/80">{formatINR(filteredTotal)}</span>
+            <span className="tabular font-mono text-fg">{formatINR(filteredTotal)}</span>
           </p>
         </div>
 
         {/* Category chips */}
-        <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label="Filter by category">
-          <button
-            type="button"
-            onClick={() => onCategoryFilterChange(null)}
-            aria-pressed={categoryFilter === null}
-            className={cn(
-              'rounded-full border px-2 py-0.5 text-[11px] transition-colors',
-              categoryFilter === null
-                ? 'border-cyan-500/40 bg-cyan-500/20 text-cyan-300'
-                : 'border-white/10 text-white/55 hover:bg-white/10'
-            )}
-          >
-            All {expenses.length}
-          </button>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by category">
+          <Chip size="sm" selected={categoryFilter === null} onClick={() => onCategoryFilterChange(null)}>
+            All <span className="tabular font-mono opacity-70">{expenses.length}</span>
+          </Chip>
           {EXPENSE_CATEGORIES.map((c) => {
             const active = categoryFilter === c.id;
             return (
-              <button
+              <Chip
                 key={c.id}
-                type="button"
+                size="sm"
+                selected={active}
                 onClick={() => onCategoryFilterChange(active ? null : c.id)}
-                aria-pressed={active}
                 disabled={countByCategory[c.id] === 0 && !active}
-                className={cn(
-                  'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors disabled:cursor-not-allowed disabled:opacity-35',
-                  active ? 'text-white' : 'border-white/10 text-white/55 hover:bg-white/10'
-                )}
-                style={active ? { borderColor: `${c.color}80`, background: `${c.color}26` } : undefined}
+                icon={<span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: c.color }} />}
               >
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.color }} />
-                {c.label} {countByCategory[c.id]}
-              </button>
+                {c.label} <span className="tabular font-mono opacity-70">{countByCategory[c.id]}</span>
+              </Chip>
             );
           })}
         </div>
 
-        {/* Search */}
-        <div className="relative mt-2">
-          <label htmlFor={searchId} className="sr-only">
-            Search notes
-          </label>
-          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/35" />
-          <input
-            id={searchId}
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search notes"
-            autoComplete="off"
-            className="w-full rounded-lg border border-white/10 bg-black/30 py-1.5 pl-7 pr-7 text-xs text-white placeholder:text-white/35 outline-none focus:border-cyan-400/50"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-white/45 hover:text-white"
-              aria-label="Clear search"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
+        <SearchField size="sm" value={query} onValueChange={setQuery} placeholder="Search notes" autoComplete="off" />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto p-2">
         {groups.length === 0 ? (
-          <p className="px-3 py-8 text-center text-xs text-white/45">
-            {expenses.length === 0
-              ? `Nothing logged in ${monthName}. Use the quick-add form to record your first expense.`
-              : 'No transactions match this filter.'}
-          </p>
+          expenses.length === 0 ? (
+            <EmptyState
+              size="sm"
+              icon={Receipt}
+              title={`Nothing logged in ${monthName}`}
+              description="Use quick add to record your first expense."
+            />
+          ) : (
+            <EmptyState
+              size="sm"
+              icon={SearchX}
+              title="No matches"
+              description="No transactions match this filter."
+              actions={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setQuery('');
+                    onCategoryFilterChange(null);
+                  }}
+                >
+                  Clear filters
+                </Button>
+              }
+            />
+          )
         ) : (
           <ul className="space-y-3">
             {groups.map((g) => (
               <li key={g.date}>
-                <div className="flex items-center justify-between px-2 pb-1 text-[11px] text-white/45">
-                  <span>{g.date === todayKey ? `Today · ${dayLabel(g.date)}` : dayLabel(g.date)}</span>
-                  <span className="font-mono">{formatINR(g.total)}</span>
+                <div className="flex h-7 items-center justify-between gap-3 px-2">
+                  <span className="hud-label">{g.date === todayKey ? `Today · ${dayLabel(g.date)}` : dayLabel(g.date)}</span>
+                  <span className="tabular font-mono text-2xs text-fg-muted">{formatINR(g.total)}</span>
                 </div>
-                <ul className="space-y-0.5">
+                <ul>
                   {g.items.map((e) => {
                     const meta = EXPENSE_CATEGORY_MAP[e.category];
                     const Icon = meta.Icon;
@@ -197,47 +185,52 @@ function TransactionListInner({
                       <li
                         key={e.id}
                         className={cn(
-                          'group flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors',
-                          isEditing ? 'bg-cyan-500/10 ring-1 ring-cyan-500/30' : 'hover:bg-white/5'
+                          'group/row relative flex min-h-12 items-center gap-3 rounded-control px-2 py-1.5 transition-colors duration-120 ease-out-quint',
+                          isEditing ? 'bg-accent/10' : 'hover:bg-surface-hover'
                         )}
                       >
+                        {isEditing && <span aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-accent" />}
                         <span
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                          style={{ background: `${meta.color}1f`, color: meta.color }}
+                          className="flex size-8 shrink-0 items-center justify-center rounded-control bg-accent/12 text-accent"
+                          style={tint(meta.color)}
                         >
-                          <Icon className="h-4 w-4" />
+                          <Icon size={16} strokeWidth={1.75} aria-hidden />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm text-white/90" title={title}>
+                          <p className="truncate text-ui text-fg" title={title}>
                             {title}
                           </p>
-                          <p className="truncate text-[11px] text-white/45">
+                          <p className="truncate text-xs text-fg-subtle">
                             {e.note ? `${meta.label} · ` : ''}
                             {loggedLabel(e)}
                             {e.updatedAt !== e.createdAt && ' · edited'}
                             {isEditing && ' · editing'}
                           </p>
                         </div>
-                        <span className="shrink-0 font-mono text-sm text-white">{formatINR(e.amount)}</span>
-                        <div className="flex shrink-0 items-center opacity-60 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                          <button
-                            type="button"
-                            onClick={() => onEdit(e)}
-                            className="rounded p-1.5 text-white/60 hover:bg-white/10 hover:text-cyan-300"
+                        <span className="tabular shrink-0 font-mono text-ui font-medium text-fg">{formatINR(e.amount)}</span>
+                        <div
+                          className={cn(
+                            'flex shrink-0 items-center gap-0.5 transition-opacity duration-120',
+                            isEditing
+                              ? 'opacity-100'
+                              : 'opacity-0 group-focus-within/row:opacity-100 group-hover/row:opacity-100'
+                          )}
+                        >
+                          <IconButton
+                            icon={Pencil}
+                            size="xs"
                             aria-label={`Edit ${title}, ${formatINR(e.amount)}`}
                             title="Edit"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onDelete(e)}
-                            className="rounded p-1.5 text-white/60 hover:bg-red-500/15 hover:text-red-300"
+                            onClick={() => onEdit(e)}
+                          />
+                          <IconButton
+                            icon={Trash2}
+                            size="xs"
+                            variant="ghost-danger"
                             aria-label={`Delete ${title}, ${formatINR(e.amount)}`}
                             title="Delete"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                            onClick={() => onDelete(e)}
+                          />
                         </div>
                       </li>
                     );

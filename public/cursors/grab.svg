@@ -1,10 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-  <g fill="none" stroke="rgba(0,240,255,0.8)" stroke-width="1.5" stroke-linecap="round">
-    <!-- Hand shape -->
-    <path d="M8 14 C6 14 4 12 4 10 C4 8 6 7 8 8 L8 5 C8 3.5 9.5 3 10.5 4 L10.5 3.5 C10.5 2 12 1.5 13 2.5 L13 3 C13 1.5 14.5 1 15.5 2 L15.5 3.5 C15.5 2 17 1.5 18 2.5 L18 10 C18 14 15 16 12 16 L8 14Z"/>
-    <!-- Finger lines -->
-    <line x1="10.5" y1="4" x2="10.5" y2="8"/>
-    <line x1="13" y1="3" x2="13" y2="8"/>
-    <line x1="15.5" y1="3.5" x2="15.5" y2="8"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Warrior OS move / drag cursor (title bars, widget handles). Hotspot: 16 16. -->
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.2"/>
+    </filter>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#2fd6f5" stroke-opacity="0.45" stroke-width="2" filter="url(#glow)">
+      <path d="M16 5 V27 M5 16 H27"/>
+    </g>
+    <!-- dark underlay -->
+    <g stroke="#04060b" stroke-opacity="0.8" stroke-width="3.6">
+      <path d="M16 6 V26 M6 16 H26"/>
+      <path d="M12.5 8.5 L16 5 L19.5 8.5 M12.5 23.5 L16 27 L19.5 23.5 M8.5 12.5 L5 16 L8.5 19.5 M23.5 12.5 L27 16 L23.5 19.5"/>
+    </g>
+    <!-- shafts -->
+    <path d="M16 6 V26 M6 16 H26" stroke="#2fd6f5" stroke-width="1.5"/>
+    <!-- heads -->
+    <path d="M12.5 8.5 L16 5 L19.5 8.5 M12.5 23.5 L16 27 L19.5 23.5 M8.5 12.5 L5 16 L8.5 19.5 M23.5 12.5 L27 16 L23.5 19.5" stroke="#7ce7fb" stroke-width="1.6"/>
   </g>
+  <rect x="13.2" y="13.2" width="5.6" height="5.6" rx="1.2" transform="rotate(45 16 16)" fill="#070a12" stroke="#7ce7fb" stroke-width="1.25"/>
 </svg>

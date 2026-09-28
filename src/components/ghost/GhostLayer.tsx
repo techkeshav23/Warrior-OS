@@ -18,6 +18,7 @@ import { CampfireWidget } from './CampfireWidget';
 import { WarCryBubbles } from './WarCrySystem';
 import { WarriorLeaderboard } from './WarriorLeaderboard';
 import { OnlineCounter } from './OnlineCounter';
+import { WorkspaceLayer } from './WorkspaceLayer';
 
 interface GhostLayerProps {
   /** When false, presence disconnects and the whole layer is hidden. */
@@ -32,12 +33,15 @@ function GhostLayerInner({ enabled = true, showFloatingCounter = true }: GhostLa
       <GhostPresenceEngine enabled={enabled} />
       {enabled && (
         <>
-          <GhostAvatars />
-          <CampfireWidget />
+          {/* Desktop-level: above the icons, below the app windows */}
+          <WorkspaceLayer>
+            <GhostAvatars />
+            <CampfireWidget />
+          </WorkspaceLayer>
           <WarCryBubbles />
           {showFloatingCounter && (
             <div className="fixed right-3 top-2" style={{ zIndex: 'var(--z-taskbar)' }}>
-              <div className="rounded-lg border border-white/10 bg-black/50 backdrop-blur-md">
+              <div className="glass-window rounded-card p-0.5 shadow-e2">
                 <OnlineCounter />
               </div>
             </div>

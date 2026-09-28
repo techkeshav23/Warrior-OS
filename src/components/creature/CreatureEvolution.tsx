@@ -637,6 +637,13 @@ export const FORM_PAINTERS: Record<CreatureForm, FormPainter> = {
 // Small form chip (used by the stats popup)
 // ─────────────────────────────────────────────────────────────
 
+/** Stored neon form accents → FORGE HUD tokens (badge text only; canvases keep theirs). */
+const FORM_BADGE_COLOR: Record<string, string> = {
+  '#00d8ff': 'var(--color-plasma-400)',
+  '#00e676': 'var(--color-success)',
+  '#ff3d57': 'var(--color-viz-5)',
+};
+
 interface CreatureFormBadgeProps {
   form: CreatureForm;
   stage: CreatureStage;
@@ -645,10 +652,10 @@ interface CreatureFormBadgeProps {
 function CreatureFormBadgeInner({ form, stage }: CreatureFormBadgeProps) {
   const info = CREATURE_FORMS[form];
   if (stage === 'egg') {
-    return <span className="text-[11px] font-mono text-text-secondary">Unhatched egg</span>;
+    return <span className="truncate text-xs text-fg-subtle">Unhatched egg</span>;
   }
   return (
-    <span className="text-[11px] font-mono" style={{ color: info.accent }} title={info.blurb}>
+    <span className="truncate text-xs font-medium" style={{ color: FORM_BADGE_COLOR[info.accent.toLowerCase()] ?? info.accent }} title={info.blurb}>
       {info.name}
     </span>
   );

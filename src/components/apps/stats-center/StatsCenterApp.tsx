@@ -1,24 +1,32 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Stats Center App
-// XP, level, study streak, deck mastery, learning trend and the
-// activity heatmap — the warrior's dashboard — plus the achievement
-// gallery
+// The warrior's profile: identity header, then XP and level, study
+// streak, achievements, the activity heatmap and the learning section
+// (today's load, deck mastery, trend) — plus the achievement gallery
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LayoutDashboard, Trophy, type LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { AppHeader, Avatar, Badge, SectionHeader, Tabs } from '@/components/ui';
+import { OWNER } from '@/config/owner';
+import { getVisitorMode } from '@/lib/visitor';
+import { useXPStore } from '@/stores/useXPStore';
+import { levelTitle } from '@/components/effects/effects-utils';
 import { XPSystem } from './XPSystem';
-import { LevelProgress } from './LevelProgress';
 import { StreakBoard } from './StreakBoard';
 import { HeatmapCalendar } from './HeatmapCalendar';
 import { RadarChart } from './RadarChart';
 import { StudyPulse } from './StudyPulse';
 import { LearningTrend } from './LearningTrend';
-import { AchievementGallery, AchievementSummaryCard } from './AchievementGallery';
+import {
+  AchievementGallery,
+  AchievementSummaryCard,
+  useAchievementCatalogue,
+} from './AchievementGallery';
+import { computeAchievementStats } from './achievement-data';
 
 type StatsTab = 'overview' | 'achievements';
 
@@ -29,73 +37,98 @@ const TABS: { id: StatsTab; label: string; icon: LucideIcon }[] = [
 
 function OverviewTab({ onOpenAchievements }: { onOpenAchievements: () => void }) {
   return (
-    <div className="@container h-full space-y-6 overflow-y-auto p-6">
-      {/* Top row: XP + Level */}
-      <div className="grid grid-cols-2 gap-4">
-        <XPSystem />
-        <LevelProgress />
+    <div
+      role="tabpanel"
+      id="stats-center-panel-overview"
+      aria-labelledby="stats-center-tab-overview"
+      className="@container scrollbar-thin h-full space-y-6 overflow-y-auto p-5"
+    >
+      {/* Level + XP */}
+      <XPSystem />
+
+      {/* Streak + achievements at a glance */}
+      <div className="grid grid-cols-1 gap-4 @2xl:grid-cols-2">
+        <StreakBoard />
+        <AchievementSummaryCard onOpen={onOpenAchievements} />
       </div>
 
-      {/* Achievements at a glance */}
-      <AchievementSummaryCard onOpen={onOpenAchievements} />
-
-      {/* Study streak */}
-      <StreakBoard />
+      {/* Activity heatmap */}
+      <HeatmapCalendar />
 
       {/* Learning: today's load, deck mastery, trend */}
       <section aria-label="Learning" className="space-y-4">
+        <SectionHeader
+          size="sm"
+          as="h3"
+          eyebrow="Learning"
+          title="Cards and decks"
+          description="Review load, mastery and accuracy from Training Grounds."
+        />
         <StudyPulse />
         <div className="grid grid-cols-1 gap-4 @5xl:grid-cols-2">
           <RadarChart />
           <LearningTrend />
         </div>
       </section>
-
-      {/* Activity heatmap */}
-      <HeatmapCalendar />
     </div>
   );
 }
 
 function StatsCenterAppInner() {
   const [activeTab, setActiveTab] = useState<StatsTab>('overview');
+  const [visitor] = useState(getVisitorMode);
+  const level = useXPStore((s) => s.level);
+  const catalogue = useAchievementCatalogue();
+  const trophies = useMemo(() => computeAchievementStats(catalogue), [catalogue]);
 
   return (
-    <div className="flex h-full flex-col bg-black/30">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-5 py-2.5">
-        <h2 className="text-sm font-bold text-white">📊 Stats Center</h2>
-        <div className="flex gap-1 rounded-lg bg-white/5 p-0.5" role="tablist" aria-label="Stats Center sections">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === id}
-              onClick={() => setActiveTab(id)}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-3 py-1 text-xs transition-colors',
-                activeTab === id ? 'bg-cyan-500/20 text-cyan-300' : 'text-white/55 hover:text-white/85'
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="flex h-full flex-col text-fg">
+      <AppHeader
+        leading={<Avatar name={OWNER.name} size="lg" ring />}
+        title={OWNER.name}
+        subtitle={
+          <>
+            Level {level} · {levelTitle(level)} · @{OWNER.handle}
+          </>
+        }
+        actions={visitor === 'guest' ? <Badge tone="neutral" variant="outline" size="sm">Guest session</Badge> : undefined}
+        tabs={
+          <Tabs
+            value={activeTab}
+            onChange={(id) => setActiveTab(id as StatsTab)}
+            idPrefix="stats-center"
+            aria-label="Stats Center sections"
+            tabs={TABS.map(({ id, label, icon }) => ({
+              id,
+              label,
+              icon,
+              badge: id === 'achievements' ? `${trophies.unlocked}/${trophies.total}` : undefined,
+            }))}
+          />
+        }
+      />
 
       <div className="relative min-h-0 flex-1">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={activeTab}
             className="absolute inset-0"
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.15 }}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
           >
             {activeTab === 'overview' && <OverviewTab onOpenAchievements={() => setActiveTab('achievements')} />}
-            {activeTab === 'achievements' && <AchievementGallery />}
+            {activeTab === 'achievements' && (
+              <div
+                role="tabpanel"
+                id="stats-center-panel-achievements"
+                aria-labelledby="stats-center-tab-achievements"
+                className="h-full"
+              >
+                <AchievementGallery />
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

@@ -44,17 +44,23 @@ const WEATHER_ICONS: Record<string, LucideIcon> = {
   '50n': CloudFog,
 };
 
-/** Tailwind text colour per condition family (first two chars of the code). */
+/** Token text colour per condition family (first two chars of the code). */
 const WEATHER_TINTS: Record<string, string> = {
-  '01': 'text-amber-300',
-  '02': 'text-sky-200',
-  '03': 'text-slate-300',
-  '04': 'text-slate-400',
-  '09': 'text-sky-300',
-  '10': 'text-sky-300',
-  '11': 'text-violet-300',
-  '13': 'text-cyan-100',
-  '50': 'text-slate-300',
+  '01': 'text-warning',
+  '02': 'text-warning',
+  '03': 'text-fg-muted',
+  '04': 'text-fg-muted',
+  '09': 'text-info',
+  '10': 'text-info',
+  '11': 'text-warning',
+  '13': 'text-plasma-300',
+  '50': 'text-fg-subtle',
+};
+
+/** Night codes ("01n", "02n") get the moon's cool tint instead of the sun's. */
+const NIGHT_TINTS: Record<string, string> = {
+  '01': 'text-info',
+  '02': 'text-info',
 };
 
 interface WeatherIconProps {
@@ -68,7 +74,8 @@ interface WeatherIconProps {
 
 function WeatherIconInner({ code, className, tinted = true, strokeWidth = 1.75 }: WeatherIconProps) {
   const Icon = WEATHER_ICONS[code] ?? Cloud;
-  const tint = WEATHER_TINTS[code.slice(0, 2)] ?? 'text-slate-300';
+  const family = code.slice(0, 2);
+  const tint = (code.endsWith('n') ? NIGHT_TINTS[family] : undefined) ?? WEATHER_TINTS[family] ?? 'text-fg-muted';
   return (
     <Icon
       aria-hidden="true"

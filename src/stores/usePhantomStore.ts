@@ -10,6 +10,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { persist } from 'zustand/middleware';
 import { generateId } from '@/lib/utils';
+import { DEFAULT_ACCENT } from '@/styles/tokens';
 import type {
   PhantomConfig,
   PhantomLifecycle,
@@ -35,7 +36,6 @@ export const PHANTOM_CONFIG: PhantomConfig = {
   maxPhantoms: MAX_PHANTOMS,
 };
 
-const DEFAULT_ACCENT = '#00f0ff';
 const EMPTY_WINDOW_DATA: PhantomWindowData = { scroll: [], fields: [], wasMaximized: false };
 const EMPTY_STATS: PhantomStats = { spawned: 0, resurrected: 0, dissolved: 0 };
 

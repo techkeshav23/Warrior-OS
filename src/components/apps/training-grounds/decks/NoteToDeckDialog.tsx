@@ -6,15 +6,17 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
-import { ArrowLeft, FileText, NotebookPen, Search, Sparkles } from 'lucide-react';
+import { useId, useMemo, useRef, useState } from 'react';
+import { Anvil, ArrowLeft, ChevronRight, FileSearch, FileText, NotebookPen, SearchX } from 'lucide-react';
+import { Badge, Button, Checkbox, EmptyState, Input, SearchField } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { useLearningStore } from '@/stores/useLearningStore';
-import { DialogShell } from './Dialog';
-import { BTN_GHOST, BTN_PRIMARY, DECK_COLOR_CHOICES, INPUT, LABEL, LIMITS, mergeTags, plural } from './deck-ui';
+import { DialogShell, SubmitButton } from './Dialog';
+import { DECK_COLOR_CHOICES, LIMITS, mergeTags, plural } from './deck-ui';
 import { loadNotes, parseNote, parsedNoteToDeckInput, stripInline, type NoteSource, type ParsedNote } from './note-to-deck';
 
 interface NoteToDeckDialogProps {
+  open?: boolean;
   onClose: () => void;
   onCreated: (deckId: string, cardCount: number) => void;
 }
@@ -34,13 +36,20 @@ function formatUpdated(iso: string): string {
   return Number.isFinite(t) ? new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '';
 }
 
-function snippet(content: string): string {
-  return stripInline(content.replace(/^#+\s*/gm, '').replace(/[|>`]/g, ' ')).slice(0, 90);
+/** First words of a note, without a leading heading that just repeats its title. */
+function snippet(title: string, content: string): string {
+  const [first = '', ...rest] = content.split('\n');
+  const repeatsTitle = stripInline(first.replace(/^#+\s*/, '')).toLowerCase() === title.trim().toLowerCase();
+  const body = repeatsTitle ? rest.join('\n') : content;
+  return stripInline(body.replace(/^#+\s*/gm, '').replace(/[|>`]/g, ' ')).slice(0, 90);
 }
 
-export function NoteToDeckDialog({ onClose, onCreated }: NoteToDeckDialogProps) {
+export function NoteToDeckDialog({ open = true, onClose, onCreated }: NoteToDeckDialogProps) {
   const createDeck = useLearningStore((s) => s.createDeck);
   const deckCount = useLearningStore((s) => s.decks.length);
+  const uid = useId();
+  const searchRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
   // Read once when the dialog opens.
   const [notes] = useState<NoteSource[]>(() => loadNotes());
   const [query, setQuery] = useState('');
@@ -70,12 +79,15 @@ export function NoteToDeckDialog({ onClose, onCreated }: NoteToDeckDialogProps) 
     setName(picked.title.slice(0, LIMITS.name));
     setExcluded(new Set());
     setError(null);
+    // The preview replaces the list: start typing in the deck name.
+    requestAnimationFrame(() => nameRef.current?.focus());
   };
 
   const back = () => {
     setNote(null);
     setParsed(null);
     setError(null);
+    requestAnimationFrame(() => searchRef.current?.focus());
   };
 
   const selected = parsed ? parsed.cardCount - excluded.size : 0;
@@ -95,6 +107,7 @@ export function NoteToDeckDialog({ onClose, onCreated }: NoteToDeckDialogProps) 
     if (!note || !parsed) return;
     if (!name.trim()) {
       setError('Name the deck.');
+      nameRef.current?.focus();
       return;
     }
     if (selected <= 0) {
@@ -117,123 +130,117 @@ export function NoteToDeckDialog({ onClose, onCreated }: NoteToDeckDialogProps) 
     const empty = parsed.cardCount === 0;
     return (
       <DialogShell
+        open={open}
         title="Forge a deck from a note"
         subtitle={`Source: ${note.title}`}
-        icon={<NotebookPen className="h-4 w-4 text-cyan-300" />}
-        size="lg"
+        icon={NotebookPen}
+        iconTone="ember"
+        size="xl"
+        dirty={!empty}
         onClose={onClose}
         onSubmit={empty ? undefined : forge}
         footer={
           <>
-            <button type="button" onClick={back} className={cn(BTN_GHOST, 'mr-auto')}>
-              <ArrowLeft className="h-3.5 w-3.5" />
+            <Button variant="ghost" leadingIcon={ArrowLeft} onClick={back} className="mr-auto">
               Other note
-            </button>
+            </Button>
             {error && (
-              <span className="text-[11px] text-red-300" role="alert">
+              <span className="min-w-0 truncate text-xs text-danger" role="alert" title={error}>
                 {error}
               </span>
             )}
-            <button type="button" onClick={onClose} className={BTN_GHOST}>
+            <Button variant="ghost" onClick={onClose}>
               Cancel
-            </button>
+            </Button>
             {!empty && (
-              <button type="submit" disabled={selected <= 0} className={BTN_PRIMARY}>
-                <Sparkles className="h-3.5 w-3.5" />
-                Create deck with {plural(selected, 'card')}
-              </button>
+              <SubmitButton variant="ember" leadingIcon={Anvil} disabled={selected <= 0}>
+                Forge deck · {plural(selected, 'card')}
+              </SubmitButton>
             )}
           </>
         }
       >
         {empty ? (
-          <div className="space-y-3 py-2 text-center">
-            <p className="font-mono text-[10px] tracking-[0.3em] text-amber-300/70">NO SIGNAL</p>
-            <p className="text-sm text-white/70">No cards found in this note.</p>
-            <p className="text-xs text-white/45">Add a few lines in any of these shapes, then try again:</p>
+          <div className="flex flex-col gap-4">
+            <EmptyState
+              size="sm"
+              icon={FileSearch}
+              title="No cards found in this note"
+              description="Add a few lines in any of these shapes, then try again."
+            />
             <PatternList />
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-5">
             <div className="grid grid-cols-[1fr_auto] gap-3">
-              <div className="space-y-1">
-                <label htmlFor="note-deck-name" className={LABEL}>
-                  Deck name
-                </label>
-                <input
-                  id="note-deck-name"
-                  autoFocus
-                  value={name}
-                  maxLength={LIMITS.name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (error) setError(null);
-                  }}
-                  className={cn(INPUT, 'font-semibold')}
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="note-deck-icon" className={LABEL}>
-                  Icon
-                </label>
-                <input
+              <Input
+                ref={nameRef}
+                id="note-deck-name"
+                label="Deck name"
+                value={name}
+                maxLength={LIMITS.name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (error) setError(null);
+                }}
+              />
+              <div className="w-20">
+                <Input
                   id="note-deck-icon"
+                  label="Icon"
                   value={icon}
                   maxLength={LIMITS.icon}
                   onChange={(e) => setIcon(e.target.value)}
-                  className={cn(INPUT, 'w-16 text-center text-base')}
+                  className="text-center text-base"
                 />
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/50">
-              <span>
-                Found {plural(parsed.cardCount, 'card')} in {plural(parsed.topics.length, 'topic')} ·{' '}
-                <span className="text-cyan-300">{selected} selected</span>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-xs text-fg-muted">
+                Found {plural(parsed.cardCount, 'card')} in {plural(parsed.topics.length, 'topic')}
               </span>
-              <span className="ml-auto flex gap-1">
-                <button type="button" onClick={() => setAll(true)} className="rounded px-1.5 py-0.5 hover:bg-white/10 hover:text-white">
+              <Badge tone="accent" size="sm" className="tabular">
+                {selected} selected
+              </Badge>
+              <span className="ml-auto flex items-center gap-1">
+                <Button variant="ghost" size="sm" onClick={() => setAll(true)} disabled={excluded.size === 0}>
                   All
-                </button>
-                <button type="button" onClick={() => setAll(false)} className="rounded px-1.5 py-0.5 hover:bg-white/10 hover:text-white">
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setAll(false)} disabled={selected === 0}>
                   None
-                </button>
+                </Button>
               </span>
             </div>
 
-            <div className="space-y-3">
+            <div className="flex flex-col gap-4">
               {parsed.topics.map((topic) => (
-                <section key={topic.name} className="space-y-1.5">
-                  <h4 className="flex items-center gap-2 text-xs font-semibold text-purple-200">
-                    <span className="h-px w-3 bg-purple-400/50" />
-                    {topic.name}
-                    <span className="font-normal text-white/35">{topic.cards.length}</span>
+                <section key={topic.name} className="flex flex-col gap-2" aria-label={topic.name}>
+                  <h4 className="flex items-center gap-2">
+                    <span className="hud-label text-fg-muted">{topic.name}</span>
+                    <span className="tabular font-mono text-2xs text-fg-subtle">{topic.cards.length}</span>
+                    <span aria-hidden className="h-px flex-1 bg-line" />
                   </h4>
-                  {topic.cards.map((card) => {
-                    const on = !excluded.has(card.id);
-                    return (
-                      <label
-                        key={card.id}
-                        className={cn(
-                          'flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 transition-colors',
-                          on ? 'border-cyan-400/20 bg-cyan-400/[0.04]' : 'border-white/5 bg-transparent opacity-50'
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={on}
-                          onChange={() => toggle(card.id)}
-                          className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-cyan-400"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="block whitespace-pre-wrap text-sm text-white/85">{card.front}</span>
-                          <span className="mt-0.5 line-clamp-3 block whitespace-pre-wrap text-[11px] text-emerald-200/70">
-                            {card.back}
+                  <div className="divide-y divide-line overflow-hidden rounded-card border border-line">
+                    {topic.cards.map((card) => {
+                      const on = !excluded.has(card.id);
+                      return (
+                        <label
+                          key={card.id}
+                          className={cn(
+                            'flex cursor-pointer items-start gap-3 px-3 py-2.5 transition-[background-color,opacity] duration-120 ease-out-quint hover:bg-surface-hover',
+                            !on && 'opacity-55'
+                          )}
+                        >
+                          <Checkbox checked={on} onChange={() => toggle(card.id)} />
+                          <span className="min-w-0 flex-1">
+                            <span className="block whitespace-pre-wrap text-ui text-fg">{card.front}</span>
+                            <span className="mt-0.5 line-clamp-3 block whitespace-pre-wrap text-xs text-fg-muted">{card.back}</span>
                           </span>
-                        </span>
-                      </label>
-                    );
-                  })}
+                        </label>
+                      );
+                    })}
+                  </div>
                 </section>
               ))}
             </div>
@@ -246,71 +253,98 @@ export function NoteToDeckDialog({ onClose, onCreated }: NoteToDeckDialogProps) 
   // ─── Step 1: pick a note ───
   return (
     <DialogShell
+      open={open}
       title="Forge a deck from a note"
       subtitle="Headings become topics; definitions, Q&A pairs and lists become flashcards. Nothing leaves this browser."
-      icon={<NotebookPen className="h-4 w-4 text-cyan-300" />}
-      size="lg"
+      icon={NotebookPen}
+      iconTone="ember"
+      size="xl"
       onClose={onClose}
       footer={
-        <button type="button" onClick={onClose} className={BTN_GHOST}>
+        <Button variant="ghost" onClick={onClose}>
           Cancel
-        </button>
+        </Button>
       }
     >
       {notes.length === 0 ? (
-        <div className="space-y-3 py-4 text-center">
-          <FileText className="mx-auto h-8 w-8 text-cyan-300/40" />
-          <p className="font-mono text-[10px] tracking-[0.3em] text-cyan-300/60">NOTES ARCHIVE EMPTY</p>
-          <p className="text-sm text-white/65">Write a note in the Notes app first, then come back to forge it.</p>
+        <div className="flex flex-col gap-4">
+          <EmptyState
+            icon={NotebookPen}
+            title="Your notes archive is empty"
+            description="Write a note in the Notes app first, then come back to forge it into a deck."
+          />
           <PatternList />
         </div>
       ) : (
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/30" />
-            <input
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Search ${plural(notes.length, 'note')}…`}
-              aria-label="Search notes"
-              className={cn(INPUT, 'pl-8')}
+        <div className="flex flex-col gap-4">
+          <SearchField
+            ref={searchRef}
+            id={`${uid}-search`}
+            value={query}
+            onValueChange={setQuery}
+            placeholder={`Search ${plural(notes.length, 'note')}…`}
+            aria-label="Search notes"
+          />
+          {visible.length === 0 ? (
+            <EmptyState
+              size="sm"
+              icon={SearchX}
+              title={`No note matches “${query.trim()}”`}
+              description="Search looks at titles, tags and note text."
+              actions={
+                <Button size="sm" variant="ghost" onClick={() => setQuery('')}>
+                  Clear search
+                </Button>
+              }
             />
-          </div>
-          <div className="space-y-1.5">
-            {visible.map((n) => {
-              const found = counts.get(n.id) ?? 0;
-              return (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => pick(n)}
-                  className="flex w-full items-start gap-3 rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2 text-left transition-colors hover:border-cyan-400/30 hover:bg-cyan-400/[0.05]"
-                >
-                  <FileText className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300/60" />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-baseline gap-2">
-                      <span className="truncate text-sm font-medium text-white/85">{n.title}</span>
-                      <span className="shrink-0 text-[10px] text-white/30">{formatUpdated(n.updatedAt)}</span>
-                    </span>
-                    <span className="block truncate text-[11px] text-white/40">{snippet(n.content) || 'Empty note'}</span>
-                  </span>
-                  <span
-                    className={cn(
-                      'shrink-0 rounded-full border px-2 py-0.5 text-[10px]',
-                      found > 0 ? 'border-emerald-400/30 text-emerald-200' : 'border-white/10 text-white/30'
-                    )}
+          ) : (
+            <div className="scrollbar-thin max-h-80 divide-y divide-line overflow-y-auto rounded-card border border-line">
+              {visible.map((n) => {
+                const found = counts.get(n.id) ?? 0;
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => pick(n)}
+                    className="focus-ring-inset group/note flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors duration-120 ease-out-quint hover:bg-surface-hover active:bg-surface-active"
                   >
-                    {found > 0 ? plural(found, 'card') : 'no cards'}
-                  </span>
-                </button>
-              );
-            })}
-            {visible.length === 0 && <p className="py-4 text-center text-xs text-white/40">No note matches “{query}”.</p>}
-          </div>
-          <details className="rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2 text-xs text-white/55">
-            <summary className="cursor-pointer select-none text-white/65">What becomes a card?</summary>
-            <div className="mt-2">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-control border border-line bg-ink-800 text-fg-subtle">
+                      <FileText size={16} strokeWidth={1.75} aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline gap-2">
+                        <span className="truncate text-ui font-medium text-fg" title={n.title}>
+                          {n.title}
+                        </span>
+                        <span className="tabular shrink-0 font-mono text-2xs text-fg-subtle">{formatUpdated(n.updatedAt)}</span>
+                      </span>
+                      <span className="block truncate text-xs text-fg-subtle">{snippet(n.title, n.content) || 'Empty note'}</span>
+                    </span>
+                    <Badge tone={found > 0 ? 'success' : 'neutral'} size="sm">
+                      {found > 0 ? plural(found, 'card') : 'No cards'}
+                    </Badge>
+                    <ChevronRight
+                      size={16}
+                      strokeWidth={1.75}
+                      aria-hidden
+                      className="shrink-0 text-fg-faint transition-[color,transform] duration-120 ease-out-quint group-hover/note:translate-x-0.5 group-hover/note:text-fg-muted"
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <details className="group/help rounded-card border border-line">
+            <summary className="focus-ring-inset flex cursor-pointer select-none list-none items-center gap-2 rounded-card px-3 py-2.5 text-ui text-fg-muted transition-colors duration-120 ease-out-quint hover:bg-surface-hover hover:text-fg [&::-webkit-details-marker]:hidden">
+              <ChevronRight
+                size={16}
+                strokeWidth={1.75}
+                aria-hidden
+                className="text-fg-subtle transition-transform duration-180 ease-out-quint group-open/help:rotate-90"
+              />
+              What becomes a card?
+            </summary>
+            <div className="border-t border-line p-3">
               <PatternList />
             </div>
           </details>
@@ -322,11 +356,13 @@ export function NoteToDeckDialog({ onClose, onCreated }: NoteToDeckDialogProps) 
 
 function PatternList() {
   return (
-    <ul className="mx-auto max-w-md space-y-1 text-left">
+    <ul className="flex flex-col gap-1.5">
       {PATTERNS.map((p) => (
-        <li key={p.example} className="flex items-baseline gap-2 text-[11px]">
-          <code className="min-w-0 flex-1 truncate rounded bg-white/5 px-1.5 py-0.5 font-mono text-cyan-200/80">{p.example}</code>
-          <span className="shrink-0 text-white/40">→ {p.becomes}</span>
+        <li key={p.example} className="flex items-baseline gap-3 text-xs">
+          <code className="min-w-0 flex-1 truncate rounded-[6px] bg-ink-850 px-2 py-1 font-mono text-fg-muted" title={p.example}>
+            {p.example}
+          </code>
+          <span className="shrink-0 text-fg-subtle">→ {p.becomes}</span>
         </li>
       ))}
     </ul>

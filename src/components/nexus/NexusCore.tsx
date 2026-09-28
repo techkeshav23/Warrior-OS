@@ -142,12 +142,23 @@ function openAppButtons(appId: string): NexusActionButton[] {
 }
 
 /**
- * Set a wallpaper that survives a workspace switch: WorkspaceManager
- * re-applies the workspace default in an effect right after a switch,
- * so re-assert ours once when that happens.
+ * Set a wallpaper that sticks. WorkspaceManager paints the active
+ * workspace's saved look on every switch and reload, so the wallpaper is
+ * saved into that look too (with the current accent while no look has
+ * been saved yet, as WorkspaceManager's own first-run seeding does).
+ * Right after a switch it re-applies the look in an effect, so re-assert
+ * ours once when that happens.
  */
 function applyWallpaper(wallpaperId: string, workspaceSwitched: boolean): void {
-  useSettingsStore.getState().setWallpaper(wallpaperId);
+  const settings = useSettingsStore.getState();
+  settings.setWallpaper(wallpaperId);
+  const workspaces = useWorkspaceStore.getState();
+  workspaces.updateWorkspace(
+    workspaces.activeWorkspaceId,
+    workspaces.looksSaved
+      ? { wallpaper: wallpaperId }
+      : { wallpaper: wallpaperId, accentColor: settings.accentColor }
+  );
   if (!workspaceSwitched || typeof window === 'undefined') return;
   const guard = { done: false, timeoutId: 0 };
   const unsubscribe = useSettingsStore.subscribe((state, prev) => {

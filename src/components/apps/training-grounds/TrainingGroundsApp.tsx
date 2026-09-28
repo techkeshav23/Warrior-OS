@@ -4,6 +4,9 @@
 // question bank, mock tests and the quest planner over the user's
 // own decks.
 //
+// Frame: the kit's AppLayout with a sectioned SidebarNav (Library ·
+// Practice · Progress). Each tab owns its header and scrolling.
+//
 // Visited tabs stay mounted (inactive ones are hidden), so a quiz or
 // mock test in progress survives a trip to another tab. A tab only
 // remounts when a deep link or launcher points it at a new deck/topic.
@@ -13,12 +16,14 @@
 
 'use client';
 
-import { memo, useCallback, useState } from 'react';
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { memo, useCallback, useMemo, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { LocateFixed, TriangleAlert, X } from 'lucide-react';
+import { AppIcon, AppLayout, Badge, IconButton, SidebarNav, type NavSection } from '@/components/ui';
 import { usePendingEventListener } from '@/components/achievements/pending-events';
 import { useLearningStore } from '@/stores/useLearningStore';
-import { DecksPanel } from './decks';
+import { TRANSITION } from '@/styles/tokens';
+import { DecksPanel, TAB_ICONS, countDueCards, useMinuteNow } from './decks';
 import { QuizEngine } from './QuizEngine';
 import { QuestionBank } from './QuestionBank';
 import { MockTest } from './MockTest';
@@ -39,15 +44,21 @@ import {
 /** Every tab of the shell: the deck vault plus the study modes. */
 export type TrainingGroundsTab = 'decks' | TrainingTab;
 
-const TABS: readonly { id: TrainingGroundsTab; label: string; icon: string }[] = [
-  { id: 'decks', label: 'Decks', icon: '🗂️' },
-  { id: 'quiz', label: 'Quiz', icon: '📝' },
-  { id: 'flashcards', label: 'Review', icon: '🔁' },
-  { id: 'skill-tree', label: 'Skill Tree', icon: '🌳' },
-  { id: 'bank', label: 'Question Bank', icon: '📚' },
-  { id: 'mock', label: 'Mock Test', icon: '⏱️' },
-  { id: 'planner', label: 'Quest Planner', icon: '🗺️' },
+const TABS: readonly { id: TrainingGroundsTab; label: string }[] = [
+  { id: 'decks', label: 'Decks' },
+  { id: 'quiz', label: 'Quiz' },
+  { id: 'flashcards', label: 'Review' },
+  { id: 'skill-tree', label: 'Skill Tree' },
+  { id: 'bank', label: 'Question Bank' },
+  { id: 'mock', label: 'Mock Test' },
+  { id: 'planner', label: 'Quest Planner' },
 ];
+
+const TAB_LABEL = Object.fromEntries(TABS.map((t) => [t.id, t.label])) as Record<TrainingGroundsTab, string>;
+
+function isTab(id: string): id is TrainingGroundsTab {
+  return TABS.some((t) => t.id === id);
+}
 
 /** A mounted tab. `nonce` is part of its key: bumping it remounts the tab on `target`. */
 interface TabMount {
@@ -68,12 +79,28 @@ function withMount(mounts: TabMounts, tab: TrainingGroundsTab, mount: TabMount):
   return next;
 }
 
+/** Cards due for review right now, on the Review nav item. Ticks on its own, so the shell doesn't. */
+function ReviewDueBadge() {
+  const decks = useLearningStore((s) => s.decks);
+  const reviews = useLearningStore((s) => s.reviews);
+  const now = useMinuteNow();
+  const due = useMemo(() => countDueCards(decks, reviews, now), [decks, reviews, now]);
+  if (due === 0) return null;
+  return (
+    <Badge tone="warning" size="sm" className="tabular" title={`${due} due for review`}>
+      {due > 99 ? '99+' : due}
+      <span className="sr-only"> due</span>
+    </Badge>
+  );
+}
+
 interface TrainingGroundsAppProps {
   /** Tab to open on (default: the deck vault). */
   initialTab?: TrainingGroundsTab;
 }
 
 function TrainingGroundsAppInner({ initialTab = 'decks' }: TrainingGroundsAppProps) {
+  const reduce = useReducedMotion();
   const [activeTab, setActiveTab] = useState<TrainingGroundsTab>(initialTab);
   // Deck/topic the last deep link or launcher asked for; a tab visited for
   // the first time opens on it too.
@@ -116,9 +143,9 @@ function TrainingGroundsAppInner({ initialTab = 'decks' }: TrainingGroundsAppPro
     [openOn]
   );
 
-  /** Study buttons in the deck vault. */
+  /** Study buttons in the deck vault (null = no particular deck, e.g. "review everything due"). */
   const studyFromDecks = useCallback(
-    (target: DeckTarget, tab: TrainingTab) => {
+    (target: DeckTarget | null, tab: TrainingTab) => {
       setUnmatched(null);
       openOn(tab, target);
     },
@@ -140,6 +167,44 @@ function TrainingGroundsAppInner({ initialTab = 'decks' }: TrainingGroundsAppPro
   const focusDeck = focus ? decks.find((d) => d.id === focus.deckId) : undefined;
   const focusTopic = focus?.topicId ? focusDeck?.topics.find((t) => t.id === focus.topicId) : undefined;
   const focusLabel = focusDeck ? `${focusDeck.name}${focusTopic ? ` · ${focusTopic.name}` : ''}` : null;
+
+  const navItem = (id: TrainingGroundsTab) => ({ id, label: TAB_LABEL[id], icon: TAB_ICONS[id] });
+  const sections: NavSection[] = [
+    {
+      items: [{ ...navItem('decks'), count: decks.length }, navItem('bank')],
+    },
+    {
+      label: 'Practice',
+      items: [navItem('quiz'), { ...navItem('flashcards'), badge: <ReviewDueBadge /> }, navItem('mock')],
+    },
+    {
+      label: 'Progress',
+      items: [navItem('skill-tree'), navItem('planner')],
+    },
+  ];
+
+  const clearFocus = () => {
+    setFocus(null);
+    setUnmatched(null);
+  };
+
+  const focusCard =
+    focusLabel || unmatched ? (
+      <div className="flex items-start gap-2.5 rounded-control bg-surface-2 py-2 pl-2.5 pr-1.5">
+        {focusLabel ? (
+          <LocateFixed size={16} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0 text-accent" />
+        ) : (
+          <TriangleAlert size={16} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0 text-warning" />
+        )}
+        <div className="min-w-0 flex-1" title="Picked by a deep link, a deck or the skill tree">
+          <div className="hud-label">{focusLabel ? 'Focus' : 'No match'}</div>
+          <div className="mt-0.5 truncate text-xs text-fg">
+            {focusLabel ?? `No deck matches “${unmatched}”`}
+          </div>
+        </div>
+        <IconButton icon={X} size="xs" aria-label="Clear focus" onClick={clearFocus} />
+      </div>
+    ) : undefined;
 
   const renderTab = (tab: TrainingGroundsTab, target: DeckTarget | null) => {
     // A target whose deck is gone opens the tab unfocused.
@@ -164,71 +229,50 @@ function TrainingGroundsAppInner({ initialTab = 'decks' }: TrainingGroundsAppPro
   };
 
   return (
-    <div className="flex h-full bg-black/30">
-      {/* Sidebar */}
-      <nav className="w-48 flex-shrink-0 border-r border-white/10 bg-black/20 p-2 flex flex-col gap-1">
-        <h2 className="text-sm font-bold text-cyan-400 px-3 py-2 tracking-wider">
-          🎯 TRAINING GROUNDS
-        </h2>
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => showTab(tab.id)}
-            aria-current={activeTab === tab.id ? 'page' : undefined}
-            className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all text-left',
-              activeTab === tab.id
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                : 'text-white/60 hover:text-white/90 hover:bg-white/5'
-            )}
+    <AppLayout
+      sidebarWidth={208}
+      padded={false}
+      scroll={false}
+      sidebar={
+        <SidebarNav
+          aria-label="Training Grounds"
+          header={
+            <div className="flex items-center gap-2.5">
+              <AppIcon appId="training-grounds" size={28} active />
+              <div className="min-w-0">
+                <div className="truncate text-ui font-semibold text-fg">Training Grounds</div>
+                <div className="hud-label truncate">Learn anything</div>
+              </div>
+            </div>
+          }
+          sections={sections}
+          value={activeTab}
+          onChange={(id) => {
+            if (isTab(id)) showTab(id);
+          }}
+          footer={focusCard}
+        />
+      }
+    >
+      {/* Every visited tab stays mounted; only the active one is shown. */}
+      {TABS.map(({ id }) => {
+        const mount = mounts[id];
+        if (!mount) return null;
+        const active = id === activeTab;
+        return (
+          <motion.div
+            key={`${id}:${mount.nonce}`}
+            hidden={!active}
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
+            animate={active ? { opacity: 1, y: 0 } : { opacity: 0, y: reduce ? 0 : 6 }}
+            transition={active ? TRANSITION.panel : { duration: 0 }}
+            className="scrollbar-thin min-h-0 flex-1 overflow-y-auto"
           >
-            <span>{tab.icon}</span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
-
-        {(focusLabel || unmatched) && (
-          <div className="mt-auto flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-purple-500/30 bg-purple-500/10 text-[11px] text-purple-200">
-            <span className="truncate" title="Picked by a deep link, a deck or the skill tree">
-              {focusLabel ? `Focus: ${focusLabel}` : `No deck matches "${unmatched}"`}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setFocus(null);
-                setUnmatched(null);
-              }}
-              className="text-purple-300/70 hover:text-purple-100"
-              aria-label="Clear focus"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-      </nav>
-
-      {/* Content: every visited tab stays mounted; only the active one is shown. */}
-      <div className="flex-1 overflow-hidden">
-        {TABS.map(({ id }) => {
-          const mount = mounts[id];
-          if (!mount) return null;
-          const active = id === activeTab;
-          return (
-            <motion.div
-              key={`${id}:${mount.nonce}`}
-              hidden={!active}
-              initial={{ opacity: 0, x: 20 }}
-              animate={active ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }}
-              transition={{ duration: active ? 0.2 : 0 }}
-              className="h-full overflow-y-auto"
-            >
-              {renderTab(id, mount.target)}
-            </motion.div>
-          );
-        })}
-      </div>
-    </div>
+            {renderTab(id, mount.target)}
+          </motion.div>
+        );
+      })}
+    </AppLayout>
   );
 }
 

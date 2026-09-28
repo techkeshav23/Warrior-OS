@@ -1,0 +1,174 @@
+/* ═══════════════════════════════════════════════════════════
+   WARRIOR OS — "Deep Space" wallpaper (VoidMinimal.tsx)
+   The CSS-only default / fallback wallpaper: what lite-mode, no-GPU and
+   headless visitors see first. Three layers:
+     root    deep-ink gradient + far haze            (static)
+     aurora  plasma glow and arcing curtains, top-left (the one moving part:
+             a very slow transform drift, off under reduced motion / lite)
+     field   star dust, the ember planet horizon, vignette and grain as one
+             multi-background element (static, painted once)
+   Parallax (live mode only) reads --wp-mx / --wp-my from the component.
+   Star dust = three depths of points from a seeded random layout, tiled
+   at co-prime sizes (547×509, 811×743, 1231×1117) so no repeat reads as a
+   grid. Tune a whole depth (alpha, size, tile) rather than single stops.
+   ═══════════════════════════════════════════════════════════ */
+
+.wos-deep-space {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: #04060b;
+  background-image:
+    radial-gradient(50% 40% at 64% 38%, rgb(60 72 140 / 0.07), transparent 70%),
+    radial-gradient(40% 30% at 48% 62%, rgb(20 40 80 / 0.08), transparent 70%),
+    radial-gradient(120% 70% at 50% -10%, rgb(16 24 42 / 0.55), transparent 60%),
+    linear-gradient(180deg, #060912 0%, #04060b 55%, #040509 100%);
+}
+
+.wos-deep-space__aurora,
+.wos-deep-space__field {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Plasma aurora, upper left: soft cores plus two arcing curtains */
+.wos-deep-space__aurora {
+  inset: -12%;
+  background-image:
+    radial-gradient(95% 70% at -8% 92%, transparent 60%, rgb(47 214 245 / 0.07) 67%, rgb(124 231 251 / 0.03) 71%, transparent 77%),
+    radial-gradient(80% 62% at -14% 100%, transparent 64%, rgb(167 139 250 / 0.045) 70%, transparent 78%),
+    radial-gradient(40% 32% at 24% 20%, rgb(47 214 245 / 0.12), transparent 70%),
+    radial-gradient(24% 18% at 36% 12%, rgb(124 231 251 / 0.06), transparent 72%),
+    radial-gradient(32% 42% at 10% 42%, rgb(167 139 250 / 0.06), transparent 70%),
+    radial-gradient(60% 40% at 18% 8%, rgb(16 184 216 / 0.06), transparent 70%);
+  translate: calc(var(--wp-mx, 0) * -24px) calc(var(--wp-my, 0) * -16px);
+  will-change: transform;
+  animation: wos-deep-drift 140s ease-in-out infinite alternate;
+}
+
+/* Everything static, top layer first: vignette · ember planet horizon ·
+   star dust (near → far) · grain */
+.wos-deep-space__field {
+  inset: -16px;
+  translate: calc(var(--wp-mx, 0) * -8px) calc(var(--wp-my, 0) * -6px);
+  background-image:
+    /* vignette */
+    radial-gradient(90% 85% at 50% 45%, transparent 55%, rgb(2 3 6 / 0.6) 100%),
+    linear-gradient(180deg, rgb(2 3 6 / 0.35), transparent 14%),
+    /* ember horizon: dawn breaking over a planet's curve, lower right */
+    radial-gradient(70% 82% at 80% 152%, rgb(3 4 8 / 0.94) 79.2%, rgb(255 178 122 / 0.34) 80%, rgb(255 138 61 / 0.16) 81.2%, rgb(247 107 21 / 0.06) 84%, transparent 90%),
+    radial-gradient(60% 38% at 86% 96%, rgb(247 107 21 / 0.14), transparent 70%),
+    radial-gradient(30% 20% at 80% 80%, rgb(255 138 61 / 0.07), transparent 72%),
+    radial-gradient(28% 50% at 104% 76%, rgb(212 82 11 / 0.06), transparent 70%),
+    /* star dust: near (7) */
+    radial-gradient(circle at 636px 1114px, rgb(230 237 247 / 0.66) 0.85px, transparent 2.1px),
+    radial-gradient(circle at 244px 657px, rgb(230 237 247 / 0.69) 0.85px, transparent 2.1px),
+    radial-gradient(circle at 787px 554px, rgb(230 237 247 / 0.80) 0.85px, transparent 2.1px),
+    radial-gradient(circle at 274px 832px, rgb(230 237 247 / 0.88) 0.85px, transparent 2.1px),
+    radial-gradient(circle at 1183px 254px, rgb(230 237 247 / 0.80) 0.85px, transparent 2.1px),
+    radial-gradient(circle at 134px 530px, rgb(230 237 247 / 0.69) 0.85px, transparent 2.1px),
+    radial-gradient(circle at 376px 842px, rgb(230 237 247 / 0.73) 0.85px, transparent 2.1px),
+    /* mid (16) */
+    radial-gradient(circle at 75px 51px, rgb(230 237 247 / 0.59) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 263px 159px, rgb(230 237 247 / 0.55) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 670px 7px, rgb(230 237 247 / 0.61) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 70px 732px, rgb(230 237 247 / 0.65) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 601px 41px, rgb(230 237 247 / 0.54) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 799px 158px, rgb(230 237 247 / 0.65) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 155px 582px, rgb(230 237 247 / 0.45) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 301px 378px, rgb(230 237 247 / 0.68) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 726px 678px, rgb(230 237 247 / 0.59) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 575px 161px, rgb(230 237 247 / 0.49) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 726px 707px, rgb(230 237 247 / 0.64) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 258px 674px, rgb(230 237 247 / 0.46) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 651px 120px, rgb(230 237 247 / 0.60) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 629px 4px, rgb(230 237 247 / 0.57) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 609px 269px, rgb(160 220 255 / 0.49) 0.65px, transparent 1.4px),
+    radial-gradient(circle at 9px 150px, rgb(160 220 255 / 0.59) 0.65px, transparent 1.4px),
+    /* far (42) */
+    radial-gradient(circle at 280px 270px, rgb(230 237 247 / 0.39) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 465px 274px, rgb(230 237 247 / 0.24) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 332px 229px, rgb(230 237 247 / 0.35) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 230px 341px, rgb(160 220 255 / 0.41) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 98px 141px, rgb(230 237 247 / 0.33) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 319px 65px, rgb(230 237 247 / 0.39) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 229px 430px, rgb(230 237 247 / 0.45) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 174px 317px, rgb(160 220 255 / 0.29) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 405px 498px, rgb(160 220 255 / 0.30) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 407px 177px, rgb(230 237 247 / 0.37) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 462px 73px, rgb(230 237 247 / 0.46) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 210px 13px, rgb(230 237 247 / 0.24) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 272px 268px, rgb(230 237 247 / 0.30) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 402px 45px, rgb(160 220 255 / 0.40) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 243px 323px, rgb(230 237 247 / 0.50) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 255px 180px, rgb(230 237 247 / 0.23) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 229px 387px, rgb(230 237 247 / 0.30) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 190px 429px, rgb(160 220 255 / 0.26) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 345px 317px, rgb(230 237 247 / 0.26) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 207px 477px, rgb(230 237 247 / 0.46) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 225px 468px, rgb(230 237 247 / 0.38) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 168px 262px, rgb(230 237 247 / 0.22) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 165px 208px, rgb(160 220 255 / 0.25) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 408px 277px, rgb(160 220 255 / 0.36) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 306px 317px, rgb(230 237 247 / 0.47) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 327px 307px, rgb(230 237 247 / 0.38) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 52px 332px, rgb(230 237 247 / 0.40) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 389px 69px, rgb(230 237 247 / 0.26) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 532px 175px, rgb(230 237 247 / 0.48) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 416px 333px, rgb(230 237 247 / 0.24) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 363px 251px, rgb(230 237 247 / 0.40) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 393px 160px, rgb(230 237 247 / 0.25) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 208px 92px, rgb(230 237 247 / 0.45) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 411px 3px, rgb(230 237 247 / 0.34) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 311px 356px, rgb(160 220 255 / 0.40) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 271px 250px, rgb(230 237 247 / 0.27) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 35px 43px, rgb(230 237 247 / 0.50) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 385px 425px, rgb(230 237 247 / 0.48) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 28px 86px, rgb(230 237 247 / 0.39) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 228px 271px, rgb(160 220 255 / 0.23) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 253px 138px, rgb(230 237 247 / 0.34) 0.45px, transparent 1.05px),
+    radial-gradient(circle at 226px 172px, rgb(230 237 247 / 0.38) 0.45px, transparent 1.05px),
+    /* grain */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:
+    100% 100%, 100% 100%,
+    100% 100%, 100% 100%, 100% 100%, 100% 100%,
+    1231px 1117px, 1231px 1117px, 1231px 1117px, 1231px 1117px, 1231px 1117px, 1231px 1117px, 1231px 1117px,
+    811px 743px, 811px 743px, 811px 743px, 811px 743px, 811px 743px, 811px 743px, 811px 743px, 811px 743px, 811px 743px, 811px 743px, 811px 743px, 811px 743px, 811px 743px, 811px 743px, 811px 743px, 811px 743px,
+    547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px, 547px 509px,
+    180px 180px;
+  background-position:
+    0 0, 0 0,
+    0 0, 0 0, 0 0, 0 0,
+    211px 149px, 211px 149px, 211px 149px, 211px 149px, 211px 149px, 211px 149px, 211px 149px,
+    97px 53px, 97px 53px, 97px 53px, 97px 53px, 97px 53px, 97px 53px, 97px 53px, 97px 53px, 97px 53px, 97px 53px, 97px 53px, 97px 53px, 97px 53px, 97px 53px, 97px 53px, 97px 53px,
+    0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0,
+    0 0;
+  background-repeat:
+    no-repeat, no-repeat,
+    no-repeat, no-repeat, no-repeat, no-repeat,
+    repeat, repeat, repeat, repeat, repeat, repeat, repeat,
+    repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat,
+    repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat,
+    repeat;
+}
+
+@keyframes wos-deep-drift {
+  from {
+    transform: translate3d(-1.2%, -0.8%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(1.4%, 1%, 0) scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wos-deep-space__aurora {
+    animation: none;
+  }
+}
+
+[data-lite-mode] .wos-deep-space__aurora {
+  animation: none;
+  will-change: auto;
+}

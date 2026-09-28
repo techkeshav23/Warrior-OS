@@ -1,6 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Aurora Shader Wallpaper
-// GLSL sine waves with noise, green/purple bands, star layer
+// GLSL: three slow aurora curtains (a bright plasma-mint hem, rays that
+// cool to violet as they rise) over an ink night sky with sparse stars
+// and a dark horizon ridge rimmed with aurora light. Gentle pointer
+// parallax, a soft audio swell. Dithered (no banding).
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -20,20 +23,27 @@ const vertexShader = /* glsl */ `
 
 const fragmentShader = /* glsl */ `
   precision highp float;
-  
+
   uniform float u_time;
   uniform vec2 u_mouse;
   uniform vec2 u_resolution;
   uniform float u_bass;
-  
+
   varying vec2 vUv;
-  
-  // Hash for pseudo-random stars
+
+  // FORGE HUD palette
+  const vec3 SKY_TOP  = vec3(0.016, 0.024, 0.043); // ink-950
+  const vec3 SKY_LOW  = vec3(0.028, 0.047, 0.080); // ink-850, cooled toward the horizon
+  const vec3 LAND     = vec3(0.010, 0.014, 0.024);
+  const vec3 PLASMA   = vec3(0.184, 0.839, 0.961); // plasma-400
+  const vec3 MINT     = vec3(0.239, 0.863, 0.592); // success / mint
+  const vec3 VIOLET   = vec3(0.655, 0.545, 0.980); // viz-3
+  const vec3 STAR     = vec3(0.860, 0.910, 0.970);
+
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
   }
-  
-  // Simple noise
+
   float noise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
@@ -44,7 +54,7 @@ const fragmentShader = /* glsl */ `
     float d = hash(i + vec2(1.0, 1.0));
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
   }
-  
+
   float fbm(vec2 p) {
     float f = 0.0;
     f += 0.5 * noise(p); p *= 2.01;
@@ -53,87 +63,71 @@ const fragmentShader = /* glsl */ `
     f += 0.0625 * noise(p);
     return f;
   }
-  
-  // Star field layer
-  float stars(vec2 uv, float t) {
-    float s = 0.0;
-    for (float i = 0.0; i < 3.0; i++) {
-      vec2 p = uv * (100.0 + i * 50.0);
-      float h = hash(floor(p));
-      if (h > 0.97) {
-        float twinkle = sin(t * (h * 3.0 + 1.0) + h * 6.28) * 0.5 + 0.5;
-        float d = length(fract(p) - 0.5);
-        s += smoothstep(0.05, 0.0, d) * twinkle * (1.0 - i * 0.2);
-      }
-    }
-    return s;
+
+  // Sparse stars, one candidate per cell
+  float stars(vec2 p, float density, float t) {
+    vec2 g = p * density;
+    vec2 id = floor(g);
+    float h = hash(id);
+    if (h < 0.96) return 0.0;
+    vec2 off = vec2(hash(id + 13.1), hash(id + 29.7)) - 0.5;
+    float d = length(fract(g) - 0.5 - off * 0.7);
+    float twinkle = 0.65 + 0.35 * sin(t * (0.5 + h * 2.0) + h * 50.0);
+    return smoothstep(0.08, 0.0, d) * twinkle * ((h - 0.96) / 0.04);
   }
-  
+
   void main() {
     vec2 uv = vUv;
     float aspect = u_resolution.x / u_resolution.y;
-    float time = u_time * 0.15;
-    
-    // Star layer (background)
-    vec3 color = vec3(0.01, 0.01, 0.03);
-    float starField = stars(uv * vec2(aspect, 1.0), u_time);
-    color += starField * vec3(0.6, 0.7, 1.0) * 0.5;
-    
-    // Aurora bands — multiple sine waves with noise displacement
-    float auroraY = uv.y;
-    
-    // Parallax with mouse
-    float mx = u_mouse.x * 0.05;
-    float my = u_mouse.y * 0.03;
-    
-    for (float i = 0.0; i < 4.0; i++) {
-      float offset = i * 0.12;
-      float speed = 0.3 + i * 0.1;
-      float freq = 2.0 + i * 0.5;
-      
-      // Sine wave with noise displacement
-      float wave = sin((uv.x * aspect + mx) * freq + time * speed + fbm(vec2(uv.x * 3.0 + time * 0.2, i)) * 2.0) * 0.08;
-      wave += fbm(vec2(uv.x * 2.0 + time * 0.1, i + time * 0.05)) * 0.06;
-      
-      // Band position
-      float bandY = 0.55 + offset + wave + my;
-      float bandDist = abs(auroraY - bandY);
-      
-      // Soft band width with noise
-      float bandWidth = 0.02 + fbm(vec2(uv.x * 4.0 + time * 0.3, i)) * 0.03;
-      float band = smoothstep(bandWidth * 2.0, 0.0, bandDist);
-      
-      // Audio reactivity
-      band *= 1.0 + u_bass * 0.5;
-      
-      // Color: green → cyan → purple transition
-      vec3 auroraColor;
-      if (i < 1.5) {
-        auroraColor = mix(vec3(0.0, 0.8, 0.3), vec3(0.0, 0.6, 0.8), fract(uv.x + time * 0.1));
-      } else {
-        auroraColor = mix(vec3(0.0, 0.5, 0.7), vec3(0.4, 0.1, 0.6), fract(uv.x + time * 0.15));
-      }
-      
-      // Fade with height variation
-      float fade = fbm(vec2(uv.x * 5.0 + time * 0.2, auroraY * 3.0)) * 0.5 + 0.5;
-      color += auroraColor * band * fade * (0.3 - i * 0.05);
+    float x = uv.x * aspect;
+    float t = u_time * 0.05;
+    vec2 par = (u_mouse - 0.5) * vec2(0.04, 0.025);
+
+    // Night sky: ink, a little cooler toward the horizon
+    vec3 col = mix(SKY_LOW, SKY_TOP, smoothstep(0.1, 0.85, uv.y));
+    float s = stars(vec2(x, uv.y) + par * 0.3, 60.0, u_time) * 0.6
+            + stars(vec2(x, uv.y) * 1.6 + par * 0.6, 95.0, u_time) * 0.35;
+    col += STAR * s * smoothstep(0.2, 0.55, uv.y);
+
+    // Curtains: a bright lower hem, rays fading upward, plasma → violet
+    float glow = 0.0;
+    vec3 light = vec3(0.0);
+    for (float i = 0.0; i < 3.0; i++) {
+      float drift = t * (1.0 + i * 0.35);
+      float hem = 0.44 + i * 0.07 + par.y
+        + sin((x + par.x) * (1.1 + i * 0.3) + drift * 1.7 + i * 2.1) * 0.055
+        + (fbm(vec2((x + par.x) * 0.9 + drift * 0.6, i * 3.7)) - 0.5) * 0.2;
+      float d = uv.y - hem;
+      // Vertical rays: noise along x only, sharpened, drifting sideways
+      float rays = fbm(vec2((x + par.x) * 9.0 + drift * 1.4 + i * 7.0, drift * 0.3));
+      rays = smoothstep(0.25, 0.85, rays);
+      float fold = 0.55 + 0.45 * sin((x + par.x) * (2.3 + i) - drift * 2.0 + i * 1.3);
+      float curtain = smoothstep(-0.015, 0.012, d) * exp(-max(d, 0.0) * (3.6 + i * 1.2)) * (0.15 + 1.1 * rays) * fold;
+      float edge = exp(-abs(d) * 70.0) * 0.4 * (0.4 + 0.6 * rays) * fold;
+      // Light scattered below the hem, so the curtain has no hard floor
+      float scatter = exp(-max(-d, 0.0) * 14.0) * step(d, 0.0) * 0.22 * fold;
+      float strength = (0.24 - i * 0.055) * (1.0 + u_bass * 0.35);
+      vec3 base = mix(MINT, PLASMA, 0.7 + 0.3 * sin(x * 0.7 + i));
+      vec3 hue = mix(base, VIOLET, smoothstep(0.02, 0.26, d));
+      light += hue * (curtain + edge) * strength + base * scatter * strength;
+      glow += (curtain + edge + scatter) * strength;
     }
-    
-    // Vertical fade — aurora mostly in upper 60%
-    color *= smoothstep(0.0, 0.3, uv.y) * smoothstep(1.0, 0.5, uv.y);
-    
-    // Subtle bottom reflection
-    if (uv.y < 0.15) {
-      float reflectY = 0.15 - uv.y;
-      vec3 reflected = color * 0.1 * smoothstep(0.15, 0.0, reflectY);
-      color += reflected;
-    }
-    
+    col += light;
+
+    // Horizon ridge with a thin rim of aurora light
+    float ridge = 0.13 + (fbm(vec2(x * 1.8 + 3.0, 7.0)) - 0.5) * 0.09 + sin(x * 1.3 + 0.8) * 0.012;
+    float land = smoothstep(ridge + 0.0025, ridge - 0.0025, uv.y);
+    col = mix(col, LAND + light * 0.04, land);
+    col += PLASMA * exp(-abs(uv.y - ridge) * 240.0) * (0.02 + glow * 0.12);
+
     // Vignette
-    float vig = 1.0 - smoothstep(0.5, 1.3, length((vUv - 0.5) * 1.8));
-    color *= vig;
-    
-    gl_FragColor = vec4(color, 1.0);
+    float vig = smoothstep(1.35, 0.3, length((uv - vec2(0.5, 0.55)) * vec2(aspect * 0.8, 1.0)));
+    col *= mix(0.55, 1.0, vig);
+
+    // Dither: no banding in the dark gradients
+    col += (hash(gl_FragCoord.xy + fract(u_time * 0.37) * 91.0) - 0.5) / 255.0;
+
+    gl_FragColor = vec4(max(col, 0.0), 1.0);
   }
 `;
 

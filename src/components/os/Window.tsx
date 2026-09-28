@@ -1,20 +1,30 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Window Component
-// Draggable, resizable glassmorphism window with title bar.
+// WARRIOR OS — Window Component (FORGE HUD chrome)
+// Draggable, resizable glass window. 40px title bar: app icon, title,
+// Minimize / Maximize-Restore / Close (28px ghost buttons; Close turns
+// danger on hover). Focused windows get a brighter hairline, a plasma
+// hairline along the top edge, a soft accent glow and HUD corner
+// brackets; unfocused titles dim to fg-muted.
 // The app inside runs under its own error boundary: a crash shows a
 // SYSTEM FAULT panel in this window (Restart app / Close) instead of
 // taking the OS down. Lite mode swaps the glass blur for a solid fill.
+//
+// DOM contract (phantom capture, decay stages, e2e): the react-rnd root
+// holds the glass <div data-window-id data-app-id>, whose direct
+// children are the `.window-drag-handle` title bar and then the content.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useCallback, useRef, type ReactNode } from 'react';
+import { useCallback, useRef, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { Rnd } from 'react-rnd';
 import { motion } from 'framer-motion';
-import { Minus, Maximize2, Minimize2, X } from 'lucide-react';
+import { Copy, Minus, Square, X } from 'lucide-react';
 import { useWindowStore } from '@/stores/useWindowStore';
 import { useLiteMode } from '@/lib/lite-mode';
 import { AppErrorBoundary } from '@/components/showcase/AppErrorBoundary';
+import { AppIcon } from '@/components/ui/AppIcon';
+import { IconButton } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import type { WindowState } from '@/types/window';
 
@@ -27,14 +37,125 @@ interface WindowProps {
 // subscribing every window to every window-store update.
 const windowActions = () => useWindowStore.getState();
 
-const GLASS_STYLE = {
-  background: 'rgba(15, 15, 25, 0.85)',
-  backdropFilter: 'blur(16px)',
-  WebkitBackdropFilter: 'blur(16px)',
+// Lite mode: backdrop blur is the costliest effect on integrated GPUs.
+const LITE_STYLE = {
+  backdropFilter: 'none',
+  WebkitBackdropFilter: 'none',
+  backgroundColor: 'var(--color-ink-900, #070a12)',
 } as const;
 
-// Lite mode: backdrop blur is the costliest effect on integrated GPUs.
-const SOLID_STYLE = { background: 'rgba(12, 12, 20, 0.97)' } as const;
+const FOCUS_GLOW = {
+  boxShadow:
+    '0 0 0 1px color-mix(in srgb, var(--accent, #2fd6f5) 14%, transparent), 0 0 48px -14px color-mix(in srgb, var(--accent, #2fd6f5) 42%, transparent)',
+} as const;
+
+const EASE = [0.16, 1, 0.3, 1] as const;
+
+// glass-window carries border + e3 elevation; focus only changes the edge.
+const FOCUSED_EDGE = { borderColor: 'var(--color-line-strong)' } as const;
+const RESTING_EDGE = { borderColor: 'var(--color-line)' } as const;
+
+// ─── Title bar (also used by the /design-system sample window) ───
+
+export interface WindowTitleBarProps {
+  title: string;
+  appId: string;
+  focused: boolean;
+  maximized: boolean;
+  onMinimize?: (e: ReactMouseEvent) => void;
+  onMaximize?: (e: ReactMouseEvent) => void;
+  onClose?: (e: ReactMouseEvent) => void;
+  onDoubleClick?: () => void;
+  /** Adds the `.window-drag-handle` class react-rnd drags by (real windows only). */
+  dragHandle?: boolean;
+}
+
+/** 40px window title bar: AppIcon · title · window controls. */
+export function WindowTitleBar({
+  title,
+  appId,
+  focused,
+  maximized,
+  onMinimize,
+  onMaximize,
+  onClose,
+  onDoubleClick,
+  dragHandle = false,
+}: WindowTitleBarProps) {
+  return (
+    <div
+      className={cn(
+        dragHandle && 'window-drag-handle',
+        'relative flex h-10 shrink-0 cursor-default select-none items-center gap-2.5 border-b pl-3.5 pr-1.5',
+        'transition-colors duration-180 ease-out-quint',
+        focused ? 'border-line bg-white/[0.018]' : 'border-line/70 bg-transparent'
+      )}
+      onDoubleClick={onDoubleClick}
+    >
+      {/* Plasma hairline along the top edge (focused only) */}
+      <span
+        aria-hidden
+        className={cn(
+          'pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-accent/70 to-transparent',
+          'transition-opacity duration-260 ease-out-quint',
+          focused ? 'opacity-100' : 'opacity-0'
+        )}
+      />
+      <AppIcon
+        appId={appId}
+        size={18}
+        className={cn('transition-opacity duration-180', !focused && 'opacity-55 grayscale-[40%]')}
+      />
+      <span
+        className={cn(
+          'min-w-0 flex-1 truncate text-ui font-medium transition-colors duration-180',
+          focused ? 'text-fg' : 'text-fg-muted'
+        )}
+        title={title}
+      >
+        {title}
+      </span>
+
+      {/* Window controls — aria-labels are relied on by tests */}
+      <div className="window-controls flex shrink-0 items-center gap-0.5" onDoubleClick={(e) => e.stopPropagation()}>
+        <IconButton icon={Minus} aria-label="Minimize" size="sm" iconSize={15} onClick={onMinimize} />
+        <IconButton
+          icon={maximized ? Copy : Square}
+          aria-label={maximized ? 'Restore' : 'Maximize'}
+          size="sm"
+          iconSize={13}
+          onClick={onMaximize}
+          className={maximized ? '[&_svg]:-scale-x-100' : undefined}
+        />
+        <IconButton icon={X} aria-label="Close" variant="ghost-danger" size="sm" iconSize={16} onClick={onClose} />
+      </div>
+    </div>
+  );
+}
+
+/** HUD corner brackets that frame the focused window from just outside. */
+function FocusFrame({ visible, corners }: { visible: boolean; corners: boolean }) {
+  const bracket = 'absolute size-2.5 border-accent/45';
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        'pointer-events-none absolute inset-0 rounded-window transition-opacity duration-260 ease-out-quint',
+        visible ? 'opacity-100' : 'opacity-0'
+      )}
+      style={FOCUS_GLOW}
+    >
+      {corners && (
+        <>
+          <span className={cn(bracket, '-left-1.5 -top-1.5 rounded-tl-[5px] border-l border-t')} />
+          <span className={cn(bracket, '-right-1.5 -top-1.5 rounded-tr-[5px] border-r border-t')} />
+          <span className={cn(bracket, '-bottom-1.5 -left-1.5 rounded-bl-[5px] border-b border-l')} />
+          <span className={cn(bracket, '-bottom-1.5 -right-1.5 rounded-br-[5px] border-b border-r')} />
+        </>
+      )}
+    </div>
+  );
+}
 
 export function Window({ windowState, children }: WindowProps) {
   const {
@@ -62,7 +183,7 @@ export function Window({ windowState, children }: WindowProps) {
   }, [id]);
 
   const handleClose = useCallback(
-    (e: React.MouseEvent) => {
+    (e: ReactMouseEvent) => {
       e.stopPropagation();
       closeSelf();
     },
@@ -70,7 +191,7 @@ export function Window({ windowState, children }: WindowProps) {
   );
 
   const handleMinimize = useCallback(
-    (e: React.MouseEvent) => {
+    (e: ReactMouseEvent) => {
       e.stopPropagation();
       windowActions().minimizeWindow(id);
     },
@@ -86,7 +207,7 @@ export function Window({ windowState, children }: WindowProps) {
   }, [id, isMaximized]);
 
   const handleMaximize = useCallback(
-    (e: React.MouseEvent) => {
+    (e: ReactMouseEvent) => {
       e.stopPropagation();
       toggleMaximize();
     },
@@ -105,6 +226,7 @@ export function Window({ windowState, children }: WindowProps) {
       disableDragging={isMaximized}
       enableResizing={!isMaximized}
       dragHandleClassName="window-drag-handle"
+      cancel=".window-controls"
       onDragStart={handleFocus}
       onDragStop={(_e, d) => windowActions().updatePosition(id, { x: d.x, y: d.y })}
       onResizeStop={(_e, _dir, ref, _delta, pos) => {
@@ -119,75 +241,38 @@ export function Window({ windowState, children }: WindowProps) {
       style={{ zIndex, pointerEvents: 'auto' }}
       bounds="parent"
     >
+      {/* Focus glow + HUD brackets (a sibling, so the glass keeps its DOM shape) */}
+      <FocusFrame visible={isFocused} corners={isFocused && !isMaximized} />
+
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        exit={{ opacity: 0, scale: 0.97 }}
+        transition={{ duration: 0.26, ease: EASE }}
         data-window-id={id}
         data-app-id={appId}
+        data-focused={isFocused || undefined}
         className={cn(
-          'w-full h-full flex flex-col rounded-[var(--radius-lg)] overflow-hidden',
-          'border transition-shadow duration-200',
-          isFocused
-            ? 'border-accent-primary/20 shadow-[0_0_30px_rgba(0,240,255,0.08)]'
-            : 'border-white/5 shadow-lg'
+          'glass-window relative flex h-full w-full flex-col overflow-hidden rounded-window',
+          'transition-[border-color] duration-180 ease-out-quint'
         )}
-        style={lite ? SOLID_STYLE : GLASS_STYLE}
+        style={lite ? { ...LITE_STYLE, ...(isFocused ? FOCUSED_EDGE : RESTING_EDGE) } : isFocused ? FOCUSED_EDGE : RESTING_EDGE}
       >
         {/* ─── Title Bar ─── */}
-        <div
-          className="window-drag-handle flex items-center justify-between px-3 h-9 shrink-0 cursor-default select-none"
-          style={{
-            background: isFocused
-              ? 'rgba(255,255,255,0.03)'
-              : 'transparent',
-            borderBottom: '1px solid rgba(255,255,255,0.04)',
-          }}
+        <WindowTitleBar
+          dragHandle
+          title={title}
+          appId={appId}
+          focused={isFocused}
+          maximized={isMaximized}
+          onMinimize={handleMinimize}
+          onMaximize={handleMaximize}
+          onClose={handleClose}
           onDoubleClick={toggleMaximize}
-        >
-          {/* Left: Title */}
-          <div className="flex items-center gap-2 min-w-0">
-            <span className={cn(
-              'text-xs font-mono truncate',
-              isFocused ? 'text-text-primary' : 'text-text-muted'
-            )}>
-              {title}
-            </span>
-          </div>
-
-          {/* Right: Window Controls */}
-          <div className="flex items-center gap-0.5 shrink-0">
-            <button
-              onClick={handleMinimize}
-              className="w-6 h-6 flex items-center justify-center rounded-[var(--radius-sm)] text-text-muted hover:text-text-primary hover:bg-white/10 transition-colors"
-              aria-label="Minimize"
-            >
-              <Minus className="w-3 h-3" />
-            </button>
-            <button
-              onClick={handleMaximize}
-              className="w-6 h-6 flex items-center justify-center rounded-[var(--radius-sm)] text-text-muted hover:text-text-primary hover:bg-white/10 transition-colors"
-              aria-label={isMaximized ? 'Restore' : 'Maximize'}
-            >
-              {isMaximized ? (
-                <Minimize2 className="w-3 h-3" />
-              ) : (
-                <Maximize2 className="w-3 h-3" />
-              )}
-            </button>
-            <button
-              onClick={handleClose}
-              className="w-6 h-6 flex items-center justify-center rounded-[var(--radius-sm)] text-text-muted hover:text-accent-danger hover:bg-accent-danger/10 transition-colors"
-              aria-label="Close"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
+        />
 
         {/* ─── Window Content (crash-isolated) ─── */}
-        <div className="flex-1 overflow-auto">
+        <div className="scrollbar-thin flex-1 overflow-auto">
           <AppErrorBoundary appName={title} onClose={closeSelf}>
             {children}
           </AppErrorBoundary>

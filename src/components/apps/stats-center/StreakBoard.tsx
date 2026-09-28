@@ -3,13 +3,16 @@
 // Study streak with a flame: a UTC day counts when you studied at
 // all (cards, quizzes, habits, routines, notes, focused time), the
 // same rule the streak achievements and the terminal use. The habit
-// streak from the desktop widget sits beside it.
+// streak from the desktop widget sits beside it, over a 28-day chain.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Flame } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Card } from '@/components/ui';
 import { collectStudyDays } from '@/components/achievements/study-streak';
 import { currentStreak, longestStreak } from '@/components/achievements/day-streak';
 import { useAchievementProgressStore } from '@/components/achievements/progress-store';
@@ -17,19 +20,27 @@ import { useLearningStore } from '@/stores/useLearningStore';
 import { useQuizHistoryStore } from '@/stores/useQuizHistoryStore';
 import { useHabits, useNow } from '@/components/widgets/hooks';
 import { computeStreak, utcDayKey } from '@/components/widgets/widget-data';
+import { shiftDayKey } from './learning-stats';
 
 /** Habits, routines and notes live in localStorage: re-read on this beat too. */
 const STREAK_REFRESH_MS = 30_000;
+/** Days in the chain under the numbers. */
+const CHAIN_DAYS = 28;
 
 interface StudyStreak {
   current: number;
   longest: number;
+  /** Last CHAIN_DAYS days, oldest first: '1' studied, '0' not. */
+  recent: string;
 }
 
 function readStudyStreak(): StudyStreak {
   const days = collectStudyDays();
   const current = currentStreak(days);
-  return { current, longest: Math.max(current, longestStreak(days)) };
+  const today = utcDayKey(Date.now());
+  let recent = '';
+  for (let i = CHAIN_DAYS - 1; i >= 0; i--) recent += days.has(shiftDayKey(today, -i)) ? '1' : '0';
+  return { current, longest: Math.max(current, longestStreak(days)), recent };
 }
 
 /** The OS-wide study streak, kept fresh while the board is open. */
@@ -39,7 +50,9 @@ function useStudyStreak(): StudyStreak {
   useEffect(() => {
     const refresh = () => {
       const next = readStudyStreak();
-      setStreak((prev) => (prev.current === next.current && prev.longest === next.longest ? prev : next));
+      setStreak((prev) =>
+        prev.current === next.current && prev.longest === next.longest && prev.recent === next.recent ? prev : next
+      );
     };
     const unsubscribers = [
       useQuizHistoryStore.subscribe(refresh),
@@ -63,55 +76,84 @@ function useStudyStreak(): StudyStreak {
 }
 
 function StreakBoardInner() {
-  const { current, longest } = useStudyStreak();
+  const { current, longest, recent } = useStudyStreak();
   const habits = useHabits();
   const now = useNow(60_000);
+  const reduceMotion = useReducedMotion();
   const dayKey = utcDayKey(now);
   const habitStreak = useMemo(
     () => computeStreak(habits, Date.parse(`${dayKey}T12:00:00Z`)).current,
     [habits, dayKey]
   );
+  const lit = current > 0;
+  const litDays = [...recent].filter((c) => c === '1').length;
 
   return (
-    <div className="p-4 rounded-xl border border-orange-500/20 bg-gradient-to-r from-orange-500/10 to-red-500/10">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs text-orange-400/60">Study streak</p>
-          <div className="flex items-baseline gap-2">
+    <Card tone="ember" padding="md" role="region" aria-label="Study streak" className="h-full">
+      <div className="flex items-start gap-3.5">
+        <span
+          aria-hidden
+          className={cn(
+            'flex size-11 shrink-0 items-center justify-center rounded-card border',
+            lit
+              ? 'border-ember-500/40 bg-linear-to-b from-ember-500/25 to-ember-600/5 text-ember-400 shadow-[0_0_24px_-6px_var(--color-ember-500)]'
+              : 'border-line-strong bg-ink-800 text-fg-subtle'
+          )}
+        >
+          <Flame size={22} strokeWidth={1.75} className={lit ? 'fill-ember-500/25' : undefined} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-mono text-2xs font-medium uppercase tracking-[0.14em] text-ember-300">Study streak</p>
+          <p className="mt-1.5 flex items-baseline gap-1.5 leading-none">
             <motion.span
-              className="text-4xl font-black text-orange-300"
               key={current}
-              initial={{ scale: 1.2 }}
-              animate={{ scale: 1 }}
+              className={cn('tabular font-display text-3xl font-semibold', lit ? 'text-ember-400' : 'text-fg-muted')}
+              initial={reduceMotion ? false : { opacity: 0.4, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
             >
               {current}
             </motion.span>
-            <span className="text-sm text-orange-400/60">{current === 1 ? 'day' : 'days'}</span>
+            <span className="text-sm text-fg-muted">{current === 1 ? 'day' : 'days'}</span>
+          </p>
+        </div>
+        <dl className="flex shrink-0 gap-4 text-right">
+          <div>
+            <dt className="hud-label">Best</dt>
+            <dd className="tabular mt-1 font-mono text-sm font-medium text-fg">{longest}d</dd>
           </div>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-white/40">Best</p>
-          <p className="text-lg font-bold text-white/60">{longest}d</p>
-          <p className="text-[10px] text-white/35">Habits {habitStreak}d</p>
-        </div>
-        <motion.span
-          className="text-4xl"
-          aria-hidden="true"
-          animate={{
-            scale: [1, 1.1, 1],
-            rotate: [0, 5, -5, 0],
-          }}
-          transition={{ duration: 2, repeat: Infinity }}
-        >
-          🔥
-        </motion.span>
+          <div>
+            <dt className="hud-label">Habits</dt>
+            <dd className="tabular mt-1 font-mono text-sm font-medium text-fg">{habitStreak}d</dd>
+          </div>
+        </dl>
       </div>
-      <p className="text-[10px] text-orange-400/40 mt-2">
-        {current > 0
-          ? 'Keep going! Every day counts.'
-          : 'Answer a card, tick a habit or write a note to light it up.'}
-      </p>
-    </div>
+
+      <ol
+        className="mt-4 flex gap-[3px]"
+        aria-label={`${litDays} of the last ${CHAIN_DAYS} days had study activity`}
+      >
+        {[...recent].map((c, i) => (
+          <li
+            key={i}
+            className={cn(
+              'h-3 min-w-0 flex-1 rounded-[2px]',
+              c === '1'
+                ? 'bg-linear-to-t from-ember-600 to-ember-400'
+                : i === CHAIN_DAYS - 1
+                  ? 'border border-dashed border-ember-500/60'
+                  : 'bg-ink-700/80'
+            )}
+          />
+        ))}
+      </ol>
+      <div className="mt-2 flex items-center justify-between gap-3 text-xs">
+        <span className="truncate text-fg-subtle">
+          {lit ? 'Keep going. Every day counts.' : 'Answer a card, tick a habit or write a note to light it up.'}
+        </span>
+        <span className="tabular shrink-0 font-mono text-2xs text-fg-subtle">{CHAIN_DAYS} days</span>
+      </div>
+    </Card>
   );
 }
 

@@ -1,15 +1,19 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — SystemTray Component
-// System tray with indicators and quick controls
+// WARRIOR OS — SystemTray Component (FORGE HUD)
+// Compact tray with indicators and a Quick Settings popover (volume
+// slider + sound / network toggles). The Taskbar renders its own tray;
+// this stays exported for other shells.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, VolumeX, Wifi, Battery } from 'lucide-react';
+import { Battery, Volume2, VolumeX, Wifi } from 'lucide-react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useClock } from '@/hooks/useClock';
+import { IconButton } from '@/components/ui/Button';
+import { Slider } from '@/components/ui/Slider';
 import { cn } from '@/lib/utils';
 
 interface SystemTrayProps {
@@ -25,94 +29,85 @@ export function SystemTray({ onNotificationClick: _onNotificationClick }: System
   const { timeShort } = useClock();
 
   return (
-    <div className="relative flex items-center gap-1">
+    <div className="relative flex items-center gap-0.5">
       {/* Sound toggle */}
-      <button
+      <IconButton
+        icon={soundEnabled ? Volume2 : VolumeX}
         onClick={toggleSound}
-        className="p-1.5 rounded-[var(--radius-sm)] text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
-      >
-        {soundEnabled ? (
-          <Volume2 className="w-3.5 h-3.5" />
-        ) : (
-          <VolumeX className="w-3.5 h-3.5 text-accent-danger" />
-        )}
-      </button>
+        aria-label={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
+        aria-pressed={!soundEnabled}
+        tooltip={soundEnabled ? 'Sound on' : 'Sound off'}
+      />
 
       {/* Wifi indicator */}
-      <button className="p-1.5 rounded-[var(--radius-sm)] text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors">
-        <Wifi className="w-3.5 h-3.5" />
-      </button>
+      <IconButton icon={Wifi} aria-label="Network" tooltip="Network" />
 
       {/* Battery indicator */}
-      <div className="p-1.5 flex items-center gap-1">
-        <Battery className="w-3.5 h-3.5 text-accent-success" />
-        <span className="text-[9px] font-mono text-text-muted">100%</span>
+      <div className="flex h-8 items-center gap-1 px-1.5 text-fg-muted" role="img" aria-label="Battery 100%">
+        <Battery size={16} strokeWidth={1.75} aria-hidden className="text-success" />
+        <span className="tabular font-mono text-2xs">100%</span>
       </div>
 
       {/* Clock */}
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
-        className="px-2 py-1 rounded-[var(--radius-sm)] text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
+        aria-expanded={expanded}
+        className={cn(
+          'flex h-8 items-center rounded-control px-2 text-fg-muted transition-colors duration-120 ease-out-quint focus-ring',
+          expanded ? 'bg-surface-active text-fg' : 'hover:bg-surface-hover hover:text-fg'
+        )}
       >
-        <span className="text-xs font-mono">{timeShort}</span>
+        <span className="tabular font-mono text-xs">{timeShort}</span>
       </button>
 
       {/* Quick Settings Popup */}
       <AnimatePresence>
         {expanded && (
           <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            initial={{ opacity: 0, y: 8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.98 }}
-            className="absolute bottom-full right-0 mb-2 w-64 rounded-[var(--radius-lg)] p-4"
-            style={{
-              background: 'rgba(12, 12, 20, 0.95)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
-            }}
+            exit={{ opacity: 0, y: 6, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            className="glass-popover absolute bottom-full right-0 mb-2 w-64 rounded-card p-4"
+            role="dialog"
+            aria-label="Quick settings"
           >
-            <p className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-3">
-              Quick Settings
-            </p>
+            <p className="hud-label mb-3">Quick settings</p>
 
             {/* Volume slider */}
-            <div className="flex items-center gap-2 mb-3">
-              <Volume2 className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={soundVolume}
-                onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
-                className="flex-1 h-1 appearance-none bg-white/10 rounded-full cursor-pointer
-                  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent-primary"
-              />
-              <span className="text-[9px] font-mono text-text-muted w-6 text-right">
-                {Math.round(soundVolume * 100)}
-              </span>
-            </div>
+            <Slider
+              label="Volume"
+              min={0}
+              max={1}
+              step={0.05}
+              value={soundVolume}
+              onValueChange={setSoundVolume}
+              formatValue={(v) => `${Math.round(v * 100)}`}
+              wrapperClassName="mb-4"
+            />
 
-            {/* Toggle buttons */}
-            <div className="grid grid-cols-2 gap-1.5">
+            {/* Toggle tiles */}
+            <div className="grid grid-cols-2 gap-2">
               <button
+                type="button"
                 onClick={toggleSound}
+                aria-pressed={soundEnabled}
                 className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-[var(--radius-sm)]',
-                  'text-[10px] font-mono transition-colors',
+                  'flex h-9 items-center gap-2 rounded-control border px-3 text-xs font-medium transition-colors duration-120 ease-out-quint focus-ring',
                   soundEnabled
-                    ? 'bg-accent-primary/10 text-accent-primary'
-                    : 'bg-white/5 text-text-muted'
+                    ? 'border-accent/30 bg-accent/12 text-accent'
+                    : 'border-line-strong bg-surface-2 text-fg-muted hover:bg-surface-hover hover:text-fg'
                 )}
               >
-                <Volume2 className="w-3 h-3" />
+                <Volume2 size={14} strokeWidth={1.75} aria-hidden />
                 Sound
               </button>
               <button
-                className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-sm)] bg-white/5 text-text-muted text-[10px] font-mono"
+                type="button"
+                className="flex h-9 items-center gap-2 rounded-control border border-line-strong bg-surface-2 px-3 text-xs font-medium text-fg-muted transition-colors duration-120 ease-out-quint hover:bg-surface-hover hover:text-fg focus-ring"
               >
-                <Wifi className="w-3 h-3" />
+                <Wifi size={14} strokeWidth={1.75} aria-hidden />
                 Network
               </button>
             </div>

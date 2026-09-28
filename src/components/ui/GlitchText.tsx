@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — GlitchText Component
-// RGB chromatic aberration glitch effect on text
+// Chromatic aberration glitch on text (plasma / ember split, FORGE HUD).
+// Reserve for boot / lock / fault moments.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -34,11 +35,11 @@ export function GlitchText({
 
   return (
     <span className={cn('relative inline-block', className)} aria-label={text}>
-      {/* Red layer */}
+      {/* Ember layer */}
       <span
-        className="absolute inset-0 opacity-70"
+        className="absolute inset-0 opacity-60"
         style={{
-          color: '#ff0000',
+          color: 'var(--color-ember-500, #f76b15)',
           clipPath: 'polygon(0 0, 100% 0, 100% 45%, 0 45%)',
           transform: `translate(${offset.x}, 0)`,
           filter: `blur(${offset.blur})`,
@@ -48,11 +49,11 @@ export function GlitchText({
         {text}
       </span>
 
-      {/* Cyan layer */}
+      {/* Plasma layer */}
       <span
-        className="absolute inset-0 opacity-70"
+        className="absolute inset-0 opacity-60"
         style={{
-          color: '#00ffff',
+          color: 'var(--color-plasma-400, #2fd6f5)',
           clipPath: 'polygon(0 55%, 100% 55%, 100% 100%, 0 100%)',
           transform: `translate(-${offset.x}, 0)`,
           filter: `blur(${offset.blur})`,

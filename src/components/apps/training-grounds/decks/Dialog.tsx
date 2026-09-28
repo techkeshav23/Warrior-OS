@@ -1,56 +1,71 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Deck Vault: dialog shell + confirm dialog
-// In-window overlays (they cover the Decks panel, not the desktop).
-// Esc closes, Ctrl+Enter submits, a click on the backdrop closes.
+// WARRIOR OS — Deck Vault: form dialog + confirm dialog
+// Thin adapters over the kit's Dialog / ConfirmDialog (portal sheet,
+// trapped focus, Esc closes, focus returns to the opener). The body is
+// a <form>: Enter in a text field or Ctrl/Cmd+Enter anywhere in it runs
+// `onSubmit`; the footer's <SubmitButton> joins the form by id.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useId, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
-import { motion } from 'framer-motion';
-import { TriangleAlert, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { BTN_DANGER, BTN_GHOST } from './deck-ui';
+import {
+  createContext,
+  useContext,
+  useId,
+  useRef,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react';
+import {
+  Button,
+  ConfirmDialog as KitConfirmDialog,
+  Dialog,
+  type ButtonProps,
+  type DialogSize,
+  type IconLike,
+} from '@/components/ui';
 
-const SIZES = {
-  sm: 'max-w-sm',
-  md: 'max-w-lg',
-  lg: 'max-w-2xl',
-} as const;
+const FormIdContext = createContext<string | undefined>(undefined);
 
 interface DialogShellProps {
   title: ReactNode;
   subtitle?: ReactNode;
-  icon?: ReactNode;
+  icon?: IconLike;
+  iconTone?: 'accent' | 'ember' | 'danger' | 'neutral';
+  /** false plays the exit animation (the parent keeps the dialog mounted until the next one opens). */
+  open?: boolean;
   onClose: () => void;
-  /** Runs on submit: the footer's submit button, Enter in a text field, or Ctrl+Enter. */
+  /** Runs on submit: the footer's SubmitButton, Enter in a text field, or Ctrl/Cmd+Enter. */
   onSubmit?: () => void;
   footer?: ReactNode;
   children: ReactNode;
-  size?: keyof typeof SIZES;
-  tone?: 'default' | 'danger';
+  size?: DialogSize;
+  /** Unsaved input: a click on the backdrop no longer closes the dialog (Esc and Cancel still do). */
+  dirty?: boolean;
+  /** Field focused on open (default: the first focusable in the body). */
+  initialFocus?: RefObject<HTMLElement | null>;
 }
 
 export function DialogShell({
   title,
   subtitle,
   icon,
+  iconTone = 'accent',
+  open = true,
   onClose,
   onSubmit,
   footer,
   children,
-  size = 'md',
-  tone = 'default',
+  size = 'lg',
+  dirty = false,
+  initialFocus,
 }: DialogShellProps) {
-  const titleId = useId();
+  const formId = useId();
 
   const onKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
-    if (event.key === 'Escape') {
-      // Keep the OS-wide Escape handlers (palette, start menu) out of it.
-      event.stopPropagation();
-      event.nativeEvent.stopImmediatePropagation();
-      onClose();
-    } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && onSubmit) {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && onSubmit) {
       event.preventDefault();
       onSubmit();
     }
@@ -62,114 +77,85 @@ export function DialogShell({
   };
 
   return (
-    <motion.div
-      className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-3 backdrop-blur-[2px]"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15 }}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <motion.form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        // Focusable, so a click on plain text inside keeps Esc / Ctrl+Enter working.
-        tabIndex={-1}
-        onSubmit={submit}
-        onKeyDown={onKeyDown}
-        initial={{ y: 18, opacity: 0, scale: 0.98 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={{ y: 10, opacity: 0, scale: 0.98 }}
-        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className={cn(
-          'relative flex max-h-full w-full flex-col overflow-hidden rounded-xl border bg-[#0b0f17]/95 shadow-2xl shadow-black/60 outline-none',
-          SIZES[size],
-          tone === 'danger' ? 'border-red-400/30' : 'border-white/15'
-        )}
+    <FormIdContext.Provider value={formId}>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        title={title}
+        description={subtitle}
+        icon={icon}
+        iconTone={iconTone}
+        size={size}
+        footer={footer}
+        closeOnBackdrop={!dirty}
+        initialFocus={initialFocus}
+        className="max-h-full"
+        bodyClassName="@container"
       >
-        {/* Scan line along the top edge */}
-        <div
-          className={cn(
-            'pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent to-transparent',
-            tone === 'danger' ? 'via-red-400/70' : 'via-cyan-400/70'
-          )}
-        />
-        <header className="flex items-start gap-2.5 border-b border-white/10 px-4 py-3">
-          {icon && <span className="mt-0.5 shrink-0">{icon}</span>}
-          <div className="min-w-0 flex-1">
-            <h2
-              id={titleId}
-              className={cn('text-sm font-bold tracking-wide', tone === 'danger' ? 'text-red-200' : 'text-cyan-300')}
-            >
-              {title}
-            </h2>
-            {subtitle && <p className="mt-0.5 text-[11px] text-white/45">{subtitle}</p>}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded-md p-1 text-white/45 hover:bg-white/10 hover:text-white"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </header>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{children}</div>
-
-        {footer && (
-          <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-white/10 px-4 py-3">
-            {footer}
-          </footer>
-        )}
-      </motion.form>
-    </motion.div>
+        <form id={formId} noValidate onSubmit={submit} onKeyDown={onKeyDown}>
+          {children}
+        </form>
+      </Dialog>
+    </FormIdContext.Provider>
   );
+}
+
+/** The dialog's submit button (primary by default). The footer sits outside the form, so it joins it by id. */
+export function SubmitButton({ variant = 'primary', ...props }: Omit<ButtonProps, 'type' | 'form'>) {
+  const formId = useContext(FormIdContext);
+  return <Button type="submit" form={formId} variant={variant} {...props} />;
 }
 
 // ─── Confirm ───
 
 export interface ConfirmRequest {
   title: string;
+  /** One or two sentences naming the consequence (inline content only). */
   message: ReactNode;
-  /** Label of the destructive button, e.g. "Delete deck". */
+  /** Optional block under the message, e.g. the card about to be deleted. */
+  detail?: ReactNode;
+  /** Label of the confirm button, e.g. "Delete deck". */
   confirmLabel: string;
+  /** danger (default) for destructive actions. */
+  tone?: 'danger' | 'accent';
   onConfirm: () => void;
 }
 
 interface ConfirmDialogProps extends ConfirmRequest {
+  open?: boolean;
   onClose: () => void;
 }
 
-export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onClose }: ConfirmDialogProps) {
+/** Destructive confirm: focus starts on Cancel, so a stray Enter never destroys anything. */
+export function ConfirmDialog({
+  title,
+  message,
+  detail,
+  confirmLabel,
+  tone = 'danger',
+  onConfirm,
+  open = true,
+  onClose,
+}: ConfirmDialogProps) {
+  // The sheet stays clickable while it animates out: confirm only once.
+  const done = useRef(false);
   const confirm = () => {
+    if (done.current) return;
+    done.current = true;
     onConfirm();
     onClose();
   };
   return (
-    <DialogShell
-      title={title}
-      tone="danger"
-      size="sm"
-      icon={<TriangleAlert className="h-4 w-4 text-red-300" />}
+    <KitConfirmDialog
+      open={open}
       onClose={onClose}
-      onSubmit={confirm}
-      footer={
-        <>
-          {/* Cancel has focus, so a stray Enter never destroys anything. */}
-          <button type="button" autoFocus onClick={onClose} className={BTN_GHOST}>
-            Cancel
-          </button>
-          <button type="submit" className={BTN_DANGER}>
-            {confirmLabel}
-          </button>
-        </>
-      }
+      onConfirm={confirm}
+      title={title}
+      description={message}
+      confirmLabel={confirmLabel}
+      tone={tone}
     >
-      <div className="text-sm leading-relaxed text-white/70">{message}</div>
-    </DialogShell>
+      {detail}
+    </KitConfirmDialog>
   );
 }

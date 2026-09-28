@@ -8,7 +8,7 @@
 // recovery screen → Reboot), every app under its own boundary inside its
 // window (Window.tsx), and each optional layer below under a
 // LayerBoundary that drops only that layer if it fails.
-// Showcase: phones and narrow windows get the SmallScreenGate instead of
+// Showcase: phones and narrow windows get the SmallScreenGuard instead of
 // the OS; a guest unlock fills empty apps with demo data first
 // (src/lib/demo-seed.ts, once per browser); the NEXUS guided tour runs
 // on a first visit.
@@ -44,7 +44,6 @@ import { CommandPalette } from '@/components/os/CommandPalette';
 import { NotificationCenter } from '@/components/os/NotificationCenter';
 import { ToastContainer } from '@/components/os/ToastNotification';
 import { ScreenEffects } from '@/components/os/ScreenEffects';
-import { ScanlineOverlay } from '@/components/ui/ScanlineOverlay';
 import { WorkspaceManager, WorkspaceDots } from '@/components/os/WorkspaceManager';
 import { WallpaperEngine } from '@/components/wallpapers/WallpaperEngine';
 import { AudioReactive } from '@/components/effects/AudioReactive';
@@ -60,7 +59,9 @@ import { ServiceWorkerRegistrar } from '@/components/pwa/ServiceWorkerRegistrar'
 // Crash isolation
 import { LayerBoundary, SystemErrorBoundary } from '@/components/showcase/AppErrorBoundary';
 // Phones / narrow windows: "best on desktop" screen instead of the OS
-import { SmallScreenGate } from '@/components/showcase/SmallScreenGate';
+import { SmallScreenGuard } from '@/components/showcase/SmallScreenGuard';
+// Settings accent / glass opacity → CSS variables on <html>
+import { ThemeSync } from '@/components/os/ThemeSync';
 
 // Notification store for toasts
 import { useNotificationStore } from '@/stores/useNotificationStore';
@@ -169,9 +170,10 @@ const LITE_MODE_CSS =
 export default function WarriorOSPage() {
   return (
     <SystemErrorBoundary>
-      <SmallScreenGate>
+      <ThemeSync />
+      <SmallScreenGuard>
         <WarriorOS />
-      </SmallScreenGate>
+      </SmallScreenGuard>
     </SystemErrorBoundary>
   );
 }
@@ -348,7 +350,8 @@ function WarriorOS() {
               {/* Shader/Canvas wallpaper behind everything (CSS-only in lite mode) */}
               <WallpaperEngine />
 
-              {/* Background particles (off in lite mode) */}
+              {/* CRT look (particles, scanlines, vignette) on the desktop
+                  background only, below icons and windows (off in lite mode) */}
               <LayerBoundary name="Screen effects">
                 <ScreenEffects />
               </LayerBoundary>
@@ -411,13 +414,6 @@ function WarriorOS() {
                 notifications={notifications}
                 onDismiss={markAsRead}
               />
-
-              {/* CRT Scanline overlay (off in lite mode) */}
-              {!lite && (
-                <LayerBoundary name="Scanlines">
-                  <ScanlineOverlay />
-                </LayerBoundary>
-              )}
 
               {/* ─── Phase 6 global overlays ─── */}
               {/* Lazy chunks, each behind its own LayerBoundary: a layer

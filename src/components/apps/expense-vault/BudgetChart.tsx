@@ -1,15 +1,19 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Budget Chart
-// Recharts donut of the month's spending by category, wrapped in a
-// thin outer ring that tracks spending against the monthly budget.
-// Clicking a slice or legend row filters the transaction list.
+// Recharts donut of the month's spending by category (viz palette,
+// fixed per category), wrapped in a thin outer ring that tracks
+// spending against the monthly budget (status colours). Clicking a
+// slice or legend row filters the transaction list.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, useMemo, type ReactNode } from 'react';
 import { Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { ChartPie, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button, Card, EmptyState } from '@/components/ui';
+import { INK, STATUS } from '@/styles/tokens';
 import { toPaise } from '@/stores/useExpenseStore';
 import type { Expense, ExpenseCategory } from '@/types/expense';
 import { EXPENSE_CATEGORIES, formatINR, formatINRCompact } from './expense-utils';
@@ -55,22 +59,23 @@ function renderDonutTooltip({ active, payload }: ChartTooltipProps): ReactNode {
   const datum = payload?.[0]?.payload as DonutDatum | undefined;
   if (!active || !datum) return null;
   return (
-    <div className="rounded-lg border border-white/10 bg-[rgba(10,10,16,0.94)] px-2.5 py-1.5 text-xs shadow-lg">
-      <p className="flex items-center gap-1.5 font-semibold text-white">
-        <span className="h-2 w-2 rounded-full" style={{ background: datum.fill }} />
+    <div className="glass-popover rounded-control px-3 py-2 text-xs">
+      <p className="flex items-center gap-2 font-medium text-fg">
+        <span className="size-2 shrink-0 rounded-full" style={{ background: datum.fill }} />
         {datum.label}
       </p>
-      <p className="mt-0.5 font-mono text-white/70">{datum.detail}</p>
+      <p className="tabular mt-1 font-mono text-fg-muted">{datum.detail}</p>
     </div>
   );
 }
 
-const RING_TRACK = 'rgba(255,255,255,0.08)';
+/** Budget ring track (unspent part). */
+const RING_TRACK = INK[700];
 
 function ringColor(pct: number): string {
-  if (pct > 100) return '#ff1744';
-  if (pct >= 80) return '#ffab00';
-  return '#00e676';
+  if (pct > 100) return STATUS.danger;
+  if (pct >= 80) return STATUS.warning;
+  return STATUS.success;
 }
 
 function BudgetChartInner({ className, expenses, budget, monthName, selected, onSelect }: BudgetChartProps) {
@@ -112,7 +117,7 @@ function BudgetChartInner({ className, expenses, budget, monthName, selected, on
         label: r.label,
         value: r.amount,
         fill: r.color,
-        fillOpacity: selected === null || selected === r.id ? 1 : 0.25,
+        fillOpacity: selected === null || selected === r.id ? 1 : 0.22,
         detail: `${formatINR(r.amount)} · ${r.percent.toFixed(r.percent < 10 ? 1 : 0)}% · ${r.count} ${
           r.count === 1 ? 'entry' : 'entries'
         }`,
@@ -177,34 +182,28 @@ function BudgetChartInner({ className, expenses, budget, monthName, selected, on
   const top = rows[0];
 
   return (
-    <section
+    <Card
+      role="region"
       aria-label="Spending by category"
-      className={cn('@container rounded-xl border border-white/10 bg-white/[0.03] p-4', className)}
-    >
-      <div className="mb-3 flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-white">Where it went</h3>
-          <p className="truncate text-[11px] text-white/50">
-            {top
-              ? `${top.label} leads ${monthName} at ${Math.round(top.percent)}% of spending`
-              : `No spending logged in ${monthName} yet`}
-          </p>
-        </div>
-        {selected && (
-          <button
-            type="button"
-            onClick={() => onSelect(null)}
-            className="shrink-0 rounded-md border border-white/10 px-2 py-0.5 text-[11px] text-white/60 hover:bg-white/10 hover:text-white"
-          >
+      title="Where it went"
+      description={
+        top
+          ? `${top.label} leads ${monthName} at ${Math.round(top.percent)}% of spending`
+          : `No spending logged in ${monthName} yet`
+      }
+      actions={
+        selected && (
+          <Button variant="ghost" size="sm" leadingIcon={X} onClick={() => onSelect(null)}>
             Clear filter
-          </button>
-        )}
-      </div>
-
-      <div className="flex flex-col items-center gap-4 @md:flex-row @md:items-center">
+          </Button>
+        )
+      }
+      className={cn('@container', className)}
+    >
+      <div className="flex flex-col items-center gap-5 @md:flex-row @md:items-center">
         {/* Donut (inner: categories, outer ring: share of the monthly budget used) */}
-        <div className="flex shrink-0 flex-col items-center gap-1">
-          <div className="relative h-52 w-52 shrink-0">
+        <div className="flex shrink-0 flex-col items-center gap-2">
+          <div className="relative size-52 shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Tooltip content={renderDonutTooltip} wrapperStyle={{ zIndex: 5 }} />
@@ -212,10 +211,11 @@ function BudgetChartInner({ className, expenses, budget, monthName, selected, on
                   data={ringData}
                   dataKey="value"
                   nameKey="label"
-                  innerRadius="86%"
+                  innerRadius="88%"
                   outerRadius="94%"
                   startAngle={90}
                   endAngle={-270}
+                  cornerRadius={4}
                   stroke="none"
                   isAnimationActive={false}
                 />
@@ -224,12 +224,12 @@ function BudgetChartInner({ className, expenses, budget, monthName, selected, on
                     data={categoryData}
                     dataKey="value"
                     nameKey="label"
-                    innerRadius="56%"
+                    innerRadius="58%"
                     outerRadius="78%"
                     startAngle={90}
                     endAngle={-270}
                     paddingAngle={categoryData.length > 1 ? 2 : 0}
-                    cornerRadius={3}
+                    cornerRadius={4}
                     stroke="none"
                     animationDuration={500}
                     className="cursor-pointer outline-none"
@@ -243,57 +243,68 @@ function BudgetChartInner({ className, expenses, budget, monthName, selected, on
             </ResponsiveContainer>
             {/* Centre label */}
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-              <span className="text-[10px] uppercase tracking-wider text-white/45">Spent</span>
-              <span className="font-mono text-base font-semibold text-white">
+              <span className="hud-label">Spent</span>
+              <span className="tabular mt-1 font-display text-lg font-semibold leading-6 text-fg">
                 {spent >= 1_000_000 ? formatINRCompact(spent) : formatINR(spent, 'never')}
               </span>
-              <span className="text-[10px] text-white/45">of {formatINRCompact(budget)}</span>
+              <span className="tabular font-mono text-2xs text-fg-subtle">of {formatINRCompact(budget)}</span>
             </div>
           </div>
-          <p className="flex items-center gap-1.5 text-[10px] text-white/45">
+          <p className="flex items-center gap-1.5 text-xs text-fg-subtle">
             <span className="h-1.5 w-3 rounded-full" style={{ background: ringColor(usedPct) }} />
-            Outer ring: {Math.round(usedPct)}% of the monthly budget
+            Outer ring: <span className="tabular font-mono text-fg-muted">{Math.round(usedPct)}%</span> of the budget
           </p>
         </div>
 
         {/* Legend / filter */}
-        <ul className="w-full min-w-0 flex-1 space-y-1">
-          {rows.length === 0 && (
-            <li className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-center text-xs text-white/45">
-              Log an expense to see the category split.
-            </li>
+        <div className="w-full min-w-0 flex-1">
+          {rows.length === 0 ? (
+            <EmptyState
+              size="sm"
+              icon={ChartPie}
+              title="No spending yet"
+              description="Log an expense to see the category split."
+            />
+          ) : (
+            <ul className="space-y-0.5">
+              {rows.map((r) => {
+                const active = selected === r.id;
+                const dimmed = selected !== null && !active;
+                return (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => toggle(r.id)}
+                      aria-pressed={active}
+                      className={cn(
+                        'focus-ring w-full rounded-control px-2.5 py-2 text-left transition-[background-color,opacity] duration-120 ease-out-quint',
+                        active ? 'bg-surface-active ring-1 ring-inset ring-line-strong' : 'hover:bg-surface-hover',
+                        dimmed && 'opacity-50 hover:opacity-100'
+                      )}
+                    >
+                      <span className="flex items-center gap-2.5 text-ui">
+                        <span className="size-2 shrink-0 rounded-full" style={{ background: r.color }} />
+                        <span className="min-w-0 flex-1 truncate text-fg">{r.label}</span>
+                        <span className="tabular font-mono text-xs text-fg">{formatINR(r.amount)}</span>
+                        <span className="tabular w-9 text-right font-mono text-xs text-fg-subtle">
+                          {Math.round(r.percent)}%
+                        </span>
+                      </span>
+                      <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-ink-600/60">
+                        <span
+                          className="block h-full rounded-full"
+                          style={{ width: `${r.percent}%`, background: r.color }}
+                        />
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
-          {rows.map((r) => {
-            const active = selected === r.id;
-            const dimmed = selected !== null && !active;
-            return (
-              <li key={r.id}>
-                <button
-                  type="button"
-                  onClick={() => toggle(r.id)}
-                  aria-pressed={active}
-                  className={cn(
-                    'w-full rounded-lg px-2 py-1.5 text-left transition-colors',
-                    active ? 'bg-white/10 ring-1 ring-white/15' : 'hover:bg-white/5',
-                    dimmed && 'opacity-50'
-                  )}
-                >
-                  <span className="flex items-center gap-2 text-xs">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.color }} />
-                    <span className="min-w-0 flex-1 truncate text-white/85">{r.label}</span>
-                    <span className="font-mono text-white">{formatINR(r.amount)}</span>
-                    <span className="w-10 text-right font-mono text-white/45">{Math.round(r.percent)}%</span>
-                  </span>
-                  <span className="mt-1 block h-1 overflow-hidden rounded-full bg-white/5">
-                    <span className="block h-full rounded-full" style={{ width: `${r.percent}%`, background: r.color }} />
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        </div>
       </div>
-    </section>
+    </Card>
   );
 }
 

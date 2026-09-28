@@ -1,27 +1,72 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Algo Lab Layout
-// Header, toolbar, visualization stage, footer and the info column
-// (pseudocode + complexity). Container queries move the info
-// column below the stage when the window gets narrow.
+// WARRIOR OS — Algo Lab Layout (FORGE HUD)
+// The frame every visualizer shares:
+//   AppHeader    algorithm name · category + complexity hint · keys
+//   Toolbar      dataset / graph / tree inputs (+ an optional sub-bar)
+//   body         stage well + narration │ aside (complexity, code)
+//   Toolbar      playback transport pinned to the bottom edge
+// The aside drops under the stage when the window gets narrow; the
+// body scrolls instead of squashing the stage at the minimum size.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo, type KeyboardEvent, type ReactNode } from 'react';
+import { createContext, memo, useContext, type KeyboardEvent, type ReactNode } from 'react';
+import { ChevronRight, GitFork, Swords, ChartColumn, Waypoints } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { AlgoCategory } from '@/types/algo';
+import { AppHeader, Badge, Kbd, Toolbar } from '@/components/ui';
+import type { AlgoCategory, AlgoLabView } from '@/types/algo';
+import { ALGO_LAB_SECTIONS } from '@/data/algorithms';
 
-const CATEGORY_STYLE: Record<AlgoCategory, { label: string; className: string }> = {
-  sorting: { label: 'Sorting', className: 'border-cyan-400/30 bg-cyan-400/10 text-cyan-300' },
-  graph: { label: 'Graph', className: 'border-violet-400/30 bg-violet-400/10 text-violet-300' },
-  tree: { label: 'Tree', className: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' },
+// ─── Chrome context (compact window → algorithm picker in the header) ───
+
+export const LabChromeContext = createContext<{ picker: ReactNode | null }>({ picker: null });
+
+// ─── Category badge ───
+
+const CATEGORY_META: Record<AlgoCategory, { label: string; icon: typeof ChartColumn }> = {
+  sorting: { label: 'Sorting', icon: ChartColumn },
+  graph: { label: 'Graph', icon: Waypoints },
+  tree: { label: 'Tree', icon: GitFork },
 };
 
 export function CategoryBadge({ category, label }: { category: AlgoCategory; label?: string }) {
-  const style = CATEGORY_STYLE[category];
+  const meta = CATEGORY_META[category];
   return (
-    <span className={cn('shrink-0 rounded-full border px-2 py-px text-[10px] font-medium', style.className)}>
-      {label ?? style.label}
+    <Badge tone="neutral" icon={label === 'Race' ? Swords : meta.icon}>
+      {label ?? meta.label}
+    </Badge>
+  );
+}
+
+function viewHint(view: AlgoLabView): string | null {
+  for (const section of ALGO_LAB_SECTIONS) {
+    const entry = section.entries.find((candidate) => candidate.view === view);
+    if (entry) return entry.hint;
+  }
+  return null;
+}
+
+// ─── Narration + live metrics ───
+
+type MetricTone = 'default' | 'warning' | 'danger' | 'success' | 'info' | 'ember' | 'accent';
+
+const METRIC_TONE: Record<MetricTone, string> = {
+  default: 'text-fg',
+  warning: 'text-warning',
+  danger: 'text-danger',
+  success: 'text-success',
+  info: 'text-info',
+  ember: 'text-ember-400',
+  accent: 'text-accent',
+};
+
+/** One live counter: hud-label + tabular mono value. */
+export function Stat({ label, value, tone = 'default' }: { label: string; value: ReactNode; tone?: MetricTone }) {
+  return (
+    <span className="flex items-baseline gap-1.5 whitespace-nowrap">
+      <span className="hud-label">{label}</span>
+      <span className={cn('tabular font-mono text-ui font-medium', METRIC_TONE[tone])}>{value}</span>
     </span>
   );
 }
@@ -29,99 +74,152 @@ export function CategoryBadge({ category, label }: { category: AlgoCategory; lab
 /** One-line narration of the current step plus optional counters. */
 export function StepMessage({ message, children }: { message: string; children?: ReactNode }) {
   return (
-    <div className="flex min-h-[2.25rem] flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5">
-      <p className="min-w-0 flex-1 text-[12.5px] leading-snug text-white/85" aria-live="polite">
-        <span className="mr-1.5 text-cyan-400" aria-hidden>
-          ›
-        </span>
-        {message}
+    <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-card bg-surface-2 px-3 py-2">
+      <p className="flex min-w-0 flex-1 items-start gap-2 text-ui text-fg-muted" aria-live="polite">
+        <ChevronRight size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+        <span className="min-w-0 select-text">{message}</span>
       </p>
-      {children && <div className="flex shrink-0 items-center gap-3 font-mono text-[11px] text-white/60">{children}</div>}
+      {children && <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1">{children}</div>}
     </div>
   );
 }
 
-export function Stat({ label, value, className }: { label: string; value: ReactNode; className?: string }) {
+// ─── Stage legend ───
+
+export interface LegendItem {
+  label: string;
+  /** Swatch colour (any CSS colour, including var(--accent)). */
+  color: string;
+  /** Ring swatch instead of a filled square (graph/tree node states). */
+  ring?: boolean;
+  dashed?: boolean;
+}
+
+export function StageLegend({ items, note }: { items: LegendItem[]; note?: ReactNode }) {
   return (
-    <span className="whitespace-nowrap">
-      {label} <span className={cn('tabular-nums text-white/90', className)}>{value}</span>
-    </span>
+    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-3 py-2 text-xs text-fg-muted">
+      {items.map((item) => (
+        <span key={item.label} className="flex items-center gap-1.5">
+          <span
+            aria-hidden
+            className={cn('size-2.5 shrink-0', item.ring ? 'rounded-full border-2' : 'rounded-[3px]')}
+            style={
+              item.ring
+                ? { borderColor: item.color, borderStyle: item.dashed ? 'dashed' : 'solid' }
+                : { backgroundColor: item.color }
+            }
+          />
+          {item.label}
+        </span>
+      ))}
+      {note != null && <span className="text-fg-subtle">{note}</span>}
+    </div>
   );
 }
 
+// ─── Layout ───
+
 interface LabLayoutProps {
+  view: AlgoLabView;
   title: string;
-  subtitle: string;
   category: AlgoCategory;
   badgeLabel?: string;
-  /** Inputs above the stage (dataset, graph tools, tree operations). */
+  /** Controls in the 40px toolbar under the header. */
   toolbar?: ReactNode;
+  /** Optional row under the toolbar (custom input, selection editor, hints). */
+  subbar?: ReactNode;
   stage: ReactNode;
-  /** Narration and playback controls under the stage. */
-  footer?: ReactNode;
-  /** Top of the info column (usually the pseudocode). */
-  code: ReactNode;
-  /** Bottom of the info column (usually the complexity card). */
-  details: ReactNode;
+  /** Stage without its own border (it holds its own cards, e.g. race lanes). */
+  bareStage?: boolean;
+  /** Narration row under the stage. */
+  narration?: ReactNode;
+  /** Right column (complexity, pseudocode, tips). */
+  aside: ReactNode;
+  /** Playback transport pinned to the bottom. */
+  playback?: ReactNode;
   onStageKeyDown?: (event: KeyboardEvent<HTMLElement>) => void;
   stageLabel?: string;
+  /** Show the Space / arrow-key hints in the header. */
+  keyHints?: boolean;
 }
 
 function LabLayoutInner({
+  view,
   title,
-  subtitle,
   category,
   badgeLabel,
   toolbar,
+  subbar,
   stage,
-  footer,
-  code,
-  details,
+  bareStage = false,
+  narration,
+  aside,
+  playback,
   onStageKeyDown,
   stageLabel = 'Visualization',
+  keyHints = true,
 }: LabLayoutProps) {
+  const { picker } = useContext(LabChromeContext);
+  const hint = viewHint(view);
+  const categoryLabel = CATEGORY_META[category].label;
+  // Compare Mode leads with "Race"; everything else with its category.
+  const lead = view === 'compare' && badgeLabel ? badgeLabel : categoryLabel;
+
   return (
-    // The lab only scrolls when the window is shorter than the grid's minimum
-    // height, so the stage never collapses at the smallest window size.
-    <div className="@container/lab flex h-full min-h-0 flex-col overflow-y-auto" onKeyDown={onStageKeyDown}>
-      <header className="flex shrink-0 items-start gap-3 px-4 pb-2 pt-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="truncate text-sm font-semibold tracking-wide text-white">{title}</h2>
-            <CategoryBadge category={category} label={badgeLabel} />
-          </div>
-          <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-white/55">{subtitle}</p>
-        </div>
-      </header>
+    <div className="@container/lab flex h-full min-h-0 flex-col" onKeyDown={onStageKeyDown}>
+      <AppHeader
+        title={title}
+        subtitle={hint ? `${lead} · ${hint}` : lead}
+        actions={
+          <>
+            {keyHints && (
+              <span className="hidden items-center gap-1.5 text-xs text-fg-subtle @3xl/lab:flex" aria-hidden>
+                <Kbd size="sm">Space</Kbd>
+                <span>play</span>
+                <Kbd size="sm">←</Kbd>
+                <Kbd size="sm">→</Kbd>
+                <span>step</span>
+              </span>
+            )}
+            {picker}
+            {!picker && <CategoryBadge category={category} label={badgeLabel} />}
+          </>
+        }
+      />
 
-      {toolbar && <div className="shrink-0 px-4 pb-2">{toolbar}</div>}
+      {toolbar != null && (
+        <Toolbar aria-label={`${title} controls`} className="scrollbar-none overflow-x-auto">
+          <div className="flex min-w-max flex-1 items-center gap-2">{toolbar}</div>
+        </Toolbar>
+      )}
+      {subbar}
 
-      <div
-        className={cn(
-          'grid min-h-[31rem] flex-1 gap-2 px-3 pb-3',
-          'grid-cols-1 grid-rows-[minmax(12rem,1fr)_auto_minmax(0,9rem)]',
-          '@3xl/lab:min-h-[20rem] @3xl/lab:grid-cols-[minmax(0,1fr)_17rem] @3xl/lab:grid-rows-[minmax(0,1fr)_auto]'
-        )}
-      >
-        <section
-          tabIndex={0}
-          aria-label={stageLabel}
-          className="@container/stage relative min-h-0 min-w-0 overflow-hidden rounded-lg border border-white/10 bg-black/35 outline-none focus-visible:ring-1 focus-visible:ring-cyan-400/50"
+      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
+        <div
+          className={cn(
+            'grid min-h-full grid-cols-1 gap-4 p-4',
+            '@3xl/lab:h-full @3xl/lab:min-h-[22rem] @3xl/lab:grid-cols-[minmax(0,1fr)_18.5rem]'
+          )}
         >
-          {stage}
-        </section>
-
-        <div className="flex min-w-0 flex-col gap-2 @3xl/lab:col-start-1 @3xl/lab:row-start-2">{footer}</div>
-
-        <aside className="@container/info min-h-0 min-w-0 @3xl/lab:col-start-2 @3xl/lab:row-span-2 @3xl/lab:row-start-1">
-          <div className="flex h-full min-h-0 flex-col gap-2 @lg/info:flex-row">
-            <div className="min-h-0 flex-1 @lg/info:min-w-0">{code}</div>
-            <div className="max-h-[46%] min-h-0 shrink-0 overflow-y-auto rounded-lg @lg/info:max-h-none @lg/info:w-[42%]">
-              {details}
-            </div>
+          <div className="flex min-h-[21rem] min-w-0 flex-col gap-3 @3xl/lab:min-h-0">
+            <section
+              tabIndex={0}
+              aria-label={stageLabel}
+              className={cn(
+                '@container/stage focus-ring relative flex min-h-[14rem] min-w-0 flex-1 flex-col overflow-hidden rounded-card',
+                !bareStage && 'hud-corners border border-line bg-ink-950/45 inset-shadow-[0_1px_0_rgb(255_255_255/0.03)]'
+              )}
+            >
+              {stage}
+            </section>
+            {narration}
           </div>
-        </aside>
+
+          <aside className="flex min-h-0 min-w-0 flex-col gap-3">{aside}</aside>
+        </div>
       </div>
+
+      {playback}
     </div>
   );
 }

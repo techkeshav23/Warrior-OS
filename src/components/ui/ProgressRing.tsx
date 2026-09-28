@@ -1,83 +1,95 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — ProgressRing Component
-// Circular progress indicator with SVG
+// WARRIOR OS — ProgressRing (FORGE HUD kit)
+// Circular meter with a tabular center readout (or custom children).
+//   <ProgressRing value={72} size={96} label="FOCUS" />
+//   <ProgressRing value={xpPct} tone="gold"><span>LV 7</span></ProgressRing>
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
+import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { PROGRESS_COLOR, type ProgressTone } from './ProgressBar';
 
 interface ProgressRingProps {
-  value: number;       // 0-100
-  size?: number;       // px
+  /** 0–100 */
+  value: number;
+  size?: number;
   strokeWidth?: number;
+  tone?: ProgressTone;
+  /** Any CSS color; overrides tone. */
   color?: string;
   trackColor?: string;
+  /** hud-label under the value. */
   label?: string;
   showValue?: boolean;
+  /** Custom center content (replaces value + label). */
+  children?: ReactNode;
+  glow?: boolean;
   className?: string;
 }
 
 export function ProgressRing({
   value,
   size = 80,
-  strokeWidth = 4,
-  color = 'var(--accent-primary)',
-  trackColor = 'rgba(255,255,255,0.05)',
+  strokeWidth,
+  tone = 'accent',
+  color,
+  trackColor = 'var(--color-ink-600, #243044)',
   label,
   showValue = true,
+  children,
+  glow = false,
   className,
 }: ProgressRingProps) {
-  const clampedValue = Math.min(Math.max(value, 0), 100);
-  const radius = (size - strokeWidth) / 2;
+  const clamped = Math.min(Math.max(value, 0), 100);
+  const stroke = strokeWidth ?? Math.max(3, Math.round(size / 18));
+  const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (clampedValue / 100) * circumference;
+  const offset = circumference - (clamped / 100) * circumference;
+  const fill = color ?? PROGRESS_COLOR[tone];
+  const valueSize = size >= 96 ? 'text-xl' : size >= 64 ? 'text-base' : 'text-xs';
 
   return (
-    <div className={cn('relative inline-flex items-center justify-center', className)}>
-      <svg width={size} height={size} className="-rotate-90">
-        {/* Track */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={trackColor}
-          strokeWidth={strokeWidth}
-        />
-        {/* Progress */}
+    <div
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(clamped)}
+      aria-label={label}
+      className={cn('relative inline-flex shrink-0 items-center justify-center', className)}
+      style={{ width: size, height: size }}
+    >
+      <svg width={size} height={size} className="-rotate-90" aria-hidden>
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={trackColor} strokeWidth={stroke} opacity={0.7} />
         <motion.circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke={color}
-          strokeWidth={strokeWidth}
+          stroke={fill}
+          strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circumference}
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 1, ease: 'easeOut' }}
-          style={{ filter: `drop-shadow(0 0 4px ${color})` }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          style={glow ? { filter: `drop-shadow(0 0 4px color-mix(in srgb, ${fill} 60%, transparent))` } : undefined}
         />
       </svg>
-      {/* Center text */}
-      {showValue && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span
-            className="text-sm font-mono font-bold"
-            style={{ color }}
-          >
-            {Math.round(clampedValue)}%
-          </span>
-          {label && (
-            <span className="text-[8px] font-mono text-text-muted mt-0.5">
-              {label}
-            </span>
-          )}
-        </div>
-      )}
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        {children ??
+          (showValue && (
+            <>
+              <span className={cn('tabular font-display font-semibold leading-none text-fg', valueSize)}>
+                {Math.round(clamped)}
+                <span className="ml-px text-[0.6em] text-fg-muted">%</span>
+              </span>
+              {label && size >= 64 && <span className="hud-label mt-1.5 !text-[10px]">{label}</span>}
+            </>
+          ))}
+      </div>
     </div>
   );
 }

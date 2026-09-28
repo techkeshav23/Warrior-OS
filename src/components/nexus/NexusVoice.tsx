@@ -14,8 +14,9 @@
 'use client';
 
 import { memo, useSyncExternalStore } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Ear, EarOff, LoaderCircle, Mic, MicOff, Square, Volume2, VolumeX, X } from 'lucide-react';
+import { IconButton } from '@/components/ui';
 import { useNexusStore } from '@/stores/useNexusStore';
 import { useNexusVoiceStore } from '@/lib/nexus/voice-store';
 import {
@@ -374,40 +375,32 @@ function NexusVoiceButtonInner({ className }: { className?: string }) {
 
   if (!supported) {
     return (
-      <button
-        type="button"
-        disabled
-        title={NEXUS_VOICE_UNSUPPORTED}
-        aria-label="Voice input unavailable in this browser"
-        className={cn('shrink-0 cursor-not-allowed rounded-lg p-1.5 text-white/25', className)}
-      >
-        <MicOff size={15} />
-      </button>
+      <span className={cn('inline-flex shrink-0', className)} title={NEXUS_VOICE_UNSUPPORTED}>
+        <IconButton icon={MicOff} size="sm" disabled aria-label="Voice input unavailable in this browser" />
+      </span>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={startPushToTalk}
-      aria-pressed={listening}
-      aria-label={listening ? 'Stop listening' : 'Push to talk'}
-      title={listening ? 'Listening… click to stop' : 'Push to talk (voice command)'}
-      className={cn(
-        'relative shrink-0 rounded-lg p-1.5 transition-colors',
-        listening ? 'bg-rose-500/20 text-rose-300' : 'text-white/55 hover:bg-cyan-500/10 hover:text-cyan-300',
-        className
-      )}
-    >
+    <span className={cn('relative inline-flex shrink-0', className)}>
       {listening && (
         <motion.span
-          className="pointer-events-none absolute inset-0 rounded-lg border border-rose-400/60"
-          animate={{ opacity: [0.9, 0.2, 0.9], scale: [1, 1.18, 1] }}
-          transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-control ring-1 ring-danger/60"
+          animate={{ opacity: [0.9, 0.2, 0.9], scale: [1, 1.14, 1] }}
+          transition={{ duration: 1.3, repeat: Infinity, ease: 'easeInOut' }}
         />
       )}
-      <Mic size={15} />
-    </button>
+      <IconButton
+        icon={Mic}
+        size="sm"
+        onClick={startPushToTalk}
+        aria-pressed={listening}
+        aria-label={listening ? 'Stop listening' : 'Push to talk'}
+        tooltip={listening ? 'Listening… click to stop' : 'Push to talk'}
+        variant={listening ? 'danger' : 'ghost'}
+      />
+    </span>
   );
 }
 
@@ -420,29 +413,29 @@ function NexusWakeToggleInner({ className }: { className?: string }) {
   const wakeEnabled = useNexusVoiceStore((s) => s.wakeEnabled);
 
   return (
-    <button
-      type="button"
-      onClick={toggleWakeMode}
-      disabled={!supported}
-      aria-pressed={wakeEnabled}
-      title={
-        !supported
-          ? NEXUS_VOICE_UNSUPPORTED
-          : wakeEnabled
-            ? 'Wake mode on — mic is listening for "Hey Warrior". Click to turn off.'
-            : 'Turn on "Hey Warrior" wake mode (uses the microphone continuously)'
-      }
-      className={cn(
-        'flex items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[10px] transition-colors',
-        !supported && 'cursor-not-allowed text-white/25',
-        supported && wakeEnabled && 'bg-cyan-500/15 text-cyan-300',
-        supported && !wakeEnabled && 'text-white/55 hover:bg-white/5 hover:text-white/80',
-        className
+    <span className={cn('relative inline-flex shrink-0', className)}>
+      <IconButton
+        icon={wakeEnabled ? Ear : EarOff}
+        size="sm"
+        onClick={toggleWakeMode}
+        disabled={!supported}
+        active={wakeEnabled}
+        aria-label='"Hey Warrior" wake mode'
+        tooltip={
+          !supported
+            ? 'Wake mode needs Chrome or Edge'
+            : wakeEnabled
+              ? 'Wake mode on: listening for "Hey Warrior"'
+              : 'Turn on "Hey Warrior" wake mode'
+        }
+      />
+      {wakeEnabled && (
+        <span aria-hidden className="pointer-events-none absolute right-1 top-1 flex size-1.5">
+          <span className="absolute inset-0 rounded-full bg-danger opacity-60 motion-safe:animate-ping" />
+          <span className="relative size-1.5 rounded-full bg-danger" />
+        </span>
       )}
-    >
-      {wakeEnabled ? <Ear size={13} /> : <EarOff size={13} />}
-      <span className="hidden @min-[420px]:inline">Hey Warrior</span>
-    </button>
+    </span>
   );
 }
 
@@ -460,29 +453,21 @@ function NexusVoiceReplyToggleInner({ className }: { className?: string }) {
     if (!next) stopSpeaking();
   };
 
+  const on = voiceReplies && supported;
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      disabled={!supported}
-      aria-pressed={voiceReplies}
-      title={
-        !supported
-          ? 'Speech output is not available in this browser'
-          : voiceReplies
-            ? 'Spoken replies on (for voice commands) — click to mute'
-            : 'Spoken replies muted — click to unmute'
-      }
-      className={cn(
-        'rounded-md p-1 transition-colors',
-        !supported && 'cursor-not-allowed text-white/25',
-        supported && voiceReplies && 'text-cyan-300 hover:bg-white/5',
-        supported && !voiceReplies && 'text-white/45 hover:bg-white/5 hover:text-white/75',
-        className
-      )}
-    >
-      {voiceReplies && supported ? <Volume2 size={14} /> : <VolumeX size={14} />}
-    </button>
+    <span className={cn('inline-flex shrink-0', className)}>
+      <IconButton
+        icon={on ? Volume2 : VolumeX}
+        size="sm"
+        onClick={toggle}
+        disabled={!supported}
+        active={on}
+        aria-label="Spoken replies"
+        tooltip={
+          !supported ? 'Speech output is not available in this browser' : on ? 'Spoken replies on' : 'Spoken replies muted'
+        }
+      />
+    </span>
   );
 }
 
@@ -505,6 +490,7 @@ function NexusVoiceIndicatorInner() {
   const lastHeard = useNexusVoiceStore((s) => s.lastHeard);
   const lastReply = useNexusVoiceStore((s) => s.lastReply);
   const error = useNexusVoiceStore((s) => s.error);
+  const reduce = useReducedMotion();
 
   const visible = micActive || wakeEnabled || capturing || processing || speaking || !!error || !!lastReply;
 
@@ -516,15 +502,15 @@ function NexusVoiceIndicatorInner() {
     label = error;
   } else if (processing) {
     tone = 'busy';
-    label = 'NEXUS soch raha hai…';
+    label = 'NEXUS is thinking…';
     detail = lastHeard ? `“${truncate(lastHeard, 60)}”` : '';
   } else if (speaking) {
     tone = 'busy';
-    label = 'NEXUS bol raha hai';
+    label = 'NEXUS is speaking';
     detail = lastReply ? truncate(lastReply, 80) : '';
   } else if (capturing) {
     tone = 'live';
-    label = 'Bol — command sun raha hoon';
+    label = 'Listening for your command';
     detail = interim ? `“${truncate(interim, 60)}”` : '';
   } else if (mode === 'push' && micActive) {
     tone = 'live';
@@ -535,7 +521,7 @@ function NexusVoiceIndicatorInner() {
     label = `NEXUS: ${truncate(lastReply, 90)}`;
   } else if (wakeEnabled) {
     tone = 'armed';
-    label = 'Wake mode — say “Hey Warrior”';
+    label = 'Wake mode · say “Hey Warrior”';
   } else {
     label = '';
   }
@@ -547,102 +533,74 @@ function NexusVoiceIndicatorInner() {
           key="nexus-voice-hud"
           role="status"
           aria-live="polite"
-          initial={{ opacity: 0, y: 10, scale: 0.96 }}
+          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 10, scale: 0.96 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
+          transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
           className={cn(
-            'pointer-events-auto flex max-w-[min(420px,calc(100vw_-_24px))] items-center gap-2 rounded-full border py-1.5 pl-2.5 pr-1.5 shadow-lg backdrop-blur-xl',
-            tone === 'danger' && 'border-rose-500/40 bg-black/85',
-            tone === 'live' && 'border-rose-400/40 bg-black/85',
-            tone === 'armed' && 'border-cyan-400/30 bg-black/80',
-            (tone === 'busy' || tone === 'info') && 'border-white/10 bg-black/85'
+            'glass-popover pointer-events-auto flex min-h-10 max-w-[min(420px,calc(100vw_-_24px))] items-center gap-2.5 rounded-full py-1 pl-3 pr-1',
+            tone === 'danger' && 'border-danger/40',
+            tone === 'live' && 'border-danger/35',
+            tone === 'armed' && 'border-accent/30'
           )}
         >
           {/* Mic state dot — always shown while the microphone is capturing */}
-          <span className="relative flex h-2.5 w-2.5 shrink-0 items-center justify-center" aria-hidden>
+          <span className="relative flex size-2.5 shrink-0 items-center justify-center" aria-hidden>
             {micActive && (
-              <motion.span
+              <span
                 className={cn(
-                  'absolute inline-flex h-full w-full rounded-full',
-                  tone === 'armed' ? 'bg-cyan-400/60' : 'bg-rose-400/70'
+                  'absolute inline-flex size-full rounded-full opacity-60 motion-safe:animate-ping',
+                  tone === 'armed' ? 'bg-accent' : 'bg-danger'
                 )}
-                animate={{ scale: [1, 2.1], opacity: [0.7, 0] }}
-                transition={{ duration: 1.3, repeat: Infinity, ease: 'easeOut' }}
               />
             )}
             <span
               className={cn(
-                'relative inline-flex h-2 w-2 rounded-full',
-                !micActive && 'bg-white/30',
-                micActive && tone === 'armed' && 'bg-cyan-300',
-                micActive && tone !== 'armed' && 'bg-rose-400'
+                'relative inline-flex size-2 rounded-full',
+                !micActive && (tone === 'danger' ? 'bg-danger' : 'bg-fg-subtle'),
+                micActive && tone === 'armed' && 'bg-accent',
+                micActive && tone !== 'armed' && 'bg-danger'
               )}
             />
           </span>
 
-          {processing && <LoaderCircle size={13} className="shrink-0 animate-spin text-cyan-300" />}
-          {!processing && speaking && <Volume2 size={13} className="shrink-0 text-cyan-300" />}
+          {processing && <LoaderCircle size={14} strokeWidth={2} className="shrink-0 animate-spin text-accent" aria-hidden />}
+          {!processing && speaking && <Volume2 size={14} strokeWidth={1.75} className="shrink-0 text-accent" aria-hidden />}
           {!processing && !speaking && (mode === 'push' || capturing) && micActive && (
-            <Mic size={13} className="shrink-0 text-rose-300" />
+            <Mic size={14} strokeWidth={1.75} className="shrink-0 text-danger" aria-hidden />
           )}
 
-          <div className="min-w-0 flex-1">
-            <p
-              className={cn(
-                'truncate font-mono text-[11px]',
-                tone === 'danger' ? 'text-rose-200' : 'text-white/85'
-              )}
-            >
-              {label}
-            </p>
-            {detail && <p className="truncate font-mono text-[10px] text-white/45">{detail}</p>}
+          <div className="min-w-0 flex-1 py-0.5">
+            <p className={cn('truncate text-xs font-medium', tone === 'danger' ? 'text-danger' : 'text-fg')}>{label}</p>
+            {detail && <p className="truncate text-2xs text-fg-subtle">{detail}</p>}
           </div>
 
-          {speaking && (
-            <button
-              type="button"
-              onClick={stopSpeaking}
-              className="shrink-0 rounded-full p-1 text-white/60 hover:bg-white/10 hover:text-white"
-              aria-label="Stop speaking"
-              title="Stop speaking"
-            >
-              <Square size={11} />
-            </button>
-          )}
-          {micActive && mode === 'push' && (
-            <button
-              type="button"
-              onClick={startPushToTalk}
-              className="shrink-0 rounded-full p-1 text-white/60 hover:bg-white/10 hover:text-white"
-              aria-label="Stop listening"
-              title="Stop listening"
-            >
-              <MicOff size={12} />
-            </button>
-          )}
-          {wakeEnabled && (
-            <button
-              type="button"
-              onClick={disableWakeMode}
-              className="shrink-0 rounded-full p-1 text-white/60 hover:bg-white/10 hover:text-white"
-              aria-label="Turn off wake mode"
-              title="Turn off Hey Warrior wake mode"
-            >
-              <EarOff size={12} />
-            </button>
-          )}
-          {(error || (!!lastReply && !processing && !speaking)) && (
-            <button
-              type="button"
-              onClick={() => patch({ error: null, lastReply: '' })}
-              className="shrink-0 rounded-full p-1 text-white/50 hover:bg-white/10 hover:text-white"
-              aria-label="Dismiss"
-              title="Dismiss"
-            >
-              <X size={12} />
-            </button>
-          )}
+          <span className="flex shrink-0 items-center">
+            {speaking && <IconButton icon={Square} iconSize={12} size="xs" onClick={stopSpeaking} aria-label="Stop speaking" tooltip />}
+            {micActive && mode === 'push' && (
+              <IconButton icon={MicOff} iconSize={13} size="xs" onClick={startPushToTalk} aria-label="Stop listening" tooltip />
+            )}
+            {wakeEnabled && (
+              <IconButton
+                icon={EarOff}
+                iconSize={13}
+                size="xs"
+                onClick={disableWakeMode}
+                aria-label="Turn off wake mode"
+                tooltip="Turn off Hey Warrior wake mode"
+              />
+            )}
+            {(error || (!!lastReply && !processing && !speaking)) && (
+              <IconButton
+                icon={X}
+                iconSize={13}
+                size="xs"
+                onClick={() => patch({ error: null, lastReply: '' })}
+                aria-label="Dismiss"
+                tooltip
+              />
+            )}
+          </span>
         </motion.div>
       )}
     </AnimatePresence>

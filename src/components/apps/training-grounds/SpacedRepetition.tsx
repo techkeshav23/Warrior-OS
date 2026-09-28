@@ -9,9 +9,10 @@
 'use client';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, CalendarClock, Play, Repeat, RotateCcw, Trophy } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { ArrowLeft, CalendarCheck, CalendarClock, Layers, Play, Repeat, RotateCcw, Sparkles, Trophy } from 'lucide-react';
+import { Badge, Button, Card, Chip, EmptyState, ProgressBar, SegmentedControl, StatTile } from '@/components/ui';
+import { TRANSITION } from '@/styles/tokens';
 import {
   collectDueCards,
   computeMastery,
@@ -21,8 +22,9 @@ import {
 } from '@/stores/useLearningStore';
 import { recordStudyAction } from '@/components/achievements/study-streak';
 import type { DueCard, ReviewGrade } from '@/types/learning';
+import { KeyHints, TabHeader } from './QuizControls';
 import { DueForecast } from './practice/DueForecast';
-import { FlipCard, GradeBar, GradeSummary, Kbd, REVIEW_GRADES, RevealButton, countGrades } from './practice/StudyCard';
+import { FlipCard, GradeBar, GradeSummary, REVIEW_GRADES, RevealButton, countGrades } from './practice/StudyCard';
 import { DAY_MS, dueForecast, formatDuration, formatInterval, utcDayStart } from './practice/schedule';
 import { useStudyKeys } from './practice/use-study-keys';
 
@@ -60,10 +62,6 @@ interface ReviewSession {
   finishedAt: number | null;
 }
 
-const CHIP = 'px-3 py-1 rounded-md text-xs border transition-all';
-const CHIP_ON = 'bg-cyan-500/20 border-cyan-500/40 text-cyan-200';
-const CHIP_OFF = 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10';
-
 function SpacedRepetitionInner({ initialDeckId = null, initialTopicId = null }: SpacedRepetitionProps) {
   const decks = useLearningStore((s) => s.decks);
   const reviews = useLearningStore((s) => s.reviews);
@@ -72,6 +70,7 @@ function SpacedRepetitionInner({ initialDeckId = null, initialTopicId = null }: 
   const [topicId, setTopicId] = useState<string | null>(initialTopicId);
   const [newLimit, setNewLimit] = useState<number>(10);
   const [session, setSession] = useState<ReviewSession | null>(null);
+  const reduceMotion = useReducedMotion();
 
   // `now` ticks once a minute: enough for due dates, and it keeps render pure.
   const [now, setNow] = useState(() => Date.now());
@@ -242,51 +241,63 @@ function SpacedRepetitionInner({ initialDeckId = null, initialTopicId = null }: 
         tabIndex={-1}
         onKeyDown={onKeyDown}
         onKeyUp={onKeyUp}
-        className="flex min-h-full flex-col gap-4 p-6 outline-none"
+        className="@container flex h-full flex-col outline-none"
       >
-        <div className="flex items-center gap-3 text-xs text-white/50">
-          <button type="button" onClick={endSession} className="flex items-center gap-1 hover:text-white/80">
-            <ArrowLeft className="h-3.5 w-3.5" />
-            End
-          </button>
-          <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
-            <motion.div
-              className="h-full rounded-full bg-cyan-400"
-              initial={false}
-              animate={{ width: `${(session.index / session.queue.length) * 100}%` }}
-            />
+        <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" leadingIcon={ArrowLeft} onClick={endSession}>
+                End
+              </Button>
+              <ProgressBar
+                value={session.index}
+                max={session.queue.length}
+                size="sm"
+                animated={false}
+                className="flex-1"
+                aria-label="Session progress"
+              />
+              <span className="shrink-0 font-mono text-xs text-fg-muted tabular">
+                <span className="text-fg">{session.index + 1}</span> / {session.queue.length}
+              </span>
+            </div>
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${session.index}:${current.card.id}`}
+                initial={{ opacity: 0, x: reduceMotion ? 0 : 24 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: reduceMotion ? 0 : -24 }}
+                transition={TRANSITION.small}
+              >
+                <FlipCard
+                  card={current.card}
+                  flipped={session.flipped}
+                  onFlip={flip}
+                  caption={`${current.deckName} · ${current.topicName}`}
+                  accent={accent}
+                  badge={badge}
+                />
+              </motion.div>
+            </AnimatePresence>
           </div>
-          <span className="tabular-nums">
-            {session.index + 1} / {session.queue.length}
-          </span>
         </div>
 
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${session.index}:${current.card.id}`}
-            initial={{ opacity: 0, x: 28 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -28 }}
-            transition={{ duration: 0.18 }}
-            className="mx-auto w-full max-w-xl"
-          >
-            <FlipCard
-              card={current.card}
-              flipped={session.flipped}
-              onFlip={flip}
-              caption={`${current.deckName} · ${current.topicName}`}
-              accent={accent}
-              badge={badge}
-            />
-          </motion.div>
-        </AnimatePresence>
-
-        <div className="mx-auto w-full max-w-xl">
-          {session.flipped ? <GradeBar onGrade={rate} previews={previews} /> : <RevealButton onReveal={flip} />}
+        <div className="shrink-0 space-y-2.5 border-t border-line px-5 py-3">
+          <div className="mx-auto flex w-full max-w-2xl justify-center">
+            {session.flipped ? <GradeBar onGrade={rate} previews={previews} /> : <RevealButton onReveal={flip} />}
+          </div>
+          <KeyHints
+            className="hidden @md:flex"
+            items={[
+              { keys: ['Space'], label: 'flip' },
+              { keys: ['1'], label: 'Again' },
+              { keys: ['2'], label: 'Hard' },
+              { keys: ['3'], label: 'Good' },
+              { keys: ['4'], label: 'Easy' },
+            ]}
+          />
         </div>
-        <p className="text-center text-[10px] text-white/30">
-          <Kbd>Space</Kbd> flip · <Kbd>1</Kbd> Again · <Kbd>2</Kbd> Hard · <Kbd>3</Kbd> Good · <Kbd>4</Kbd> Easy
-        </p>
       </div>
     );
   }
@@ -304,63 +315,62 @@ function SpacedRepetitionInner({ initialDeckId = null, initialTopicId = null }: 
       if (dueAt !== undefined && (nextDueAt === null || dueAt < nextDueAt)) nextDueAt = dueAt;
     }
     const remaining = plannedDue + plannedNew;
-    const tiles = [
-      { label: 'Recalled first try', value: unique > 0 ? `${Math.round((recalled / unique) * 100)}%` : '—' },
-      { label: 'Cards reviewed', value: String(unique) },
-      {
-        label: 'Next review',
-        value: nextDueAt === null ? '—' : `in ${formatInterval(Math.max(0, nextDueAt - session.finishedAt))}`,
-      },
-    ];
     return (
-      <div className="space-y-5 p-6">
+      <div className="@container space-y-5 p-5">
         <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 p-5 text-center"
+          initial={{ opacity: 0, y: reduceMotion ? 0 : 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={TRANSITION.panel}
         >
-          <Trophy className="mx-auto h-8 w-8 text-yellow-300" />
-          <h3 className="mt-2 text-lg font-bold text-white">Session complete</h3>
-          <p className="mt-1 text-xs text-white/50">
-            {session.results.length} answer{session.results.length === 1 ? '' : 's'}
-            {newLearned > 0 ? ` · ${newLearned} new card${newLearned === 1 ? '' : 's'} learned` : ''} ·{' '}
-            {formatDuration(session.finishedAt - session.startedAt)}
-          </p>
+          <Card hud tone="ember" padding="lg">
+            <div className="flex flex-col items-center gap-4 text-center @xl:flex-row @xl:text-left">
+              <span className="flex size-14 shrink-0 items-center justify-center rounded-card border border-gold/35 bg-gold/10 text-gold shadow-[0_0_28px_-6px_var(--color-gold)]">
+                <Trophy size={26} strokeWidth={1.75} aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="hud-label">Review · done</div>
+                <h3 className="mt-1 text-xl font-semibold text-fg">Session complete</h3>
+                <p className="mt-1 text-ui text-fg-muted tabular">
+                  {session.results.length} answer{session.results.length === 1 ? '' : 's'}
+                  {newLearned > 0 ? ` · ${newLearned} new card${newLearned === 1 ? '' : 's'} learned` : ''} ·{' '}
+                  {formatDuration(session.finishedAt - session.startedAt)}
+                </p>
+              </div>
+            </div>
+          </Card>
         </motion.div>
 
-        <div className="grid grid-cols-3 gap-3">
-          {tiles.map((tile) => (
-            <div key={tile.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-center">
-              <p className="text-xl font-semibold text-white">{tile.value}</p>
-              <p className="mt-0.5 text-[11px] text-white/45">{tile.label}</p>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 gap-3 @md:grid-cols-3">
+          <StatTile
+            size="sm"
+            label="Recalled first try"
+            icon={Sparkles}
+            value={unique > 0 ? `${Math.round((recalled / unique) * 100)}%` : '—'}
+          />
+          <StatTile size="sm" label="Cards reviewed" icon={Layers} value={unique} />
+          <StatTile
+            size="sm"
+            label="Next review"
+            icon={CalendarClock}
+            value={nextDueAt === null ? '—' : `in ${formatInterval(Math.max(0, nextDueAt - session.finishedAt))}`}
+            plainValue
+          />
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <p className="mb-3 text-xs font-semibold text-white/75">How it went</p>
+        <Card eyebrow="Recall" title="How it went">
           <GradeSummary counts={countGrades(session.results)} />
-        </div>
+        </Card>
 
         <DueForecast counts={forecast} todayStart={todayStart} newCount={newCards.length} />
 
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => setSession(null)}
-            className="flex-1 rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-white/70 hover:bg-white/10"
-          >
+        <div className="flex flex-wrap justify-end gap-3">
+          <Button variant="secondary" size="lg" leadingIcon={ArrowLeft} onClick={() => setSession(null)}>
             Back to overview
-          </button>
+          </Button>
           {remaining > 0 && (
-            <button
-              type="button"
-              onClick={startSession}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-500/20 p-3 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/30"
-            >
-              <RotateCcw className="h-4 w-4" />
+            <Button variant="primary" size="lg" leadingIcon={RotateCcw} onClick={startSession}>
               Keep going · {remaining}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -369,144 +379,135 @@ function SpacedRepetitionInner({ initialDeckId = null, initialTopicId = null }: 
 
   // ─── Overview ───
   const { mastery, nextDueAt } = scopeInfo;
-  const stats = [
-    { label: 'Due now', value: dueCards.length, tone: 'text-amber-200', ring: 'border-amber-400/25 bg-amber-500/10' },
-    { label: 'New', value: newCards.length, tone: 'text-cyan-200', ring: 'border-cyan-400/25 bg-cyan-500/10' },
-    {
-      label: `Mastered of ${mastery.total}`,
-      value: mastery.mastered,
-      tone: 'text-emerald-200',
-      ring: 'border-emerald-400/25 bg-emerald-500/10',
-    },
-  ];
+  const canStart = plannedDue + plannedNew > 0;
 
   return (
-    <div className="space-y-5 p-6">
-      <header>
-        <h3 className="flex items-center gap-2 text-lg font-bold text-white">
-          <Repeat className="h-5 w-5 text-cyan-300" />
-          Review
-        </h3>
-        <p className="mt-1 text-xs text-white/50">
-          Spaced repetition over your own decks. Reveal a card, rate your recall, and it comes back right before you
-          would forget it: misses within minutes, easy cards weeks out.
-        </p>
-      </header>
+    <div className="@container space-y-6 p-5">
+      <TabHeader
+        icon={Repeat}
+        title="Review"
+        description="Spaced repetition over your own decks. Reveal a card, rate your recall, and it comes back right before you would forget it."
+      />
 
       {/* Scope */}
-      <div className="space-y-2">
+      <section className="space-y-3" aria-label="Scope">
+        <span className="hud-label">Scope</span>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
+          <Chip
+            selected={!scopeDeck}
             onClick={() => {
               setDeckId(null);
               setTopicId(null);
             }}
-            className={cn(CHIP, !scopeDeck ? CHIP_ON : CHIP_OFF)}
           >
             All decks
-          </button>
+          </Chip>
           {decks.map((d) => {
             const due = dueByDeck.get(d.id) ?? 0;
             return (
-              <button
+              <Chip
                 key={d.id}
-                type="button"
+                selected={scopeDeck?.id === d.id}
                 onClick={() => {
                   setDeckId(d.id);
                   setTopicId(null);
                 }}
-                className={cn(CHIP, 'flex items-center gap-1.5', scopeDeck?.id === d.id ? CHIP_ON : CHIP_OFF)}
               >
-                <span>{d.icon}</span>
+                <span aria-hidden className="mr-1.5">
+                  {d.icon}
+                </span>
                 {d.name}
                 {due > 0 && (
-                  <span className="rounded bg-amber-400/20 px-1 text-[10px] font-semibold text-amber-200 tabular-nums">
-                    {due}
-                  </span>
+                  <span className="ml-1.5 rounded-full bg-warning/15 px-1.5 font-mono text-2xs text-warning tabular">{due}</span>
                 )}
-              </button>
+              </Chip>
             );
           })}
         </div>
         {scopeDeck && scopeDeck.topics.length > 1 && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setTopicId(null)}
-              className={cn(CHIP, !scopeTopic ? 'bg-purple-500/20 border-purple-500/40 text-purple-200' : CHIP_OFF)}
-            >
+          <div className="flex flex-wrap gap-1.5 border-l border-line pl-3">
+            <Chip size="sm" selected={!scopeTopic} onClick={() => setTopicId(null)}>
               All topics
-            </button>
+            </Chip>
             {scopeDeck.topics.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTopicId(t.id)}
-                className={cn(
-                  CHIP,
-                  scopeTopic?.id === t.id ? 'bg-purple-500/20 border-purple-500/40 text-purple-200' : CHIP_OFF
-                )}
-              >
+              <Chip key={t.id} size="sm" selected={scopeTopic?.id === t.id} onClick={() => setTopicId(t.id)}>
                 {t.name}
-              </button>
+              </Chip>
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="grid grid-cols-3 gap-3 text-center">
-        {stats.map((s) => (
-          <div key={s.label} className={cn('rounded-xl border p-3', s.ring)}>
-            <p className={cn('text-2xl font-bold', s.tone)}>{s.value}</p>
-            <p className="text-[11px] text-white/50">{s.label}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 gap-3 @md:grid-cols-3">
+        <StatTile
+          size="sm"
+          label="Due now"
+          icon={CalendarClock}
+          value={<span className={dueCards.length > 0 ? 'text-warning' : undefined}>{dueCards.length}</span>}
+        />
+        <StatTile size="sm" label="New" icon={Sparkles} value={newCards.length} />
+        <StatTile
+          size="sm"
+          label="Mastered"
+          icon={Trophy}
+          value={<span className={mastery.mastered > 0 ? 'text-success' : undefined}>{mastery.mastered}</span>}
+          unit={`of ${mastery.total}`}
+        />
       </div>
 
       <DueForecast counts={forecast} todayStart={todayStart} newCount={newCards.length} />
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-white/50">
-        <span>New cards per session</span>
-        <div className="flex overflow-hidden rounded-md border border-white/10">
-          {NEW_LIMITS.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setNewLimit(n)}
-              aria-pressed={newLimit === n}
-              className={cn(
-                'px-2.5 py-1 tabular-nums transition-colors',
-                newLimit === n ? 'bg-cyan-500/25 text-cyan-100' : 'text-white/50 hover:bg-white/10'
-              )}
-            >
-              {n}
-            </button>
-          ))}
+      <Card padding="md">
+        <div className="flex flex-col gap-4 @xl:flex-row @xl:items-center @xl:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-ui font-medium text-fg">New cards per session</span>
+            <SegmentedControl
+              size="sm"
+              aria-label="New cards per session"
+              value={String(newLimit)}
+              onChange={(v) => setNewLimit(Number(v))}
+              options={NEW_LIMITS.map((n) => ({ value: String(n), label: String(n) }))}
+            />
+          </div>
+          {canStart && (
+            <Button variant="primary" size="lg" leadingIcon={Play} onClick={startSession}>
+              {plannedDue > 0 ? `Review ${plannedDue} due` : `Learn ${plannedNew} new`}
+              {plannedDue > 0 && plannedNew > 0 ? ` + ${plannedNew} new` : ''}
+            </Button>
+          )}
         </div>
-      </div>
+      </Card>
 
-      {plannedDue + plannedNew > 0 ? (
-        <button
-          type="button"
-          onClick={startSession}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/20 p-3 text-sm font-semibold text-cyan-100 shadow-[0_0_24px_-10px_rgba(34,211,238,0.8)] transition-all hover:bg-cyan-500/30"
-        >
-          <Play className="h-4 w-4" />
-          {plannedDue > 0 ? `Review ${plannedDue} due` : `Learn ${plannedNew} new`}
-          {plannedDue > 0 && plannedNew > 0 ? ` + ${plannedNew} new` : ''}
-        </button>
-      ) : (
-        <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm text-emerald-200">
-          <CalendarClock className="h-4 w-4" />
-          {mastery.total === 0
-            ? 'No cards here yet. Add some in the Question Bank.'
-            : nextDueAt !== null
-              ? `All caught up. Next review in ${formatInterval(nextDueAt - now)}.`
-              : newCards.length > 0
-                ? 'All caught up. Raise "new cards per session" to learn more.'
-                : 'All caught up.'}
-        </div>
+      {!canStart &&
+        (mastery.total === 0 ? (
+          <EmptyState
+            size="sm"
+            icon={Layers}
+            title="No cards here yet"
+            description="Add some in Decks, then come back to review them."
+          />
+        ) : (
+          <EmptyState
+            size="sm"
+            icon={CalendarCheck}
+            tone="accent"
+            title="All caught up"
+            description={
+              nextDueAt !== null
+                ? `Next review in ${formatInterval(nextDueAt - now)}.`
+                : newCards.length > 0
+                  ? 'Raise "new cards per session" to learn more.'
+                  : 'Nothing due. Your memory is holding the line.'
+            }
+          />
+        ))}
+      {canStart && dueCards.length > plannedDue && (
+        <p className="flex items-center gap-2 text-xs text-fg-subtle">
+          <Badge size="sm" tone="warning">
+            +{dueCards.length - plannedDue}
+          </Badge>
+          more due after this session ({SESSION_SIZE} cards per session).
+        </p>
       )}
     </div>
   );

@@ -6,21 +6,27 @@
 
 'use client';
 
-import { memo, type ReactNode } from 'react';
-import { motion } from 'framer-motion';
+import { memo } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge, Button, Kbd, type Tone } from '@/components/ui';
+import { EASE_OUT_QUINT, resolveAccent } from '@/styles/tokens';
 import { cardAnswerText } from '@/stores/useLearningStore';
 import type { Card, CardKind, ReviewGrade } from '@/types/learning';
 
-/** Grade colours: validated for dark surfaces (adjacent pairs stay apart under colour-blindness, with the legend's labels as backup). */
+export { Kbd };
+
+/** Grade tones: danger → warning → success → info, always paired with the label (never colour alone). */
 export interface GradeMeta {
   grade: ReviewGrade;
   label: string;
   /** Key that picks it (see use-study-keys). */
   key: string;
-  /** Swatch / segment colour. */
+  /** Swatch / segment colour (a token CSS variable). */
   color: string;
+  /** Kit tone of the grade. */
+  tone: Extract<Tone, 'danger' | 'warning' | 'success' | 'info'>;
   button: string;
 }
 
@@ -29,29 +35,33 @@ export const GRADE_META: readonly GradeMeta[] = [
     grade: 'again',
     label: 'Again',
     key: '1',
-    color: '#e5485f',
-    button: 'bg-rose-500/15 border-rose-500/30 text-rose-200 hover:bg-rose-500/25',
+    color: 'var(--color-danger)',
+    tone: 'danger',
+    button: 'border-danger/30 bg-danger/8 text-danger hover:border-danger/55 hover:bg-danger/15 active:bg-danger/20',
   },
   {
     grade: 'hard',
     label: 'Hard',
     key: '2',
-    color: '#c98209',
-    button: 'bg-amber-500/15 border-amber-500/30 text-amber-200 hover:bg-amber-500/25',
+    color: 'var(--color-warning)',
+    tone: 'warning',
+    button: 'border-warning/30 bg-warning/8 text-warning hover:border-warning/55 hover:bg-warning/15 active:bg-warning/20',
   },
   {
     grade: 'good',
     label: 'Good',
     key: '3',
-    color: '#10a37f',
-    button: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/25',
+    color: 'var(--color-success)',
+    tone: 'success',
+    button: 'border-success/30 bg-success/8 text-success hover:border-success/55 hover:bg-success/15 active:bg-success/20',
   },
   {
     grade: 'easy',
     label: 'Easy',
     key: '4',
-    color: '#5b6cf5',
-    button: 'bg-indigo-500/15 border-indigo-400/30 text-indigo-200 hover:bg-indigo-500/25',
+    color: 'var(--color-info)',
+    tone: 'info',
+    button: 'border-info/30 bg-info/8 text-info hover:border-info/55 hover:bg-info/15 active:bg-info/20',
   },
 ];
 
@@ -68,17 +78,12 @@ function optionLetter(index: number): string {
   return String.fromCharCode(65 + index);
 }
 
-export function Kbd({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <kbd
-      className={cn(
-        'inline-flex min-w-[1.25rem] items-center justify-center rounded border border-white/15 bg-white/5 px-1 font-mono text-[10px] leading-4 text-white/50',
-        className
-      )}
-    >
-      {children}
-    </kbd>
-  );
+/** Badge tone for the card's queue state ("New", "Due", "Overdue 3d", "Second try"). */
+function badgeTone(badge: string): Tone {
+  if (badge.startsWith('Overdue')) return 'danger';
+  if (badge === 'Due') return 'warning';
+  if (badge === 'Second try') return 'ember';
+  return 'neutral';
 }
 
 // ─── Flip card ───
@@ -87,28 +92,33 @@ function Answer({ card }: { card: Card }) {
   switch (card.kind) {
     case 'mcq':
       return (
-        <p className="text-base font-semibold text-white/90 leading-relaxed whitespace-pre-wrap break-words">
-          <span className="mr-2 text-white/40">{optionLetter(card.answer)}.</span>
+        <p className="whitespace-pre-wrap break-words text-base font-semibold leading-relaxed text-fg @md:text-lg">
+          <span className="mr-2 font-mono text-sm text-success">{optionLetter(card.answer)}</span>
           {card.options[card.answer]}
         </p>
       );
     case 'multi-select':
       return (
-        <ul className="space-y-1 text-left">
+        <ul className="space-y-1.5 text-left">
           {card.answers.map((i) => (
-            <li key={i} className="text-sm font-semibold text-white/90 break-words">
-              <span className="mr-2 text-white/40">{optionLetter(i)}.</span>
+            <li key={i} className="break-words text-sm font-semibold text-fg">
+              <span className="mr-2 font-mono text-xs text-success">{optionLetter(i)}</span>
               {card.options[i]}
             </li>
           ))}
         </ul>
       );
-    default:
-      return (
-        <p className="text-base font-semibold text-white/90 leading-relaxed whitespace-pre-wrap break-words">
-          {cardAnswerText(card)}
+    default: {
+      const text = cardAnswerText(card);
+      // Long flashcard backs read as prose, short answers as a headline.
+      return text.length > 90 ? (
+        <p className="max-w-prose whitespace-pre-wrap break-words text-left text-sm font-medium leading-relaxed text-fg @md:text-base">
+          {text}
         </p>
+      ) : (
+        <p className="whitespace-pre-wrap break-words text-base font-semibold leading-relaxed text-fg @md:text-lg">{text}</p>
       );
+    }
   }
 }
 
@@ -126,16 +136,28 @@ interface FlipCardProps {
 
 // No backdrop-filter on the faces: it breaks backface-visibility in some browsers.
 const FACE =
-  'col-start-1 row-start-1 flex min-h-[220px] flex-col rounded-2xl border border-t-2 bg-slate-950/70 p-5 shadow-[0_0_40px_-18px_rgba(34,211,238,0.45)]';
+  'hud-corners relative col-start-1 row-start-1 flex min-h-[240px] min-w-0 flex-col rounded-card border border-line-strong bg-ink-850 p-5 shadow-e2 inset-shadow-[0_1px_0_rgb(255_255_255/0.05)]';
+
+const HIDDEN_FACE = { backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' } as const;
 
 /**
  * Both faces share one grid cell, so the card is as tall as its longer side.
  * Remount it per card (key) so a new card never animates back from its answer.
+ * Reduced motion: the faces cross-fade instead of turning in 3D.
  */
-function FlipCardInner({ card, flipped, onFlip, caption, accent = '#22d3ee', badge }: FlipCardProps) {
+function FlipCardInner({ card, flipped, onFlip, caption, accent, badge }: FlipCardProps) {
+  const reduceMotion = useReducedMotion();
   const hasOptions = card.kind === 'mcq' || card.kind === 'multi-select';
+  const edge = accent ? resolveAccent(accent) : 'var(--accent)';
+  const edgeBar = (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute inset-x-8 top-0 h-0.5 rounded-b-full opacity-90"
+      style={{ background: edge, boxShadow: `0 0 12px ${edge}` }}
+    />
+  );
   return (
-    <div className="w-full" style={{ perspective: 1400 }}>
+    <div className="@container w-full" style={reduceMotion ? undefined : { perspective: 1400 }}>
       <motion.div
         role="button"
         tabIndex={0}
@@ -143,75 +165,82 @@ function FlipCardInner({ card, flipped, onFlip, caption, accent = '#22d3ee', bad
         aria-label={flipped ? 'Answer side. Press Space to see the question.' : 'Question side. Press Space to see the answer.'}
         onClick={onFlip}
         initial={false}
-        animate={{ rotateY: flipped ? 180 : 0 }}
-        transition={{ type: 'spring', stiffness: 240, damping: 26 }}
+        animate={{ rotateY: flipped && !reduceMotion ? 180 : 0 }}
+        transition={{ duration: 0.5, ease: EASE_OUT_QUINT }}
         style={{ transformStyle: 'preserve-3d' }}
-        className="grid cursor-pointer select-none rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+        className="focus-ring grid w-full cursor-pointer select-none grid-cols-[minmax(0,1fr)] rounded-card"
       >
         {/* Front */}
         <div
-          className={cn(FACE, 'border-white/10 bg-gradient-to-br from-cyan-500/10 via-slate-900/40 to-purple-500/10')}
-          style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderTopColor: accent }}
+          className={cn(FACE, reduceMotion && 'transition-opacity duration-180', reduceMotion && flipped && 'invisible opacity-0')}
+          style={reduceMotion ? undefined : HIDDEN_FACE}
           aria-hidden={flipped}
         >
-          <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider">
-            <span className="truncate text-white/40">{caption}</span>
-            <span className="flex flex-shrink-0 items-center gap-1.5">
-              {badge && <span className="rounded bg-white/10 px-1.5 py-0.5 text-white/60">{badge}</span>}
-              <span className="rounded bg-cyan-500/10 px-1.5 py-0.5 text-cyan-300/80">{KIND_LABELS[card.kind]}</span>
+          {edgeBar}
+          <div className="flex items-center justify-between gap-2">
+            <span className="hud-label min-w-0 truncate" title={caption}>
+              {caption}
+            </span>
+            <span className="flex shrink-0 items-center gap-1.5">
+              {badge && (
+                <Badge size="sm" tone={badgeTone(badge)}>
+                  {badge}
+                </Badge>
+              )}
+              <Badge size="sm" tone="accent">
+                {KIND_LABELS[card.kind]}
+              </Badge>
             </span>
           </div>
-          <div className="flex flex-1 flex-col justify-center py-4">
-            <p className="text-center text-lg font-semibold leading-relaxed text-white whitespace-pre-wrap break-words">
+          <div className="flex flex-1 flex-col justify-center py-5">
+            <p className="whitespace-pre-wrap break-words text-center text-base font-semibold leading-relaxed text-fg @md:text-lg">
               {card.prompt}
             </p>
             {hasOptions && (
-              <ul className="mx-auto mt-4 space-y-1 text-sm text-white/60">
+              <ul className="mx-auto mt-4 w-full max-w-md space-y-1.5 text-ui text-fg-muted">
                 {card.options.map((option, i) => (
-                  <li key={i} className="break-words">
-                    <span className="mr-2 text-white/35">{optionLetter(i)}.</span>
-                    {option}
+                  <li key={i} className="flex gap-2.5 break-words">
+                    <span className="mt-px w-3 shrink-0 font-mono text-xs text-fg-subtle">{optionLetter(i)}</span>
+                    <span className="min-w-0">{option}</span>
                   </li>
                 ))}
               </ul>
             )}
             {card.kind === 'numeric' && (
-              <p className="mt-3 text-center text-xs text-white/40">
-                Numeric answer{card.unit ? ` in ${card.unit}` : ''}
-              </p>
+              <p className="mt-3 text-center text-xs text-fg-subtle">Numeric answer{card.unit ? ` in ${card.unit}` : ''}</p>
             )}
           </div>
-          <p className="text-center text-[10px] text-white/30">
-            Click or <Kbd>Space</Kbd> to flip
+          <p className="flex items-center justify-center gap-1.5 text-xs text-fg-subtle">
+            Click or <Kbd size="sm">Space</Kbd> to flip
           </p>
         </div>
 
         {/* Back */}
         <div
-          className={cn(FACE, 'border-purple-400/20 bg-gradient-to-br from-purple-500/15 via-slate-900/40 to-cyan-500/10')}
-          style={{
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden',
-            transform: 'rotateY(180deg)',
-            borderTopColor: accent,
-          }}
+          className={cn(FACE, reduceMotion && 'transition-opacity duration-180', reduceMotion && !flipped && 'invisible opacity-0')}
+          style={reduceMotion ? undefined : { ...HIDDEN_FACE, transform: 'rotateY(180deg)' }}
           aria-hidden={!flipped}
         >
-          <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider">
-            <span className="text-purple-300/70">Answer</span>
-            <span className="truncate text-white/30">{caption}</span>
+          {edgeBar}
+          <div className="flex items-center justify-between gap-2">
+            <span className="hud-label shrink-0 text-success">Answer</span>
+            <span className="hud-label min-w-0 truncate" title={caption}>
+              {caption}
+            </span>
           </div>
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 py-4 text-center">
-            <p className="max-h-24 overflow-y-auto text-xs text-white/40 whitespace-pre-wrap break-words">{card.prompt}</p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 py-5 text-center">
+            <p className="scrollbar-thin max-h-24 overflow-y-auto whitespace-pre-wrap break-words text-xs text-fg-subtle">
+              {card.prompt}
+            </p>
             <Answer card={card} />
             {card.explanation && (
-              <p className="border-t border-white/10 pt-3 text-xs leading-relaxed text-white/55 whitespace-pre-wrap break-words">
+              <p className="max-w-prose whitespace-pre-wrap break-words border-t border-line pt-3 text-ui leading-relaxed text-fg-muted">
                 {card.explanation}
               </p>
             )}
           </div>
-          <p className="text-center text-[10px] text-white/30">
-            How well did you know it? <Kbd>1</Kbd>–<Kbd>4</Kbd>
+          <p className="flex items-center justify-center gap-1.5 text-xs text-fg-subtle">
+            How well did you know it? <Kbd size="sm">1</Kbd>–<Kbd size="sm">4</Kbd>
           </p>
         </div>
       </motion.div>
@@ -223,17 +252,15 @@ export const FlipCard = memo(FlipCardInner);
 
 // ─── Controls ───
 
+/** The session's one primary action while the question side is up. */
 export function RevealButton({ onReveal }: { onReveal: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onReveal}
-      className="mx-auto flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-5 py-2.5 text-sm text-white/80 transition-all hover:bg-white/10"
-    >
-      <Eye className="h-4 w-4" />
+    <Button variant="primary" size="lg" leadingIcon={Eye} onClick={onReveal} className="min-w-48">
       Show answer
-      <Kbd>Space</Kbd>
-    </button>
+      <span aria-hidden className="ml-1.5 rounded-[5px] bg-accent-fg/12 px-1.5 py-px font-mono text-2xs">
+        Space
+      </span>
+    </Button>
   );
 }
 
@@ -241,28 +268,34 @@ interface GradeBarProps {
   onGrade: (grade: ReviewGrade) => void;
   /** Next-review interval per grade, e.g. { good: '3d' }. */
   previews?: Partial<Record<ReviewGrade, string>>;
+  /** sm = one-line buttons without key hints (inline practice). */
+  size?: 'sm' | 'md';
 }
 
-export function GradeBar({ onGrade, previews }: GradeBarProps) {
+export function GradeBar({ onGrade, previews, size = 'md' }: GradeBarProps) {
   return (
     <div className="grid w-full grid-cols-4 gap-2" role="group" aria-label="Rate your recall">
       {GRADE_META.map((g) => (
-        <motion.button
+        <button
           key={g.grade}
           type="button"
-          whileTap={{ scale: 0.95 }}
           onClick={() => onGrade(g.grade)}
+          aria-keyshortcuts={size === 'md' ? g.key : undefined}
           className={cn(
-            'flex flex-col items-center gap-0.5 rounded-lg border px-2 py-2 text-sm font-semibold transition-colors',
+            'focus-ring flex min-w-0 items-center justify-center rounded-control border font-semibold',
+            'transition-[background-color,border-color,transform] duration-120 ease-out-quint active:translate-y-px',
+            size === 'sm' ? 'h-8 px-2 text-xs' : 'min-h-14 flex-col gap-1 px-2 py-2 text-ui',
             g.button
           )}
         >
           <span>{g.label}</span>
-          <span className="flex items-center gap-1 text-[10px] font-normal text-white/50">
-            <Kbd className="text-white/60">{g.key}</Kbd>
-            {previews?.[g.grade] && <span>{previews[g.grade]}</span>}
-          </span>
-        </motion.button>
+          {size === 'md' && (
+            <span className="flex items-center gap-1.5 text-2xs font-normal text-fg-muted">
+              <Kbd size="sm">{g.key}</Kbd>
+              {previews?.[g.grade] && <span className="font-mono tabular">{previews[g.grade]}</span>}
+            </span>
+          )}
+        </button>
       ))}
     </div>
   );
@@ -272,33 +305,34 @@ export function GradeBar({ onGrade, previews }: GradeBarProps) {
 
 /** Stacked bar of grades (2px gaps between segments) with a counted legend. */
 export function GradeSummary({ counts }: { counts: Readonly<Record<ReviewGrade, number>> }) {
+  const reduceMotion = useReducedMotion();
   const total = REVIEW_GRADES.reduce((sum, g) => sum + counts[g], 0);
   if (total === 0) return null;
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div
-        className="flex h-2.5 w-full gap-[2px] overflow-hidden rounded-full"
+        className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full"
         role="img"
         aria-label={GRADE_META.map((g) => `${g.label} ${counts[g.grade]}`).join(', ')}
       >
         {GRADE_META.filter((g) => counts[g.grade] > 0).map((g) => (
           <motion.div
             key={g.grade}
-            initial={{ flexGrow: 0 }}
+            initial={reduceMotion ? false : { flexGrow: 0 }}
             animate={{ flexGrow: counts[g.grade] }}
-            transition={{ duration: 0.6, ease: 'easeOut' }}
-            className="h-full min-w-[4px] basis-0"
+            transition={{ duration: 0.6, ease: EASE_OUT_QUINT }}
+            className="h-full min-w-1 basis-0"
             style={{ backgroundColor: g.color }}
             title={`${g.label}: ${counts[g.grade]}`}
           />
         ))}
       </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/60">
+      <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-fg-muted">
         {GRADE_META.map((g) => (
           <span key={g.grade} className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: g.color }} />
+            <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: g.color }} />
             {g.label}
-            <span className="font-semibold text-white/85 tabular-nums">{counts[g.grade]}</span>
+            <span className="font-mono font-medium text-fg tabular">{counts[g.grade]}</span>
           </span>
         ))}
       </div>

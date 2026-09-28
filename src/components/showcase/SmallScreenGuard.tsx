@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Small Screen Gate
+// WARRIOR OS — Small Screen Guard
 // Phones and narrow windows get a cinematic "desktop experience"
 // screen (owner card + a lightweight animated teaser) instead of
 // the full OS. "Continue anyway" is remembered for the tab.
 //
-//   <SmallScreenGate>{theWholeOS}</SmallScreenGate>
+//   <SmallScreenGuard>{theWholeOS}</SmallScreenGuard>
 //
 // • Renders nothing until the viewport is known (SSR + first client
-//   frame), then either the gate or `children`.
+//   frame), then either the guard notice or `children`.
 // • Widening the window past `minWidth` launches the OS on its own.
 // • Once the OS has been shown it stays shown for the page load, so
 //   shrinking the window (devtools, split screen) never unmounts it.
@@ -27,19 +27,20 @@ import {
   type ReactNode,
 } from 'react';
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'framer-motion';
-import { ArrowRight, Check, Link2, Monitor } from 'lucide-react';
+import { ArrowRight, Check, Keyboard, Link2, Monitor } from 'lucide-react';
 import { OWNER } from '@/config/owner';
-import { GlitchText } from '@/components/ui/GlitchText';
+import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { OwnerCard } from './OwnerCard';
+import { BrandMark } from './BrandMark';
 
 export const SMALL_SCREEN_MIN_WIDTH = 1024;
 export const SMALL_SCREEN_STORAGE_KEY = 'warrior-os-small-screen-continue';
 
-export interface SmallScreenGateProps {
+export interface SmallScreenGuardProps {
   /** The OS. Rendered when the screen is big enough or after "Continue anyway". */
   children?: ReactNode;
-  /** Viewports narrower than this (CSS px) see the gate. Default 1024. */
+  /** Viewports narrower than this (CSS px) see the guard notice. Default 1024. */
   minWidth?: number;
   /** sessionStorage key remembering "Continue anyway" for this tab. */
   storageKey?: string;
@@ -47,7 +48,7 @@ export interface SmallScreenGateProps {
   onContinue?: () => void;
 }
 
-type GateState = 'pending' | 'gate' | 'pass';
+type GuardState = 'pending' | 'guard' | 'pass';
 
 // ─── Viewport + "continue anyway" store ───
 const listeners = new Set<() => void>();
@@ -98,31 +99,31 @@ function isTouchOnlyPhone(): boolean {
   return shortSide > 0 && shortSide < 600;
 }
 
-/** True when this browser should see the gate (ignores "Continue anyway"). */
+/** True when this browser should see the guard notice (ignores "Continue anyway"). */
 export function isSmallScreen(minWidth: number = SMALL_SCREEN_MIN_WIDTH): boolean {
   if (typeof window === 'undefined') return false;
   return window.innerWidth < minWidth || isTouchOnlyPhone();
 }
 
-function readGateState(minWidth: number, key: string): GateState {
+function readGuardState(minWidth: number, key: string): GuardState {
   if (shownThisLoad.has(key) || hasContinued(key)) return 'pass';
-  return isSmallScreen(minWidth) ? 'gate' : 'pass';
+  return isSmallScreen(minWidth) ? 'guard' : 'pass';
 }
 
 const noopSubscribe = () => () => {};
 const readHasFinePointer = () =>
   typeof window.matchMedia === 'function' && window.matchMedia('(any-pointer: fine)').matches;
 
-// ─── Gate ───
-export function SmallScreenGate({
+// ─── Guard ───
+export function SmallScreenGuard({
   children,
   minWidth = SMALL_SCREEN_MIN_WIDTH,
   storageKey = SMALL_SCREEN_STORAGE_KEY,
   onContinue,
-}: SmallScreenGateProps) {
-  const state = useSyncExternalStore<GateState>(
+}: SmallScreenGuardProps) {
+  const state = useSyncExternalStore<GuardState>(
     subscribe,
-    () => readGateState(minWidth, storageKey),
+    () => readGuardState(minWidth, storageKey),
     () => 'pending'
   );
 
@@ -142,28 +143,13 @@ export function SmallScreenGate({
     <>
       {state === 'pass' && children}
       <AnimatePresence>
-        {state === 'gate' && (
-          <SmallScreenNotice key="small-screen-gate" minWidth={minWidth} onContinue={handleContinue} />
+        {state === 'guard' && (
+          <SmallScreenNotice key="small-screen-guard" minWidth={minWidth} onContinue={handleContinue} />
         )}
       </AnimatePresence>
     </>
   );
 }
-
-// ─── Background particles (deterministic layout, CSS animation) ───
-const PARTICLES = Array.from({ length: 18 }, (_, i) => {
-  const rand = (n: number) => {
-    const x = Math.sin((i + 1) * 12.9898 + n * 78.233) * 43758.5453;
-    return x - Math.floor(x);
-  };
-  return {
-    size: 1 + rand(1) * 2.5,
-    left: rand(2) * 100,
-    top: rand(3) * 100,
-    duration: 7 + rand(4) * 8,
-    delay: rand(5) * 5,
-  };
-});
 
 const itemVariants: Variants = {
   hidden: { opacity: 0, y: 14 },
@@ -202,35 +188,22 @@ const SmallScreenNotice = memo(function SmallScreenNotice({
 
   return (
     <motion.main
-      data-small-screen-gate=""
-      aria-labelledby="small-screen-gate-title"
-      className="fixed inset-0 overflow-y-auto overscroll-contain bg-[#050510] text-text-primary"
+      data-small-screen-guard=""
+      aria-labelledby="small-screen-guard-title"
+      className="fixed inset-0 overflow-y-auto overscroll-contain bg-ink-950 text-fg scrollbar-thin"
       style={{ zIndex: 'calc(var(--z-boot) + 1)' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 1.04, filter: 'blur(8px)' }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
     >
-      {/* ─── Background ─── */}
+      {/* ─── Background: the Deep Space wallpaper, dimmed for reading ─── */}
       <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#050510] via-[#0a0a20] to-[#050510]" />
-        <div className="absolute -top-32 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-accent-primary/10 blur-3xl" />
-        <div className="absolute -bottom-32 right-0 h-72 w-72 rounded-full bg-accent-secondary/15 blur-3xl" />
-        <div className="absolute inset-0 opacity-40 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px]" />
-        {PARTICLES.map((p, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-accent-primary/25"
-            style={{
-              width: p.size,
-              height: p.size,
-              left: `${p.left}%`,
-              top: `${p.top}%`,
-              animation: `particle-float ${p.duration}s ease-in-out infinite`,
-              animationDelay: `${p.delay}s`,
-            }}
-          />
-        ))}
+        <div className="wos-deep-space">
+          <div className="wos-deep-space__aurora" />
+          <div className="wos-deep-space__field" />
+        </div>
+        <div className="absolute inset-0 bg-ink-950/45" />
       </div>
 
       {/* ─── Content ─── */}
@@ -241,15 +214,12 @@ const SmallScreenNotice = memo(function SmallScreenNotice({
         variants={{ hidden: {}, show: { transition: { staggerChildren: 0.12, delayChildren: 0.15 } } }}
       >
         {/* Brand */}
-        <motion.div variants={itemVariants} className="flex flex-col items-center gap-1">
-          <GlitchText
-            text="WARRIOR OS"
-            className="font-display text-lg font-bold tracking-[0.3em] text-accent-primary text-glow-sm"
-            intensity="low"
-          />
-          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">
-            {OWNER.shortName}&apos;s system · v4.0
-          </p>
+        <motion.div variants={itemVariants} className="flex items-center gap-3">
+          <BrandMark size={32} />
+          <div className="text-left leading-tight">
+            <p className="font-display text-sm font-semibold tracking-[0.28em] text-fg">WARRIOR OS</p>
+            <p className="mt-0.5 hud-label">{OWNER.shortName}&apos;s system · v4.0</p>
+          </div>
         </motion.div>
 
         {/* Teaser */}
@@ -259,27 +229,22 @@ const SmallScreenNotice = memo(function SmallScreenNotice({
 
         {/* Message */}
         <motion.div variants={itemVariants} className="space-y-3">
-          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-accent-primary/30 bg-accent-primary/10">
-            <Monitor className="h-5 w-5 text-accent-primary" aria-hidden />
-          </div>
-          <h1
-            id="small-screen-gate-title"
-            className="font-display text-xl font-bold leading-snug tracking-wide text-text-primary sm:text-2xl"
-          >
-            Warrior OS is a <span className="text-accent-primary text-glow-sm">desktop experience</span>
+          <p className="inline-flex h-6 items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 font-mono text-2xs font-medium uppercase tracking-[0.12em] text-accent">
+            <Monitor className="size-3.5" strokeWidth={1.75} aria-hidden />
+            Best on a big screen
+          </p>
+          <h1 id="small-screen-guard-title" className="text-2xl font-semibold text-fg">
+            Warrior OS is a desktop experience
           </h1>
-          <p className="text-sm leading-relaxed text-text-secondary">
+          <p className="text-sm text-fg-muted">
             A full sci-fi operating system that runs in your browser: draggable windows, a
             command palette, procedural music, a digital companion and more, built for a big
             screen, a keyboard and a mouse.
           </p>
-          <p className="font-mono text-xs text-accent-primary/80">
-            Open it on a laptop or desktop ({minWidth}px+ wide) for the full experience.
-            {canWiden && (
-              <span className="mt-1 block text-text-muted">
-                Or widen this window and it launches on its own.
-              </span>
-            )}
+          <p className="text-xs text-fg-subtle">
+            Open it on a laptop or desktop (<span className="font-mono text-fg-muted tabular">{minWidth}px+</span>{' '}
+            wide) for the full experience.
+            {canWiden && <span className="mt-1 block">Or widen this window and it launches on its own.</span>}
           </p>
         </motion.div>
 
@@ -290,48 +255,37 @@ const SmallScreenNotice = memo(function SmallScreenNotice({
 
         {/* Actions */}
         <motion.div variants={itemVariants} className="flex w-full flex-col items-center gap-3">
-          <div className="flex w-full flex-col gap-2.5 sm:flex-row">
-            <button
-              type="button"
+          <div className="flex w-full flex-col gap-2 sm:flex-row">
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              trailingIcon={ArrowRight}
               onClick={onContinue}
               data-testid="small-screen-continue"
-              className={cn(
-                'group flex h-11 flex-1 items-center justify-center gap-2 rounded-full',
-                'border border-accent-primary/50 bg-accent-primary/10 text-accent-primary',
-                'font-display text-xs font-bold uppercase tracking-[0.2em]',
-                'shadow-[0_0_24px_rgba(0,240,255,0.15)] transition-[background-color,border-color,box-shadow]',
-                'hover:border-accent-primary hover:bg-accent-primary/20 active:scale-[0.98] focus-ring'
-              )}
+              className="sm:flex-1"
             >
               Continue anyway
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
+              leadingIcon={copied ? <Check className="text-success" strokeWidth={2} aria-hidden /> : Link2}
               onClick={handleCopyLink}
               data-testid="small-screen-copy-link"
-              className={cn(
-                'flex h-11 flex-1 items-center justify-center gap-2 rounded-full',
-                'border border-white/10 bg-white/5 font-mono text-xs text-text-secondary',
-                'transition-colors hover:border-white/25 hover:text-text-primary active:scale-[0.98] focus-ring'
-              )}
+              className="sm:flex-1"
             >
-              {copied ? (
-                <Check className="h-4 w-4 text-accent-success" aria-hidden />
-              ) : (
-                <Link2 className="h-4 w-4" aria-hidden />
-              )}
               <span aria-live="polite">{copied ? 'Link copied' : 'Copy link for later'}</span>
-            </button>
+            </Button>
           </div>
-          <p className="font-mono text-[10px] text-text-muted">
+          <p className="flex items-center gap-1.5 text-xs text-fg-subtle">
+            <Keyboard className="size-3.5" strokeWidth={1.75} aria-hidden />
             Heads up: parts of the OS expect a keyboard and mouse.
           </p>
         </motion.div>
       </motion.div>
 
-      {/* CRT overlays */}
-      <div aria-hidden className="pointer-events-none fixed inset-0 scanlines vignette" />
     </motion.main>
   );
 });
@@ -340,6 +294,10 @@ const SmallScreenNotice = memo(function SmallScreenNotice({
 // One 8s cycle: boot mark → three windows open in turn → fade → repeat.
 const CYCLE = 8;
 
+/** Miniature Deep Space: plasma aurora top-left, ember dawn bottom-right. */
+const TEASER_WALLPAPER =
+  'radial-gradient(ellipse 60% 55% at 18% 18%, color-mix(in oklab, var(--color-plasma-400) 14%, transparent), transparent 70%), radial-gradient(ellipse 70% 45% at 85% 110%, color-mix(in oklab, var(--color-ember-500) 22%, transparent), transparent 70%), linear-gradient(180deg, var(--color-ink-900), var(--color-ink-950))';
+
 function DesktopTeaser() {
   const reduceMotion = useReducedMotion();
   const animated = !reduceMotion;
@@ -347,19 +305,20 @@ function DesktopTeaser() {
   return (
     <div
       aria-hidden
-      className="relative mx-auto aspect-[16/10] w-full max-w-sm overflow-hidden rounded-xl border border-white/10 bg-[#07070f] shadow-[0_0_60px_rgba(0,240,255,0.12)]"
+      className="relative mx-auto aspect-[16/10] w-full max-w-sm overflow-hidden rounded-card border border-line-strong bg-ink-900 shadow-e3"
     >
       {/* Wallpaper */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_20%,rgba(0,240,255,0.16),transparent_55%),radial-gradient(ellipse_at_80%_75%,rgba(123,97,255,0.22),transparent_55%)]" />
-      <div className="absolute inset-0 opacity-50 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:14px_14px]" />
+      <div className="absolute inset-0" style={{ background: TEASER_WALLPAPER }} />
 
       {/* Dynamic island */}
-      <div className="absolute left-1/2 top-1.5 h-2 w-14 -translate-x-1/2 rounded-full border border-white/10 bg-black/70" />
+      <div className="absolute left-1/2 top-1.5 h-2 w-14 -translate-x-1/2 rounded-full border border-line-strong bg-ink-950/80" />
 
       {/* Desktop icons */}
       <div className="absolute left-2 top-5 space-y-1.5">
-        {['bg-accent-primary/40', 'bg-accent-secondary/40', 'bg-accent-success/40', 'bg-accent-warning/40'].map((c) => (
-          <div key={c} className={cn('h-3 w-3 rounded-[3px] border border-white/10', c)} />
+        {['text-plasma-400', 'text-viz-3', 'text-success', 'text-ember-400'].map((c) => (
+          <div key={c} className={cn('flex size-3 items-center justify-center rounded-[28%] border border-line-strong bg-ink-800', c)}>
+            <span className="size-1 rounded-full bg-current" />
+          </div>
         ))}
       </div>
 
@@ -371,9 +330,7 @@ function DesktopTeaser() {
           animate={{ opacity: [0, 1, 1, 0, 0], scale: [0.9, 1, 1, 1.08, 1.08] }}
           transition={{ duration: CYCLE, times: [0, 0.03, 0.1, 0.15, 1], repeat: Infinity, ease: 'easeOut' }}
         >
-          <span className="font-display text-sm font-bold tracking-[0.35em] text-accent-primary text-glow">
-            WARRIOR
-          </span>
+          <BrandMark size={28} glow />
         </motion.div>
       )}
 
@@ -383,7 +340,7 @@ function DesktopTeaser() {
           {[0.85, 0.55, 0.7].map((w, i) => (
             <motion.div
               key={i}
-              className="h-[3px] origin-left rounded-full bg-accent-success/70"
+              className="h-[3px] origin-left rounded-full bg-success/70"
               style={{ width: `${w * 100}%` }}
               initial={animated ? { scaleX: 0 } : false}
               animate={animated ? { scaleX: [0, 0, 1, 1] } : undefined}
@@ -395,8 +352,8 @@ function DesktopTeaser() {
             />
           ))}
           <div className="flex items-center gap-1">
-            <span className="h-[3px] w-2 rounded-full bg-accent-primary/80" />
-            <span className="h-2 w-[3px] bg-accent-primary animate-pulse" />
+            <span className="h-[3px] w-2 rounded-full bg-accent/80" />
+            <span className="h-2 w-[3px] bg-accent motion-safe:animate-pulse-soft" />
           </div>
         </div>
       </TeaserWindow>
@@ -406,7 +363,7 @@ function DesktopTeaser() {
           {[0.9, 0.6, 1.1, 0.75, 1.3, 0.8, 1].map((d, i) => (
             <motion.span
               key={i}
-              className="w-[4px] origin-bottom rounded-sm bg-gradient-to-t from-accent-secondary to-accent-primary"
+              className="w-[4px] origin-bottom rounded-sm bg-linear-to-t from-viz-3 to-plasma-400"
               style={{ height: '100%' }}
               initial={animated ? { scaleY: 0.3 } : false}
               animate={animated ? { scaleY: [0.25, 1, 0.45, 0.8, 0.3] } : { scaleY: 0.35 + (i % 3) * 0.2 }}
@@ -419,9 +376,9 @@ function DesktopTeaser() {
       <TeaserWindow title="Habit Forge" className="bottom-[15%] left-[30%] h-[33%] w-[40%]" appearAt={0.49} animated={animated}>
         <div className="space-y-1.5">
           {[0.9, 0.65, 0.4].map((p, i) => (
-            <div key={i} className="h-[3px] overflow-hidden rounded-full bg-white/10">
+            <div key={i} className="h-[3px] overflow-hidden rounded-full bg-line-strong">
               <motion.div
-                className="h-full origin-left rounded-full bg-accent-warning/80"
+                className="h-full origin-left rounded-full bg-ember-400/85"
                 style={{ width: `${p * 100}%` }}
                 initial={animated ? { scaleX: 0 } : false}
                 animate={animated ? { scaleX: [0, 0, 1, 1] } : undefined}
@@ -439,7 +396,7 @@ function DesktopTeaser() {
       {/* Cursor */}
       {animated && (
         <motion.div
-          className="absolute h-3 w-3 drop-shadow-[0_0_4px_rgba(0,240,255,0.8)]"
+          className="absolute h-3 w-3 drop-shadow-[0_1px_2px_rgb(0_0_0/0.6)]"
           initial={{ left: '70%', top: '80%', opacity: 0 }}
           animate={{
             left: ['70%', '70%', '30%', '66%', '48%', '48%'],
@@ -449,23 +406,23 @@ function DesktopTeaser() {
           transition={{ duration: CYCLE, times: [0, 0.12, 0.2, 0.36, 0.52, 1], repeat: Infinity, ease: 'easeInOut' }}
         >
           <svg viewBox="0 0 12 12" className="h-full w-full">
-            <path d="M1 1 L1 10 L3.8 7.4 L6 11 L7.6 10.2 L5.4 6.7 L9 6.5 Z" fill="#e4e4ef" stroke="#050510" strokeWidth="0.8" />
+            <path d="M1 1 L1 10 L3.8 7.4 L6 11 L7.6 10.2 L5.4 6.7 L9 6.5 Z" fill="var(--color-fg)" stroke="var(--color-ink-950)" strokeWidth="0.8" />
           </svg>
         </motion.div>
       )}
 
       {/* Taskbar */}
-      <div className="absolute inset-x-0 bottom-0 flex h-4 items-center justify-center gap-1 border-t border-white/10 bg-black/60">
-        <span className="h-1.5 w-1.5 rounded-full bg-accent-primary shadow-[0_0_6px_rgba(0,240,255,0.9)]" />
+      <div className="absolute inset-x-0 bottom-0 flex h-4 items-center justify-center gap-1 border-t border-line bg-ink-950/80">
+        <span className="size-1.5 rounded-full bg-accent" />
         {[0, 1, 2, 3].map((i) => (
-          <span key={i} className="h-1.5 w-1.5 rounded-full bg-white/25" />
+          <span key={i} className="size-1.5 rounded-full bg-fg-faint" />
         ))}
       </div>
 
       {/* Scan sweep */}
       {animated && (
         <motion.div
-          className="pointer-events-none absolute inset-x-0 h-10 bg-gradient-to-b from-transparent via-accent-primary/10 to-transparent"
+          className="pointer-events-none absolute inset-x-0 h-10 bg-linear-to-b from-transparent via-accent/8 to-transparent"
           initial={{ top: '-20%' }}
           animate={{ top: ['-20%', '110%'] }}
           transition={{ duration: 3.6, repeat: Infinity, ease: 'linear', repeatDelay: 0.8 }}
@@ -492,7 +449,7 @@ function TeaserWindow({
   return (
     <motion.div
       className={cn(
-        'absolute overflow-hidden rounded-md border border-white/10 bg-[#0d0d18]/90 shadow-[0_8px_24px_rgba(0,0,0,0.5)]',
+        'absolute overflow-hidden rounded-[5px] border border-line-strong bg-ink-850/95 shadow-e2',
         className
       )}
       initial={animated ? { opacity: 0, scale: 0.85 } : false}
@@ -503,11 +460,11 @@ function TeaserWindow({
           : undefined
       }
     >
-      <div className="flex h-3 items-center gap-[3px] border-b border-white/5 bg-white/[0.03] px-1.5">
-        <span className="h-1 w-1 rounded-full bg-accent-danger/70" />
-        <span className="h-1 w-1 rounded-full bg-accent-warning/70" />
-        <span className="h-1 w-1 rounded-full bg-accent-success/70" />
-        <span className="ml-1 truncate font-mono text-[6px] text-text-secondary">{title}</span>
+      <div className="flex h-3 items-center gap-[3px] border-b border-line bg-surface-2 px-1.5">
+        <span className="size-1 rounded-full bg-fg-faint" />
+        <span className="size-1 rounded-full bg-fg-faint" />
+        <span className="size-1 rounded-full bg-fg-faint" />
+        <span className="ml-1 truncate font-mono text-[6px] text-fg-muted">{title}</span>
       </div>
       <div className="p-1.5">{children}</div>
     </motion.div>

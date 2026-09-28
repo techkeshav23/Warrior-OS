@@ -7,11 +7,13 @@
 'use client';
 
 import { memo, useEffect, useState } from 'react';
-import { cn } from '@/lib/utils';
+import { Bot, BrainCircuit, HardDrive, TerminalSquare, UserRound } from 'lucide-react';
+import { Card, Kbd, Skeleton, TONE_TEXT, type Tone } from '@/components/ui';
 import { OWNER } from '@/config/owner';
 import { getVisitorMode } from '@/lib/visitor';
 import { useNexusStore } from '@/stores/useNexusStore';
 import { fetchNexusAIStatus, type NexusAIStatus } from '@/lib/nexus/ai-client';
+import { SettingsCard, SettingsPage, SettingsSection, SpecItem, SwitchRow } from './parts';
 
 type LinkState = { kind: 'checking' } | { kind: 'unknown' } | { kind: 'ready'; status: NexusAIStatus };
 
@@ -33,109 +35,92 @@ function NexusTabInner() {
     };
   }, []);
 
-  const brain =
+  const brain: { label: string; detail: string; tone: Tone } | null =
     link.kind === 'checking'
-      ? { label: 'Checking…', detail: 'Asking the server', tone: 'text-white/50' }
+      ? null
       : link.kind === 'unknown'
-        ? { label: 'Offline brain', detail: 'AI route unreachable; answering locally', tone: 'text-amber-300' }
+        ? { label: 'Offline brain', detail: 'AI route unreachable; answering locally', tone: 'warning' }
         : link.status.configured
-          ? { label: 'Gemini online', detail: link.status.model, tone: 'text-green-300' }
-          : { label: 'Offline brain', detail: 'No GEMINI_API_KEY on the server', tone: 'text-cyan-300' };
+          ? { label: 'Gemini online', detail: link.status.model, tone: 'success' }
+          : { label: 'Offline brain', detail: 'No GEMINI_API_KEY on the server', tone: 'accent' };
+
+  const nexus = useNexusStore.getState;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="space-y-1">
-        <h3 className="text-lg font-bold text-white">Nexus AI</h3>
-        <p className="text-xs text-white/50">
-          The companion built into {OWNER.shortName}&apos;s Warrior OS: runs commands, coaches learning over your own
-          decks and notes, and guides you through every app. Summon it with Ctrl+. or the Ctrl+K command bar.
-        </p>
-      </div>
+    <SettingsPage>
+      {/* Identity */}
+      <Card hud>
+        <div className="flex items-start gap-3.5">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-card border border-plasma-400/30 bg-plasma-400/10 text-plasma-400">
+            <Bot size={20} strokeWidth={1.75} aria-hidden />
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <p className="text-ui text-fg-muted">
+              The companion built into {OWNER.shortName}&apos;s Warrior OS: runs commands, coaches learning over
+              your own decks and notes, and guides you through every app.
+            </p>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-fg-subtle">
+              Summon it with <Kbd keys={['Ctrl', '.']} size="sm" /> or the <Kbd keys={['Ctrl', 'K']} size="sm" />{' '}
+              command bar.
+            </p>
+          </div>
+        </div>
+      </Card>
 
-      <div className="grid grid-cols-2 gap-3">
-        <InfoCard title="Brain" value={brain.label} detail={brain.detail} tone={brain.tone} />
-        <InfoCard
-          title="Talking to"
-          value={visitor === 'guest' ? 'Guest' : visitor === 'owner' ? OWNER.shortName : 'Warrior'}
-          detail={visitor === 'guest' ? 'Visitor session' : visitor === 'owner' ? 'Owner session' : 'Session not chosen'}
-        />
-        <InfoCard title="Memory" value="This browser" detail="Chats and preferences stay local" />
-        <InfoCard title="Commands" value="Instant" detail="Parsed locally, no AI call" />
-      </div>
+      {/* Status */}
+      <SettingsSection title="Status">
+        <Card>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-4 @sm:grid-cols-2 @2xl:grid-cols-4">
+            <SpecItem icon={BrainCircuit} label="Brain" detail={brain?.detail} reserveDetail>
+              {brain ? (
+                <span className={TONE_TEXT[brain.tone]}>{brain.label}</span>
+              ) : (
+                <Skeleton className="mt-1 h-3.5 w-24" />
+              )}
+            </SpecItem>
+            <SpecItem
+              icon={UserRound}
+              label="Talking to"
+              detail={
+                visitor === 'guest' ? 'Visitor session' : visitor === 'owner' ? 'Owner session' : 'Session not chosen'
+              }
+            >
+              {visitor === 'guest' ? 'Guest' : visitor === 'owner' ? OWNER.shortName : 'Warrior'}
+            </SpecItem>
+            <SpecItem icon={HardDrive} label="Memory" detail="Chats and preferences stay local">
+              This browser
+            </SpecItem>
+            <SpecItem icon={TerminalSquare} label="Commands" detail="Parsed locally, no AI call">
+              Instant
+            </SpecItem>
+          </div>
+        </Card>
+      </SettingsSection>
 
-      <section className="space-y-3">
-        <label className="text-xs text-white/60 font-semibold">Preferences</label>
-        <ToggleRow
-          label="Share OS context"
-          hint="Send open apps, streak, decks and cards due with AI requests"
-          enabled={contextEnabled}
-          onToggle={() => useNexusStore.getState().setContextEnabled(!contextEnabled)}
-        />
-        <ToggleRow
-          label="Proactive suggestions"
-          hint="Nudges about due cards, streaks, breaks and focus"
-          enabled={suggestionsEnabled}
-          onToggle={() => useNexusStore.getState().setSuggestionsEnabled(!suggestionsEnabled)}
-        />
-        <ToggleRow
-          label="Speak voice replies"
-          hint="Read replies to voice commands aloud"
-          enabled={voiceReplies}
-          onToggle={() => useNexusStore.getState().setVoiceReplies(!voiceReplies)}
-        />
-      </section>
-    </div>
-  );
-}
-
-function InfoCard({ title, value, detail, tone }: { title: string; value: string; detail: string; tone?: string }) {
-  return (
-    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-      <p className="text-xs text-white/70 font-medium">{title}</p>
-      <p className={cn('text-sm', tone ?? 'text-white/80')}>{value}</p>
-      <p className="text-[11px] text-white/40 truncate" title={detail}>
-        {detail}
-      </p>
-    </div>
-  );
-}
-
-function ToggleRow({
-  label,
-  hint,
-  enabled,
-  onToggle,
-}: {
-  label: string;
-  hint?: string;
-  enabled: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="min-w-0">
-        <span className="text-sm text-white/70">{label}</span>
-        {hint && <p className="text-[11px] text-white/40">{hint}</p>}
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        aria-label={label}
-        onClick={onToggle}
-        className={cn(
-          'w-10 h-5 shrink-0 rounded-full transition-all relative',
-          enabled ? 'bg-cyan-500' : 'bg-white/20'
-        )}
-      >
-        <div
-          className={cn(
-            'w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all',
-            enabled ? 'left-5.5' : 'left-0.5'
-          )}
-        />
-      </button>
-    </div>
+      {/* Preferences */}
+      <SettingsSection title="Preferences" description="What NEXUS may see and do. Saved in this browser.">
+        <SettingsCard>
+          <SwitchRow
+            label="Share OS context"
+            description="Send open apps, streak, decks and cards due with AI requests."
+            checked={contextEnabled}
+            onCheckedChange={() => nexus().setContextEnabled(!contextEnabled)}
+          />
+          <SwitchRow
+            label="Proactive suggestions"
+            description="Nudges about due cards, streaks, breaks and focus."
+            checked={suggestionsEnabled}
+            onCheckedChange={() => nexus().setSuggestionsEnabled(!suggestionsEnabled)}
+          />
+          <SwitchRow
+            label="Speak voice replies"
+            description="Read replies to voice commands aloud."
+            checked={voiceReplies}
+            onCheckedChange={() => nexus().setVoiceReplies(!voiceReplies)}
+          />
+        </SettingsCard>
+      </SettingsSection>
+    </SettingsPage>
   );
 }
 

@@ -1,9 +1,10 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Level Up Effect
-// Detects a level increase in useXPStore and plays: the XP bar fills
-// to max → white-cyan flash + shockwave → the old level number blows
-// away while the new one scales up with a glow → the new title and the
-// fresh bar for the next level. Shares the celebration queue with the
+// Detects a level increase in useXPStore and plays (FORGE HUD: ember +
+// gold, XP is warrior energy): the XP bar fills to max → a warm flash +
+// shockwave → the old level number blows away while the new one forges
+// in with an ember glow → the new title and the fresh bar for the next
+// level. Shares the celebration queue with the
 // achievement cinematic (an unlock that causes a level-up plays
 // first). Toast instead under reduced motion or lite mode, or when
 // switched off.
@@ -37,7 +38,8 @@ import {
 /** When the bar hits 100 % and the flash fires (s). */
 const FLASH_AT = 1.0;
 const TOTAL_SECONDS = 2.9;
-const BAR_GRADIENT = 'linear-gradient(90deg, #22d3ee 0%, #7b61ff 100%)';
+const BAR_GRADIENT = 'linear-gradient(90deg, #f76b15 0%, #ff8a3d 55%, #f5c04a 100%)';
+const EMBER_GLOW = 'rgba(247, 107, 21, 0.55)';
 
 function announceLevelUp(fromLevel: number, toLevel: number): void {
   const title = levelTitle(toLevel);
@@ -46,7 +48,6 @@ function announceLevelUp(fromLevel: number, toLevel: number): void {
     type: 'success',
     title: `Level up! Lv.${toLevel} ${title}`,
     message: jump > 1 ? `+${jump} levels. You are now a ${title}.` : `You are now a ${title}.`,
-    icon: '⬆️',
   });
 }
 
@@ -97,7 +98,7 @@ function LevelUpRun({ celebration }: { celebration: LevelUpCelebration }) {
       {/* soft dim so the panel reads over any wallpaper */}
       <motion.div
         className="absolute inset-0"
-        style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.55) 75%)' }}
+        style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(4, 6, 11, 0.05), rgba(4, 6, 11, 0.6) 75%)' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: [0, 1, 1, 0] }}
         transition={{ duration: TOTAL_SECONDS, times: [0, 0.08, 0.85, 1] }}
@@ -108,7 +109,7 @@ function LevelUpRun({ celebration }: { celebration: LevelUpCelebration }) {
         className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.95) 0%, rgba(0, 240, 255, 0.6) 28%, rgba(123, 97, 255, 0.25) 52%, rgba(0, 0, 0, 0) 75%)',
+            'radial-gradient(circle at 50% 28%, rgba(255, 250, 240, 0.9) 0%, rgba(255, 178, 122, 0.5) 26%, rgba(247, 107, 21, 0.18) 50%, rgba(4, 6, 11, 0) 75%)',
         }}
         initial={{ opacity: 0 }}
         animate={{ opacity: [0, 0.9, 0] }}
@@ -119,38 +120,38 @@ function LevelUpRun({ celebration }: { celebration: LevelUpCelebration }) {
         type="button"
         aria-label="Dismiss level up"
         onClick={() => finishLevelUp(key)}
-        className="pointer-events-auto relative flex w-[min(88vw,380px)] cursor-pointer flex-col items-center rounded-2xl border border-cyan-400/30 px-8 py-6 text-center"
-        style={{
-          background: 'rgba(8, 10, 20, 0.88)',
-          backdropFilter: 'blur(14px)',
-          WebkitBackdropFilter: 'blur(14px)',
-          boxShadow: '0 0 40px rgba(0, 240, 255, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
-        }}
+        className="pointer-events-auto relative flex w-[min(88vw,380px)] cursor-pointer flex-col items-center rounded-sheet glass-popover hud-corners px-8 pb-6 pt-7 text-center focus-ring"
+        style={
+          {
+            '--hud-corner-color': 'color-mix(in oklab, var(--color-ember-400) 55%, transparent)',
+            '--hud-corner-inset': '8px',
+            boxShadow: `0 0 0 1px rgba(247, 107, 21, 0.18), 0 24px 60px -12px rgba(0, 0, 0, 0.6), 0 0 48px -8px ${EMBER_GLOW}`,
+          } as React.CSSProperties
+        }
         initial={{ y: -16, scale: 0.94, opacity: 0 }}
         animate={{ y: 0, scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 300, damping: 24 }}
       >
         <motion.p
-          className="font-mono text-[11px] font-bold uppercase tracking-[0.45em] text-cyan-300"
-          style={{ textShadow: '0 0 12px rgba(0, 240, 255, 0.7)' }}
-          initial={{ opacity: 0, letterSpacing: '0.2em' }}
-          animate={{ opacity: 1, letterSpacing: '0.45em' }}
+          className="font-mono text-2xs font-medium uppercase text-ember-300"
+          initial={{ opacity: 0, letterSpacing: '0.14em' }}
+          animate={{ opacity: 1, letterSpacing: '0.32em' }}
           transition={{ duration: 0.5 }}
         >
-          Level Up
+          Level up
         </motion.p>
 
         {/* Level number: old one blows away at the flash, new one scales up with a glow */}
         <div className="relative my-2 flex h-28 w-full items-center justify-center">
           <motion.span
-            className="absolute rounded-full border-2 border-cyan-300"
-            style={{ width: 90, height: 90, boxShadow: '0 0 24px rgba(0, 240, 255, 0.8)' }}
+            className="absolute rounded-full border-[1.5px] border-ember-300"
+            style={{ width: 90, height: 90, boxShadow: `0 0 24px ${EMBER_GLOW}` }}
             initial={{ opacity: 0, scale: 0.3 }}
             animate={{ opacity: [0, 0.9, 0], scale: [0.3, 1, 2.8] }}
             transition={{ delay: FLASH_AT, duration: 0.75, times: [0, 0.15, 1], ease: 'easeOut' }}
           />
           <motion.span
-            className="absolute text-7xl font-black text-white/80"
+            className="absolute text-7xl font-semibold text-fg-muted tabular"
             style={{ fontFamily: FX_DISPLAY_FONT }}
             initial={{ opacity: 1, scale: 1 }}
             animate={{ opacity: [1, 1, 0], scale: [1, 1.08, 0.4], filter: ['blur(0px)', 'blur(0px)', 'blur(8px)'] }}
@@ -159,10 +160,10 @@ function LevelUpRun({ celebration }: { celebration: LevelUpCelebration }) {
             {fromLevel}
           </motion.span>
           <motion.span
-            className="absolute text-7xl font-black text-white"
+            className="absolute text-7xl font-semibold text-fg tabular"
             style={{
               fontFamily: FX_DISPLAY_FONT,
-              textShadow: '0 0 18px rgba(0, 240, 255, 0.95), 0 0 44px rgba(123, 97, 255, 0.75)',
+              textShadow: '0 0 18px rgba(255, 138, 61, 0.75), 0 0 44px rgba(245, 192, 74, 0.35)',
             }}
             initial={{ opacity: 0, scale: 0.3 }}
             animate={{ opacity: 1, scale: [0.3, 1.5, 1] }}
@@ -173,7 +174,7 @@ function LevelUpRun({ celebration }: { celebration: LevelUpCelebration }) {
         </div>
 
         <motion.p
-          className="text-lg font-bold text-white"
+          className="text-lg font-semibold tracking-[0.04em] text-fg"
           style={{ fontFamily: FX_DISPLAY_FONT }}
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
@@ -183,7 +184,7 @@ function LevelUpRun({ celebration }: { celebration: LevelUpCelebration }) {
         </motion.p>
         {jump > 1 && (
           <motion.p
-            className="mt-0.5 font-mono text-[11px] text-purple-300"
+            className="mt-1 font-mono text-2xs uppercase tracking-[0.14em] text-gold"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: FLASH_AT + 0.3 }}
@@ -193,10 +194,10 @@ function LevelUpRun({ celebration }: { celebration: LevelUpCelebration }) {
         )}
 
         {/* XP bar: fills to max, flashes, restarts for the new level */}
-        <div className="relative mt-4 h-2 w-full overflow-hidden rounded-full bg-white/10">
+        <div className="relative mt-5 h-1.5 w-full overflow-hidden rounded-full bg-line-strong">
           <motion.div
             className="absolute inset-y-0 left-0 rounded-full"
-            style={{ background: BAR_GRADIENT, boxShadow: '0 0 10px rgba(34, 211, 238, 0.7)' }}
+            style={{ background: BAR_GRADIENT, boxShadow: `0 0 10px ${EMBER_GLOW}` }}
             initial={{ width: `${fromProgress}%`, opacity: 1 }}
             animate={{ width: '100%', opacity: 0 }}
             transition={{
@@ -206,14 +207,14 @@ function LevelUpRun({ celebration }: { celebration: LevelUpCelebration }) {
           />
           <motion.div
             className="absolute inset-y-0 left-0 rounded-full"
-            style={{ background: BAR_GRADIENT, boxShadow: '0 0 12px rgba(34, 211, 238, 0.85)' }}
+            style={{ background: BAR_GRADIENT, boxShadow: `0 0 12px ${EMBER_GLOW}` }}
             initial={{ width: '0%', opacity: 0 }}
             animate={{ width: `${toProgress}%`, opacity: 1 }}
             transition={{ delay: FLASH_AT + 0.2, duration: 0.6, ease: 'easeOut' }}
           />
         </div>
         <motion.p
-          className="mt-2 font-mono text-[10px] text-white/55"
+          className="mt-2 font-mono text-2xs text-fg-subtle tabular"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: FLASH_AT + 0.35 }}

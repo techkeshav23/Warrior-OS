@@ -21,6 +21,7 @@ import {
   PHANTOM_FADE_MS,
 } from '@/stores/usePhantomStore';
 import { playSynthSample } from '@/lib/procedural-music/synth-samples';
+import { APP_ICONS, getAppHue } from '@/data/app-icons';
 import { accentForCategory } from './accent';
 import { captureWindowState, findWindowElement, snapshotWindow } from './phantom-capture';
 import { onPhantomSpawned, onPhantomDissolved } from './achievements';
@@ -54,7 +55,10 @@ function spawnFromWindow(win: WindowState): void {
     icon: win.icon,
     position: win.position,
     size: win.size,
-    accent: accentForCategory(app?.category),
+    // The app's icon hue, so the ghost glows like its AppIcon.
+    accent: Object.prototype.hasOwnProperty.call(APP_ICONS, win.appId)
+      ? getAppHue(win.appId)
+      : accentForCategory(app?.category),
     windowData,
     snapshotPending: el !== null,
   });

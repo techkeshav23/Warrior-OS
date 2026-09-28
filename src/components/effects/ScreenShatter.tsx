@@ -16,6 +16,7 @@ import { useOSStore } from '@/stores/useOSStore';
 import { useXPStore } from '@/stores/useXPStore';
 import { OWNER } from '@/config/owner';
 import { getOwnerInitials } from '@/components/showcase/OwnerCard';
+import { EMBER, FG, INK, PLASMA } from '@/styles/tokens';
 import { rasterizeElement } from './dom-raster';
 import { playShatterSound } from './effects-sfx';
 import {
@@ -48,7 +49,7 @@ export interface ScreenShatterProps {
 const SHATTER_MS = 1750;
 const CRACK_MS = 150;
 const GRAVITY = 2600; // px/s²
-const LOCK_BACKGROUND = '#050508';
+const LOCK_BACKGROUND = INK[950];
 
 interface Pt {
   x: number;
@@ -133,7 +134,7 @@ function ScreenShatterInner({ active, onDone, snapshot, source, impact }: Screen
       const backdrop = t < 0.42 ? 1 : Math.max(0, 1 - (t - 0.42) / 0.75);
       if (backdrop > 0) {
         ctx.globalAlpha = backdrop;
-        ctx.fillStyle = '#020207';
+        ctx.fillStyle = INK[950];
         ctx.fillRect(0, 0, w, h);
         ctx.globalAlpha = 1;
       }
@@ -149,17 +150,17 @@ function ScreenShatterInner({ active, onDone, snapshot, source, impact }: Screen
           ctx.lineTo(c.c.x, c.c.y);
           ctx.closePath();
         }
-        ctx.strokeStyle = 'rgba(160, 235, 255, 0.35)';
+        ctx.strokeStyle = 'rgba(124, 231, 251, 0.3)';
         ctx.lineWidth = 3;
         ctx.stroke();
-        ctx.strokeStyle = 'rgba(240, 252, 255, 0.9)';
+        ctx.strokeStyle = 'rgba(230, 237, 247, 0.85)';
         ctx.lineWidth = 1;
         ctx.stroke();
         const flash = 1 - elapsed / CRACK_MS;
         const glow = ctx.createRadialGradient(ix, iy, 0, ix, iy, 220);
         glow.addColorStop(0, `rgba(255, 255, 255, ${0.9 * flash})`);
-        glow.addColorStop(0.35, `rgba(160, 235, 255, ${0.35 * flash})`);
-        glow.addColorStop(1, 'rgba(160, 235, 255, 0)');
+        glow.addColorStop(0.35, `rgba(124, 231, 251, ${0.3 * flash})`);
+        glow.addColorStop(1, 'rgba(124, 231, 251, 0)');
         ctx.fillStyle = glow;
         ctx.fillRect(ix - 220, iy - 220, 440, 440);
         return;
@@ -311,7 +312,7 @@ function captureScreen(root: HTMLElement): HTMLCanvasElement {
   return paintLockScreen(w, h, scale);
 }
 
-/** Recreation of the lock screen's look: gradient, particles, clock, owner avatar, name. */
+/** Recreation of the lock screen's look: deep space, clock, the unlock card mid-scan. */
 function paintLockScreen(w: number, h: number, scale: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(w * scale);
@@ -320,85 +321,114 @@ function paintLockScreen(w: number, h: number, scale: number): HTMLCanvasElement
   if (!ctx) return canvas;
   ctx.scale(scale, scale);
 
+  // Deep Space: ink, a plasma aurora top-left, the ember horizon bottom-right.
   const bg = ctx.createLinearGradient(0, 0, 0, h);
-  bg.addColorStop(0, '#050510');
-  bg.addColorStop(0.5, '#0a0a20');
-  bg.addColorStop(1, '#050510');
+  bg.addColorStop(0, '#060912');
+  bg.addColorStop(1, INK[950]);
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
-
-  ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
-  for (let i = 0; i < 30; i++) {
+  const aurora = ctx.createRadialGradient(w * 0.2, h * 0.18, 0, w * 0.2, h * 0.18, Math.max(w, h) * 0.45);
+  aurora.addColorStop(0, 'rgba(47, 214, 245, 0.10)');
+  aurora.addColorStop(1, 'rgba(47, 214, 245, 0)');
+  ctx.fillStyle = aurora;
+  ctx.fillRect(0, 0, w, h);
+  const dawn = ctx.createRadialGradient(w * 0.85, h * 1.05, 0, w * 0.85, h * 1.05, h * 0.5);
+  dawn.addColorStop(0, 'rgba(247, 107, 21, 0.16)');
+  dawn.addColorStop(1, 'rgba(247, 107, 21, 0)');
+  ctx.fillStyle = dawn;
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(230, 237, 247, 0.5)';
+  for (let i = 0; i < 70; i++) {
     ctx.beginPath();
-    ctx.arc(Math.random() * w, Math.random() * h, 0.5 + Math.random() * 1.5, 0, Math.PI * 2);
+    ctx.arc(Math.random() * w, Math.random() * h, 0.4 + Math.random() * 0.7, 0, Math.PI * 2);
     ctx.fill();
   }
 
   const now = new Date();
-  const time = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-  const date = now.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const hours = now.getHours();
+  const time = `${hours % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const date = now
+    .toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+    .toUpperCase();
   const { level } = useXPStore.getState();
   const display = resolveDisplayFontFamily();
   const cx = w / 2;
-  const cy = h / 2;
+  const top = h / 2 - 300;
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#e4e4ef';
-  ctx.font = `700 72px ${display}`;
-  ctx.fillText(time, cx, cy - 190);
-  ctx.fillStyle = '#8888a0';
-  ctx.font = '14px ui-monospace, monospace';
-  ctx.fillText(date, cx, cy - 138);
+  ctx.fillStyle = FG.muted;
+  ctx.font = '500 12px ui-monospace, monospace';
+  ctx.fillText(date, cx, top);
+  ctx.fillStyle = FG.base;
+  ctx.font = `500 112px ${display}`;
+  ctx.fillText(time, cx, top + 80);
+  ctx.fillStyle = FG.subtle;
+  ctx.font = '12px ui-monospace, monospace';
+  ctx.fillText(`Lv ${level}`, cx, top + 165);
 
-  const avatarY = cy - 50;
-  ctx.strokeStyle = 'rgba(0, 240, 255, 0.1)';
-  ctx.lineWidth = 1;
+  // The unlock card
+  const cardW = Math.min(380, w - 32);
+  const cardH = 300;
+  const cardX = cx - cardW / 2;
+  const cardY = top + 200;
   ctx.beginPath();
-  ctx.arc(cx, avatarY, 64, 0, Math.PI * 2);
+  ctx.roundRect?.(cardX, cardY, cardW, cardH, 20);
+  ctx.fillStyle = 'rgba(9, 13, 21, 0.86)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(148, 170, 205, 0.18)';
+  ctx.lineWidth = 1;
   ctx.stroke();
-  ctx.strokeStyle = 'rgba(0, 240, 255, 0.3)';
+
+  const avatarX = cardX + 52;
+  const avatarY = cardY + 52;
+  ctx.fillStyle = INK[700];
+  ctx.beginPath();
+  ctx.arc(avatarX, avatarY, 28, 0, Math.PI * 2);
+  ctx.fill();
+  const ring = ctx.createLinearGradient(avatarX - 28, avatarY - 28, avatarX + 28, avatarY + 28);
+  ring.addColorStop(0, PLASMA[400]);
+  ring.addColorStop(1, EMBER[400]);
+  ctx.strokeStyle = ring;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = FG.base;
+  ctx.font = `600 18px ${display}`;
+  ctx.fillText(getOwnerInitials(OWNER.name), avatarX, avatarY + 1, 44);
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = FG.subtle;
+  ctx.font = '500 11px ui-monospace, monospace';
+  ctx.fillText('SYSTEM OWNER', avatarX + 44, avatarY - 16);
+  ctx.fillStyle = FG.base;
+  ctx.font = '600 18px ui-sans-serif, system-ui, sans-serif';
+  ctx.fillText(OWNER.name, avatarX + 44, avatarY + 4, cardW - 120);
+  paintOwnerLine(ctx, avatarX + 44, avatarY + 24, cardW - 120);
+
+  ctx.textAlign = 'center';
+  ctx.strokeStyle = 'rgba(148, 170, 205, 0.18)';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(cx, avatarY, 56, 0, Math.PI * 2);
+  ctx.arc(cx, cardY + 180, 29, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.fillStyle = '#111118';
-  ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+  ctx.strokeStyle = PLASMA[400];
   ctx.beginPath();
-  ctx.arc(cx, avatarY, 48, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.arc(cx, cardY + 180, 29, -Math.PI / 2, Math.PI * 1.5);
   ctx.stroke();
+  ctx.fillStyle = FG.base;
+  ctx.font = '500 14px ui-sans-serif, system-ui, sans-serif';
+  ctx.fillText('Authenticating…', cx, cardY + 240);
 
-  // Owner initials, cyan → violet like the lock screen avatar.
-  const initials = getOwnerInitials(OWNER.name);
-  const initialsFill = ctx.createLinearGradient(cx - 24, avatarY - 18, cx + 24, avatarY + 18);
-  initialsFill.addColorStop(0, '#00f0ff');
-  initialsFill.addColorStop(1, '#7b61ff');
-  ctx.fillStyle = initialsFill;
-  ctx.font = `700 30px ${display}`;
-  ctx.fillText(initials, cx, avatarY + 1, 80);
-
-  ctx.fillStyle = '#00f0ff';
-  ctx.font = '700 12px ui-monospace, monospace';
-  ctx.fillText(`Lv.${level}`, cx, avatarY + 50);
-
-  ctx.font = `700 20px ${display}`;
-  ctx.fillText(OWNER.name.toUpperCase(), cx, cy + 40, w - 48);
-  paintOwnerLine(ctx, cx, cy + 64, w - 48);
-  ctx.fillStyle = '#00f0ff';
-  ctx.font = '12px ui-monospace, monospace';
-  ctx.fillText('Authenticating...', cx, cy + 120);
-
-  const vignette = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.35, cx, cy, Math.hypot(cx, cy));
-  vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  vignette.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
+  const vignette = ctx.createRadialGradient(cx, h / 2, Math.min(w, h) * 0.35, cx, h / 2, Math.hypot(cx, h / 2));
+  vignette.addColorStop(0, 'rgba(4, 6, 11, 0)');
+  vignette.addColorStop(1, 'rgba(4, 6, 11, 0.5)');
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, w, h);
   return canvas;
 }
 
-/** "@handle · tagline" centred on (cx, y): handle in cyan, tagline muted, like the lock screen. */
-function paintOwnerLine(ctx: CanvasRenderingContext2D, cx: number, y: number, maxWidth: number): void {
+/** "@handle · tagline" from (x, y): handle in plasma, tagline subtle, like the lock screen. */
+function paintOwnerLine(ctx: CanvasRenderingContext2D, x: number, y: number, maxWidth: number): void {
   const handle = `@${OWNER.handle}`;
   const tagline = OWNER.tagline ? ` · ${OWNER.tagline}` : '';
   ctx.save();
@@ -406,12 +436,12 @@ function paintOwnerLine(ctx: CanvasRenderingContext2D, cx: number, y: number, ma
   const handleWidth = ctx.measureText(handle).width;
   const total = handleWidth + ctx.measureText(tagline).width;
   const fit = total > maxWidth ? maxWidth / total : 1;
-  ctx.translate(cx - (total * fit) / 2, y);
+  ctx.translate(x, y);
   ctx.scale(fit, 1);
   ctx.textAlign = 'left';
-  ctx.fillStyle = 'rgba(0, 240, 255, 0.8)';
+  ctx.fillStyle = PLASMA[400];
   ctx.fillText(handle, 0, 0);
-  ctx.fillStyle = '#555566';
+  ctx.fillStyle = FG.subtle;
   ctx.fillText(tagline, handleWidth, 0);
   ctx.restore();
 }

@@ -11,8 +11,9 @@
 'use client';
 
 import { useEffect, useRef, useState, type DragEvent } from 'react';
-import { Upload, Play, Pause, SkipBack, SkipForward, Trash2, Music2, Volume2 } from 'lucide-react';
+import { AudioLines, HardDrive, Info, ListMusic, Music2, Pause, Play, SkipBack, SkipForward, Trash2, TriangleAlert, Upload, Volume1, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button, EmptyState, IconButton, ListRow, Skeleton, Slider } from '@/components/ui';
 import { useAudioStore } from '@/stores/useAudioStore';
 import { connectMediaElement, getFrequencyBands } from '@/lib/audio-engine';
 import { isMusicPlaying, isProceduralTrack, stopMusic } from '@/lib/procedural-music/engine';
@@ -34,6 +35,11 @@ function formatTime(secs: number): string {
   const m = Math.floor(secs / 60);
   const s = Math.floor(secs % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+/** Timestamp for session-only track ids (only ever called from event handlers). */
+function sessionStamp(): number {
+  return Date.now();
 }
 
 function formatSize(bytes: number): string {
@@ -189,7 +195,7 @@ export function LocalLibrary() {
   };
 
   const addSessionFiles = (files: File[]) => {
-    const now = Date.now();
+    const now = sessionStamp();
     const added = files.map((file, i) => {
       const id = `session-${now}-${i}`;
       sessionBlobsRef.current.set(id, file);
@@ -259,9 +265,17 @@ export function LocalLibrary() {
     if (e.dataTransfer.files.length > 0) void addFiles(e.dataTransfer.files);
   };
 
+  const pct = duration > 0 ? Math.min(100, (progress / duration) * 100) : 0;
+  const VolumeIcon = volume <= 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+  const footerNote =
+    notice ??
+    (status === 'session'
+      ? 'This browser can’t store files. They stay until you close this window.'
+      : 'Stored on this device only. Nothing is uploaded.');
+
   return (
     <div
-      className={cn('relative flex h-full flex-col', dragOver && 'ring-2 ring-inset ring-cyan-400/50')}
+      className="relative flex h-full flex-col"
       onDragOver={(e) => {
         e.preventDefault();
         if (!dragOver) setDragOver(true);
@@ -290,153 +304,191 @@ export function LocalLibrary() {
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
       />
 
-      {/* Visualizer + now playing */}
-      <div className="relative h-24 shrink-0 overflow-hidden bg-black/50">
-        <AudioVisualizer active={playing} source="element" />
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="text-center">
-            <p className="max-w-[260px] truncate text-sm font-semibold text-text-primary">
-              {current?.name ?? 'Nothing playing'}
+      {/* ── Now playing + transport ── */}
+      <section aria-label="Now playing" className="shrink-0 border-b border-line px-4 pb-3 pt-4">
+        <div className="flex items-center gap-3">
+          <span
+            className={cn(
+              'flex size-11 shrink-0 items-center justify-center rounded-card border bg-linear-to-b from-ink-750 to-ink-850 inset-shadow-[0_1px_0_rgb(255_255_255/0.06)]',
+              playing ? 'border-accent/35 text-accent' : 'border-line-strong text-fg-subtle'
+            )}
+          >
+            {playing ? <AudioLines size={20} strokeWidth={1.75} aria-hidden /> : <Music2 size={20} strokeWidth={1.75} aria-hidden />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="hud-label">{playing ? 'Now playing' : current ? 'Paused' : 'Nothing playing'}</div>
+            <p className="truncate text-sm font-semibold text-fg" title={current?.name}>
+              {current?.name ?? 'Pick a track below'}
             </p>
-            <p className="text-[10px] text-text-muted">{current ? formatSize(current.size) : 'Your own audio files'}</p>
+            <p className="tabular truncate font-mono text-2xs text-fg-subtle">
+              {current ? formatSize(current.size) : `${tracks.length} track${tracks.length === 1 ? '' : 's'} in your library`}
+            </p>
           </div>
         </div>
-      </div>
 
-      {/* Transport */}
-      <div className="shrink-0 border-b border-white/5 px-3 py-2">
-        <div
-          className="group mb-1.5 h-1 w-full cursor-pointer rounded-full bg-white/10"
-          onClick={(e) => {
-            const audio = audioRef.current;
-            if (!audio || duration <= 0) return;
-            const rect = e.currentTarget.getBoundingClientRect();
-            audio.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
-          }}
-          role="slider"
-          aria-label="Seek"
-          aria-valuemin={0}
-          aria-valuemax={Math.round(duration)}
-          aria-valuenow={Math.round(progress)}
-        >
+        <div className="relative mt-3 h-14 overflow-hidden rounded-control border border-line bg-ink-950/55">
+          <AudioVisualizer active={playing} source="element" />
+        </div>
+
+        {/* Seek */}
+        <div className="mt-3">
           <div
-            className="h-full rounded-full bg-accent-primary"
-            style={{ width: duration > 0 ? `${Math.min(100, (progress / duration) * 100)}%` : '0%' }}
-          />
-        </div>
-        <div className="mb-1 flex justify-between font-mono text-[10px] text-text-muted">
-          <span>{formatTime(progress)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => step(-1)}
-            disabled={tracks.length === 0}
-            className="rounded p-1 text-text-secondary hover:text-text-primary disabled:opacity-30"
-            aria-label="Previous track"
+            className={cn(
+              'group relative h-4 w-full cursor-pointer',
+              duration <= 0 && 'pointer-events-none opacity-45'
+            )}
+            onClick={(e) => {
+              const audio = audioRef.current;
+              if (!audio || duration <= 0) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              audio.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
+            }}
+            role="slider"
+            aria-label="Seek"
+            aria-valuemin={0}
+            aria-valuemax={Math.round(duration)}
+            aria-valuenow={Math.round(progress)}
+            aria-valuetext={`${formatTime(progress)} of ${formatTime(duration)}`}
           >
-            <SkipBack className="h-4 w-4" />
-          </button>
+            <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-ink-600 transition-[height] duration-120 group-hover:h-1.5">
+              <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+            </div>
+            <div
+              aria-hidden
+              className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-fg opacity-0 shadow-e1 transition-opacity duration-120 group-hover:opacity-100"
+              style={{ left: `${pct}%` }}
+            />
+          </div>
+          <div className="tabular mt-0.5 flex justify-between font-mono text-2xs text-fg-subtle">
+            <span>{formatTime(progress)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+        </div>
+
+        <div className="mt-2 flex items-center gap-2">
+          <IconButton icon={SkipBack} aria-label="Previous track" tooltip onClick={() => step(-1)} disabled={tracks.length === 0} />
           <button
             type="button"
             onClick={togglePlay}
             disabled={tracks.length === 0}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-accent-primary/40 bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25 disabled:opacity-30"
             aria-label={playing ? 'Pause' : 'Play'}
+            className={cn(
+              'focus-ring flex size-11 shrink-0 items-center justify-center rounded-full',
+              'transition-[filter,box-shadow] duration-120 ease-out-quint disabled:pointer-events-none disabled:opacity-45',
+              'bg-accent text-accent-fg inset-shadow-[0_1px_0_rgb(255_255_255/0.28)] hover:brightness-110 hover:shadow-glow active:brightness-95'
+            )}
           >
-            {playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
+            {playing ? (
+              <Pause size={18} strokeWidth={2} className="fill-current" aria-hidden />
+            ) : (
+              <Play size={18} strokeWidth={2} className="ml-0.5 fill-current" aria-hidden />
+            )}
           </button>
-          <button
-            type="button"
-            onClick={() => step(1)}
-            disabled={tracks.length === 0}
-            className="rounded p-1 text-text-secondary hover:text-text-primary disabled:opacity-30"
-            aria-label="Next track"
-          >
-            <SkipForward className="h-4 w-4" />
-          </button>
-          <label className="ml-auto flex items-center gap-2 text-xs text-text-secondary">
-            <Volume2 className="h-4 w-4" aria-hidden />
-            <span className="sr-only">Volume</span>
-            <input
-              type="range"
+          <IconButton icon={SkipForward} aria-label="Next track" tooltip onClick={() => step(1)} disabled={tracks.length === 0} />
+          <div className="ml-auto flex min-w-0 max-w-36 flex-1 items-center gap-2">
+            <IconButton
+              icon={VolumeIcon}
+              size="sm"
+              aria-label={volume > 0 ? 'Mute' : 'Unmute'}
+              onClick={() => setVolume(volume > 0 ? 0 : 0.7)}
+            />
+            <Slider
+              value={volume}
+              onValueChange={setVolume}
               min={0}
               max={1}
               step={0.01}
-              value={volume}
-              onChange={(e) => setVolume(parseFloat(e.target.value))}
-              className="w-24 accent-cyan-400"
+              aria-label="Volume"
+              aria-valuetext={`${Math.round(volume * 100)}%`}
             />
-          </label>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Track list */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* ── Track list ── */}
+      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-2 py-2">
         {status === 'loading' ? (
-          <p className="px-3 py-6 text-center text-xs text-text-muted">Opening your library…</p>
+          <div className="flex flex-col gap-3 px-3 py-2" aria-label="Opening your library" aria-busy>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton shape="block" className="size-6 shrink-0" />
+                <Skeleton lines={2} className="flex-1" />
+              </div>
+            ))}
+          </div>
         ) : tracks.length === 0 ? (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="m-3 flex w-[calc(100%-1.5rem)] flex-col items-center gap-2 rounded-lg border border-dashed border-white/15 px-4 py-8 text-center hover:bg-white/5"
-          >
-            <Music2 className="h-6 w-6 text-text-muted" aria-hidden />
-            <span className="text-sm text-text-primary">Add your music</span>
-            <span className="text-xs text-text-muted">Drop audio files here or click to choose (MP3, M4A, OGG, WAV, FLAC…)</span>
-          </button>
+          <EmptyState
+            className="h-full"
+            size="sm"
+            icon={ListMusic}
+            title="Add your music"
+            description="Drop audio files here or choose them. MP3, M4A, OGG, WAV, FLAC and more."
+            actions={
+              <Button variant="primary" size="sm" leadingIcon={Upload} onClick={() => fileInputRef.current?.click()}>
+                Choose files
+              </Button>
+            }
+          />
         ) : (
-          tracks.map((track, idx) => (
-            <div
-              key={track.id}
-              className={cn(
-                'group flex items-center gap-2 border-b border-white/[0.03] px-3 py-2 hover:bg-white/5',
-                track.id === currentId && 'bg-accent-primary/5'
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => void playTrack(track.id)}
-                className="flex min-w-0 flex-1 items-center gap-2 text-left"
-              >
-                <span className="w-5 font-mono text-[10px] text-text-muted">
-                  {track.id === currentId && playing ? '▶' : idx + 1}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs text-text-primary">{track.name}</span>
-                  <span className="block text-[10px] text-text-muted">{formatSize(track.size)}</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => void removeTrack(track.id)}
-                className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:text-accent-danger group-hover:opacity-100 focus:opacity-100"
-                aria-label={`Remove ${track.name} from library`}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))
+          <div className="flex flex-col gap-0.5" role="list" aria-label="Library">
+            {tracks.map((track, idx) => {
+              const isCurrent = track.id === currentId;
+              return (
+                <div key={track.id} role="listitem">
+                  <ListRow
+                    selected={isCurrent}
+                    onClick={() => void playTrack(track.id)}
+                    leading={
+                      <span className="tabular flex w-5 justify-center font-mono text-2xs">
+                        {isCurrent && playing ? (
+                          <AudioLines size={14} strokeWidth={1.75} className="text-accent" aria-label="Playing" />
+                        ) : (
+                          idx + 1
+                        )}
+                      </span>
+                    }
+                    title={<span title={track.name}>{track.name}</span>}
+                    meta={formatSize(track.size)}
+                    revealTrailing
+                    trailing={
+                      <IconButton
+                        icon={Trash2}
+                        size="xs"
+                        variant="ghost-danger"
+                        aria-label={`Remove ${track.name} from library`}
+                        onClick={() => void removeTrack(track.id)}
+                      />
+                    }
+                  />
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {/* Footer */}
-      <div className="flex shrink-0 items-center justify-between gap-2 border-t border-white/5 px-3 py-2">
-        <span className="truncate text-[10px] text-text-muted">
-          {notice ??
-            (status === 'session'
-              ? 'This browser can’t store files — they’re kept until you close this window.'
-              : 'Stored on this device only. Nothing is uploaded.')}
-        </span>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-text-primary hover:bg-white/10"
+      {/* ── Footer ── */}
+      <div className="flex min-h-11 shrink-0 items-center justify-between gap-2 border-t border-line px-4 py-2">
+        <span
+          className={cn('flex min-w-0 items-center gap-1.5 text-xs', notice ? 'text-warning' : 'text-fg-subtle')}
+          role={notice ? 'status' : undefined}
         >
-          <Upload className="h-3.5 w-3.5" aria-hidden />
-          Add files
-        </button>
+          {notice ? (
+            <TriangleAlert size={14} strokeWidth={1.75} className="shrink-0" aria-hidden />
+          ) : status === 'session' ? (
+            <Info size={14} strokeWidth={1.75} className="shrink-0" aria-hidden />
+          ) : (
+            <HardDrive size={14} strokeWidth={1.75} className="shrink-0" aria-hidden />
+          )}
+          <span className="truncate" title={footerNote}>
+            {footerNote}
+          </span>
+        </span>
+        {tracks.length > 0 && (
+          <Button size="sm" variant="secondary" leadingIcon={Upload} onClick={() => fileInputRef.current?.click()}>
+            Add files
+          </Button>
+        )}
         <input
           ref={fileInputRef}
           type="file"
@@ -449,6 +501,15 @@ export function LocalLibrary() {
           }}
         />
       </div>
+
+      {/* Drop target */}
+      {dragOver && (
+        <div className="pointer-events-none absolute inset-2 z-10 flex flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed border-accent/50 bg-ink-950/80 text-center animate-fade-in">
+          <Upload size={22} strokeWidth={1.75} className="text-accent" aria-hidden />
+          <span className="text-sm font-medium text-fg">Drop to add to your library</span>
+          <span className="text-xs text-fg-subtle">Audio files only · up to 200 MB each</span>
+        </div>
+      )}
     </div>
   );
 }

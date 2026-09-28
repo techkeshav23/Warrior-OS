@@ -1,25 +1,26 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Resume Editor
-// Accordion form: personal info, education, skills, projects
-// (with Project Forge import), experience, achievements (with
-// Warrior OS import) and layout/style. Saves on every keystroke.
+// Accordion of section cards: personal info, education, skills,
+// projects (with Project Forge import), experience, achievements
+// (with Warrior OS import) and layout/style. Saves on every
+// keystroke. Entries are unbordered wells inside their card.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo, useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { memo, useState, type CSSProperties } from 'react';
 import {
   type LucideIcon,
+  Anvil,
   ArrowDown,
   ArrowUp,
-  Award,
   Briefcase,
+  Check,
   ChevronDown,
   Eye,
   EyeOff,
   GraduationCap,
-  Hammer,
+  Info,
   Palette,
   Rocket,
   RotateCcw,
@@ -29,29 +30,36 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button, IconButton, SegmentedControl } from '@/components/ui';
 import { ConfirmButton } from '@/components/apps/project-forge/ConfirmButton';
 import { useProjectForgeStore } from '@/stores/useProjectForgeStore';
 import { RESUME_ACCENTS, RESUME_SECTION_LABELS, useResumeStore } from '@/stores/useResumeStore';
 import type { ResumeDensity, ResumeFont, ResumeSectionKey } from '@/types/resume';
-import { AddButton, EntryCard, FIELD_LABEL, IconButton, TextAreaField, TextField } from './EditorFields';
+import { AddButton, EntryCard, TextAreaField, TextField } from './EditorFields';
 import { AchievementImportDialog, ForgeImportDialog } from './ImportDialogs';
 import { hasAchievement, hasEducation, hasExperience, hasProject, hasSkillGroup } from './resume-utils';
 
 type EditorSection = 'personal' | ResumeSectionKey | 'layout';
 type DialogKind = 'forge' | 'achievements';
 
-const SECTIONS: { key: EditorSection; label: string; Icon: LucideIcon }[] = [
-  { key: 'personal', label: 'Personal info', Icon: User },
-  { key: 'education', label: 'Education', Icon: GraduationCap },
-  { key: 'skills', label: 'Skills', Icon: Wrench },
-  { key: 'projects', label: 'Projects', Icon: Rocket },
-  { key: 'experience', label: 'Experience', Icon: Briefcase },
-  { key: 'achievements', label: 'Achievements', Icon: Trophy },
-  { key: 'layout', label: 'Layout & style', Icon: Palette },
+/** Import dialog: stays mounted while it animates out; `n` remounts it per open. */
+interface DialogState {
+  kind: DialogKind;
+  open: boolean;
+  n: number;
+}
+
+const SECTIONS: { key: EditorSection; label: string; hint: string; Icon: LucideIcon }[] = [
+  { key: 'personal', label: 'Personal info', hint: 'Name, contact links and summary', Icon: User },
+  { key: 'education', label: 'Education', hint: 'Degree, school, score', Icon: GraduationCap },
+  { key: 'skills', label: 'Skills', hint: 'Languages, frameworks, tools', Icon: Wrench },
+  { key: 'projects', label: 'Projects', hint: 'From Project Forge or by hand', Icon: Rocket },
+  { key: 'experience', label: 'Experience', hint: 'Internships, jobs, open source', Icon: Briefcase },
+  { key: 'achievements', label: 'Achievements', hint: 'Hackathons, ranks, certifications', Icon: Trophy },
+  { key: 'layout', label: 'Layout & style', hint: 'Section order, accent, font, spacing', Icon: Palette },
 ];
 
-const SECONDARY_BUTTON =
-  'flex w-full items-center justify-center gap-1.5 rounded-lg border border-cyan-400/35 bg-cyan-400/[0.08] py-2 text-xs font-semibold text-cyan-200 transition-colors hover:bg-cyan-400/15';
+const LABEL = 'text-xs font-medium text-fg-muted';
 
 // ─── Sections ───
 
@@ -60,7 +68,7 @@ function PersonalSection() {
   const update = useResumeStore((s) => s.updatePersonal);
 
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-2 gap-3">
       <TextField
         className="col-span-2"
         label="Full name"
@@ -136,7 +144,7 @@ function EducationSection() {
   const moveItem = useResumeStore((s) => s.moveItem);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {items.map((e, i) => (
         <EntryCard
           key={e.id}
@@ -228,7 +236,7 @@ function SkillsSection({ onNotice }: { onNotice: (text: string) => void }) {
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {items.map((g, i) => (
         <EntryCard
           key={g.id}
@@ -258,9 +266,9 @@ function SkillsSection({ onNotice }: { onNotice: (text: string) => void }) {
       ))}
       <div className="grid grid-cols-2 gap-2">
         <AddButton onClick={() => addItem('skills')}>Add group</AddButton>
-        <button type="button" onClick={pullFromForge} className={SECONDARY_BUTTON}>
-          <Hammer className="h-3.5 w-3.5" /> Tech from Forge
-        </button>
+        <Button variant="secondary" leadingIcon={Anvil} onClick={pullFromForge}>
+          Tech from Forge
+        </Button>
       </div>
     </div>
   );
@@ -274,15 +282,17 @@ function ProjectsSection({ onImport }: { onImport: () => void }) {
   const moveItem = useResumeStore((s) => s.moveItem);
 
   return (
-    <div className="space-y-2">
-      <button type="button" onClick={onImport} className={SECONDARY_BUTTON}>
-        <Hammer className="h-3.5 w-3.5" /> Import from Project Forge
-      </button>
+    <div className="space-y-3">
+      <Button variant="secondary" fullWidth leadingIcon={Anvil} onClick={onImport}>
+        Import from Project Forge
+      </Button>
       {items.map((p, i) => (
         <EntryCard
           key={p.id}
           title={p.name || 'New project'}
           badge={p.forgeId ? 'Forge' : undefined}
+          badgeTone="ember"
+          badgeIcon={Anvil}
           index={i}
           count={items.length}
           onMove={(d) => moveItem('projects', p.id, d)}
@@ -354,7 +364,7 @@ function ExperienceSection() {
   const moveItem = useResumeStore((s) => s.moveItem);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {items.map((x, i) => (
         <EntryCard
           key={x.id}
@@ -419,12 +429,14 @@ function AchievementsSection({ onImport }: { onImport: () => void }) {
   const moveItem = useResumeStore((s) => s.moveItem);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {items.map((a, i) => (
         <EntryCard
           key={a.id}
           title={a.text || 'New achievement'}
           badge={a.osAchievementId ? 'Warrior OS' : undefined}
+          badgeTone="gold"
+          badgeIcon={Trophy}
           index={i}
           count={items.length}
           onMove={(d) => moveItem('achievements', a.id, d)}
@@ -442,22 +454,22 @@ function AchievementsSection({ onImport }: { onImport: () => void }) {
       ))}
       <div className="grid grid-cols-2 gap-2">
         <AddButton onClick={() => addItem('achievements')}>Add achievement</AddButton>
-        <button type="button" onClick={onImport} className={SECONDARY_BUTTON}>
-          <Award className="h-3.5 w-3.5" /> From Warrior OS
-        </button>
+        <Button variant="secondary" leadingIcon={Trophy} onClick={onImport}>
+          From Warrior OS
+        </Button>
       </div>
     </div>
   );
 }
 
-const FONT_OPTIONS: { id: ResumeFont; label: string }[] = [
-  { id: 'sans', label: 'Sans' },
-  { id: 'serif', label: 'Serif' },
+const FONT_OPTIONS: { value: ResumeFont; label: string }[] = [
+  { value: 'sans', label: 'Sans' },
+  { value: 'serif', label: 'Serif' },
 ];
 
-const DENSITY_OPTIONS: { id: ResumeDensity; label: string }[] = [
-  { id: 'comfortable', label: 'Comfortable' },
-  { id: 'compact', label: 'Compact' },
+const DENSITY_OPTIONS: { value: ResumeDensity; label: string }[] = [
+  { value: 'comfortable', label: 'Comfortable' },
+  { value: 'compact', label: 'Compact' },
 ];
 
 function LayoutSection() {
@@ -470,114 +482,117 @@ function LayoutSection() {
   const resetResume = useResumeStore((s) => s.resetResume);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <p className={cn(FIELD_LABEL, 'mb-1.5')}>Section order</p>
+        <p className={cn(LABEL, 'mb-2')}>Section order</p>
         <ul className="space-y-1">
           {order.map((key, i) => {
             const isHidden = hidden.includes(key);
             return (
-              <li
-                key={key}
-                className="flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.03] py-1 pl-2.5 pr-1"
-              >
-                <span className={cn('flex-1 text-xs', isHidden ? 'text-white/35 line-through' : 'text-white/80')}>
+              <li key={key} className="flex h-10 items-center gap-1 rounded-control bg-ink-950/45 pl-3 pr-1.5">
+                <span className="tabular w-5 font-mono text-2xs text-fg-subtle">{i + 1}</span>
+                <span className={cn('flex-1 text-ui', isHidden ? 'text-fg-subtle line-through decoration-fg-faint' : 'text-fg')}>
                   {RESUME_SECTION_LABELS[key]}
                 </span>
                 <IconButton
-                  label={isHidden ? `Show ${RESUME_SECTION_LABELS[key]}` : `Hide ${RESUME_SECTION_LABELS[key]}`}
+                  icon={isHidden ? EyeOff : Eye}
+                  size="xs"
+                  aria-label={isHidden ? `Show ${RESUME_SECTION_LABELS[key]}` : `Hide ${RESUME_SECTION_LABELS[key]}`}
+                  title={isHidden ? `Show ${RESUME_SECTION_LABELS[key]}` : `Hide ${RESUME_SECTION_LABELS[key]}`}
                   onClick={() => setSectionHidden(key, !isHidden)}
-                >
-                  {isHidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </IconButton>
-                <IconButton label="Move up" disabled={i === 0} onClick={() => moveSection(key, -1)}>
-                  <ArrowUp className="h-3.5 w-3.5" />
-                </IconButton>
-                <IconButton label="Move down" disabled={i === order.length - 1} onClick={() => moveSection(key, 1)}>
-                  <ArrowDown className="h-3.5 w-3.5" />
-                </IconButton>
+                />
+                <IconButton
+                  icon={ArrowUp}
+                  size="xs"
+                  aria-label="Move up"
+                  title="Move up"
+                  disabled={i === 0}
+                  onClick={() => moveSection(key, -1)}
+                />
+                <IconButton
+                  icon={ArrowDown}
+                  size="xs"
+                  aria-label="Move down"
+                  title="Move down"
+                  disabled={i === order.length - 1}
+                  onClick={() => moveSection(key, 1)}
+                />
               </li>
             );
           })}
         </ul>
-        <p className="mt-1 text-[10px] text-white/35">Empty sections never print.</p>
+        <p className="mt-2 text-xs text-fg-subtle">Empty sections never print.</p>
       </div>
 
       <div>
-        <p className={cn(FIELD_LABEL, 'mb-1.5')}>Accent colour</p>
-        <div className="flex flex-wrap gap-2">
-          {RESUME_ACCENTS.map((accent) => (
-            <button
-              key={accent.id}
-              type="button"
-              aria-pressed={style.accent === accent.id}
-              aria-label={accent.label}
-              title={accent.label}
-              onClick={() => setStyle({ accent: accent.id })}
-              className={cn(
-                'h-7 w-7 rounded-full border-2 transition-transform hover:scale-110',
-                style.accent === accent.id ? 'border-white' : 'border-white/15'
-              )}
-              style={{ backgroundColor: accent.hex }}
-            />
-          ))}
+        <p className={cn(LABEL, 'mb-2')}>Accent colour</p>
+        <div className="flex flex-wrap gap-2.5">
+          {RESUME_ACCENTS.map((accent) => {
+            const active = style.accent === accent.id;
+            return (
+              <button
+                key={accent.id}
+                type="button"
+                aria-pressed={active}
+                aria-label={accent.label}
+                title={accent.label}
+                onClick={() => setStyle({ accent: accent.id })}
+                // Paper ink colours (printed content), shown as swatches.
+                style={{ '--swatch': accent.hex } as CSSProperties}
+                className={cn(
+                  'focus-ring flex size-8 items-center justify-center rounded-full bg-(--swatch) text-fg',
+                  'ring-offset-2 ring-offset-ink-900 transition-[box-shadow,transform] duration-120 ease-out-quint',
+                  active ? 'ring-2 ring-fg' : 'ring-1 ring-line-strong hover:ring-fg-subtle'
+                )}
+              >
+                {active && <Check size={14} strokeWidth={2.5} aria-hidden />}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <p className={cn(FIELD_LABEL, 'mb-1.5')}>Font</p>
-          <div className="flex rounded-md border border-white/10 p-0.5">
-            {FONT_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                aria-pressed={style.font === option.id}
-                onClick={() => setStyle({ font: option.id })}
-                className={cn(
-                  'flex-1 rounded px-2 py-1 text-xs',
-                  style.font === option.id ? 'bg-cyan-500/20 text-cyan-200' : 'text-white/55 hover:text-white/85'
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+        <div className="min-w-0">
+          <p className={cn(LABEL, 'mb-2')}>Font</p>
+          <SegmentedControl
+            size="sm"
+            fullWidth
+            aria-label="Font"
+            value={style.font}
+            onChange={(font) => setStyle({ font })}
+            options={FONT_OPTIONS}
+          />
         </div>
-        <div>
-          <p className={cn(FIELD_LABEL, 'mb-1.5')}>Spacing</p>
-          <div className="flex rounded-md border border-white/10 p-0.5">
-            {DENSITY_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                aria-pressed={style.density === option.id}
-                onClick={() => setStyle({ density: option.id })}
-                className={cn(
-                  'flex-1 rounded px-2 py-1 text-xs',
-                  style.density === option.id ? 'bg-cyan-500/20 text-cyan-200' : 'text-white/55 hover:text-white/85'
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+        <div className="min-w-0">
+          <p className={cn(LABEL, 'mb-2')}>Spacing</p>
+          <SegmentedControl
+            size="sm"
+            fullWidth
+            aria-label="Spacing"
+            value={style.density}
+            onChange={(density) => setStyle({ density })}
+            options={DENSITY_OPTIONS}
+          />
         </div>
       </div>
 
-      <ConfirmButton
-        label="Clear the whole resume"
-        onConfirm={resetResume}
-        armedChildren={
-          <>
-            <RotateCcw className="h-3.5 w-3.5" /> Click again to erase every section
-          </>
-        }
-        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-red-500/20 bg-red-500/[0.06] px-3 py-1.5 text-xs text-red-300/80 hover:bg-red-500/15"
-        armedClassName="flex w-full items-center justify-center gap-1.5 rounded-md border border-red-400/60 bg-red-500/25 px-3 py-1.5 text-xs font-semibold text-red-100"
-      >
-        <RotateCcw className="h-3.5 w-3.5" /> Clear resume
-      </ConfirmButton>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-danger/20 bg-danger/[0.04] px-3.5 py-3">
+        <div className="min-w-0">
+          <p className="text-ui font-medium text-fg">Clear resume</p>
+          <p className="text-xs text-fg-subtle">Erases every section. Style settings stay.</p>
+        </div>
+        <ConfirmButton
+          label="Clear the whole resume"
+          variant="danger"
+          size="md"
+          icon={RotateCcw}
+          onConfirm={resetResume}
+          armedChildren="Click again to erase"
+        >
+          Clear resume
+        </ConfirmButton>
+      </div>
     </div>
   );
 }
@@ -611,10 +626,11 @@ function EditorSectionBody({ section, onNotice, onOpenDialog }: SectionBodyProps
 
 function ResumeEditorInner() {
   const [open, setOpen] = useState<EditorSection | null>('personal');
-  const [dialog, setDialog] = useState<DialogKind | null>(null);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
   const [notice, setNotice] = useState<{ section: EditorSection; text: string } | null>(null);
 
   // Badges count filled-in entries (what will actually print).
+  const fullName = useResumeStore((s) => s.resume.personal.fullName.trim());
   const educationCount = useResumeStore((s) => s.resume.education.filter(hasEducation).length);
   const skillsCount = useResumeStore((s) => s.resume.skills.filter(hasSkillGroup).length);
   const projectsCount = useResumeStore((s) => s.resume.projects.filter(hasProject).length);
@@ -633,61 +649,70 @@ function ResumeEditorInner() {
     setNotice(null);
   };
 
+  const openDialog = (kind: DialogKind) => setDialog((d) => ({ kind, open: true, n: (d?.n ?? 0) + 1 }));
+  const closeDialog = () => setDialog((d) => (d ? { ...d, open: false } : d));
+
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-        {SECTIONS.map(({ key, label, Icon }) => {
+      <div className="scrollbar-thin min-h-0 flex-1 space-y-2.5 overflow-y-auto p-4">
+        {SECTIONS.map(({ key, label, hint, Icon }) => {
           const isOpen = open === key;
           const count = counts[key];
+          const summary = key === 'personal' && fullName ? fullName : hint;
           return (
             <div
               key={key}
               className={cn(
-                'rounded-xl border transition-colors',
-                isOpen ? 'border-cyan-400/25 bg-white/[0.03]' : 'border-white/10 bg-white/[0.015]'
+                'glass-panel rounded-card transition-[border-color] duration-180 ease-out-quint',
+                isOpen && 'border-line-strong'
               )}
             >
               <button
                 type="button"
                 onClick={() => toggle(key)}
                 aria-expanded={isOpen}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left"
+                className="focus-ring-inset group/section flex w-full items-center gap-3 rounded-card px-3.5 py-3 text-left transition-colors duration-120 hover:bg-surface-hover"
               >
-                <Icon className={cn('h-4 w-4', isOpen ? 'text-cyan-300' : 'text-white/45')} />
-                <span className={cn('flex-1 text-sm font-semibold', isOpen ? 'text-white' : 'text-white/75')}>
-                  {label}
+                <span
+                  className={cn(
+                    'flex size-8 shrink-0 items-center justify-center rounded-control border bg-ink-800 transition-colors duration-120',
+                    isOpen ? 'border-accent/30 text-accent' : 'border-line text-fg-muted group-hover/section:text-fg'
+                  )}
+                >
+                  <Icon size={16} strokeWidth={1.75} aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-fg">{label}</span>
+                  <span className="block truncate text-xs text-fg-subtle">{summary}</span>
                 </span>
                 {count !== undefined && count > 0 && (
-                  <span className="rounded-full bg-white/[0.07] px-1.5 text-[10px] tabular-nums text-white/55">
+                  <span className="tabular rounded-full bg-surface-active px-1.5 font-mono text-2xs leading-4 text-fg-muted">
                     {count}
                   </span>
                 )}
                 <ChevronDown
-                  className={cn('h-4 w-4 text-white/40 transition-transform', isOpen && 'rotate-180')}
+                  size={16}
+                  strokeWidth={1.75}
+                  aria-hidden
+                  className={cn('shrink-0 text-fg-subtle transition-transform duration-180 ease-out-quint', isOpen && 'rotate-180')}
                 />
               </button>
               {isOpen && (
-                <div className="space-y-2 border-t border-white/5 p-3">
+                <div className="animate-fade-in space-y-3 border-t border-line px-3.5 pb-4 pt-3.5">
                   {notice && notice.section === key && (
                     <div
                       role="status"
-                      className="flex items-start gap-2 rounded-md border border-cyan-400/25 bg-cyan-400/[0.07] px-2.5 py-1.5 text-[11px] text-cyan-100"
+                      className="flex items-start gap-2 rounded-control bg-info/10 py-2 pl-3 pr-1.5 text-xs text-fg-muted"
                     >
-                      <span className="flex-1">{notice.text}</span>
-                      <button
-                        type="button"
-                        onClick={() => setNotice(null)}
-                        aria-label="Dismiss"
-                        className="text-cyan-100/60 hover:text-white"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+                      <Info size={14} strokeWidth={1.75} aria-hidden className="mt-px shrink-0 text-info" />
+                      <span className="flex-1 pt-px">{notice.text}</span>
+                      <IconButton icon={X} size="xs" aria-label="Dismiss" onClick={() => setNotice(null)} className="-my-1" />
                     </div>
                   )}
                   <EditorSectionBody
                     section={key}
                     onNotice={(text) => setNotice({ section: key, text })}
-                    onOpenDialog={setDialog}
+                    onOpenDialog={openDialog}
                   />
                 </div>
               )}
@@ -696,22 +721,22 @@ function ResumeEditorInner() {
         })}
       </div>
 
-      <AnimatePresence>
-        {dialog === 'forge' && (
-          <ForgeImportDialog
-            key="forge"
-            onClose={() => setDialog(null)}
-            onDone={(text) => setNotice({ section: 'projects', text })}
-          />
-        )}
-        {dialog === 'achievements' && (
-          <AchievementImportDialog
-            key="achievements"
-            onClose={() => setDialog(null)}
-            onDone={(text) => setNotice({ section: 'achievements', text })}
-          />
-        )}
-      </AnimatePresence>
+      {dialog?.kind === 'forge' && (
+        <ForgeImportDialog
+          key={`forge-${dialog.n}`}
+          open={dialog.open}
+          onClose={closeDialog}
+          onDone={(text) => setNotice({ section: 'projects', text })}
+        />
+      )}
+      {dialog?.kind === 'achievements' && (
+        <AchievementImportDialog
+          key={`achievements-${dialog.n}`}
+          open={dialog.open}
+          onClose={closeDialog}
+          onDone={(text) => setNotice({ section: 'achievements', text })}
+        />
+      )}
     </div>
   );
 }

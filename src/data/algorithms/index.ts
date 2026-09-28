@@ -47,10 +47,10 @@ export interface AlgoLabEntry {
   hint: string;
 }
 
+/** A sidebar group. Its icon comes from the Algo Lab UI (lucide), not the data. */
 export interface AlgoLabSection {
   category: AlgoCategory;
   label: string;
-  icon: string;
   entries: AlgoLabEntry[];
 }
 
@@ -58,7 +58,6 @@ export const ALGO_LAB_SECTIONS: AlgoLabSection[] = [
   {
     category: 'sorting',
     label: 'Sorting',
-    icon: '📊',
     entries: [
       { view: 'bubble-sort', label: 'Bubble Sort', short: 'Bu', hint: 'O(n²) · stable' },
       { view: 'selection-sort', label: 'Selection Sort', short: 'Se', hint: 'O(n²) · few swaps' },
@@ -72,7 +71,6 @@ export const ALGO_LAB_SECTIONS: AlgoLabSection[] = [
   {
     category: 'graph',
     label: 'Graphs',
-    icon: '🕸️',
     entries: [
       { view: 'bfs', label: 'BFS', short: 'BF', hint: 'Level by level' },
       { view: 'dfs', label: 'DFS', short: 'DF', hint: 'Deep before wide' },
@@ -82,7 +80,6 @@ export const ALGO_LAB_SECTIONS: AlgoLabSection[] = [
   {
     category: 'tree',
     label: 'Trees',
-    icon: '🌳',
     entries: [
       { view: 'bst', label: 'Binary Search Tree', short: 'BST', hint: 'Insert · delete · search' },
       { view: 'avl', label: 'AVL Tree', short: 'AVL', hint: 'Self-balancing rotations' },

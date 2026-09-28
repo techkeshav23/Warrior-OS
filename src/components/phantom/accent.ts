@@ -1,21 +1,25 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Phantom accent helper
-// Maps an app category to a theme accent hex (used for glow + particles)
+// Maps an app category to a FORGE HUD accent hex (glow + particles for
+// phantoms and the window-close disintegration). Phantoms prefer the
+// app's own icon hue (getAppHue) and fall back to the category color.
 // ═══════════════════════════════════════════════════════════
 
 import type { AppCategory } from '@/types/app';
+import { PLASMA, STATUS, VIZ } from '@/styles/tokens';
 
-// Mirrors the accent CSS vars in globals.css (§4 conventions).
+// On-palette: Plasma for learning, violet for building, mint for
+// utilities, rose for chill, gold for system.
 const CATEGORY_ACCENT: Record<AppCategory, string> = {
-  study: '#00f0ff', // accent-primary (cyan)
-  build: '#7b61ff', // accent-secondary (purple)
-  utility: '#00e676', // accent-success (green)
-  chill: '#ff3d71', // accent-tertiary (pink)
-  system: '#ffab00', // accent-warning (amber)
+  study: PLASMA[400],
+  build: VIZ[2],
+  utility: VIZ[3],
+  chill: VIZ[4],
+  system: STATUS.gold,
 };
 
 /** Resolve an accent hex for a phantom given the source app's category. */
 export function accentForCategory(category: AppCategory | undefined): string {
-  if (!category) return '#00f0ff';
-  return CATEGORY_ACCENT[category] ?? '#00f0ff';
+  if (!category) return PLASMA[400];
+  return CATEGORY_ACCENT[category] ?? PLASMA[400];
 }

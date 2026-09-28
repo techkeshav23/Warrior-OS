@@ -8,6 +8,7 @@
 import { useEffect } from 'react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { onAuthChange } from '@/lib/auth';
+import { DEFAULT_ACCENT } from '@/styles/tokens';
 
 /**
  * Subscribes to Firebase auth state and syncs with Zustand store.
@@ -36,7 +37,7 @@ export function useAuth() {
           lastActiveDate: new Date().toISOString(),
           joinedAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
           preferences: {
-            accentColor: '#00f0ff',
+            accentColor: DEFAULT_ACCENT,
             wallpaper: 'default',
             soundEnabled: true,
             soundVolume: 0.7,

@@ -5,12 +5,15 @@
 // text drawn on an offscreen canvas. Letters lock in left to right,
 // each one glitching into existence with an RGB split, then the word
 // glows and onComplete fires. Used by the boot sequence ("WARRIOR").
+// A share of the particles can burn in a second colour (forge sparks:
+// Plasma word, Ember sparks).
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { EMBER, PLASMA } from '@/styles/tokens';
 import { easeInOutCubic, prefersReducedEffects, randRange, resolveDisplayFontFamily } from './effects-utils';
 
 export interface ParticleAssemblyProps {
@@ -18,6 +21,10 @@ export interface ParticleAssemblyProps {
   text?: string;
   /** Particle + glow colour (hex). */
   color?: string;
+  /** Colour of the spark particles (hex); also the RGB-split fringe. */
+  sparkColor?: string;
+  /** Share of particles drawn as sparks (0–1). */
+  sparkRatio?: number;
   /** 'random': particles start anywhere on screen; 'center': they burst out of the middle first. */
   from?: 'random' | 'center';
   /** Time for the particles to assemble the word (ms). */
@@ -40,6 +47,7 @@ interface Particle {
   size: number;
   phase: number;
   letter: number;
+  spark: boolean;
 }
 
 const TARGET_PARTICLES = 1900;
@@ -66,7 +74,9 @@ function makeSprite(color: string, px: number): HTMLCanvasElement {
 
 function ParticleAssemblyInner({
   text = 'WARRIOR',
-  color = '#00f0ff',
+  color = PLASMA[400],
+  sparkColor = EMBER[400],
+  sparkRatio = 0,
   from = 'random',
   durationMs = 2000,
   holdMs = 450,
@@ -168,6 +178,7 @@ function ParticleAssemblyInner({
             size: randRange(1.1, 2.1),
             phase: randRange(0, Math.PI * 2),
             letter,
+            spark: Math.random() < sparkRatio,
           });
         }
       }
@@ -180,6 +191,8 @@ function ParticleAssemblyInner({
       for (const p of particles) lockAt[p.letter] = Math.max(lockAt[p.letter], p.delay + p.flight);
       const assembledAt = Math.max(...lockAt);
       const sprite = makeSprite(color, Math.round(16 * dpr));
+      const sparkSprite = sparkRatio > 0 ? makeSprite(sparkColor, Math.round(16 * dpr)) : sprite;
+      const spriteFor = (p: Particle) => (p.spark ? sparkSprite : sprite);
 
       const drawWord = (alpha: number, blur: number) => {
         ctx.save();
@@ -199,7 +212,7 @@ function ParticleAssemblyInner({
         ctx.globalCompositeOperation = 'lighter';
         for (const p of particles) {
           const s = p.size * 2.6;
-          ctx.drawImage(sprite, p.tx - s / 2, p.ty - s / 2, s, s);
+          ctx.drawImage(spriteFor(p), p.tx - s / 2, p.ty - s / 2, s, s);
         }
         drawWord(0.35, fontSize * 0.25);
         timers.push(window.setTimeout(() => onCompleteRef.current?.(), holdMs + 400));
@@ -224,7 +237,7 @@ function ParticleAssemblyInner({
             if (from === 'center') continue;
             ctx.globalAlpha = 0.25;
             const s0 = p.size * 2;
-            ctx.drawImage(sprite, p.sx - s0 / 2, p.sy - s0 / 2, s0, s0);
+            ctx.drawImage(spriteFor(p), p.sx - s0 / 2, p.sy - s0 / 2, s0, s0);
             continue;
           }
           let x: number;
@@ -243,7 +256,7 @@ function ParticleAssemblyInner({
           }
           const s = p.size * 2.6;
           ctx.globalAlpha = alpha;
-          ctx.drawImage(sprite, x - s / 2, y - s / 2, s, s);
+          ctx.drawImage(spriteFor(p), x - s / 2, y - s / 2, s, s);
         }
 
         // Each letter glitches in with an RGB split as its last particle lands.
@@ -255,9 +268,9 @@ function ParticleAssemblyInner({
           const k = 1 - since / FLASH_MS;
           const dx = 7 * k;
           ctx.globalAlpha = 0.55 * k;
-          ctx.fillStyle = '#ff2a55';
+          ctx.fillStyle = sparkColor;
           ctx.fillText(ch, letterX[i] - dx, baselineY + (Math.random() - 0.5) * 3 * k);
-          ctx.fillStyle = '#00e5ff';
+          ctx.fillStyle = color;
           ctx.fillText(ch, letterX[i] + dx, baselineY);
           ctx.globalAlpha = 0.4 * k;
           ctx.fillStyle = '#ffffff';
@@ -299,7 +312,7 @@ function ParticleAssemblyInner({
       cancelAnimationFrame(raf);
       timers.forEach((id) => window.clearTimeout(id));
     };
-  }, [text, color, from, durationMs, holdMs]);
+  }, [text, color, sparkColor, sparkRatio, from, durationMs, holdMs]);
 
   return (
     <canvas

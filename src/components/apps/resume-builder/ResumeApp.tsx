@@ -7,10 +7,11 @@
 
 'use client';
 
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useId, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Eye, FileText, Hammer, PencilLine, Printer, X } from 'lucide-react';
+import { Anvil, Eye, PencilLine, Printer, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AppHeader, Button, IconButton, Tabs, Tooltip } from '@/components/ui';
 import { formatCalendarDate } from '@/components/apps/project-forge/forge-utils';
 import { RESUME_FIRST_EXPORT_ACHIEVEMENT, useResumeStore } from '@/stores/useResumeStore';
 import { useProjectForgeStore } from '@/stores/useProjectForgeStore';
@@ -24,9 +25,9 @@ import { hasAchievement, hasEducation, hasExperience, hasProject, hasSkillGroup 
 
 type PaneView = 'editor' | 'preview';
 
-const VIEWS: { id: PaneView; label: string; Icon: typeof Eye }[] = [
-  { id: 'editor', label: 'Edit', Icon: PencilLine },
-  { id: 'preview', label: 'Preview', Icon: Eye },
+const VIEWS = [
+  { id: 'editor', label: 'Edit', icon: PencilLine },
+  { id: 'preview', label: 'Preview', icon: Eye },
 ];
 
 /** A resume counts as real once it has a name or any filled section. */
@@ -59,6 +60,7 @@ function ResumeAppInner() {
   const [printing, setPrinting] = useState(false);
   const [autoFillNote, setAutoFillNote] = useState<string | null>(null);
   const forgeProjects = useProjectForgeStore((s) => s.projects);
+  const tabsId = useId();
 
   // One-time auto-fill of the Projects section from Project Forge, once both
   // stores are loaded. Re-runs when Forge changes until something is imported.
@@ -100,73 +102,48 @@ function ResumeAppInner() {
   };
 
   return (
-    <div className="@container relative flex h-full flex-col bg-black/30 text-white">
+    <div className="@container relative flex h-full min-h-0 flex-col text-ui text-fg">
       <style>{RESUME_TEMPLATE_CSS}</style>
 
-      <header className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-black/20 px-3 py-2">
-        <div className="mr-1 flex items-center gap-2">
-          <FileText className="h-4 w-4 text-cyan-400" />
-          <h2 className="text-sm font-bold tracking-wider text-cyan-300">RESUME BUILDER</h2>
-        </div>
-
-        <div
-          role="tablist"
-          aria-label="Resume panes"
-          className="flex rounded-lg border border-white/10 bg-black/30 p-0.5 @3xl:hidden"
-        >
-          {VIEWS.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={view === id}
-              onClick={() => setView(id)}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors',
-                view === id ? 'bg-cyan-500/20 text-cyan-200' : 'text-white/55 hover:text-white/85'
-              )}
+      <AppHeader
+        title="Resume"
+        subtitle={`Saved automatically${lastExportedAt ? ` · last exported ${formatCalendarDate(lastExportedAt)}` : ' · A4, ATS-friendly'}`}
+        actions={
+          <>
+            <div className="@3xl:hidden">
+              <Tabs
+                variant="pill"
+                size="sm"
+                aria-label="Resume panes"
+                idPrefix={tabsId}
+                value={view}
+                onChange={(id) => setView(id as PaneView)}
+                tabs={VIEWS}
+              />
+            </div>
+            <Tooltip
+              content={
+                canExport
+                  ? 'Opens the print dialog. Choose Save as PDF and turn off headers and footers.'
+                  : 'Add your name or any section first'
+              }
             >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <span className="hidden text-[11px] text-white/40 @2xl:inline">
-          Saved automatically
-          {lastExportedAt && ` · last exported ${formatCalendarDate(lastExportedAt)}`}
-        </span>
-
-        <button
-          type="button"
-          onClick={handleExport}
-          disabled={!canExport}
-          title={
-            canExport
-              ? 'Opens the print dialog. Choose Save as PDF and turn off headers and footers.'
-              : 'Add your name or any section first'
-          }
-          className="ml-auto flex items-center gap-1.5 rounded-lg bg-cyan-400 px-3 py-1 text-xs font-semibold text-black transition-colors hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-cyan-400"
-        >
-          <Printer className="h-3.5 w-3.5" /> Export PDF
-        </button>
-      </header>
+              <Button variant="primary" leadingIcon={Printer} onClick={handleExport} disabled={!canExport}>
+                Export PDF
+              </Button>
+            </Tooltip>
+          </>
+        }
+      />
 
       {autoFillNote && (
         <div
           role="status"
-          className="flex items-center gap-2 border-b border-cyan-400/20 bg-cyan-400/[0.07] px-3 py-1.5 text-[11px] text-cyan-100"
+          className="flex h-10 shrink-0 animate-fade-in items-center gap-2.5 border-b border-line bg-ember-500/[0.05] pl-5 pr-3 text-xs text-fg-muted"
         >
-          <Hammer className="h-3.5 w-3.5 shrink-0 text-cyan-300" />
+          <Anvil size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-ember-400" />
           <span className="min-w-0 flex-1 truncate">{autoFillNote}</span>
-          <button
-            type="button"
-            onClick={() => setAutoFillNote(null)}
-            aria-label="Dismiss"
-            className="flex h-5 w-5 items-center justify-center rounded text-cyan-200/70 hover:bg-cyan-400/20 hover:text-cyan-100"
-          >
-            <X className="h-3 w-3" />
-          </button>
+          <IconButton icon={X} size="xs" aria-label="Dismiss" onClick={() => setAutoFillNote(null)} />
         </div>
       )}
 
@@ -174,7 +151,7 @@ function ResumeAppInner() {
         <section
           aria-label="Resume editor"
           className={cn(
-            'min-h-0 w-full flex-col border-white/10 @3xl:flex @3xl:w-[44%] @3xl:max-w-[520px] @3xl:shrink-0 @3xl:border-r',
+            'min-h-0 w-full flex-col border-line @3xl:flex @3xl:w-[46%] @3xl:max-w-[540px] @3xl:shrink-0 @3xl:border-r',
             view === 'editor' ? 'flex' : 'hidden'
           )}
         >

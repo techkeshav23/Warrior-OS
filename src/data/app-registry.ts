@@ -5,7 +5,7 @@
 
 import dynamic from 'next/dynamic';
 import type { AppDefinition } from '@/types';
-import { AppLoading } from '@/components/os/AppLoading';
+import { AppLoading } from '@/components/ui/AppLoading';
 
 // ─── Lazy app components (TASK 5.23 / 5.25) ───
 // Every app is its own client-only chunk, fetched the first time its
@@ -131,7 +131,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     name: 'Notes',
     icon: '📝',
     component: NotesApp,
-    defaultSize: { width: 750, height: 550 },
+    defaultSize: { width: 960, height: 620 },
     minSize: { width: 400, height: 300 },
     category: 'study',
     description: 'Rich markdown note-taking with auto-save',
@@ -158,7 +158,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     defaultSize: { width: 950, height: 700 },
     minSize: { width: 600, height: 400 },
     category: 'build',
-    description: 'Monaco-based code editor with live preview',
+    description: 'HTML/CSS/JS playground with syntax colors, live preview and console',
     shortcut: 'ctrl+shift+c',
   },
   {
@@ -211,7 +211,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     name: 'NEXUS AI',
     icon: '🧠',
     component: AIAssistApp,
-    defaultSize: { width: 450, height: 600 },
+    defaultSize: { width: 760, height: 640 },
     minSize: { width: 350, height: 400 },
     category: 'utility',
     description: 'Your OS companion: commands, learning coach and guide (offline brain, Gemini optional)',

@@ -1,18 +1,26 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Achievement Cinematic
-// 4-second unlock sequence driven by useXPStore.recentUnlock:
-// gold edge flash → vignette → a glowing orb descends → it bursts
-// into the badge → the badge spins in 3D → title + description fade
-// in → XP ticks up → gold confetti (canvas-confetti) → the badge flies
-// up into the Dynamic Island (posted as an achievement notification)
-// and the screen returns to normal. Unlocks that arrive together are
-// queued (all but the last play in a quicker cut). Under reduced
-// motion or lite mode, or with the cinematic switched off, a toast is
-// shown instead.
+// Routes every unlock from useXPStore.recentUnlock by rarity:
+// - rare / epic / legendary → the ≈3.4-second cinematic (FORGE HUD: gold
+//   + ember on deep ink): warm edge flash → vignette → a forge-spark
+//   descends → it bursts into the medallion → the medallion turns once
+//   in 3D → title + description rise in → XP ticks up → confetti → the
+//   medallion flies up into the Dynamic Island (posted as an achievement
+//   notification). Unlocks that arrive together are queued (all but the
+//   last play in a quicker cut).
+// - common / uncommon (and every rarity with the cinematic switched off,
+//   under reduced motion or in lite mode) → the compact achievement
+//   toast (achievements/AchievementToast), logged in the notification
+//   center without a second toast.
+// The cinematic never takes the OS hostage: it sits below the start
+// menu, palette, menus, notifications and dialogs (FX_Z), lets every
+// click through except on the medallion (click it or press Esc to skip)
+// and its confetti canvas ignores the pointer.
 //
 // Mount once at the root: it also seeds the achievement catalogue into
-// the XP store (so unlocks work at all) and unlocks the meta
-// achievements (level milestones, collectors, completionist).
+// the XP store (so unlocks work at all), unlocks the meta achievements
+// (level milestones, collectors, completionist) and renders the toast
+// layer.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -21,6 +29,7 @@ import { memo, useEffect, useState } from 'react';
 import { AnimatePresence, animate, motion, useMotionValue, useTransform } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { Trophy } from 'lucide-react';
+import { EMBER, FG, PLASMA, STATUS } from '@/styles/tokens';
 import { useXPStore } from '@/stores/useXPStore';
 import { useOSStore } from '@/stores/useOSStore';
 import { useNotificationStore } from '@/stores/useNotificationStore';
@@ -32,8 +41,14 @@ import {
   type AchievementCelebration,
 } from './useEffectsStore';
 import { checkCollectionMilestones, checkLevelMilestones, seedAchievements } from './achievement-sync';
+import {
+  AchievementToastLayer,
+  holdAchievementToasts,
+  showAchievementToast,
+} from '@/components/achievements/AchievementToast';
 import { playAchievementChime } from './effects-sfx';
 import {
+  CATEGORY_ICON,
   CATEGORY_LABEL,
   FX_DISPLAY_FONT,
   FX_Z,
@@ -44,33 +59,47 @@ import {
   type Rarity,
 } from './effects-utils';
 
+/** Timeline length at speed 1 (every beat below is in these seconds). */
 const CINEMATIC_SECONDS = 4;
+/** Normal playback speed: the full cut runs ≈3.4 s. */
+const BASE_SPEED = 0.85;
 /** Time scale for cinematics that have more unlocks waiting behind them. */
 const QUICK_SPEED = 0.62;
-const GOLD = '#ffc940';
-const GOLD_PALETTE = ['#ffd54a', '#ffc400', '#fff3c4', '#ffe082', '#ffb300'];
+const GOLD = STATUS.gold;
+/** Confetti: gold and ember, a little warm white, one plasma glint. */
+const GOLD_PALETTE = [STATUS.gold, EMBER[300], EMBER[400], '#ffe9a8', FG.base];
 
 const VIGNETTE =
-  'radial-gradient(ellipse at 50% 42%, rgba(4, 4, 10, 0.18) 0%, rgba(4, 4, 10, 0.62) 52%, rgba(2, 2, 6, 0.9) 100%)';
+  'radial-gradient(ellipse at 50% 42%, rgba(4, 6, 11, 0.2) 0%, rgba(4, 6, 11, 0.64) 52%, rgba(4, 6, 11, 0.9) 100%)';
 const EDGE_FLASH =
-  'inset 0 0 160px 44px rgba(255, 196, 0, 0.85), inset 0 0 28px 8px rgba(255, 240, 200, 0.95)';
+  'inset 0 0 150px 30px rgba(245, 192, 74, 0.42), inset 0 0 26px 4px rgba(255, 178, 122, 0.55)';
 const RAYS =
-  'repeating-conic-gradient(from 0deg, rgba(255, 214, 90, 0.22) 0deg 6deg, rgba(255, 214, 90, 0) 6deg 20deg)';
-const RAY_MASK = 'radial-gradient(circle, #000 18%, transparent 70%)';
+  'repeating-conic-gradient(from 0deg, rgba(245, 192, 74, 0.16) 0deg 4deg, rgba(245, 192, 74, 0) 4deg 18deg)';
+const RAY_MASK = 'radial-gradient(circle, #000 20%, transparent 68%)';
 
 // ─── Routing (module level: shared by every mount) ───
 
 /** Ids already routed this session: recentUnlock can be re-set, unlocks can't repeat. */
 const routedIds = new Set<string>();
 
-function announceAchievement(a: Achievement): void {
-  useNotificationStore.getState().addNotification({
+/** Rarities loud enough for the full-screen cinematic; the rest get the toast. */
+const CINEMATIC_RARITIES: ReadonlySet<Rarity> = new Set<Rarity>(['rare', 'epic', 'legendary']);
+
+/**
+ * Log the unlock in the notification center. `alreadyShown`: the
+ * achievement toast is on screen, so the entry is filed as read and the
+ * generic toast stack doesn't show the same unlock a second time.
+ */
+function announceAchievement(a: Achievement, alreadyShown = false): void {
+  const notifications = useNotificationStore.getState();
+  const id = notifications.addNotification({
     type: 'achievement',
     title: `Achievement unlocked: ${a.title}`,
-    message: `${a.icon} ${a.description} (+${a.xpReward} XP)`,
+    message: `${a.description} (+${a.xpReward} XP)`,
     icon: a.icon,
     autoDismiss: 6000,
   });
+  if (alreadyShown) notifications.markAsRead(id);
 }
 
 function releaseRecentUnlock(id: string): void {
@@ -82,8 +111,9 @@ function routeUnlock(a: Achievement): void {
   if (routedIds.has(a.id)) return;
   routedIds.add(a.id);
   const fx = useEffectsStore.getState();
-  if (!fx.achievementCinematic || prefersReducedEffects()) {
-    announceAchievement(a);
+  if (!fx.achievementCinematic || prefersReducedEffects() || !CINEMATIC_RARITIES.has(a.rarity)) {
+    showAchievementToast(a);
+    announceAchievement(a, true);
     // Deferred: other recentUnlock subscribers (the creature) still see it this tick.
     window.setTimeout(() => releaseRecentUnlock(a.id), 0);
     return;
@@ -102,13 +132,13 @@ function completeCinematic(key: string, a: Achievement): void {
 
 function burstConfetti(): void {
   void confetti({
-    particleCount: 70,
+    particleCount: 56,
     spread: 360,
-    startVelocity: 24,
+    startVelocity: 22,
     decay: 0.9,
     gravity: 0.6,
-    ticks: 140,
-    scalar: 0.7,
+    ticks: 130,
+    scalar: 0.6,
     shapes: ['circle'],
     colors: GOLD_PALETTE,
     origin: { x: 0.5, y: 0.42 },
@@ -118,12 +148,12 @@ function burstConfetti(): void {
 }
 
 function celebrationConfetti(rarity: Rarity): void {
-  const colors = [...GOLD_PALETTE, RARITY_STYLE[rarity].color];
-  const count = { common: 60, uncommon: 80, rare: 110, epic: 140, legendary: 180 }[rarity];
+  const colors = [...GOLD_PALETTE, RARITY_STYLE[rarity].color, PLASMA[300]];
+  const count = { common: 50, uncommon: 64, rare: 84, epic: 110, legendary: 140 }[rarity];
   const base = {
     colors,
-    shapes: ['circle', 'star'] as confetti.Shape[],
-    scalar: 0.9,
+    shapes: ['square', 'circle'] as confetti.Shape[],
+    scalar: 0.75,
     gravity: 0.85,
     decay: 0.91,
     ticks: 260,
@@ -173,12 +203,13 @@ interface BadgeFaceProps {
 
 function BadgeFace({ achievement, side, gleamDelay, gleamDuration }: BadgeFaceProps) {
   const rarity = RARITY_STYLE[achievement.rarity];
+  const Glyph = CATEGORY_ICON[achievement.category] ?? Trophy;
   return (
     <div
-      className="absolute inset-0 rounded-full p-[5px]"
+      className="absolute inset-0 rounded-full p-[3px]"
       style={{
         background: rarity.gradient,
-        boxShadow: `0 0 34px ${rarity.glow}, 0 0 90px rgba(255, 196, 0, 0.35)`,
+        boxShadow: `0 0 0 1px rgba(245, 192, 74, 0.35), 0 0 28px ${rarity.glow}, 0 0 80px rgba(245, 192, 74, 0.22)`,
         backfaceVisibility: 'hidden',
         WebkitBackfaceVisibility: 'hidden',
         transform: side === 'back' ? 'rotateY(180deg)' : undefined,
@@ -187,25 +218,34 @@ function BadgeFace({ achievement, side, gleamDelay, gleamDuration }: BadgeFacePr
       <div
         className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full"
         style={{
-          background: 'radial-gradient(circle at 35% 28%, #34344a 0%, #14141f 55%, #07070c 100%)',
-          boxShadow: `inset 0 0 22px ${rarity.glow}`,
+          background: 'radial-gradient(circle at 50% 30%, #243044 0%, #0f1520 58%, #070a12 100%)',
+          boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 24px ${rarity.glow}`,
         }}
       >
+        {/* inner hairline ring */}
+        <span
+          aria-hidden
+          className="absolute inset-[9px] rounded-full"
+          style={{ border: '1px solid rgba(245, 192, 74, 0.28)' }}
+        />
         {side === 'front' ? (
-          <span
-            className="select-none text-6xl leading-none"
-            style={{ filter: `drop-shadow(0 0 10px ${rarity.glow})` }}
-          >
-            {achievement.icon}
-          </span>
+          <Glyph
+            className="relative h-12 w-12"
+            strokeWidth={1.5}
+            style={{ color: GOLD, filter: 'drop-shadow(0 0 10px rgba(245, 192, 74, 0.55))' }}
+          />
         ) : (
-          <Trophy className="h-14 w-14" style={{ color: GOLD, filter: 'drop-shadow(0 0 10px rgba(255, 196, 0, 0.7))' }} />
+          <Trophy
+            className="relative h-12 w-12"
+            strokeWidth={1.5}
+            style={{ color: GOLD, filter: 'drop-shadow(0 0 10px rgba(245, 192, 74, 0.55))' }}
+          />
         )}
         {side === 'front' && (
           <motion.div
             className="absolute inset-y-0 w-10"
             style={{
-              background: 'linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.55), rgba(255,255,255,0))',
+              background: 'linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.4), rgba(255,255,255,0))',
               skewX: -20,
             }}
             initial={{ x: -140 }}
@@ -227,7 +267,7 @@ interface CinematicRunProps {
 
 function CinematicRun({ celebration, quick }: CinematicRunProps) {
   const { key, achievement: a } = celebration;
-  const [speed] = useState(() => (quick ? QUICK_SPEED : 1));
+  const [speed] = useState(() => (quick ? QUICK_SPEED : BASE_SPEED));
   const [sparks] = useState(() => makeSparks(a.rarity));
   const xp = useMotionValue(0);
   const xpLabel = useTransform(xp, (v) => `+${Math.round(v)} XP`);
@@ -326,7 +366,7 @@ function CinematicRun({ celebration, quick }: CinematicRunProps) {
                 bottom: '50%',
                 width: 3,
                 height: 190,
-                background: 'linear-gradient(to top, rgba(255, 214, 90, 0.9), rgba(255, 214, 90, 0))',
+                background: 'linear-gradient(to top, rgba(255, 178, 122, 0.85), rgba(255, 178, 122, 0))',
                 filter: 'blur(1px)',
               }}
             />
@@ -334,8 +374,8 @@ function CinematicRun({ celebration, quick }: CinematicRunProps) {
               className="absolute inset-0 rounded-full"
               style={{
                 background:
-                  'radial-gradient(circle, #ffffff 0%, #ffe9a8 30%, #ffc400 55%, rgba(255, 160, 0, 0) 72%)',
-                boxShadow: '0 0 30px 10px rgba(255, 196, 0, 0.6)',
+                  'radial-gradient(circle, #fffaf0 0%, #ffe9a8 28%, #f5c04a 50%, rgba(247, 107, 21, 0) 72%)',
+                boxShadow: '0 0 28px 8px rgba(247, 107, 21, 0.45)',
               }}
             />
           </motion.div>
@@ -349,7 +389,7 @@ function CinematicRun({ celebration, quick }: CinematicRunProps) {
               width: 260,
               height: 260,
               background:
-                'radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(255, 214, 90, 0.7) 35%, rgba(255, 196, 0, 0) 70%)',
+                'radial-gradient(circle, rgba(255, 250, 240, 0.9) 0%, rgba(245, 192, 74, 0.55) 35%, rgba(247, 107, 21, 0) 70%)',
             }}
             initial={{ opacity: 0, scale: 0.2 }}
             animate={{ opacity: [0, 1, 0], scale: [0.2, 1.5] }}
@@ -364,8 +404,8 @@ function CinematicRun({ celebration, quick }: CinematicRunProps) {
                 top: -50,
                 width: 100,
                 height: 100,
-                border: `2px solid ${ring}`,
-                boxShadow: `0 0 16px ${ring}`,
+                border: `1.5px solid ${ring}`,
+                boxShadow: `0 0 14px ${ring}`,
               }}
               initial={{ opacity: 0, scale: 0.2 }}
               animate={{ opacity: [0.95, 0], scale: [0.2, 4.2] }}
@@ -408,19 +448,21 @@ function CinematicRun({ celebration, quick }: CinematicRunProps) {
           </div>
 
           {/* 6 · title, description, XP */}
-          <div className="absolute left-0 top-[88px] flex w-[min(90vw,520px)] -translate-x-1/2 flex-col items-center text-center">
+          <div className="absolute left-0 top-[92px] flex w-[min(90vw,520px)] -translate-x-1/2 flex-col items-center text-center">
             <motion.p
-              className="font-mono text-[11px] font-bold uppercase tracking-[0.42em]"
-              style={{ color: GOLD, textShadow: '0 0 12px rgba(255, 196, 0, 0.6)' }}
+              className="flex items-center gap-2 font-mono text-2xs font-medium uppercase tracking-[0.32em]"
+              style={{ color: GOLD }}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: s(1.55), duration: s(0.35) }}
             >
-              Achievement Unlocked
+              <span aria-hidden className="h-px w-6" style={{ background: 'rgba(245, 192, 74, 0.5)' }} />
+              Achievement unlocked
+              <span aria-hidden className="h-px w-6" style={{ background: 'rgba(245, 192, 74, 0.5)' }} />
             </motion.p>
             <motion.h2
-              className="mt-2 text-2xl font-black sm:text-3xl"
-              style={{ fontFamily: FX_DISPLAY_FONT, color: '#fff6dc', textShadow: '0 0 18px rgba(255, 196, 0, 0.55)' }}
+              className="mt-3 text-2xl font-semibold tracking-[0.02em] text-fg sm:text-3xl"
+              style={{ fontFamily: FX_DISPLAY_FONT, textShadow: '0 0 24px rgba(245, 192, 74, 0.28)' }}
               initial={{ opacity: 0, y: 10, filter: 'blur(6px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
               transition={{ delay: s(1.7), duration: s(0.45) }}
@@ -428,7 +470,7 @@ function CinematicRun({ celebration, quick }: CinematicRunProps) {
               {a.title}
             </motion.h2>
             <motion.p
-              className="mt-2 max-w-md text-sm text-white/75"
+              className="mt-2 max-w-md text-sm text-fg-muted"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: s(1.88), duration: s(0.4) }}
@@ -436,33 +478,35 @@ function CinematicRun({ celebration, quick }: CinematicRunProps) {
               {a.description}
             </motion.p>
             <motion.div
-              className="mt-3 flex flex-wrap items-center justify-center gap-2"
+              className="mt-4 flex flex-wrap items-center justify-center gap-2"
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: s(1.95), duration: s(0.35) }}
             >
               <span
-                className="rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                className="inline-flex h-5 items-center gap-1.5 rounded-full px-2 font-mono text-2xs font-medium uppercase tracking-[0.08em] ring-1 ring-inset"
                 style={{
                   color: rarity.color,
-                  borderColor: withAlpha(rarity.color, 0.45),
                   background: withAlpha(rarity.color, 0.12),
+                  // ring colour via the Tailwind ring variable
+                  ['--tw-ring-color' as string]: withAlpha(rarity.color, 0.35),
                 }}
               >
+                <span aria-hidden className="size-1.5 rounded-full" style={{ background: rarity.color }} />
                 {rarity.label}
               </span>
-              <span className="rounded-full border border-white/20 bg-white/5 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/70">
+              <span className="inline-flex h-5 items-center rounded-full bg-surface-active px-2 font-mono text-2xs font-medium uppercase tracking-[0.08em] text-fg-muted ring-1 ring-inset ring-line-strong">
                 {CATEGORY_LABEL[a.category]}
               </span>
               {a.hidden && (
-                <span className="rounded-full border border-fuchsia-400/40 bg-fuchsia-400/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-fuchsia-300">
+                <span className="inline-flex h-5 items-center rounded-full bg-viz-3/12 px-2 font-mono text-2xs font-medium uppercase tracking-[0.08em] text-viz-3 ring-1 ring-inset ring-viz-3/30">
                   Secret
                 </span>
               )}
             </motion.div>
             <motion.p
-              className="mt-3 font-mono text-2xl font-black"
-              style={{ color: GOLD, textShadow: '0 0 14px rgba(255, 196, 0, 0.65)' }}
+              className="mt-4 text-2xl font-semibold tabular"
+              style={{ fontFamily: FX_DISPLAY_FONT, color: GOLD, textShadow: '0 0 16px rgba(245, 192, 74, 0.45)' }}
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: s(1.98), duration: s(0.3) }}
@@ -473,12 +517,14 @@ function CinematicRun({ celebration, quick }: CinematicRunProps) {
         </motion.div>
       </div>
 
-      {/* Click the badge or text to dismiss early (the rest of the screen stays usable) */}
+      {/* The medallion is the only thing that takes a click (skip); every
+          other pixel of the overlay lets clicks through to the OS. */}
       <button
         type="button"
-        aria-label={`Dismiss achievement ${a.title}`}
+        aria-label={`Skip achievement ${a.title}`}
+        title="Skip"
         onClick={() => completeCinematic(key, a)}
-        className="pointer-events-auto absolute left-1/2 top-[42%] h-[330px] w-[min(90vw,520px)] -translate-x-1/2 -translate-y-[90px] cursor-pointer bg-transparent"
+        className="pointer-events-auto absolute left-1/2 top-[42%] size-32 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-transparent focus-ring"
       />
     </motion.div>
   );
@@ -511,7 +557,10 @@ function AchievementCinematicInner() {
       if (state.level > prev.level || state.achievements !== prev.achievements) scheduleMetaCheck();
     });
     const unsubOS = useOSStore.subscribe((state, prev) => {
-      if (state.phase === 'desktop' && prev.phase !== 'desktop') holdCelebrations(DESKTOP_SETTLE_MS);
+      if (state.phase === 'desktop' && prev.phase !== 'desktop') {
+        holdCelebrations(DESKTOP_SETTLE_MS);
+        holdAchievementToasts(DESKTOP_SETTLE_MS);
+      }
     });
 
     const pending = useXPStore.getState().recentUnlock;
@@ -536,6 +585,7 @@ function AchievementCinematicInner() {
       <AnimatePresence>
         {achievement && <CinematicRun key={achievement.key} celebration={achievement} quick={waiting > 0} />}
       </AnimatePresence>
+      <AchievementToastLayer />
     </>
   );
 }

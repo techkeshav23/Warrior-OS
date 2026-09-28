@@ -1,17 +1,24 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Habit Forge App
-// Daily habit tracking with grid visualization + routines
+// Daily habit tracking: streak hero, check-off cards, the 90-day
+// forge map, and the daily routine checklist
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useState, useCallback, useEffect, memo } from 'react';
-import { cn } from '@/lib/utils';
+import { useState, useCallback, useEffect, useMemo, memo } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Flame, ListChecks, Plus, Zap } from 'lucide-react';
+import { Button, ConfirmDialog, EmptyState, ProgressBar, Tabs } from '@/components/ui';
 import { utcDayKey } from '@/components/achievements/award';
-import { currentStreak } from '@/components/achievements/day-streak';
+import { currentStreak, longestStreak } from '@/components/achievements/day-streak';
 import { collectStudyDays } from '@/components/achievements/study-streak';
+import { AddHabitDialog } from './AddHabitDialog';
+import { HabitCard } from './HabitCard';
 import { HabitGrid } from './HabitGrid';
 import { RoutineChecklist } from './RoutineChecklist';
+import { StreakHero } from './StreakHero';
+import { habitRun, lastDays, loadRoutineDone, type HabitPreset } from './habit-utils';
 import { rewardHabitCompletion } from './streak';
 
 export interface Habit {
@@ -52,24 +59,17 @@ const DEFAULT_ROUTINES: RoutineItem[] = [
   { id: 'r10', text: 'Plan tomorrow', time: '22:00', category: 'night' },
 ];
 
-const PRESET_HABITS: { name: string; icon: string; color: string }[] = [
-  { name: 'Study 4h+', icon: '📚', color: 'cyan' },
-  { name: 'Exercise', icon: '💪', color: 'green' },
-  { name: 'No social media', icon: '📵', color: 'red' },
-  { name: 'Daily quiz', icon: '✏️', color: 'purple' },
-  { name: 'Read 20 pages', icon: '📖', color: 'amber' },
-  { name: 'Early wake up', icon: '🌅', color: 'orange' },
-  { name: 'Meditate', icon: '🧘', color: 'blue' },
-  { name: 'Drank 3L water', icon: '💧', color: 'sky' },
-];
-
-/** How long the "+XP" line stays visible after checking a habit. */
+/** How long the "+XP" toast stays visible after checking a habit. */
 const REWARD_VISIBLE_MS = 3500;
+/** Days in the streak hero's chain (the older half only shows in wide windows). */
+const CHAIN_DAYS = 28;
 
 type Tab = 'habits' | 'routine';
 
 interface RewardNotice {
-  text: string;
+  habitXp: number;
+  streak: number;
+  streakBonus: number;
   nonce: number;
 }
 
@@ -77,8 +77,11 @@ function HabitForgeAppInner() {
   const [habits, setHabits] = useState<Habit[]>(loadHabits);
   const [activeTab, setActiveTab] = useState<Tab>('habits');
   const [reward, setReward] = useState<RewardNotice | null>(null);
-  // Study streak (habits, routines, quizzes, notes, study time) — refreshed on each check-off.
-  const [streak, setStreak] = useState(() => currentStreak(collectStudyDays()));
+  const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState<Habit | null>(null);
+  // Study days (habits, routines, quizzes, notes, study time) — refreshed on each check-off.
+  const [studyDays, setStudyDays] = useState(() => collectStudyDays());
+  const [routineDone, setRoutineDone] = useState(() => loadRoutineDone(utcDayKey()).size);
 
   // Hide the reward line after a moment (cleared from a timer, never synchronously).
   useEffect(() => {
@@ -88,10 +91,15 @@ function HabitForgeAppInner() {
   }, [reward]);
 
   const refreshStreak = useCallback(() => {
-    setStreak(currentStreak(collectStudyDays()));
+    setStudyDays(collectStudyDays());
   }, []);
 
-  const addHabit = useCallback((preset: typeof PRESET_HABITS[0]) => {
+  const onRoutineProgress = useCallback(() => {
+    setStudyDays(collectStudyDays());
+    setRoutineDone(loadRoutineDone(utcDayKey()).size);
+  }, []);
+
+  const addHabit = useCallback((preset: HabitPreset) => {
     const habit: Habit = {
       id: `habit-${Date.now()}`,
       name: preset.name,
@@ -129,14 +137,14 @@ function HabitForgeAppInner() {
     // Habit XP (once per habit per day), then the study streak: streak
     // achievements + the once-a-day streak bonus.
     const result = rewardHabitCompletion(habitId);
-    setStreak(result.streak);
-    const parts: string[] = [];
-    if (result.habitXp > 0) parts.push(`+${result.habitXp} XP`);
-    if (result.streakBonus > 0) {
-      parts.push(`🔥 ${result.streak}-day streak bonus +${result.streakBonus} XP`);
-    }
-    if (parts.length > 0) {
-      setReward((prev) => ({ text: parts.join(' · '), nonce: (prev?.nonce ?? 0) + 1 }));
+    setStudyDays(collectStudyDays());
+    if (result.habitXp > 0 || result.streakBonus > 0) {
+      setReward((prev) => ({
+        habitXp: result.habitXp,
+        streak: result.streak,
+        streakBonus: result.streakBonus,
+        nonce: (prev?.nonce ?? 0) + 1,
+      }));
     }
   }, [habits, refreshStreak]);
 
@@ -148,114 +156,193 @@ function HabitForgeAppInner() {
   }, [habits, refreshStreak]);
 
   const today = utcDayKey();
+  const streak = currentStreak(studyDays, today);
+  const best = Math.max(streak, longestStreak(studyDays));
+
+  const week = useMemo(() => lastDays(today, 7), [today]);
+  const chain = useMemo(
+    () => lastDays(today, CHAIN_DAYS).map((key) => ({ key, active: studyDays.has(key), isToday: key === today })),
+    [today, studyDays]
+  );
+
+  const doneToday = habits.filter((h) => h.completions.includes(today)).length;
+  const allForged = habits.length > 0 && doneToday === habits.length;
 
   return (
-    <div className="flex flex-col h-full bg-black/30">
-      {/* Tab bar */}
-      <div className="flex border-b border-white/10 bg-black/20">
-        {(['habits', 'routine'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              'flex-1 py-3 text-sm font-medium capitalize transition-all',
-              activeTab === tab
-                ? 'text-orange-300 border-b-2 border-orange-400'
-                : 'text-white/50 hover:text-white/70'
-            )}
-          >
-            {tab === 'habits' ? '🔥 Habits' : '📋 Routine'}
-          </button>
-        ))}
+    <div className="@container relative flex h-full flex-col text-fg">
+      {/* Tabs + action */}
+      <div className="flex shrink-0 items-end gap-3 border-b border-line pl-3 pr-4">
+        <Tabs
+          value={activeTab}
+          onChange={(id) => setActiveTab(id as Tab)}
+          idPrefix="habit-forge"
+          aria-label="Habit Forge sections"
+          className="-mb-px"
+          tabs={[
+            {
+              id: 'habits',
+              label: 'Habits',
+              icon: Flame,
+              badge: habits.length > 0 ? `${doneToday}/${habits.length}` : undefined,
+            },
+            { id: 'routine', label: 'Routine', icon: ListChecks, badge: `${routineDone}/${DEFAULT_ROUTINES.length}` },
+          ]}
+        />
+        <div className="ml-auto flex h-10 items-center">
+          {activeTab === 'habits' && habits.length > 0 && (
+            <Button size="sm" variant="secondary" leadingIcon={Plus} onClick={() => setAdding(true)}>
+              New habit
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
         {activeTab === 'habits' && (
-          <>
-            {/* Today's habits */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-white">Today&apos;s Habits</h3>
-                {streak > 0 && (
-                  <span
-                    className="text-xs font-semibold text-orange-300"
-                    title="Days in a row with study activity: quizzes, revisions, planner tasks, habits, routines, notes or 10+ minutes in study apps"
-                  >
-                    🔥 {streak}-day streak
-                  </span>
-                )}
-              </div>
-              {reward && (
-                <p key={reward.nonce} role="status" className="text-xs text-green-300">
-                  {reward.text}
-                </p>
-              )}
-              {habits.length === 0 && (
-                <p className="text-xs text-white/40">
-                  Add some habits to track!
-                </p>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                {habits.map((habit) => {
-                  const done = habit.completions.includes(today);
-                  return (
-                    <div key={habit.id} className="relative group">
-                      <button
-                        onClick={() => toggleHabitToday(habit.id)}
-                        className={cn(
-                          'w-full p-3 rounded-lg border text-left transition-all',
-                          done
-                            ? 'bg-green-500/20 border-green-500/30'
-                            : 'bg-white/5 border-white/10 hover:bg-white/10'
-                        )}
-                      >
-                        <span className="text-lg">{habit.icon}</span>
-                        <p className={cn('text-xs mt-1', done ? 'text-green-300' : 'text-white/70')}>
-                          {habit.name}
-                        </p>
-                        {done && <span className="absolute top-2 right-2 text-green-400 text-xs">✓</span>}
-                      </button>
-                      <button
-                        onClick={() => removeHabit(habit.id)}
-                        aria-label={`Remove ${habit.name}`}
-                        className="absolute top-1 right-1 w-5 h-5 rounded bg-black/60 opacity-0 group-hover:opacity-100 text-red-400/70 hover:text-red-400 text-xs"
-                      >
-                        ×
-                      </button>
+          <div
+            role="tabpanel"
+            id="habit-forge-panel-habits"
+            aria-labelledby="habit-forge-tab-habits"
+            className="space-y-6 p-5"
+          >
+            <StreakHero streak={streak} best={best} chain={chain} />
+
+            <div className={`grid grid-cols-1 gap-6 ${habits.length > 0 ? '@5xl:grid-cols-2 @5xl:items-start' : ''}`}>
+              <section aria-labelledby="habit-forge-today" className="min-w-0 space-y-3">
+                <div className="flex items-end justify-between gap-4">
+                  <div className="min-w-0">
+                    <h3 id="habit-forge-today" className="text-sm font-semibold text-fg">
+                      Today&apos;s habits
+                    </h3>
+                    <p className="mt-0.5 text-xs text-fg-subtle">
+                      {habits.length === 0
+                        ? 'Nothing on the anvil yet.'
+                        : allForged
+                          ? 'Every habit forged. Come back tomorrow to extend the chain.'
+                          : 'Select a habit to forge it for today.'}
+                    </p>
+                  </div>
+                  {habits.length > 0 && (
+                    <div className="flex w-36 shrink-0 flex-col items-end gap-1.5">
+                      <span className="tabular font-mono text-xs text-fg-muted">
+                        <span className={allForged ? 'text-ember-400' : 'text-fg'}>{doneToday}</span> / {habits.length} forged
+                      </span>
+                      <ProgressBar
+                        value={doneToday}
+                        max={habits.length}
+                        segments={habits.length}
+                        tone="ember"
+                        size="sm"
+                        glow={allForged}
+                        aria-label="Habits forged today"
+                      />
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                  )}
+                </div>
 
-            {/* Add preset habits */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-white/60">Add Habit</h4>
-              <div className="flex flex-wrap gap-2">
-                {PRESET_HABITS.filter(
-                  (p) => !habits.some((h) => h.name === p.name)
-                ).map((preset) => (
-                  <button
-                    key={preset.name}
-                    onClick={() => addHabit(preset)}
-                    className="px-3 py-1.5 rounded text-xs bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 transition-all"
-                  >
-                    {preset.icon} {preset.name}
-                  </button>
-                ))}
-              </div>
-            </div>
+                {habits.length === 0 ? (
+                  <div className="rounded-card border border-dashed border-line-strong">
+                    <EmptyState
+                      icon={Flame}
+                      tone="ember"
+                      title="Forge your first habit"
+                      description="Pick a quick start or name your own. Every check-off feeds your streak and earns XP."
+                      actions={
+                        <Button variant="ember" leadingIcon={Plus} onClick={() => setAdding(true)}>
+                          New habit
+                        </Button>
+                      }
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 @lg:grid-cols-2">
+                    {habits.map((habit) => (
+                      <HabitCard
+                        key={habit.id}
+                        habit={habit}
+                        done={habit.completions.includes(today)}
+                        run={habitRun(habit.completions, today)}
+                        week={week.map((key) => ({ key, done: habit.completions.includes(key), isToday: key === today }))}
+                        onToggle={toggleHabitToday}
+                        onRemove={setRemoving}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
 
-            {/* Habit Grid Visualization */}
-            {habits.length > 0 && <HabitGrid habits={habits} />}
-          </>
+              {/* Habit Grid Visualization */}
+              {habits.length > 0 && <HabitGrid habits={habits} />}
+            </div>
+          </div>
         )}
 
         {activeTab === 'routine' && (
-          <RoutineChecklist routines={DEFAULT_ROUTINES} onProgress={refreshStreak} />
+          <div
+            role="tabpanel"
+            id="habit-forge-panel-routine"
+            aria-labelledby="habit-forge-tab-routine"
+            className="p-5"
+          >
+            <RoutineChecklist routines={DEFAULT_ROUTINES} onProgress={onRoutineProgress} />
+          </div>
         )}
       </div>
+
+      {/* Reward toast */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4" role="status" aria-live="polite">
+        <AnimatePresence>
+          {reward && (
+            <motion.div
+              key={reward.nonce}
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+              className="glass-popover flex items-center gap-3 rounded-full py-1.5 pl-2 pr-4 text-ui"
+            >
+              {reward.habitXp > 0 && (
+                <span className="flex items-center gap-1.5 rounded-full bg-gold/12 px-2 py-0.5 font-mono text-xs font-semibold text-gold ring-1 ring-inset ring-gold/25">
+                  <Zap size={12} strokeWidth={2} aria-hidden />+{reward.habitXp} XP
+                </span>
+              )}
+              {reward.streakBonus > 0 ? (
+                <span className="flex items-center gap-1.5 text-fg">
+                  <Flame size={14} strokeWidth={2} className="text-ember-400" aria-hidden />
+                  {reward.streak}-day streak bonus
+                  <span className="tabular font-mono text-xs font-semibold text-gold">+{reward.streakBonus} XP</span>
+                </span>
+              ) : (
+                <span className="text-fg-muted">Habit forged</span>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <AddHabitDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        existingNames={habits.map((h) => h.name)}
+        onAdd={addHabit}
+      />
+      <ConfirmDialog
+        open={removing !== null}
+        onClose={() => setRemoving(null)}
+        onConfirm={() => {
+          if (removing) removeHabit(removing.id);
+          setRemoving(null);
+        }}
+        tone="danger"
+        title={removing ? `Remove “${removing.name}”?` : 'Remove habit?'}
+        description={
+          removing && removing.completions.length > 0
+            ? `Its ${removing.completions.length} check-in${removing.completions.length === 1 ? '' : 's'} leave the forge map too. XP you earned stays.`
+            : 'It leaves your board. XP you earned stays.'
+        }
+        confirmLabel="Remove habit"
+      />
     </div>
   );
 }
