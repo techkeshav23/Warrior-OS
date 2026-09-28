@@ -11,11 +11,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ArrowRight, Sparkles, WandSparkles, FileText } from 'lucide-react';
+import { Search, ArrowRight, Sparkles, WandSparkles, FileText, CircleCheck, IndianRupee } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { useNotificationStore } from '@/stores/useNotificationStore';
-import { commandKey, describeIntent, parseLocalIntent, type LocalIntent } from '@/lib/nexus-intent';
+import { commandKey, describeIntent, isCommandIntent, parseLocalIntent, type LocalIntent } from '@/lib/nexus-intent';
 import {
   executeNexusCommand,
   NEXUS_ACHIEVEMENTS,
@@ -27,6 +27,7 @@ import {
 import { findMatchingNotes, loadNotesLite, type NoteLite } from '@/lib/nexus/context';
 import { emitWarriorEvent, WARRIOR_EVENTS } from '@/lib/nexus/events';
 import { openOrFocusApp } from '@/lib/nexus/windows';
+import { listHabits, type HabitRef } from '@/lib/nexus/quick-actions';
 import { cn } from '@/lib/utils';
 import type { NexusCommand } from '@/types/nexus';
 
@@ -35,7 +36,7 @@ interface CommandPaletteProps {
   onClose: () => void;
 }
 
-type CommandKind = 'app' | 'action' | 'nexus' | 'note' | 'ask';
+type CommandKind = 'app' | 'action' | 'nexus' | 'note' | 'habit' | 'ask';
 
 interface CommandItem {
   id: string;
@@ -59,6 +60,14 @@ function toastResults(results: NexusCommandResult[]): void {
   });
 }
 
+const PALETTE_INPUT_ID = 'warrior-command-palette-input';
+
+/** Re-focus the search box after a mouse click on a row. */
+function focusPaletteInput(): void {
+  if (typeof document === 'undefined') return;
+  document.getElementById(PALETTE_INPUT_ID)?.focus();
+}
+
 const QUICK_ACTIONS: Array<{ id: string; label: string; command: NexusCommand }> = [
   { id: 'study-mode', label: 'Study Mode (GATE + Notes, pomodoro)', command: { type: 'study_mode' } },
   { id: 'chill-mode', label: 'Chill Mode (music, aurora)', command: { type: 'chill_mode' } },
@@ -76,6 +85,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [notes, setNotes] = useState<NoteLite[]>([]);
+  const [habits, setHabits] = useState<HabitRef[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -124,6 +134,17 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       },
     });
     cmds.push({
+      id: 'action-expense',
+      label: 'Log Expense (type: add expense 120 chai)',
+      category: 'Quick Action',
+      kind: 'action',
+      action: () => {
+        markUsed();
+        setQuery('add expense ');
+        focusPaletteInput();
+      },
+    });
+    cmds.push({
       id: 'action-nexus',
       label: 'Ask NEXUS (open chat)',
       category: 'NEXUS',
@@ -163,11 +184,12 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     };
 
     // Natural language → NEXUS intent (skip when an app row already covers it).
-    const intent: LocalIntent = parseLocalIntent(q, registeredApps);
-    const singleKey =
-      intent.type !== 'none' && intent.type !== 'multi' && intent.type !== 'help' && intent.type !== 'easter_egg'
-        ? commandKey(intent)
-        : null;
+    const intent: LocalIntent = parseLocalIntent(
+      q,
+      registeredApps,
+      habits.map((h) => h.name)
+    );
+    const singleKey = isCommandIntent(intent) ? commandKey(intent) : null;
     const redundant =
       (intent.type === 'open_app' && !intent.newWindow && matches.some((m) => m.id === `launch-${intent.appId}`)) ||
       (singleKey !== null &&
@@ -189,7 +211,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             void sendToNexus(q, { via: 'palette' });
           } else if (intent.type === 'multi') {
             toastResults(intent.commands.map(executeNexusCommand));
-          } else if (intent.type !== 'help' && intent.type !== 'easter_egg' && intent.type !== 'none') {
+          } else if (isCommandIntent(intent)) {
             toastResults([executeNexusCommand(intent)]);
           }
           onClose();
@@ -215,15 +237,38 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             }))
         : [];
 
+    // Habits due today whose name matches ("read", "gym", "habit" lists all).
+    const listAllHabits = /^(?:habits?|check\s+habits?)$/.test(lower);
+    const habitQuery = lower.replace(/^(?:check|tick|mark)\s+(?:habit\s+)?/, '').trim();
+    const habitItems: CommandItem[] =
+      q.length >= 2
+        ? habits
+            .filter((h) => !h.doneToday && (listAllHabits || (habitQuery.length >= 2 && h.name.toLowerCase().includes(habitQuery))))
+            .filter((h) => !(intent.type === 'check_habit' && h.name.toLowerCase().includes(intent.habit)))
+            .slice(0, 4)
+            .map((h): CommandItem => ({
+              id: `habit-${h.id}`,
+              label: `Check habit: ${h.icon ? `${h.icon} ` : ''}${h.name}`,
+              category: 'Habits',
+              kind: 'habit',
+              action: () => {
+                markUsed();
+                toastResults([executeNexusCommand({ type: 'check_habit', habit: h.name })]);
+                onClose();
+              },
+            }))
+        : [];
+
     const items: CommandItem[] = [];
     if (intentItem) items.push(intentItem);
     items.push(...matches);
+    items.push(...habitItems);
     // Nothing matched: asking NEXUS becomes the default (first) choice.
-    if (!intentItem && matches.length === 0) items.push(askItem);
+    if (!intentItem && matches.length === 0 && habitItems.length === 0) items.push(askItem);
     items.push(...noteItems);
-    if (intentItem || matches.length > 0) items.push(askItem);
+    if (intentItem || matches.length > 0 || habitItems.length > 0) items.push(askItem);
     return items;
-  }, [commands, query, registeredApps, notes, onClose]);
+  }, [commands, query, registeredApps, notes, habits, onClose]);
 
   // Reset selectedIndex when the filter query changes — using the "store info from
   // previous render" pattern instead of setState-in-effect to avoid an extra render.
@@ -246,6 +291,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     const id = setTimeout(() => {
       inputRef.current?.focus();
       setNotes(loadNotesLite());
+      setHabits(listHabits());
     }, 50);
     return () => clearTimeout(id);
   }, [isOpen]);
@@ -319,9 +365,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
               <Search className="w-4 h-4 text-text-muted flex-shrink-0" />
               <input
                 ref={inputRef}
+                id={PALETTE_INPUT_ID}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder='Search apps, or tell NEXUS: "study mode", "DBMS quiz", "notes on paging"…'
+                placeholder='Search apps, or tell NEXUS: "study mode", "DBMS quiz", "add expense 80 chai"…'
                 aria-label="Command palette"
                 className="flex-1 bg-transparent text-sm font-mono text-text-primary placeholder:text-text-muted outline-none"
               />
@@ -361,6 +408,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                         <WandSparkles className="w-3 h-3 flex-shrink-0 opacity-90 text-cyan-300" />
                       ) : cmd.kind === 'note' ? (
                         <FileText className="w-3 h-3 flex-shrink-0 opacity-70" />
+                      ) : cmd.kind === 'habit' ? (
+                        <CircleCheck className="w-3 h-3 flex-shrink-0 opacity-80 text-emerald-300" />
+                      ) : cmd.id === 'action-expense' ? (
+                        <IndianRupee className="w-3 h-3 flex-shrink-0 opacity-70" />
                       ) : (
                         <ArrowRight className="w-3 h-3 flex-shrink-0 opacity-50" />
                       )}

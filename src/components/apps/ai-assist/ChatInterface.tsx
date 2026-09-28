@@ -65,8 +65,8 @@ function AssistEmptyState({ aiStatus, conversationId }: { aiStatus: NexusAIStatu
         <div className="flex max-w-sm items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.07] px-3 py-2 text-left">
           <WifiOff size={14} className="mt-0.5 shrink-0 text-amber-300" />
           <p className="text-[11px] leading-relaxed text-amber-100/80">
-            Gemini key server pe configured nahi hai (GEMINI_API_KEY). Chat answers offline hain, lekin saare local
-            commands kaam karte hain.
+            Offline brain active — GEMINI_API_KEY set nahi hai. Saare OS commands, GATE concepts, exam strategy aur study
+            advice phir bhi kaam karte hain; open-ended AI chat ke liye key add kar.
           </p>
         </div>
       )}
@@ -140,7 +140,7 @@ function ChatInterfaceInner({ aiStatus, onToggleSidebar }: ChatInterfaceProps) {
     aiStatus === 'online'
       ? `${NEXUS_GEMINI_MODEL} · online`
       : aiStatus === 'offline'
-        ? 'AI offline · local commands only'
+        ? 'offline brain · commands + GATE notes'
         : aiStatus === 'checking'
           ? 'checking AI link…'
           : 'AI status unknown';

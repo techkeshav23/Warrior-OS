@@ -54,15 +54,18 @@ export function ScanlineOverlay({
             'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)',
         }}
       />
-      {/* Subtle flicker */}
-      <div
-        className="absolute inset-0"
-        style={{
-          animation: 'hologram-flicker 0.15s infinite alternate',
-          opacity: 0.01,
-          background: 'white',
-        }}
-      />
+      {/* Subtle flicker — the keyframes animate opacity 0.3→1, which would
+          override an inline opacity on the same element and paint the whole
+          screen white; so the 1% ceiling lives on a wrapper instead. */}
+      <div className="absolute inset-0" style={{ opacity: 0.01 }}>
+        <div
+          className="absolute inset-0"
+          style={{
+            animation: 'hologram-flicker 0.15s infinite alternate',
+            background: 'white',
+          }}
+        />
+      </div>
     </div>
   );
 }

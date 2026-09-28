@@ -8,6 +8,22 @@ import { immer } from 'zustand/middleware/immer';
 import { persist } from 'zustand/middleware';
 import type { Achievement } from '@/types/achievement';
 import { LEVEL_THRESHOLDS } from '@/lib/constants';
+import { ACHIEVEMENTS } from '@/data/achievements';
+
+/**
+ * Catalogue definitions + saved unlock dates. Saved ids the catalogue no
+ * longer lists are kept so an unlock is never lost.
+ */
+function mergeWithCatalogue(saved: readonly Achievement[] | undefined): Achievement[] {
+  const byId = new Map((saved ?? []).map((a) => [a.id, a] as const));
+  const merged: Achievement[] = ACHIEVEMENTS.map((def) => ({
+    ...def,
+    unlockedAt: byId.get(def.id)?.unlockedAt ?? null,
+  }));
+  const known = new Set(ACHIEVEMENTS.map((a) => a.id));
+  for (const a of saved ?? []) if (!known.has(a.id)) merged.push({ ...a });
+  return merged;
+}
 
 interface XPStore {
   xp: number;
@@ -41,7 +57,7 @@ export const useXPStore = create<XPStore>()(
     immer((set, get) => ({
       xp: 0,
       level: 1,
-      achievements: [],
+      achievements: mergeWithCatalogue([]),
       recentUnlock: null,
 
       getLevelTitle: () => {
@@ -106,6 +122,15 @@ export const useXPStore = create<XPStore>()(
         level: state.level,
         achievements: state.achievements,
       }),
+      // New catalogue entries reach existing users on rehydrate.
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<Pick<XPStore, 'xp' | 'level' | 'achievements'>>;
+        return {
+          ...current,
+          ...saved,
+          achievements: mergeWithCatalogue(saved.achievements),
+        };
+      },
     }
   )
 );

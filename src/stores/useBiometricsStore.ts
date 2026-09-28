@@ -155,6 +155,17 @@ interface BiometricsStore extends PersistedBiometrics {
   getAverages: () => BiometricState;
   /** Hourly buckets for one local day. */
   getSnapshotsForDay: (date: Date) => BiometricSnapshot[];
+  /**
+   * Sample-weighted average focus per local hour over the last `days`
+   * days (hours with no data omitted). Used for "your focus peaks at…".
+   */
+  getHourlyFocusProfile: (days?: number) => HourlyFocus[];
+}
+
+export interface HourlyFocus {
+  hour: number; // 0-23 local
+  focus: number; // 0-100 (rounded)
+  samples: number; // 5-second readings behind the average
 }
 
 export const useBiometricsStore = create<BiometricsStore>()(
@@ -279,6 +290,22 @@ export const useBiometricsStore = create<BiometricsStore>()(
           fatigue: Math.round(sum.fatigue / total),
           stress: Math.round(sum.stress / total),
         };
+      },
+
+      getHourlyFocusProfile: (days = 14) => {
+        const cutoff = Date.now() - days * 24 * 60 * 60_000;
+        const sums = new Map<number, { sum: number; n: number }>();
+        for (const snap of get().hourly) {
+          if (snap.timestamp < cutoff) continue;
+          const w = snap.samples ?? 1;
+          const b = sums.get(snap.hour) ?? { sum: 0, n: 0 };
+          b.sum += snap.state.focus * w;
+          b.n += w;
+          sums.set(snap.hour, b);
+        }
+        return Array.from(sums.entries())
+          .map(([hour, b]) => ({ hour, focus: Math.round(b.sum / b.n), samples: b.n }))
+          .sort((a, b) => a.hour - b.hour);
       },
 
       getSnapshotsForDay: (date) => {

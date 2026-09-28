@@ -29,6 +29,8 @@ import { useNow } from '@/components/widgets/hooks';
 import { DEFAULT_WORKSPACES, type WorkspaceId } from '@/types/workspace';
 import { cn } from '@/lib/utils';
 import { appGlyph } from './DesktopIcon';
+import { OnlineCounter } from '@/components/ghost';
+import { DecayTrayTimer } from '@/components/decay';
 
 interface TaskbarProps {
   onStartClick: () => void;
@@ -162,6 +164,7 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
   const registeredApps = useAppStore((s) => s.registeredApps);
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const toggleSound = useSettingsStore((s) => s.toggleSound);
+  const ghostWarriors = useSettingsStore((s) => s.ghostWarriors);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const switchWorkspace = useWorkspaceStore((s) => s.switchWorkspace);
   const unreadCount = useNotificationStore((s) => s.unreadCount);
@@ -248,6 +251,7 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
 
   return (
     <motion.div
+      data-warrior-taskbar
       initial={{ y: 48 }}
       animate={{ y: 0 }}
       className="fixed bottom-0 left-0 right-0 h-12 flex items-center pl-2 gap-1"
@@ -325,6 +329,12 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
             );
           })}
         </div>
+
+        {/* Study timer (Reality Decay) */}
+        <DecayTrayTimer />
+
+        {/* Ghost Warriors online counter (opens the leaderboard) */}
+        {ghostWarriors && <OnlineCounter />}
 
         {/* Install as an app (only when the browser offers it) */}
         {canInstall && (

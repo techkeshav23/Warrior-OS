@@ -33,6 +33,7 @@ const SOURCE_LABEL: Record<WeatherSource, string> = {
   'saved-city': 'Saved city',
   geolocation: 'Your location',
   'default-city': `Default city (${DEFAULT_CITY.split(',')[0]})`,
+  'last-known': 'Offline · last known',
 };
 
 function formatClock(epochMs: number): string {

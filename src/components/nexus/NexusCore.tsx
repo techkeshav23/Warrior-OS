@@ -43,10 +43,12 @@ import {
   pomodoroRemainingMs,
 } from '@/lib/nexus/context';
 import { requestNexusAI } from '@/lib/nexus/ai-client';
+import { checkHabitToday, listHabits, logExpense } from '@/lib/nexus/quick-actions';
 import { NEXUS_LIMITS } from '@/lib/nexus/protocol';
 import { speakNexus } from '@/lib/nexus/speech';
 import { NEXUS_HELP_TEXT, NEXUS_LINES } from '@/data/nexus-personality';
 import { WALLPAPER_OPTIONS } from '@/lib/constants';
+import type { ExpenseCategory } from '@/types/expense';
 import type {
   NexusActionButton,
   NexusChatTurn,
@@ -450,6 +452,28 @@ function runTakeBreak(): NexusCommandResult {
   return { ok: true, reply: `${decay.breakDuration} min break shuru. 4-7-8 breathing follow kar — screen se nazar hata.` };
 }
 
+function runAddExpense(amount: number, category: ExpenseCategory, note: string): NexusCommandResult {
+  const result = logExpense(amount, category, note);
+  const vault = useAppStore
+    .getState()
+    .registeredApps.find((a) => a.id === 'expense-vault' || a.name.toLowerCase() === 'expense vault');
+  return {
+    ok: result.ok,
+    reply: result.reply,
+    followUps: vault ? [button({ type: 'open_app', appId: vault.id, appName: vault.name }, 'Open Expense Vault')] : [],
+  };
+}
+
+function runCheckHabit(habit: string): NexusCommandResult {
+  const result = checkHabitToday(habit);
+  const forge = useAppStore.getState().getApp('study-planner');
+  return {
+    ok: result.ok,
+    reply: result.reply,
+    followUps: forge ? [button({ type: 'open_app', appId: forge.id, appName: forge.name }, `Open ${forge.name}`)] : [],
+  };
+}
+
 /** Execute one command against the real OS stores. Never throws. */
 export function executeNexusCommand(command: NexusCommand): NexusCommandResult {
   try {
@@ -492,6 +516,10 @@ export function executeNexusCommand(command: NexusCommand): NexusCommandResult {
       case 'new_chat':
         useNexusStore.getState().newConversation();
         return { ok: true, reply: 'Naya chat khol diya.' };
+      case 'add_expense':
+        return runAddExpense(command.amount, command.category, command.note);
+      case 'check_habit':
+        return runCheckHabit(command.habit);
       default:
         return { ok: false, reply: 'Ye command samajh nahi aaya.' };
     }
@@ -546,7 +574,11 @@ export async function processNexusInput(
   if (!message) return { reply: NEXUS_LINES.empty, source: 'local', actions: [] };
 
   const apps = useAppStore.getState().registeredApps;
-  const intent = parseLocalIntent(message, apps);
+  const intent = parseLocalIntent(
+    message,
+    apps,
+    listHabits().map((h) => h.name)
+  );
 
   if (intent.type === 'help') return { reply: NEXUS_HELP_TEXT, source: 'local', actions: HELP_ACTIONS, intent };
   if (intent.type === 'easter_egg') return { reply: intent.reply, source: 'local', actions: [], intent };
@@ -597,7 +629,7 @@ export async function processNexusInput(
     .filter((b): b is NexusActionButton => b !== null);
   return {
     reply,
-    source: 'ai',
+    source: ai.offline ? 'offline' : 'ai',
     actions: dedupeButtons([...pendingCommand, ...suggested, ...executionFollowUps], executedKeys),
     intent,
   };
@@ -644,7 +676,7 @@ export async function sendToNexus(text: string, options: SendToNexusOptions = {}
     actions: result.actions,
   });
 
-  if (result.source === 'local' || result.source === 'ai') {
+  if (result.source !== 'error') {
     unlockNexusAchievement(NEXUS_ACHIEVEMENTS.firstChat);
   }
   if (via === 'voice') speakNexus(result.reply);

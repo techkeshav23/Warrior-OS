@@ -11,6 +11,7 @@
 import { useEffect } from 'react';
 import { useXPStore } from '@/stores/useXPStore';
 import { useNotificationStore } from '@/stores/useNotificationStore';
+import { reconcileAchievementEvents } from '@/lib/achievement-events';
 import {
   checkWarriorComplete,
   syncAchievementCatalogue,
@@ -72,6 +73,8 @@ export function AchievementTriggers() {
         );
       });
       checkWarriorComplete();
+      // Events tracked before their achievement existed in the catalogue.
+      timers.push(window.setTimeout(reconcileAchievementEvents, FIRST_BOOT_DELAY_MS));
     });
 
     return () => {

@@ -4,8 +4,9 @@
 // offers presets and custom text (max 50 chars), rate-limited to one
 // per 2 minutes. Cries float up as glass bubbles on every online
 // warrior's desktop (realtime mode) and fade within 5 s; max 3 are
-// visible at once, the rest queue. In simulated mode a cry is shown
-// only on this desktop — and the UI says so.
+// visible at once, the rest queue. In local (offline) mode a cry
+// reaches this browser's other open tabs only — and the UI says so;
+// simulated warriors also send the odd (SIM-tagged) cry.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -72,9 +73,12 @@ export function WarCryComposer({ compact = false }: { compact?: boolean }) {
           setNow(Date.now());
           setStatus({
             tone: 'ok',
-            text: result.broadcast
-              ? 'Sent to every warrior online.'
-              : 'Simulated mode: only your desktop shows it.',
+            text:
+              result.scope === 'global'
+                ? 'Sent to every warrior online.'
+                : result.scope === 'tabs'
+                  ? 'Offline mode: shown on your open Warrior OS tabs.'
+                  : 'Offline mode: only this desktop shows it.',
           });
         } else {
           setStatus({ tone: 'error', text: result.message });
@@ -234,8 +238,12 @@ function WarCryBubblesInner() {
                   {cry.isSelf ? `${cry.anonymousId} (you)` : cry.anonymousId}
                 </p>
                 <p className="text-sm text-text-primary text-glow-sm break-words">{cry.message}</p>
-                {cry.isLocalOnly && (
-                  <p className="mt-0.5 text-[9px] text-accent-warning/80">simulated mode · not broadcast</p>
+                {cry.isSimulated ? (
+                  <p className="mt-0.5 text-[9px] text-accent-warning/80">SIM · simulated warrior</p>
+                ) : (
+                  cry.isLocalOnly && (
+                    <p className="mt-0.5 text-[9px] text-accent-warning/80">offline · local tabs only</p>
+                  )
                 )}
               </div>
             </motion.div>

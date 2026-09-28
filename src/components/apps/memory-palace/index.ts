@@ -1,12 +1,18 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Memory Palace: Barrel
+// Only MemoryPalaceApp is needed by the app registry; it loads the
+// three.js scene client-side. Data helpers are pure TS (no three.js).
 // ═══════════════════════════════════════════════════════════
 
 export { MemoryPalaceApp, default } from './MemoryPalaceApp';
-export { PalaceRoom, ROOM_THEMES } from './PalaceRoomGenerator';
-export type { RoomTheme } from './PalaceRoomGenerator';
-export { KnowledgeObject, isDueForRevision } from './KnowledgeObject';
-export type { PalaceNote, NoteObjectType } from './KnowledgeObject';
-export { NoteHologram } from './NoteHologram';
-export { PalaceNavigation } from './PalaceNavigation';
-export type { RoomLayout } from './PalaceNavigation';
+export {
+  ROOM_THEMES,
+  inferNoteSubject,
+  inferNoteType,
+  loadPalaceNotes,
+  computeNoteReview,
+  loadRevisionLog,
+  loadGateRevisions,
+  PALACE_ACHIEVEMENT_IDS,
+} from './palaceData';
+export type { PalaceNote, NoteObjectType, NoteReview, RoomTheme, PalaceSubject } from './palaceData';

@@ -17,6 +17,7 @@ export interface GhostWarrior {
   lastSeen: string; // ISO timestamp
   isSelf?: boolean; // true for the local user's own presence
   isSimulated?: boolean; // true for local-simulation ghosts (never real people)
+  isLocalTab?: boolean; // another open tab of this browser (local mode)
 }
 
 /**
@@ -28,8 +29,10 @@ export interface WarCry {
   timestamp: string; // ISO timestamp
   anonymousId: string; // sender
   isSelf?: boolean; // sent by the local user
-  /** True when the cry was not broadcast (simulation mode). */
+  /** True when the cry only reached this device (local/offline mode). */
   isLocalOnly?: boolean;
+  /** True for cries from simulated warriors (local/offline mode only). */
+  isSimulated?: boolean;
 }
 
 /**
@@ -58,9 +61,11 @@ export interface WarCryPreset {
  *  - disabled:   Ghost Warriors switched off in Settings
  *  - connecting: Firebase RTDB configured, connection in progress
  *  - realtime:   live Firebase RTDB presence (real people)
- *  - simulated:  no database configured (or unreachable) → local simulation
+ *  - local:      no database configured (or unreachable) → offline campfire:
+ *                real presence of this browser's other open tabs (via
+ *                BroadcastChannel) + deterministic, SIM-labelled warriors
  */
-export type GhostPresenceMode = 'disabled' | 'connecting' | 'realtime' | 'simulated';
+export type GhostPresenceMode = 'disabled' | 'connecting' | 'realtime' | 'local';
 
 /** The stats the local warrior publishes about themselves. */
 export interface GhostSelfStats {

@@ -22,6 +22,7 @@ import { BreakMode } from './BreakMode';
 import { DecayRepair } from './DecayRepair';
 import { nexusSay, type NexusSayTone } from './nexus-say';
 import { onDecayStageReached, checkTheMachine } from './achievements';
+import { installDecayDebug } from './debug';
 
 /** Time between the stage-5 cracks appearing and the forced break. */
 const FORCED_BREAK_GRACE_MS = 6_000;
@@ -56,6 +57,9 @@ function DecayEngineInner() {
   const isRepairing = useDecayStore((s) => s.isRepairing);
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const accentColor = useSettingsStore((s) => s.accentColor);
+
+  // ─── Dev/test hook: window.__warriorDecay (see ./debug) ───
+  useEffect(() => installDecayDebug(), []);
 
   // ─── Resume a break that was in progress before a reload ───
   useEffect(() => {

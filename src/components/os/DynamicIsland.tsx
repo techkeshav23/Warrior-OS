@@ -12,6 +12,7 @@ import { Volume2, Bell } from 'lucide-react';
 import { useAudioStore } from '@/stores/useAudioStore';
 import { useNotificationStore } from '@/stores/useNotificationStore';
 import { cn } from '@/lib/utils';
+import { CreatureIslandBadge, useCreatureIslandSignal } from '@/components/creature';
 
 type IslandState = 'compact' | 'expanded';
 
@@ -21,7 +22,9 @@ export function DynamicIsland() {
   const trackTitle = useAudioStore((s) => s.trackTitle);
   const unreadCount = useNotificationStore((s) => s.unreadCount);
 
-  const hasContent = isPlaying || unreadCount > 0;
+  const creatureSignal = useCreatureIslandSignal();
+
+  const hasContent = isPlaying || unreadCount > 0 || creatureSignal.visible;
 
   if (!hasContent) return null;
 
@@ -67,6 +70,9 @@ export function DynamicIsland() {
                 </div>
               )}
 
+              {/* Creature status (amber when sad) */}
+              <CreatureIslandBadge />
+
               {/* Right indicator */}
               {unreadCount > 0 && (
                 <div className="flex items-center gap-1">
@@ -109,6 +115,8 @@ export function DynamicIsland() {
                   </span>
                 </div>
               )}
+
+              <CreatureIslandBadge expanded />
             </motion.div>
           )}
         </AnimatePresence>

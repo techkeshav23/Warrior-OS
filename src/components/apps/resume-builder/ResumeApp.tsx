@@ -7,12 +7,13 @@
 
 'use client';
 
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Eye, FileText, PencilLine, Printer } from 'lucide-react';
+import { Eye, FileText, Hammer, PencilLine, Printer, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCalendarDate } from '@/components/apps/project-forge/forge-utils';
 import { RESUME_FIRST_EXPORT_ACHIEVEMENT, useResumeStore } from '@/stores/useResumeStore';
+import { useProjectForgeStore } from '@/stores/useProjectForgeStore';
 import { useXPStore } from '@/stores/useXPStore';
 import type { ResumeData } from '@/types/resume';
 import { ResumeEditor } from './ResumeEditor';
@@ -40,9 +41,40 @@ function hasContent(resume: ResumeData): boolean {
   );
 }
 
+/** Resolves once a persisted zustand store has loaded from localStorage. */
+function whenHydrated(store: {
+  persist: { hasHydrated: () => boolean; onFinishHydration: (fn: () => void) => () => void };
+}): Promise<void> {
+  if (store.persist.hasHydrated()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const unsub = store.persist.onFinishHydration(() => {
+      unsub();
+      resolve();
+    });
+  });
+}
+
 function ResumeAppInner() {
   const [view, setView] = useState<PaneView>('editor');
   const [printing, setPrinting] = useState(false);
+  const [autoFillNote, setAutoFillNote] = useState<string | null>(null);
+  const forgeProjects = useProjectForgeStore((s) => s.projects);
+
+  // One-time auto-fill of the Projects section from Project Forge, once both
+  // stores are loaded. Re-runs when Forge changes until something is imported.
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([whenHydrated(useResumeStore), whenHydrated(useProjectForgeStore)]).then(() => {
+      if (cancelled) return;
+      const added = useResumeStore.getState().autoFillFromForge(useProjectForgeStore.getState().projects);
+      if (added > 0) {
+        setAutoFillNote(`Filled Projects with ${added} ${added === 1 ? 'project' : 'projects'} from Project Forge.`);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [forgeProjects]);
   const fullName = useResumeStore((s) => s.resume.personal.fullName);
   const canExport = useResumeStore((s) => hasContent(s.resume));
   const lastExportedAt = useResumeStore((s) => s.lastExportedAt);
@@ -119,6 +151,24 @@ function ResumeAppInner() {
           <Printer className="h-3.5 w-3.5" /> Export PDF
         </button>
       </header>
+
+      {autoFillNote && (
+        <div
+          role="status"
+          className="flex items-center gap-2 border-b border-cyan-400/20 bg-cyan-400/[0.07] px-3 py-1.5 text-[11px] text-cyan-100"
+        >
+          <Hammer className="h-3.5 w-3.5 shrink-0 text-cyan-300" />
+          <span className="min-w-0 flex-1 truncate">{autoFillNote}</span>
+          <button
+            type="button"
+            onClick={() => setAutoFillNote(null)}
+            aria-label="Dismiss"
+            className="flex h-5 w-5 items-center justify-center rounded text-cyan-200/70 hover:bg-cyan-400/20 hover:text-cyan-100"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         <section

@@ -10,11 +10,15 @@
 //   GET /api/weather?lat=28.61&lon=77.21[&forecast=1]
 //   GET /api/weather?city=New%20Delhi,IN[&forecast=1]
 //
+// No key configured → keyless fallback via Open-Meteo (same payload
+// shape, OWM-style icon codes), so weather works out of the box.
+//
 // 200 → { temp, condition, icon, city, ...extras }
 // 4xx/5xx → { error: <code> }
 // ═══════════════════════════════════════════════════════════
 
 import { NextResponse, type NextRequest } from 'next/server';
+import { fetchKeylessWeather } from './open-meteo';
 
 // The in-memory cache lives in the Node.js server process.
 export const runtime = 'nodejs';
@@ -339,6 +343,26 @@ async function getForecast(location: WeatherLocation, apiKey: string): Promise<F
   return result.ok ? result.value : [];
 }
 
+/** Keyless provider, sharing the cache, dedupe and upstream budget. */
+async function getKeyless(
+  location: WeatherLocation
+): Promise<UpstreamResult<WeatherPayload & { forecast: ForecastSlot[] }>> {
+  const key = `om|${cacheKeyFor(location)}`;
+  const hit = cacheGet(currentCache, key);
+  if (hit) return { ok: true, value: { ...hit, forecast: hit.forecast ?? [] } };
+
+  return dedupe(key, async () => {
+    // Geocoding + forecast: two upstream calls for a city, one for coordinates.
+    if (!takeUpstreamSlot() || (location.kind === 'city' && !takeUpstreamSlot())) {
+      return { ok: false, status: 429, error: 'rate_limited' };
+    }
+    const result = await fetchKeylessWeather(location, FORECAST_SLOTS);
+    if (!result.ok) return result;
+    cacheSet(currentCache, key, result.value);
+    return { ok: true, value: result.value };
+  });
+}
+
 // ─── Handler ───
 
 export async function GET(request: NextRequest) {
@@ -352,11 +376,15 @@ export async function GET(request: NextRequest) {
   // fallback so existing .env files keep working. Both are read only here,
   // so neither is ever inlined into client code.
   const apiKey = pickApiKey(process.env.WEATHER_API_KEY, process.env.NEXT_PUBLIC_WEATHER_API_KEY);
-  if (!apiKey) {
-    return json({ error: 'weather_key_missing' }, 503);
-  }
-
   const wantForecast = request.nextUrl.searchParams.get('forecast') === '1';
+
+  if (!apiKey) {
+    const keyless = await getKeyless(location);
+    if (!keyless.ok) return json({ error: keyless.error }, keyless.status);
+    const { forecast, ...rest } = keyless.value;
+    const body: WeatherPayload = wantForecast ? { ...rest, forecast } : rest;
+    return json(body, 200, 120);
+  }
 
   const [current, forecast] = await Promise.all([
     getCurrent(location, apiKey),
@@ -364,6 +392,14 @@ export async function GET(request: NextRequest) {
   ]);
 
   if (!current.ok) {
+    // A rejected (or not yet activated) key should not take weather down.
+    if (current.error === 'weather_key_rejected') {
+      const keyless = await getKeyless(location);
+      if (keyless.ok) {
+        const { forecast: slots, ...rest } = keyless.value;
+        return json(wantForecast ? { ...rest, forecast: slots } : rest, 200, 120);
+      }
+    }
     return json({ error: current.error }, current.status);
   }
 

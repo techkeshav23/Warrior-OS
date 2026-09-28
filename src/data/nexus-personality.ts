@@ -122,6 +122,7 @@ export const NEXUS_HELP_TEXT = `**Instant commands (no AI call):**
 - **Modes:** \`study mode\` (GATE + Notes side by side, pomodoro, focus wallpaper), \`chill mode\`
 - **Timer:** \`pomodoro\`, \`pomodoro 50/10\`, \`pause timer\`, \`stop pomodoro\`
 - **OS:** \`wallpaper aurora\`, \`switch to build workspace\`, \`my stats\`, \`take a break\`
+- **Life:** \`add expense 120 chai\`, \`spent 40 on metro\`, \`check habit workout\`, \`reading done\`
 - **Chat:** \`new chat\`, \`clear chat\`
 
 Chain them: \`open notes and start a DBMS quiz\`. Anything else goes to Gemini.`;

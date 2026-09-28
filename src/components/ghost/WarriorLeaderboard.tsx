@@ -46,9 +46,10 @@ function ModeBanner() {
   }
   return (
     <div className="mb-3 rounded-lg border border-accent-warning/30 bg-accent-warning/10 px-2.5 py-1.5 text-[11px] text-accent-warning">
-      <p className="font-semibold">Simulated warriors</p>
+      <p className="font-semibold">Offline campfire</p>
       <p className="text-accent-warning/80">
-        {lastError ?? 'Connect Firebase (NEXT_PUBLIC_FIREBASE_DATABASE_URL) to see real ones.'}
+        Your other open tabs are real; SIM warriors are simulated.{' '}
+        {lastError ?? 'Set NEXT_PUBLIC_FIREBASE_DATABASE_URL to meet real warriors.'}
       </p>
     </div>
   );
@@ -137,6 +138,9 @@ function WarriorLeaderboardInner({ isOpen, onClose, anchor = 'top' }: WarriorLea
                   <p className={cn('truncate font-mono text-xs', w.isSelf ? 'text-accent-primary' : 'text-text-primary')}>
                     {w.anonymousId}
                     {w.isSelf && <span className="ml-1 text-[10px] text-accent-primary/70">(you)</span>}
+                    {w.isLocalTab && (
+                      <span className="ml-1 rounded bg-accent-primary/15 px-1 text-[9px] text-accent-primary">TAB</span>
+                    )}
                     {w.isSimulated && (
                       <span className="ml-1 rounded bg-accent-warning/15 px-1 text-[9px] text-accent-warning">SIM</span>
                     )}

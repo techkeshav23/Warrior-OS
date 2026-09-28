@@ -297,7 +297,7 @@ function CampfireWidgetInner() {
   }, [collapsed]);
 
   const stage = campfireStageFor(onlineCount);
-  const simulated = mode === 'simulated';
+  const simulated = mode === 'local';
 
   return (
     <motion.div
@@ -326,7 +326,7 @@ function CampfireWidgetInner() {
           <GripVertical size={11} className="text-text-muted" />
           <Flame size={11} className="text-accent-warning" />
           {STAGE_LABEL[stage]}
-          {simulated && <span className="rounded bg-accent-warning/15 px-1 text-[8px] text-accent-warning">SIM</span>}
+          {simulated && <span className="rounded bg-accent-warning/15 px-1 text-[8px] text-accent-warning">OFFLINE</span>}
         </span>
         <span className="flex items-center gap-0.5">
           <button
@@ -366,7 +366,7 @@ function CampfireWidgetInner() {
           />
           <div className="pointer-events-none absolute bottom-1.5 left-0 right-0 text-center">
             <span className={cn('font-mono text-[10px]', onlineCount > 0 ? 'text-accent-warning text-glow-sm' : 'text-text-secondary')}>
-              {onlineCount} {simulated ? 'simulated ' : ''}around the fire
+              {onlineCount} around the fire{simulated ? ' (offline)' : ''}
             </span>
           </div>
         </div>

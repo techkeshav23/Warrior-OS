@@ -110,7 +110,7 @@ function CopyMessageButton({ text }: { text: string }) {
 const SOURCE_BADGE: Record<string, { label: string; className: string; icon: ReactNode }> = {
   local: { label: 'instant', className: 'text-emerald-300/80', icon: <Zap size={10} /> },
   ai: { label: 'gemini', className: 'text-violet-300/80', icon: <Sparkles size={10} /> },
-  offline: { label: 'ai offline', className: 'text-amber-300/80', icon: <WifiOff size={10} /> },
+  offline: { label: 'offline brain', className: 'text-sky-300/80', icon: <WifiOff size={10} /> },
   error: { label: 'error', className: 'text-rose-300/80', icon: <TriangleAlert size={10} /> },
 };
 
@@ -190,7 +190,7 @@ function NexusMessageBubbleInner({ message, onAction, busy, canSpeak }: BubblePr
               ? 'rounded-tr-md border-cyan-400/25 bg-cyan-500/[0.12] text-cyan-50'
               : 'rounded-tl-md border-white/10 bg-white/[0.045] text-white/90',
             message.source === 'error' && 'border-rose-500/30 bg-rose-500/[0.07]',
-            message.source === 'offline' && 'border-amber-500/30 bg-amber-500/[0.06]'
+            message.source === 'offline' && 'border-sky-400/25 bg-sky-500/[0.05]'
           )}
         >
           {isUser ? (

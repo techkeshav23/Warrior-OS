@@ -1,6 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS v4.0 — Main Entry Point
-// State Machine: boot → lock → desktop
+// State Machine: dream|boot → lock → desktop
+// (first-ever boot → boot; returning users → dream when NEXUS Dreams
+//  are on, else straight to lock)
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -37,8 +39,23 @@ import { WarriorCreature } from '@/components/creature';
 import { GhostLayer } from '@/components/ghost';
 import { RealityDecay } from '@/components/decay';
 import { PhantomLayer } from '@/components/phantom';
-import { TypingTracker, VitalsWidget } from '@/components/biometrics';
-import { DreamSequence } from '@/components/dream';
+import { BiometricsLayer } from '@/components/biometrics';
+import { DreamSequence, useDreamBootPhase } from '@/components/dream';
+import { NexusLayer } from '@/components/nexus';
+import { ProceduralMusicHost } from '@/components/music';
+import { CalendarReminders } from '@/components/apps/calendar/CalendarReminders';
+
+// Achievements, effects, widgets, PWA
+import { AchievementTriggers } from '@/components/achievements';
+import {
+  AchievementCinematic,
+  LevelUpEffect,
+  GlitchTransition,
+  ScreenShatterLayer,
+  DisintegrateEffect,
+} from '@/components/effects';
+import { DesktopWidgets } from '@/components/widgets';
+import { ServiceWorkerRegistrar } from '@/components/pwa';
 
 // Notification store for toasts
 import { useNotificationStore } from '@/stores/useNotificationStore';
@@ -55,6 +72,9 @@ export default function WarriorOS() {
   // Phase 6 feature toggles
   const ghostWarriors = useSettingsStore((s) => s.ghostWarriors);
   const phantomWindows = useSettingsStore((s) => s.phantomWindows);
+
+  // Decides the first phase (boot / dream / lock) on the first client paint.
+  const bootReady = useDreamBootPhase();
 
   // UI state
   const [startMenuOpen, setStartMenuOpen] = useState(false);
@@ -108,139 +128,158 @@ export default function WarriorOS() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-bg-void select-none">
-      <AnimatePresence mode="wait">
-        {/* ═══ DREAM PHASE (returning users only) ═══ */}
-        {phase === 'dream' && (
-          <motion.div
-            key="dream"
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-            className="absolute inset-0"
-          >
-            <DreamSequence onComplete={handleDreamComplete} />
-          </motion.div>
-        )}
+      {bootReady && (
+        <AnimatePresence mode="wait">
+          {/* ═══ DREAM PHASE (returning users only) ═══ */}
+          {phase === 'dream' && (
+            <motion.div
+              key="dream"
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0"
+            >
+              <DreamSequence onComplete={handleDreamComplete} />
+            </motion.div>
+          )}
 
-        {/* ═══ BOOT PHASE ═══ */}
-        {phase === 'boot' && (
-          <motion.div
-            key="boot"
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-            className="absolute inset-0"
-          >
-            <BootScreen onComplete={handleBootComplete} />
-          </motion.div>
-        )}
+          {/* ═══ BOOT PHASE ═══ */}
+          {phase === 'boot' && (
+            <motion.div
+              key="boot"
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0"
+            >
+              <BootScreen onComplete={handleBootComplete} />
+            </motion.div>
+          )}
 
-        {/* ═══ LOCK PHASE ═══ */}
-        {phase === 'lock' && (
-          <motion.div
-            key="lock"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-            className="absolute inset-0"
-          >
-            <LockScreen onUnlock={handleUnlock} />
-          </motion.div>
-        )}
+          {/* ═══ LOCK PHASE ═══ */}
+          {phase === 'lock' && (
+            <motion.div
+              key="lock"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0"
+            >
+              <LockScreen onUnlock={handleUnlock} />
+            </motion.div>
+          )}
 
-        {/* ═══ DESKTOP PHASE ═══ */}
-        {phase === 'desktop' && (
-          <motion.div
-            key="desktop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            className="absolute inset-0 flex flex-col"
-          >
-            {/* Audio-reactive CSS variables */}
-            <AudioReactive />
+          {/* ═══ DESKTOP PHASE ═══ */}
+          {phase === 'desktop' && (
+            <motion.div
+              key="desktop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              className="absolute inset-0 flex flex-col"
+            >
+              {/* Audio-reactive CSS variables */}
+              <AudioReactive />
 
-            {/* Shader/Canvas wallpaper behind everything */}
-            <WallpaperEngine />
+              {/* Shader/Canvas wallpaper behind everything */}
+              <WallpaperEngine />
 
-            {/* Background effects */}
-            <ScreenEffects />
+              {/* Background effects */}
+              <ScreenEffects />
 
-            {/* Dynamic Island (top center) */}
-            <DynamicIsland />
+              {/* Dynamic Island (top center) */}
+              <DynamicIsland />
 
-            {/* Desktop area with workspace management */}
-            <div className="flex-1 relative overflow-hidden">
-              <WorkspaceManager>
-                {() => (
-                  <>
-                    {/* Desktop Grid */}
-                    <Desktop />
+              {/* Desktop area with workspace management */}
+              <div className="flex-1 relative overflow-hidden">
+                <WorkspaceManager>
+                  {() => (
+                    <>
+                      {/* Desktop Grid */}
+                      <Desktop />
 
-                    {/* Window Manager */}
-                    <WindowManager />
-                  </>
-                )}
-              </WorkspaceManager>
-            </div>
+                      {/* Window Manager */}
+                      <WindowManager />
+                    </>
+                  )}
+                </WorkspaceManager>
+              </div>
 
-            {/* Workspace indicator dots */}
-            <WorkspaceDots className="absolute bottom-14 left-1/2 -translate-x-1/2 z-10" />
+              {/* Workspace indicator dots */}
+              <WorkspaceDots className="absolute bottom-14 left-1/2 -translate-x-1/2 z-10" />
 
-            {/* Taskbar (fixed bottom) */}
-            <Taskbar
-              onStartClick={toggleStartMenu}
-              onNotificationClick={() => setNotificationCenterOpen(true)}
-            />
+              {/* Taskbar (fixed bottom) */}
+              <Taskbar
+                onStartClick={toggleStartMenu}
+                onNotificationClick={() => setNotificationCenterOpen(true)}
+              />
 
-            {/* Start Menu */}
-            <StartMenu
-              isOpen={startMenuOpen}
-              onClose={() => setStartMenuOpen(false)}
-            />
+              {/* Start Menu */}
+              <StartMenu
+                isOpen={startMenuOpen}
+                onClose={() => setStartMenuOpen(false)}
+              />
 
-            {/* Command Palette */}
-            <CommandPalette
-              isOpen={commandPaletteOpen}
-              onClose={() => setCommandPaletteOpen(false)}
-            />
+              {/* Command Palette */}
+              <CommandPalette
+                isOpen={commandPaletteOpen}
+                onClose={() => setCommandPaletteOpen(false)}
+              />
 
-            {/* Notification Center */}
-            <NotificationCenter
-              isOpen={notificationCenterOpen}
-              onClose={() => setNotificationCenterOpen(false)}
-            />
+              {/* Notification Center */}
+              <NotificationCenter
+                isOpen={notificationCenterOpen}
+                onClose={() => setNotificationCenterOpen(false)}
+              />
 
-            {/* Toast Notifications */}
-            <ToastContainer
-              notifications={notifications}
-              onDismiss={markAsRead}
-            />
+              {/* Toast Notifications */}
+              <ToastContainer
+                notifications={notifications}
+                onDismiss={markAsRead}
+              />
 
-            {/* CRT Scanline overlay */}
-            <ScanlineOverlay />
+              {/* CRT Scanline overlay */}
+              <ScanlineOverlay />
 
-            {/* ─── Phase 6 global overlays ─── */}
-            {/* Typing biometrics tracker (invisible, mount once) */}
-            <TypingTracker />
-            {/* Biometrics vitals HUD (draggable) */}
-            <VitalsWidget />
-            {/* Reality Decay engine + stage/break/repair overlays */}
-            <RealityDecay />
-            {/* Phantom Windows — ghosts of closed apps */}
-            {phantomWindows && <PhantomLayer />}
-            {/* Ghost Warriors — anonymous multiplayer presence */}
-            <GhostLayer enabled={ghostWarriors} />
-            {/* Warrior Creature — digital pet (self-positioned) */}
-            <WarriorCreature />
+              {/* ─── Phase 6 global overlays ─── */}
+              {/* Achievement triggers (first boot, daily login, catch-up, events) */}
+              <AchievementTriggers />
+              {/* Typing biometrics tracker + vitals HUD + optional cloud sync */}
+              <BiometricsLayer />
+              {/* Clock / streak / daily-target desktop widgets */}
+              <DesktopWidgets />
+              {/* Procedural music engine (survives Music window close) */}
+              <ProceduralMusicHost />
+              {/* Calendar reminders while the Calendar window is closed */}
+              <CalendarReminders />
+              {/* Window close disintegration (off by default) */}
+              <DisintegrateEffect />
+              {/* Reality Decay engine + stage/break/repair overlays */}
+              <RealityDecay />
+              {/* Phantom Windows — ghosts of closed apps */}
+              {phantomWindows && <PhantomLayer />}
+              {/* Ghost Warriors — anonymous multiplayer presence */}
+              <GhostLayer enabled={ghostWarriors} showFloatingCounter={false} />
+              {/* Warrior Creature — digital pet (self-positioned) */}
+              <WarriorCreature />
+              {/* NEXUS — suggestions, voice indicator, pomodoro */}
+              <NexusLayer />
 
-            {/* Custom cursor */}
-            <CursorManager />
+              {/* Custom cursor */}
+              <CursorManager />
 
-            {/* Cursor trail effect */}
-            <CursorTrail />
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {/* Cursor trail effect */}
+              <CursorTrail />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
+
+      {/* ═══ Always-mounted layers (watch the OS phase themselves) ═══ */}
+      <GlitchTransition />
+      <ScreenShatterLayer />
+      <AchievementCinematic />
+      <LevelUpEffect />
+      <ServiceWorkerRegistrar />
     </div>
   );
 }

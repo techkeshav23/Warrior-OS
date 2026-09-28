@@ -4,7 +4,8 @@
 //   • Firebase Realtime Database when NEXT_PUBLIC_FIREBASE_DATABASE_URL
 //     is set — /presence/{id} with onDisconnect().remove(), heartbeat
 //     every 5 minutes, entries older than 10 minutes ignored.
-//   • Otherwise a local simulation that the UI labels as simulated.
+//   • Otherwise an offline local campfire: this browser's other open
+//     tabs (BroadcastChannel) + deterministic SIM-labelled warriors.
 // Mount ONCE (GhostPresenceEngine does). Other components read the
 // ghost store directly.
 // ═══════════════════════════════════════════════════════════

@@ -17,6 +17,7 @@ import { getQuoteOfDay } from '@/data/quotes';
 import { useXPStore } from '@/stores/useXPStore';
 import { getLocalWeather, type WeatherData } from '@/lib/weather';
 import { cn } from '@/lib/utils';
+import { CreatureLockBadge } from '@/components/creature';
 
 interface LockScreenProps {
   onUnlock: () => void;
@@ -227,6 +228,7 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
               <p className="text-text-muted text-xs font-mono mt-1">
                 {levelTitle}
               </p>
+              <CreatureLockBadge className="mt-2" />
             </motion.div>
 
             {/* Password Input / Unlock */}

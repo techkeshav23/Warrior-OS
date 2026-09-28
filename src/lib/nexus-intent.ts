@@ -13,6 +13,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { WALLPAPER_OPTIONS } from '@/lib/constants';
+import type { ExpenseCategory } from '@/types/expense';
 import type { GateSubject } from '@/types/gate';
 import type {
   NexusActionButton,
@@ -617,6 +618,57 @@ function parseCloseAll(text: string): NexusCommand | null {
   return null;
 }
 
+// ─── Expenses + habits ───
+
+const CATEGORY_KEYWORDS: ReadonlyArray<readonly [RegExp, ExpenseCategory]> = [
+  [/\b(?:food|lunch|dinner|breakfast|snacks?|chai|tea|coffee|khana|nashta|mess|canteen|zomato|swiggy|pizza|burger|maggi|juice|grocer(?:y|ies)|fruits?|milk|doodh)\b/, 'food'],
+  [/\b(?:transport|travel|auto|rickshaw|bus|metro|train|uber|ola|rapido|cab|taxi|petrol|diesel|fuel|ticket|parking)\b/, 'transport'],
+  [/\b(?:books?|kitab|notes|course|courses|stationery|pens?|pencils?|xerox|photocopy|prints?|printout|notebooks?|test\s+series|udemy|coursera)\b/, 'books'],
+  [/\b(?:entertainment|movies?|film|netflix|prime|hotstar|spotify|games?|gaming|party|outing|concert|youtube\s+premium)\b/, 'entertainment'],
+];
+
+/** Guess the Expense Vault category from free text. */
+export function guessExpenseCategory(text: string): ExpenseCategory {
+  const lower = text.toLowerCase();
+  for (const [re, category] of CATEGORY_KEYWORDS) if (re.test(lower)) return category;
+  return 'other';
+}
+
+const EXPENSE_NOTE_NOISE_RE =
+  /\b(?:rs\.?|rupees?|rupaye|rupay|inr|bucks|on|for|in|ka|ki|ke|pe|par|me|mein|expense|kharcha|spent|kharch|paid|diya|diye|add|log|kiya|kiye|today|aaj)\b/g;
+
+function parseExpense(text: string): NexusCommand | null {
+  const m =
+    /^(?:add|log|record|note)\s+(?:an?\s+)?(?:expense|kharcha|spend(?:ing)?)\s+(?:of\s+)?(?:rs\.?\s*|₹\s*|inr\s*)?(\d+(?:\.\d{1,2})?)\b\s*(.*)$/.exec(text) ??
+    /^(?:expense|kharcha)\s+(?:rs\.?\s*|₹\s*)?(\d+(?:\.\d{1,2})?)\b\s*(.*)$/.exec(text) ??
+    /^(?:spent|paid|kharch(?:e|a)?)\s+(?:rs\.?\s*|₹\s*)?(\d+(?:\.\d{1,2})?)\b\s*(.*)$/.exec(text) ??
+    /^(?:rs\.?\s*|₹\s*)?(\d+(?:\.\d{1,2})?)\s*(?:rs|rupees?|rupaye)?\s+(.*?)\s+(?:pe|par|me|mein)\s+(?:kharch(?:e|a)?|spent|diye|lage)(?:\s+(?:kiye|kiya|hue|huye))?$/.exec(text) ??
+    /^(?:rs\.?\s*|₹\s*)?(\d+(?:\.\d{1,2})?)\s*(?:rs|rupees?|rupaye)?\s+(?:kharch(?:e|a)?|spent)\s*(.*)$/.exec(text);
+  if (!m) return null;
+  const amount = Number.parseFloat(m[1]);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  const rest = m[2] ?? '';
+  const note = rest.replace(EXPENSE_NOTE_NOISE_RE, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+  return { type: 'add_expense', amount, category: guessExpenseCategory(rest), note };
+}
+
+function parseHabit(text: string, habits: readonly string[]): NexusCommand | null {
+  const explicit = /\bhabits?\b/.test(text);
+  if (habits.length === 0 && !explicit) return null;
+  const m =
+    /^(?:check|tick|mark|complete|done)\s+(?:off\s+)?(?:the\s+)?(?:habit\s+)?(.+?)(?:\s+(?:habit|as\s+done|done|for\s+today|today))*$/.exec(text) ??
+    /^habit\s+(?:done|check|complete)\s+(.+)$/.exec(text) ??
+    /^(.+?)\s+(?:habit\s+)?(?:done|ho\s+gaya|ho\s+gayi|kar\s+liya|kar\s+li|complete)(?:\s+(?:today|aaj))?$/.exec(text);
+  if (!m) return null;
+  const habit = m[1].replace(/\b(?:habit|my|the|aaj|today)\b/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!habit || wordCount(habit) > 5) return null;
+  // Without the word "habit", only fire for a real habit name (so "check if a graph is bipartite" reaches the AI).
+  const lowerNames = habits.map((h) => h.toLowerCase());
+  const known = lowerNames.some((n) => n === habit || n.startsWith(habit) || (habit.length >= 4 && n.includes(habit)));
+  if (!explicit && !known) return null;
+  return { type: 'check_habit', habit };
+}
+
 function parseAppCommand(text: string, apps: readonly NexusAppRef[]): NexusCommand | null {
   // close
   const close =
@@ -672,7 +724,7 @@ function parseAppCommand(text: string, apps: readonly NexusAppRef[]): NexusComma
 }
 
 /** Parse exactly one command (no multi-action splitting). */
-function parseSingle(text: string, apps: readonly NexusAppRef[]): LocalIntent {
+function parseSingle(text: string, apps: readonly NexusAppRef[], habits: readonly string[]): LocalIntent {
   if (!text) return { type: 'none' };
   if (/^(?:help|commands|command\s+list|what\s+can\s+(?:you|u)\s+do|kya\s+(?:kya\s+)?kar\s+sakta\s+hai|madad|options)$/.test(text)) {
     return { type: 'help' };
@@ -684,19 +736,22 @@ function parseSingle(text: string, apps: readonly NexusAppRef[]): LocalIntent {
     parseTakeBreak(text) ??
     parseModes(text) ??
     parseChatManagement(text) ??
+    parseExpense(text) ??
     parseWallpaper(text) ??
     parseWorkspace(text) ??
     parseNotesSearch(text) ??
     parseStats(text) ??
     parseGate(text) ??
     parseCloseAll(text) ??
-    parseAppCommand(text, apps) ?? { type: 'none' }
+    parseAppCommand(text, apps) ??
+    parseHabit(text, habits) ?? { type: 'none' }
   );
 }
 
 const SPLIT_RE = /\s*(?:,|;|&|\band\s+then\b|\bthen\b|\band\b|\baur\s+phir\b|\baur\b|\bphir\b|\bfir\b|\bplus\b)\s*/;
 
-function isCommand(intent: LocalIntent): intent is NexusCommand {
+/** True when the intent is a single executable command (not multi/help/easter-egg/none). */
+export function isCommandIntent(intent: LocalIntent): intent is NexusCommand {
   return intent.type !== 'none' && intent.type !== 'multi' && intent.type !== 'help' && intent.type !== 'easter_egg';
 }
 
@@ -705,7 +760,11 @@ function isCommand(intent: LocalIntent): intent is NexusCommand {
  * ("open notes and start a DBMS quiz"), help/easter-egg replies, or
  * { type: 'none' } when the caller should ask the AI instead.
  */
-export function parseLocalIntent(rawInput: string, apps: readonly NexusAppRef[] = []): LocalIntent {
+export function parseLocalIntent(
+  rawInput: string,
+  apps: readonly NexusAppRef[] = [],
+  habits: readonly string[] = []
+): LocalIntent {
   const normalized = normalize(rawInput);
   if (!normalized) return { type: 'none' };
   const text = stripFillers(normalized);
@@ -718,13 +777,13 @@ export function parseLocalIntent(rawInput: string, apps: readonly NexusAppRef[] 
       .map((part) => stripFillers(part))
       .filter(Boolean);
     if (parts.length >= 2 && parts.length <= 4) {
-      const intents = parts.map((part) => parseSingle(part, apps));
-      if (intents.every(isCommand)) {
+      const intents = parts.map((part) => parseSingle(part, apps, habits));
+      if (intents.every(isCommandIntent)) {
         return { type: 'multi', commands: intents as NexusCommand[] };
       }
     }
   }
-  return parseSingle(text, apps);
+  return parseSingle(text, apps, habits);
 }
 
 // ─── Descriptions + AI action resolution ───
@@ -777,6 +836,10 @@ export function describeCommand(command: NexusCommand): string {
       return 'Clear chat';
     case 'new_chat':
       return 'New chat';
+    case 'add_expense':
+      return `Log ₹${command.amount} expense (${command.category}${command.note ? `: ${command.note}` : ''})`;
+    case 'check_habit':
+      return `Check habit: ${command.habit}`;
   }
 }
 

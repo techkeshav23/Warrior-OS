@@ -19,3 +19,11 @@ export {
   PENDING_EVENT_PREFIX,
 } from './pending-events';
 export type { DetailParser, PendingEventListenerOptions } from './pending-events';
+export {
+  trackEvent,
+  getEventStats,
+  reconcileAchievementEvents,
+  useAchievementEventsStore,
+  ACHIEVEMENT_EVENT_RULES,
+} from '@/lib/achievement-events';
+export type { AchievementEventName, EventDetail, EventStats } from '@/lib/achievement-events';

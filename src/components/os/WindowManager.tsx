@@ -28,7 +28,9 @@ export function WindowManager() {
   );
 
   return (
-    <div className="absolute inset-0" style={{ zIndex: 'var(--z-window)' }}>
+    // pointer-events-none: the full-screen layer must not swallow clicks meant
+    // for the desktop icons beneath it; each Window re-enables pointer events.
+    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 'var(--z-window)' }}>
       <AnimatePresence>
         {visibleWindows.map((windowState) => {
           const app = registeredApps.find((a) => a.id === windowState.appId);

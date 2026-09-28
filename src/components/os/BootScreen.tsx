@@ -11,6 +11,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { GlitchText } from '@/components/ui/GlitchText';
 import { BOOT_MESSAGES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import { ParticleAssembly } from '@/components/effects/ParticleAssembly';
 
 interface BootScreenProps {
   onComplete: () => void;
@@ -22,8 +23,6 @@ export function BootScreen({ onComplete }: BootScreenProps) {
   const [phase, setPhase] = useState<BootPhase>('void');
   const [logIndex, setLogIndex] = useState(0);
   const [progress, setProgress] = useState(0);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>(0);
   const onCompleteRef = useRef(onComplete);
   useEffect(() => { onCompleteRef.current = onComplete; });
 
@@ -32,106 +31,6 @@ export function BootScreen({ onComplete }: BootScreenProps) {
     const timer = setTimeout(() => setPhase('particle'), 500);
     return () => clearTimeout(timer);
   }, []);
-
-  // ─── Particle Canvas Animation ───
-  useEffect(() => {
-    if (phase !== 'particle') return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    const text = 'WARRIOR';
-    const fontSize = Math.min(canvas.width / 6, 120);
-    ctx.font = `bold ${fontSize}px "Orbitron", monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    // Get text pixel data
-    ctx.fillStyle = '#00f0ff';
-    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Create particles from text pixels
-    const particles: Array<{
-      targetX: number;
-      targetY: number;
-      x: number;
-      y: number;
-      size: number;
-      speed: number;
-      alpha: number;
-    }> = [];
-
-    const step = 4;
-    for (let y = 0; y < canvas.height; y += step) {
-      for (let x = 0; x < canvas.width; x += step) {
-        const index = (y * canvas.width + x) * 4;
-        if (imageData.data[index + 3] > 128) {
-          particles.push({
-            targetX: x,
-            targetY: y,
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
-            size: Math.random() * 2 + 1,
-            speed: Math.random() * 0.02 + 0.02,
-            alpha: 0,
-          });
-        }
-      }
-    }
-
-    let frame = 0;
-    const maxFrames = 120; // ~2 seconds at 60fps
-
-    function animate() {
-      if (!ctx || !canvas) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      frame++;
-      const t = Math.min(frame / maxFrames, 1);
-
-      particles.forEach((p) => {
-        p.x += (p.targetX - p.x) * p.speed * (1 + t * 3);
-        p.y += (p.targetY - p.y) * p.speed * (1 + t * 3);
-        p.alpha = Math.min(t * 2, 1);
-
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0, 240, 255, ${p.alpha})`;
-        ctx.fill();
-      });
-
-      // Glow effect when assembled
-      if (t > 0.7) {
-        const glowAlpha = (t - 0.7) / 0.3;
-        ctx.shadowColor = '#00f0ff';
-        ctx.shadowBlur = 20 * glowAlpha;
-        ctx.fillStyle = `rgba(0, 240, 255, ${glowAlpha * 0.3})`;
-        ctx.font = `bold ${Math.min(canvas.width / 6, 120)}px "Orbitron", monospace`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-        ctx.shadowBlur = 0;
-      }
-
-      if (frame < maxFrames + 30) {
-        animationRef.current = requestAnimationFrame(animate);
-      } else {
-        setPhase('log');
-      }
-    }
-
-    animationRef.current = requestAnimationFrame(animate);
-
-    return () => cancelAnimationFrame(animationRef.current);
-  }, [phase]);
 
   // ─── System Log Phase ───
   useEffect(() => {
@@ -200,10 +99,12 @@ export function BootScreen({ onComplete }: BootScreenProps) {
       </AnimatePresence>
 
       {/* ─── Particle Assembly Phase ─── */}
-      {(phase === 'particle' || phase === 'void') && (
-        <canvas
-          ref={canvasRef}
+      {phase === 'particle' && (
+        <ParticleAssembly
+          text="WARRIOR"
+          from="random"
           className="absolute inset-0 w-full h-full"
+          onComplete={() => setPhase('log')}
         />
       )}
 

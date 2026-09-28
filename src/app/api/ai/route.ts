@@ -12,10 +12,13 @@
 // POST /api/ai  { message, history?, context? }
 //   200 { reply, command, actions, model }
 //   400 { error, reply }            malformed / oversized body
+//   200 { reply, command, actions, model: 'nexus-offline', offline: true }
+//                                   no API key configured, or Gemini
+//                                   unreachable → rule-based offline brain
+//                                   (lib/nexus/offline-brain.ts)
 //   429 { error, reply, retryAfter } local or Gemini rate limit
-//   502 { error, reply }            upstream failure / timeout
-//   503 { error, reply }            no API key configured
-// GET  /api/ai → { configured, model }  (never includes the key)
+//   502 { error, reply }            Gemini rejected the key / bad response
+// GET  /api/ai → { configured, model, offlineBrain }  (never includes the key)
 // ═══════════════════════════════════════════════════════════
 
 import { NextResponse } from 'next/server';
@@ -31,6 +34,7 @@ import {
   sanitizeWireAction,
   sanitizeWireActions,
 } from '@/lib/nexus/protocol';
+import { NEXUS_OFFLINE_MODEL, offlineNexusReply } from '@/lib/nexus/offline-brain';
 import type { NexusChatTurn, NexusContext, NexusWireAction } from '@/types/nexus';
 
 // Edge runtime — fast cold start, low latency for a chat endpoint.
@@ -102,6 +106,30 @@ function scrubSecrets(text: string, apiKey: string): string {
     .replace(/AIza[0-9A-Za-z_-]{20,}/g, '[redacted]')
     .replace(/key=[^&\s"']+/gi, 'key=[redacted]')
     .slice(0, 240);
+}
+
+/** 200 reply from the rule-based offline brain (no key / Gemini unreachable). */
+function offlineResponse(
+  message: string,
+  context: Partial<NexusContext> | null,
+  history: NexusChatTurn[],
+  reason: 'no_key' | 'upstream_unreachable' | 'upstream_timeout'
+) {
+  const brain = offlineNexusReply(message, context, history);
+  const note =
+    reason === 'no_key'
+      ? ''
+      : reason === 'upstream_timeout'
+        ? '_Gemini ne time pe jawab nahi diya — offline brain se:_\n\n'
+        : '_Gemini tak nahi pahunch paaya — offline brain se:_\n\n';
+  return json(200, {
+    reply: clipReply(`${note}${brain.reply}`),
+    command: brain.command,
+    actions: brain.actions,
+    model: NEXUS_OFFLINE_MODEL,
+    offline: true,
+    reason,
+  });
 }
 
 // ─── Request validation ───
@@ -330,7 +358,11 @@ function extractStructuredReply(data: GeminiResponse): StructuredReply {
 export async function GET() {
   // Key read at request time, inside the handler; only a boolean leaves the server.
   const apiKey = usableKey(process.env.GEMINI_API_KEY ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY);
-  return json(200, { configured: apiKey !== null, model: NEXUS_GEMINI_MODEL });
+  return json(200, {
+    configured: apiKey !== null,
+    model: apiKey !== null ? NEXUS_GEMINI_MODEL : NEXUS_OFFLINE_MODEL,
+    offlineBrain: true,
+  });
 }
 
 export async function POST(req: Request) {
@@ -350,17 +382,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // 2. Key — read inside the handler so a swapped env needs no rebuild of module state.
-  const apiKey = usableKey(process.env.GEMINI_API_KEY ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY);
-  if (!apiKey) {
-    return json(503, {
-      error: 'gemini_key_missing',
-      reply:
-        'NEXUS AI offline hai — server pe GEMINI_API_KEY set nahi hai (aistudio.google.com se free key milti hai). Local commands phir bhi chalte hain: study mode, open notes, DBMS quiz, pomodoro.',
-    });
-  }
-
-  // 3. Body: size cap, JSON parse, schema validation.
+  // 2. Body: size cap, JSON parse, schema validation.
   const declaredLength = Number(req.headers.get('content-length') ?? '0');
   if (Number.isFinite(declaredLength) && declaredLength > NEXUS_LIMITS.bodyChars) {
     return badRequest('body_too_large', 'Request bahut badi hai.');
@@ -382,6 +404,11 @@ export async function POST(req: Request) {
   }
   const parsed = parseBody(rawBody);
   if (!parsed.ok) return badRequest(parsed.error, parsed.reply);
+
+  // 3. Key — read inside the handler so a swapped env needs no rebuild of module state.
+  //    No key is not an error: the rule-based offline brain answers instead.
+  const apiKey = usableKey(process.env.GEMINI_API_KEY ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+  if (!apiKey) return offlineResponse(parsed.message, parsed.context, parsed.history, 'no_key');
 
   // 4. Upstream call with a hard timeout.
   const contextBlock = parsed.context ? renderContextBlock(parsed.context) : '';
@@ -418,12 +445,12 @@ export async function POST(req: Request) {
       });
     } catch {
       const timedOut = controller.signal.aborted;
-      return json(502, {
-        error: timedOut ? 'upstream_timeout' : 'upstream_unreachable',
-        reply: timedOut
-          ? 'Gemini ne 20 second mein jawab nahi diya. Dobara try kar.'
-          : 'Gemini tak pahunch nahi paaya. Network check kar.',
-      });
+      return offlineResponse(
+        parsed.message,
+        parsed.context,
+        parsed.history,
+        timedOut ? 'upstream_timeout' : 'upstream_unreachable'
+      );
     }
 
     if (!upstream.ok) {

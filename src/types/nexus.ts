@@ -3,6 +3,8 @@
 // Chat, executable commands, AI wire protocol, pomodoro, voice, nudges
 // ═══════════════════════════════════════════════════════════
 
+import type { ExpenseCategory } from './expense';
+
 export type NexusRole = 'user' | 'nexus' | 'system';
 
 /** Where a NEXUS reply came from. `offline` = AI route has no key configured. */
@@ -41,7 +43,9 @@ export type NexusCommand =
   | { type: 'show_stats' }
   | { type: 'take_break' }
   | { type: 'clear_chat' }
-  | { type: 'new_chat' };
+  | { type: 'new_chat' }
+  | { type: 'add_expense'; amount: number; category: ExpenseCategory; note: string }
+  | { type: 'check_habit'; habit: string };
 
 export type NexusCommandType = NexusCommand['type'];
 
@@ -162,6 +166,8 @@ export interface NexusAIResponseBody {
   command?: NexusWireAction | null;
   actions?: NexusWireAction[];
   model?: string;
+  /** True when the rule-based offline brain answered (no Gemini key / Gemini unreachable). */
+  offline?: boolean;
   error?: string;
   retryAfter?: number;
 }

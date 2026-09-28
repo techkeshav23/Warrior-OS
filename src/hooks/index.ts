@@ -14,3 +14,4 @@ export { useGhostPresence } from './useGhostPresence';
 export { useDecayEngine } from './useDecayEngine';
 export { useProceduralMusic } from './useProceduralMusic';
 export { useTypingBiometrics } from './useTypingBiometrics';
+export { useVoiceCommand } from './useVoiceCommand';

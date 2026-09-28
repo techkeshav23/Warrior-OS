@@ -233,6 +233,8 @@ interface ResumeState {
   style: ResumeStyle;
   exportCount: number;
   lastExportedAt: string | null;
+  /** The one-time Project Forge auto-fill has already run (or was not needed). */
+  forgeAutoFilled: boolean;
 
   updatePersonal: (patch: Partial<ResumePersonal>) => void;
   /** Appends a blank entry and returns its id. */
@@ -251,6 +253,12 @@ interface ResumeState {
   importForgeProjects: (projects: ForgeProject[]) => { added: number; updated: number };
   /** Adds technologies missing from every skill group to a "Technologies" group. */
   addSkillsFromForge: (tags: string[]) => number;
+  /**
+   * One-time auto-fill: when the resume has no projects yet, imports every
+   * started Forge project (building / testing / shipped). Returns how many
+   * entries were added; afterwards the user imports by hand.
+   */
+  autoFillFromForge: (projects: ForgeProject[]) => number;
   importAchievements: (items: { id: string; title: string; description: string }[]) => number;
   markExported: () => void;
   resetResume: () => void;
@@ -263,6 +271,7 @@ export const useResumeStore = create<ResumeState>()(
       style: { ...DEFAULT_STYLE },
       exportCount: 0,
       lastExportedAt: null,
+      forgeAutoFilled: false,
 
       updatePersonal: (patch) =>
         set((s) => {
@@ -359,6 +368,31 @@ export const useResumeStore = create<ResumeState>()(
         return { added, updated };
       },
 
+      autoFillFromForge: (projects) => {
+        let added = 0;
+        set((s) => {
+          if (s.forgeAutoFilled) return;
+          const started = projects.filter((p) => p.stage !== 'ideas');
+          // Wait until there is something to pull in; never fill a resume that
+          // already has project entries of its own.
+          if (started.length === 0) return;
+          s.forgeAutoFilled = true;
+          if (s.resume.projects.some((e) => e.name.trim() || e.bullets.trim())) return;
+          // Drop untouched blank rows, then add shipped work first.
+          s.resume.projects = [];
+          const rank: Record<string, number> = { shipped: 0, testing: 1, building: 2 };
+          const ordered = [...started].sort(
+            (a, b) => (rank[a.stage] ?? 3) - (rank[b.stage] ?? 3) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
+          );
+          for (const project of ordered) {
+            s.resume.projects.push({ id: generateId('rp'), ...forgeProjectToEntry(project) });
+            added += 1;
+          }
+          s.resume.updatedAt = nowISO();
+        });
+        return added;
+      },
+
       addSkillsFromForge: (tags) => {
         let added = 0;
         set((s) => {
@@ -422,6 +456,7 @@ export const useResumeStore = create<ResumeState>()(
         style: state.style,
         exportCount: state.exportCount,
         lastExportedAt: state.lastExportedAt,
+        forgeAutoFilled: state.forgeAutoFilled,
       }),
       merge: (persisted, current) => {
         if (!persisted || typeof persisted !== 'object') return current;
@@ -432,6 +467,7 @@ export const useResumeStore = create<ResumeState>()(
           style: normalizeStyle(p.style),
           exportCount: typeof p.exportCount === 'number' && p.exportCount >= 0 ? p.exportCount : 0,
           lastExportedAt: typeof p.lastExportedAt === 'string' ? p.lastExportedAt : null,
+          forgeAutoFilled: p.forgeAutoFilled === true,
         };
       },
     }

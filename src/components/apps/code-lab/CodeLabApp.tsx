@@ -32,24 +32,22 @@ function loadSnippet(): Snippet {
   } catch { return DEFAULT_SNIPPET; }
 }
 
+function buildDoc(s: Snippet): string {
+  return `<!DOCTYPE html><html><head><style>${s.css}</style></head><body>${s.html}<script>
+    try { ${s.js} } catch(e) { document.body.insertAdjacentHTML('beforeend','<pre style="color:#ff5555;position:fixed;bottom:0;left:0;right:0;margin:0;padding:4px;background:#000;font-size:11px">'+e+'</pre>'); }
+  <\/script></body></html>`;
+}
+
 function CodeLabAppInner() {
   const [snippet, setSnippet] = useState<Snippet>(loadSnippet);
   const [active, setActive] = useState<Lang>('html');
-  const [srcDoc, setSrcDoc] = useState('');
+  // Initial run: build the preview from the saved snippet on first render.
+  const [srcDoc, setSrcDoc] = useState(() => buildDoc(snippet));
   const [autoRun, setAutoRun] = useState(true);
-
-  const buildDoc = useCallback((s: Snippet) => {
-    return `<!DOCTYPE html><html><head><style>${s.css}</style></head><body>${s.html}<script>
-      try { ${s.js} } catch(e) { document.body.insertAdjacentHTML('beforeend','<pre style="color:#ff5555;position:fixed;bottom:0;left:0;right:0;margin:0;padding:4px;background:#000;font-size:11px">'+e+'</pre>'); }
-    <\/script></body></html>`;
-  }, []);
 
   const run = useCallback(() => {
     setSrcDoc(buildDoc(snippet));
-  }, [snippet, buildDoc]);
-
-  // Initial run + persist
-  useEffect(() => { setSrcDoc(buildDoc(snippet)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [snippet]);
 
   // Debounced auto-run + save whenever snippet changes
   useEffect(() => {
@@ -57,7 +55,7 @@ function CodeLabAppInner() {
     if (!autoRun) return;
     const t = setTimeout(() => setSrcDoc(buildDoc(snippet)), 600);
     return () => clearTimeout(t);
-  }, [snippet, autoRun, buildDoc]);
+  }, [snippet, autoRun]);
 
   const setCode = useCallback((lang: Lang, value: string) => {
     setSnippet((s) => ({ ...s, [lang]: value }));

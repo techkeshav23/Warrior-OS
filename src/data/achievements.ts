@@ -4,8 +4,9 @@
 // ═══════════════════════════════════════════════════════════
 
 import type { Achievement, AchievementCategory } from '@/types';
+import { withPhase6Achievements } from './achievements-phase6';
 
-export const ACHIEVEMENTS: Achievement[] = [
+const BASE_ACHIEVEMENTS: Achievement[] = [
   // ─── STUDY ACHIEVEMENTS ───
   {
     id: 'first-quiz',
@@ -460,6 +461,41 @@ export const ACHIEVEMENTS: Achievement[] = [
     unlockedAt: null,
   },
 ];
+
+/**
+ * Achievements unlocked by Phase 4-6 apps (Algo Lab, Calendar, Expense
+ * Vault, Project Forge, Resume Builder, NEXUS, Reality Decay) that are
+ * not part of the Phase 6 spec list. Ids match the feature code exactly.
+ */
+const INTEGRATION_ACHIEVEMENTS: Achievement[] = [
+  // ─── ALGO LAB ───
+  { id: 'algo-first-run', title: 'Algorithm Awakens', description: 'Run your first visualization in Algo Lab', category: 'study', icon: '📊', xpReward: 50, rarity: 'common', unlockedAt: null },
+  { id: 'algo-all-sorts', title: 'Sorting Sensei', description: 'Visualize every sorting algorithm in Algo Lab', category: 'study', icon: '🧮', xpReward: 200, rarity: 'rare', unlockedAt: null },
+  { id: 'algo-race-finished', title: 'Algorithm Race', description: 'Finish a side-by-side algorithm race', category: 'study', icon: '🏁', xpReward: 75, rarity: 'uncommon', unlockedAt: null },
+  { id: 'algo-dijkstra-path', title: 'Shortest Path', description: "Trace a full shortest path with Dijkstra's algorithm", category: 'study', icon: '🗺️', xpReward: 100, rarity: 'uncommon', unlockedAt: null },
+  { id: 'algo-avl-rotation', title: 'Balanced Mind', description: 'Trigger an AVL tree rotation', category: 'study', icon: '🌳', xpReward: 100, rarity: 'uncommon', unlockedAt: null },
+  // ─── CALENDAR ───
+  { id: 'calendar-ten-events', title: 'Master Planner', description: 'Plan 10 events in the Calendar', category: 'exploration', icon: '📅', xpReward: 100, rarity: 'uncommon', unlockedAt: null },
+  // ─── EXPENSE VAULT ───
+  { id: 'expense-first-log', title: 'Money Tracker', description: 'Log your first expense in Expense Vault', category: 'exploration', icon: '💰', xpReward: 50, rarity: 'common', unlockedAt: null },
+  { id: 'expense-month-under-budget', title: 'Budget Guardian', description: 'Finish a month under budget', category: 'special', icon: '🛡️', xpReward: 200, rarity: 'rare', unlockedAt: null },
+  // ─── PROJECT FORGE / RESUME ───
+  { id: 'forge-10-hours', title: 'Deep Work Smith', description: 'Track 10 hours in Project Forge', category: 'build', icon: '⏱️', xpReward: 150, rarity: 'uncommon', unlockedAt: null },
+  { id: 'forge-open-source', title: 'Open Source Warrior', description: 'Link a GitHub repo to a Forge project', category: 'build', icon: '🌐', xpReward: 75, rarity: 'common', unlockedAt: null },
+  { id: 'resume-first-export', title: 'Paper Trail', description: 'Export your resume as PDF', category: 'build', icon: '📄', xpReward: 100, rarity: 'uncommon', unlockedAt: null },
+  // ─── NEXUS ───
+  { id: 'nexus-voice-command', title: 'Voice of Command', description: 'Give NEXUS your first voice command', category: 'exploration', icon: '🎙️', xpReward: 50, rarity: 'common', unlockedAt: null },
+  { id: 'nexus-wake-word', title: 'Hey Warrior', description: 'Wake NEXUS with "Hey Warrior"', category: 'exploration', icon: '👂', xpReward: 75, rarity: 'uncommon', unlockedAt: null },
+  { id: 'nexus-smart-mode', title: 'Mode Shifter', description: 'Activate study or chill mode through NEXUS', category: 'exploration', icon: '🔀', xpReward: 50, rarity: 'common', unlockedAt: null },
+  { id: 'nexus-pomodoro', title: 'Tomato Timer', description: 'Finish your first NEXUS pomodoro', category: 'study', icon: '🍅', xpReward: 75, rarity: 'common', unlockedAt: null },
+  // ─── REALITY DECAY ───
+  { id: 'decay-legendary-focus', title: 'Legendary Focus', description: 'Study long enough to reach decay stage 5', category: 'special', icon: '🌀', xpReward: 200, rarity: 'epic', unlockedAt: null },
+];
+
+export const ACHIEVEMENTS: Achievement[] = withPhase6Achievements([
+  ...BASE_ACHIEVEMENTS,
+  ...INTEGRATION_ACHIEVEMENTS.filter((a) => !BASE_ACHIEVEMENTS.some((b) => b.id === a.id)),
+]);
 
 /**
  * Get achievements by category

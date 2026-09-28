@@ -2,7 +2,7 @@
 // WARRIOR OS — Online Counter
 // System-tray badge: live warrior count with a subtle pulse. Click →
 // toggles the leaderboard. Tooltip: "47 Warriors studying right now".
-// Shows a SIM tag (and says so in the tooltip) in simulated mode.
+// Shows an OFFLINE tag (and says so in the tooltip) in local mode.
 // Renders nothing while Ghost Warriors is disabled.
 // ═══════════════════════════════════════════════════════════
 
@@ -28,12 +28,13 @@ function OnlineCounterInner({ onClick, className }: OnlineCounterProps) {
 
   if (mode === 'disabled') return null;
 
-  const simulated = mode === 'simulated';
+  const simulated = mode === 'local';
+  const tabs = warriors.filter((w) => w.isOnline && w.isLocalTab).length;
   const title =
     mode === 'connecting'
       ? 'Connecting to Ghost Warriors…'
       : simulated
-        ? `${onlineCount} simulated warriors (connect Firebase to see real ones)`
+        ? `${onlineCount} Warriors at the offline campfire (${tabs} other tab${tabs === 1 ? '' : 's'}, rest simulated)`
         : `${onlineCount} Warrior${onlineCount === 1 ? '' : 's'} studying right now`;
 
   return (
@@ -59,7 +60,7 @@ function OnlineCounterInner({ onClick, className }: OnlineCounterProps) {
         />
       </span>
       <span className="font-mono text-xs tabular-nums">{mode === 'connecting' ? '…' : onlineCount}</span>
-      {simulated && <span className="rounded bg-accent-warning/15 px-1 font-mono text-[8px] text-accent-warning">SIM</span>}
+      {simulated && <span className="rounded bg-accent-warning/15 px-1 font-mono text-[8px] text-accent-warning">OFFLINE</span>}
     </button>
   );
 }

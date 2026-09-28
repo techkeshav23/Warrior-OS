@@ -14,7 +14,14 @@
 // audio-reactive levels, and titles the Dynamic Island track.
 // ═══════════════════════════════════════════════════════════
 
-import { getToneRig, loadTone, disposeToneRig, setRigDetune, type ToneRig } from './tone-setup';
+import {
+  getToneRig,
+  getLoadedTone,
+  loadTone,
+  disposeToneRig,
+  setRigDetune,
+  type ToneRig,
+} from './tone-setup';
 import type { GeneratorContext, MusicGenerator } from './generator';
 import { createMorningGenerator, MORNING_BPM } from './morning-gen';
 import { createStudyAmbientGenerator } from './study-ambient-gen';
@@ -46,6 +53,7 @@ const MOOD_BPM: Record<MusicMood, number> = {
 };
 const TRACK_PREFIX = 'procedural:';
 const LISTEN_TICK_MS = 5_000;
+const START_TIMEOUT_MS = 1_200;
 const METER_INTERVAL_MS = 66; // ~15 fps for audio-reactive visuals
 /** Studied more than this today → the night hero swell plays. */
 const HARD_STUDY_MINUTES = 4 * 60;
@@ -179,6 +187,46 @@ export function isProceduralTrack(trackUrl: string | null): boolean {
   return !!trackUrl && trackUrl.startsWith(TRACK_PREFIX);
 }
 
+// ─── Audio unlock ───────────────────────────────────────────
+
+let unlockCleanup: (() => void) | null = null;
+
+/**
+ * Browsers only let an AudioContext start inside a user gesture. If the
+ * first Tone.start() lost the gesture (the lazy import took too long),
+ * resume on the very next click / key press instead of failing.
+ */
+function armGestureUnlock(Tone: typeof import('tone')): void {
+  if (unlockCleanup) return;
+  const resume = () => {
+    unlockCleanup?.();
+    void Tone.start()
+      .then(() => {
+        const store = useMusicGenStore.getState();
+        if (generator && store.status === 'starting') store.setStatus('playing');
+      })
+      .catch(() => {
+        /* still blocked — the next play press retries */
+      });
+  };
+  const opts: AddEventListenerOptions = { capture: true, once: true };
+  window.addEventListener('pointerdown', resume, opts);
+  window.addEventListener('keydown', resume, opts);
+  unlockCleanup = () => {
+    window.removeEventListener('pointerdown', resume, opts);
+    window.removeEventListener('keydown', resume, opts);
+    unlockCleanup = null;
+  };
+}
+
+function contextRunning(Tone: typeof import('tone')): boolean {
+  try {
+    return Tone.getContext().state === 'running';
+  } catch {
+    return false;
+  }
+}
+
 // ─── Transport control ──────────────────────────────────────
 
 /** Start (or switch to) a mood. The first call must come from a user gesture. */
@@ -186,10 +234,19 @@ export async function playMood(mood: MusicMood): Promise<void> {
   if (typeof window === 'undefined') return;
   const token = ++opToken;
   useMusicGenStore.getState().setStatus('starting');
+  // Already imported → start synchronously, still inside the gesture.
+  const preloaded = getLoadedTone();
+  const earlyStart = preloaded ? preloaded.start().catch(() => undefined) : null;
   try {
     const Tone = await loadTone();
-    await Tone.start(); // resumes the AudioContext (needs the gesture)
+    // resume() can stay pending forever when the gesture was lost — don't hang on it.
+    await Promise.race([
+      earlyStart ?? Tone.start().catch(() => undefined),
+      new Promise<void>((resolve) => window.setTimeout(resolve, START_TIMEOUT_MS)),
+    ]);
     if (token !== opToken) return;
+    const running = contextRunning(Tone);
+    if (!running) armGestureUnlock(Tone);
     const rig = await getToneRig();
     if (token !== opToken) return;
     rigRef = rig;
@@ -216,7 +273,8 @@ export async function playMood(mood: MusicMood): Promise<void> {
     store.clearNotes();
     store.setMood(mood);
     store.setGenerating(true);
-    store.setStatus('playing');
+    // Stays 'starting' until the context actually runs (see armGestureUnlock).
+    store.setStatus(running ? 'playing' : 'starting');
 
     onMusicModeUsed(mood, Date.now());
     startListenTracking();
@@ -236,6 +294,7 @@ export async function playMood(mood: MusicMood): Promise<void> {
  */
 export function stopMusic(options: { immediate?: boolean } = {}): void {
   const token = ++opToken;
+  unlockCleanup?.();
   stopListenTracking();
   if (generator) {
     try {

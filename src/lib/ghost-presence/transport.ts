@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Ghost presence: transport registry + war cry sending
 // The presence engine registers the active transport (Firebase RTDB
-// or the local simulation); UI code sends war cries through here.
+// or the offline local campfire); UI code sends war cries through here.
 // ═══════════════════════════════════════════════════════════
 
 import { useGhostStore, WARCRY_MAX_LENGTH } from '@/stores/useGhostStore';
@@ -9,12 +9,15 @@ import type { WarCry } from '@/types/ghost';
 import { getSessionWarriorId } from './identity';
 
 export interface GhostTransport {
-  kind: 'realtime' | 'simulated';
-  /** True when war cries reach other warriors (realtime only). */
+  kind: 'realtime' | 'local';
+  /**
+   * True when war cries leave this tab: every online warrior (realtime)
+   * or this browser's other open tabs (local, BroadcastChannel).
+   */
   broadcasts: boolean;
   /** A unique id for a new war cry (RTDB push key or a local id). */
   createWarCryId: () => string;
-  /** Publish a war cry (no-op for the simulation). */
+  /** Publish a war cry to the other warriors / tabs. */
   publishWarCry: (id: string, message: string) => Promise<void>;
   stop: () => void;
 }
@@ -44,7 +47,7 @@ export function sanitizeWarCry(message: string): string {
 }
 
 export type WarCrySendResult =
-  | { ok: true; broadcast: boolean }
+  | { ok: true; broadcast: boolean; scope: 'global' | 'tabs' | 'self' }
   | { ok: false; reason: 'empty' | 'cooldown' | 'offline' | 'error'; message: string };
 
 /**
@@ -68,14 +71,16 @@ export async function sendWarCry(message: string): Promise<WarCrySendResult> {
     timestamp: new Date().toISOString(),
     anonymousId: store.selfId ?? getSessionWarriorId(),
     isSelf: true,
-    isLocalOnly: !transport.broadcasts,
+    isLocalOnly: transport.kind !== 'realtime',
   };
+  const global = transport.kind === 'realtime';
   store.addWarCry(cry);
-  store.markWarCrySent(transport.broadcasts);
-  if (!transport.broadcasts) return { ok: true, broadcast: false };
+  // Lifetime counters (achievements) only count cries real warriors received.
+  store.markWarCrySent(global);
+  if (!transport.broadcasts) return { ok: true, broadcast: false, scope: 'self' };
   try {
     await transport.publishWarCry(cry.id, text);
-    return { ok: true, broadcast: true };
+    return { ok: true, broadcast: global, scope: global ? 'global' : 'tabs' };
   } catch (err) {
     return {
       ok: false,

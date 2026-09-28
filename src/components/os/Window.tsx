@@ -105,7 +105,7 @@ export function Window({ windowState, children }: WindowProps) {
         updatePosition(id, pos);
       }}
       onMouseDown={handleFocus}
-      style={{ zIndex }}
+      style={{ zIndex, pointerEvents: 'auto' }}
       bounds="parent"
     >
       <motion.div

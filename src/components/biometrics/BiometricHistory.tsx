@@ -25,6 +25,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useBiometricsStore, localDayKey } from '@/stores/useBiometricsStore';
 import { recordHistoryCheck } from './achievements';
+import { isBiometricCloudSyncAvailable } from './cloudSync';
 import type { BiometricSnapshot, BiometricState } from '@/types/biometrics';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -454,8 +455,9 @@ function BiometricHistoryInner({ className }: { className?: string }) {
       {/* ── Storage + privacy note ── */}
       <div className="mt-auto flex items-center justify-between gap-3 border-t border-white/5 pt-3 text-[10px] text-text-muted">
         <span>
-          Stored on this device only as hourly averages of typing timing — no keys or text.
-          Cloud sync isn&apos;t configured.
+          {isBiometricCloudSyncAvailable()
+            ? 'Hourly averages of typing timing — no keys or text. Kept on this device and mirrored to your cloud account when signed in.'
+            : 'Stored on this device only as hourly averages of typing timing — no keys or text.'}
         </span>
         {history.length > 0 &&
           (confirmClear ? (

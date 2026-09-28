@@ -195,7 +195,7 @@ function ProceduralMusicPlayerInner({ className }: { className?: string }) {
           <button
             type="button"
             onClick={togglePlay}
-            disabled={status === 'starting'}
+            disabled={status === 'starting' && !isGenerating}
             className={cn(
               'flex h-11 w-11 items-center justify-center rounded-full border transition-colors disabled:opacity-50',
               isGenerating
@@ -249,7 +249,15 @@ function ProceduralMusicPlayerInner({ className }: { className?: string }) {
             Auto-mood {autoMood ? `on · ${MOOD_LABELS[timeMood]} (${AUTO_WINDOWS[timeMood]})` : 'off'}
           </button>
           <span className="truncate text-text-muted">
-            {error ? <span className="text-accent-danger">{error}</span> : status === 'playing' ? 'Tone.js engine running' : 'audio starts on play'}
+            {error ? (
+              <span className="text-accent-danger">{error}</span>
+            ) : isGenerating && status === 'starting' ? (
+              <span className="text-accent-warning">Browser paused audio — click anywhere to start</span>
+            ) : status === 'playing' ? (
+              'Tone.js engine running'
+            ) : (
+              'audio starts on play'
+            )}
           </span>
         </div>
       </div>

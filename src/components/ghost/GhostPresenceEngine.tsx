@@ -4,7 +4,8 @@
 // Warrior#XXXX id and publishes presence — {studyHoursToday,
 // quizzesToday, streak, lastActive} at /presence/{id} with
 // onDisconnect().remove() — listens to every warrior's presence and
-// refreshes every 5 minutes. Falls back to a labelled simulation when
+// refreshes every 5 minutes. Falls back to the offline local campfire
+// (other open tabs over BroadcastChannel + SIM-labelled warriors) when
 // no Realtime Database URL is configured. Renders nothing.
 // ═══════════════════════════════════════════════════════════
 

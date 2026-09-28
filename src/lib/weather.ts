@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Weather Client
 // Browser-side helper for /api/weather. It never sees an API key:
-// the route handler owns it. Location order:
+// the route handler owns it (and falls back to keyless Open-Meteo
+// when no OpenWeatherMap key is set). Location order:
 //   saved city (user's explicit choice) → geolocation → default city.
 // Everything here is SSR-safe: browser APIs are only touched inside
 // functions, behind typeof checks.
@@ -34,7 +35,7 @@ export interface WeatherData {
   forecast: WeatherForecastSlot[];
 }
 
-export type WeatherSource = 'saved-city' | 'geolocation' | 'default-city';
+export type WeatherSource = 'saved-city' | 'geolocation' | 'default-city' | 'last-known';
 
 export interface LocalWeather {
   data: WeatherData;
@@ -77,6 +78,10 @@ export const DEFAULT_CITY = 'New Delhi,IN';
 /** Last city searched in the Weather app (kept from the original app). */
 export const WEATHER_CITY_STORAGE_KEY = 'warrior-weather-city';
 export const MAX_CITY_LENGTH = 60;
+/** Last successful "here" weather, shown while offline. */
+export const WEATHER_LAST_KNOWN_KEY = 'warrior-weather-last';
+/** Last-known weather older than this is not shown. */
+export const LAST_KNOWN_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 /**
  * Name of the server-only env var the /api/weather route reads. Exported
  * only so setup hints can show it; nothing on the client reads env vars.
@@ -322,13 +327,58 @@ export async function getBrowserPosition(
   });
 }
 
+// ─── Last-known weather (offline fallback) ───
+
+function saveLastKnown(data: WeatherData): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(WEATHER_LAST_KNOWN_KEY, JSON.stringify({ at: Date.now(), data }));
+  } catch {
+    /* storage full or blocked */
+  }
+}
+
+/** The last weather successfully shown for "here", if recent enough. */
+export function getLastKnownWeather(maxAgeMs: number = LAST_KNOWN_MAX_AGE_MS): WeatherData | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(WEATHER_LAST_KNOWN_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isObject(parsed) || Date.now() - num(parsed.at) > maxAgeMs) return null;
+    return parseWeather(parsed.data);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Weather for "here": saved city → geolocation → DEFAULT_CITY.
+ * When every attempt fails (offline, no provider reachable) the last
+ * weather shown in the past 12 hours is returned with source 'last-known'.
  * Configuration errors (no key, key rejected, rate limit) are thrown
  * straight away instead of being masked by the fallback chain.
  */
 export async function getLocalWeather(
   options: { allowPrompt?: boolean; forecast?: boolean; signal?: AbortSignal; fresh?: boolean } = {}
+): Promise<LocalWeather> {
+  try {
+    const result = await resolveLocalWeather(options);
+    saveLastKnown(result.data);
+    return result;
+  } catch (err) {
+    if (options.signal?.aborted) throw err;
+    const code = toWeatherErrorCode(err);
+    if (code === 'network' || code === 'upstream' || code === 'no-key' || code === 'rate-limited') {
+      const last = getLastKnownWeather();
+      if (last) return { data: last, source: 'last-known' };
+    }
+    throw err;
+  }
+}
+
+async function resolveLocalWeather(
+  options: { allowPrompt?: boolean; forecast?: boolean; signal?: AbortSignal; fresh?: boolean }
 ): Promise<LocalWeather> {
   const { allowPrompt = false, ...fetchOptions } = options;
   const fatal = (err: unknown) =>
@@ -367,7 +417,7 @@ export async function getLocalWeather(
 export function weatherErrorMessage(code: WeatherErrorCode): string {
   switch (code) {
     case 'no-key':
-      return 'Weather is offline: the server has no OpenWeatherMap key.';
+      return 'Weather is unavailable: no OpenWeatherMap key is set and the keyless fallback could not be reached.';
     case 'key-rejected':
       return 'OpenWeatherMap rejected the key. New keys can take up to 2 hours to activate.';
     case 'not-found':

@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Settings App
-// 6 tabs: Appearance, Sounds, Account, Workspaces, Nexus, About
+// 7 tabs: Appearance, Living World, Sounds, Account, Workspaces, Nexus, About
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -14,11 +14,13 @@ import { AccountTab } from './AccountTab';
 import { WorkspacesTab } from './WorkspacesTab';
 import { NexusTab } from './NexusTab';
 import { AboutTab } from './AboutTab';
+import { LivingWorldTab } from './LivingWorldTab';
 
-type SettingsTab = 'appearance' | 'sounds' | 'account' | 'workspaces' | 'nexus' | 'about';
+type SettingsTab = 'appearance' | 'living' | 'sounds' | 'account' | 'workspaces' | 'nexus' | 'about';
 
 const TABS: { id: SettingsTab; label: string; icon: string }[] = [
   { id: 'appearance', label: 'Appearance', icon: '🎨' },
+  { id: 'living', label: 'Living World', icon: '🌱' },
   { id: 'sounds', label: 'Sounds', icon: '🔊' },
   { id: 'account', label: 'Account', icon: '👤' },
   { id: 'workspaces', label: 'Workspaces', icon: '🖥️' },
@@ -63,6 +65,7 @@ function SettingsAppInner() {
             className="h-full"
           >
             {activeTab === 'appearance' && <AppearanceTab />}
+            {activeTab === 'living' && <LivingWorldTab />}
             {activeTab === 'sounds' && <SoundsTab />}
             {activeTab === 'account' && <AccountTab />}
             {activeTab === 'workspaces' && <WorkspacesTab />}

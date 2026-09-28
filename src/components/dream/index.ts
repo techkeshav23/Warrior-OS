@@ -2,6 +2,7 @@
 // WARRIOR OS — Dream barrel
 // Drop-in for the OS "dream" phase:
 //   import { DreamSequence, decideInitialPhase } from '@/components/dream';
+//   const bootReady = useDreamBootPhase(); // boot | dream | lock, decided once
 //   <DreamSequence onComplete={() => setPhase('lock')} />
 // ═══════════════════════════════════════════════════════════
 
@@ -24,3 +25,4 @@ export {
   reconcileDreamAchievements,
   DREAM_ACHIEVEMENT_IDS,
 } from './dreamJournal';
+export { useDreamBootPhase } from './useDreamBoot';

@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Ghost presence: engine
 // Chooses the data source (Firebase RTDB when configured, else the
-// labelled simulation), keeps the ghost store in sync, refreshes the
+// offline local campfire: other open tabs via BroadcastChannel +
+// SIM-labelled deterministic warriors), keeps the ghost store in sync, refreshes the
 // local warrior's own stats every minute (no network write), counts
 // minutes spent with other real warriors and unlocks the Ghost Warrior
 // achievements — presence-based ones only with real (realtime) data.
@@ -14,7 +15,7 @@ import { isRealtimePresenceConfigured } from './config';
 import { getSessionWarriorId } from './identity';
 import { computeSelfStats } from './selfStats';
 import { connectRealtimePresence } from './realtime';
-import { startSimulation } from './simulation';
+import { startLocalPresence } from './local';
 import { setGhostTransport, type GhostTransport } from './transport';
 
 export const GHOST_ACHIEVEMENT_IDS = {
@@ -93,10 +94,15 @@ export function startGhostPresence(): () => void {
     publish();
   };
 
-  const startSim = (reason: string | null) => {
+  const startLocal = (reason: string | null) => {
     if (stopped) return;
-    store().setMode('simulated', reason);
-    transport = startSimulation({ selfId, onWarriors, onWarCry: (cry) => store().addWarCry(cry) });
+    store().setMode('local', reason);
+    transport = startLocalPresence({
+      selfId,
+      getSelfStats: computeSelfStats,
+      onWarriors,
+      onWarCry: (cry) => store().addWarCry(cry),
+    });
     setGhostTransport(transport);
   };
 
@@ -123,10 +129,10 @@ export function startGhostPresence(): () => void {
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : 'unknown error';
-        startSim(`Firebase Realtime Database unreachable (${msg}).`);
+        startLocal(`Firebase Realtime Database unreachable (${msg}).`);
       });
   } else {
-    startSim(null);
+    startLocal(null);
   }
 
   // Local refresh + lifetime counters (no network writes here).

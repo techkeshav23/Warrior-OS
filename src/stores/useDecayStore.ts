@@ -140,6 +140,12 @@ interface DecayStore extends PersistedDecay {
 
   // Testing / debug helper — force a stage & matching minutes
   setStage: (stage: number) => void;
+  /**
+   * Testing / debug helper — jump the continuous-study timer to `minutes`
+   * (stage, stats and the vignette ramp follow exactly as if studied) and
+   * keep tracking from now.
+   */
+  setContinuousMinutes: (minutes: number) => void;
 
   // Query
   getCurrentThresholds: () => number[];
@@ -374,6 +380,25 @@ export const useDecayStore = create<DecayStore>()(
           // Snap minutes to that stage's threshold so tick() stays consistent
           s.continuousStudyMinutes = minutes;
           s.activeMs = minutes * 60_000;
+        }),
+
+      setContinuousMinutes: (minutes) =>
+        set((s) => {
+          if (!s.enabled || s.isOnBreak || s.isRepairing) return;
+          const m = Math.max(0, Math.min(24 * 60, Math.floor(Number.isFinite(minutes) ? minutes : 0)));
+          const now = Date.now();
+          const prevStage = s.decayStage;
+          s.activeMs = m * 60_000;
+          s.continuousStudyMinutes = m;
+          s.decayStage = stageForMinutes(m, s.thresholdOffset);
+          if (s.decayStage > prevStage) {
+            if (prevStage < 1 && s.decayStage >= 1) s.stats.stage1Reached += 1;
+            if (prevStage < 5 && s.decayStage >= 5) s.stats.fullDecays += 1;
+          }
+          s.isTracking = true;
+          s.pausedForIdle = false;
+          s.lastInteractionAt = now;
+          s.lastTickAt = now;
         }),
 
       getCurrentThresholds: () => {

@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, memo } from 'react';
-import { cn, generateId } from '@/lib/utils';
+import { generateId } from '@/lib/utils';
 
 interface FSNode {
   id: string;

@@ -7,6 +7,8 @@
 // ═══════════════════════════════════════════════════════════
 
 export { DecayEngine as RealityDecay } from './DecayEngine';
+/** Alias of <RealityDecay/>: the single desktop mount for the decay engine. */
+export { DecayEngine as DecayLayer } from './DecayEngine';
 
 // Named sub-exports for downstream use (Settings panel, system tray).
 export { DecayEngine } from './DecayEngine';
@@ -26,3 +28,5 @@ export { DecaySettings } from './DecaySettings';
 export { nexusSay, NEXUS_SAY_EVENT } from './nexus-say';
 export type { NexusSayDetail, NexusSayTone } from './nexus-say';
 export { DECAY_ACHIEVEMENTS } from './achievements';
+export { installDecayDebug } from './debug';
+export type { WarriorDecayDebug } from './debug';

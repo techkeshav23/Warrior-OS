@@ -58,6 +58,7 @@ export interface ToneRig {
 }
 
 let tonePromise: Promise<typeof ToneNS> | null = null;
+let toneModule: typeof ToneNS | null = null;
 let rigPromise: Promise<ToneRig> | null = null;
 
 /** Lazily import Tone.js (browser only). */
@@ -65,8 +66,24 @@ export function loadTone(): Promise<typeof ToneNS> {
   if (typeof window === 'undefined') {
     return Promise.reject(new Error('Tone.js is only available in the browser'));
   }
-  if (!tonePromise) tonePromise = import('tone');
+  if (!tonePromise) {
+    tonePromise = import('tone').then(
+      (mod) => {
+        toneModule = mod;
+        return mod;
+      },
+      (e: unknown) => {
+        tonePromise = null;
+        throw e;
+      }
+    );
+  }
   return tonePromise;
+}
+
+/** The Tone module if it has already been imported, else null (synchronous). */
+export function getLoadedTone(): typeof ToneNS | null {
+  return toneModule;
 }
 
 async function buildRig(): Promise<ToneRig> {
