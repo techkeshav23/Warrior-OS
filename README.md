@@ -49,8 +49,8 @@ Most "OS in a browser" projects stop at windows. These systems make this one fee
 
 | Group | App | What it does |
 |---|---|---|
-| Learn | **Training Grounds** | Learn anything: a quiz engine, mock tests, a mastery skill tree, spaced repetition and a planner over your own decks. |
-| | **Quest Planner** | Daily quests: habits, routines and streaks. |
+| Learn | **Training Grounds** | Learn anything from your own decks. Build them in the **Decks** tab (or forge one from a note, or import JSON), then quiz yourself, review the cards due, grow the skill tree, browse the question bank, sit a timed mock test and plan with the Quest Planner. |
+| | **Habit Forge** | Daily habits, routines and streaks that pay XP. |
 | | **Flashcards** | Spaced-repetition flashcards from your decks. |
 | | **Notes** | Markdown notes with auto-save and search. |
 | | **Memory Palace** | The 3D walkable palace of your notes. |
@@ -64,7 +64,7 @@ Most "OS in a browser" projects stop at windows. These systems make this one fee
 | | **Expense Vault** | Expense log, monthly budget and spending trends. |
 | | **Files** | File explorer. |
 | | **Calculator** | Scientific calculator. |
-| | **Settings** | Appearance, sounds, NEXUS, workspaces, living-world toggles, performance. |
+| | **Settings** | Appearance, sounds, NEXUS, workspaces, living-world toggles, performance (lite mode) and showcase (replay the tour, re-seed the demo data). |
 | Chill | **WarBeats** | Music player with a local library, procedural music and an audio visualizer. |
 | | **Weather** | Current weather and forecast. |
 | | **Profile** | Level, XP, streaks, stats and the achievement gallery. |
@@ -149,6 +149,7 @@ Without any keys everything runs locally: NEXUS answers with its offline brain, 
 | `Cmd+D` (macOS) / `Super+D` | Show desktop |
 | `Esc` | Close the Start menu, palette or notifications; skip a dream or cinematic |
 | `Ctrl+G` | Training Grounds |
+| `Ctrl+.` | NEXUS AI |
 | `Ctrl+Shift+M` | Memory Palace |
 | `Ctrl+Shift+C` | Code Lab |
 | ``Ctrl+` `` | Terminal |
@@ -160,14 +161,14 @@ App shortcuts come from each app's `shortcut` in the registry; a browser may kee
 
 ## Screenshots
 
-<!-- Save captures to docs/screenshots/ and swap each placeholder for ![caption](docs/screenshots/<file>.png). -->
+Captured from a guest session (demo data) at 1600×1000.
 
 | | |
 |---|---|
-| *Boot sequence* (`boot.png`) | *Lock screen with Explore as Guest* (`lock.png`) |
-| *Desktop with widgets and the creature* (`desktop.png`) | *Command palette talking to NEXUS* (`palette.png`) |
-| *Memory Palace* (`memory-palace.png`) | *Training Grounds* (`training-grounds.png`) |
-| *Reality Decay, stage 5* (`decay.png`) | *Ghost Warriors campfire* (`campfire.png`) |
+| ![Boot sequence](docs/screenshots/boot.png)<br>*Boot sequence* | ![Lock screen with Explore as Guest](docs/screenshots/lock.png)<br>*Lock screen: unlock as the owner or explore as a guest* |
+| ![Desktop with Habit Forge, WarBeats, widgets and the campfire](docs/screenshots/desktop.png)<br>*Desktop: Habit Forge, WarBeats, widgets, vitals and the campfire* | ![Command palette handing a plain-language request to NEXUS](docs/screenshots/palette.png)<br>*Command palette talking to NEXUS* |
+| ![Training Grounds deck vault](docs/screenshots/training-grounds.png)<br>*Training Grounds: the Decks tab* | ![Memory Palace entrance](docs/screenshots/memory-palace.png)<br>*Memory Palace* |
+| ![Stats Center](docs/screenshots/stats-center.png)<br>*Stats Center (Profile)* | ![NEXUS AI chat](docs/screenshots/nexus.png)<br>*NEXUS AI planning the day's study* |
 
 ## Privacy
 
