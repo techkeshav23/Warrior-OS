@@ -58,8 +58,9 @@ interface Ember {
 }
 
 function loadPos(): { x: number; y: number } {
+  // Default: top-right, but left of the Vitals HUD / desktop-widget column.
   const fallback =
-    typeof window === 'undefined' ? { x: 40, y: 90 } : { x: Math.max(16, window.innerWidth - W - 40), y: 90 };
+    typeof window === 'undefined' ? { x: 40, y: 90 } : { x: Math.max(16, window.innerWidth - W - 300), y: 90 };
   if (typeof window === 'undefined') return fallback;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);

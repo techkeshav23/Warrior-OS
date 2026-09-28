@@ -197,6 +197,10 @@ export default function WarriorOS() {
                       {/* Desktop Grid */}
                       <Desktop />
 
+                      {/* Clock / streak / daily-target desktop widgets —
+                          inside the workspace so they stack below windows */}
+                      <DesktopWidgets />
+
                       {/* Window Manager */}
                       <WindowManager />
                     </>
@@ -245,8 +249,6 @@ export default function WarriorOS() {
               <AchievementTriggers />
               {/* Typing biometrics tracker + vitals HUD + optional cloud sync */}
               <BiometricsLayer />
-              {/* Clock / streak / daily-target desktop widgets */}
-              <DesktopWidgets />
               {/* Procedural music engine (survives Music window close) */}
               <ProceduralMusicHost />
               {/* Calendar reminders while the Calendar window is closed */}
