@@ -1,7 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Nebula Shader Wallpaper
-// React Three Fiber + GLSL: fractal noise nebula
-// Time-animated, mouse-reactive ripple, color shifts
+// React Three Fiber + GLSL: a domain-warped fBm nebula in the FORGE HUD
+// palette: deep ink, plasma gas and filaments, a whisper of violet, one
+// distant ember glow, two depths of star dust. Slow drift, a faint
+// pointer lift and a gentle audio swell. Dithered (no banding).
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -22,20 +24,29 @@ const vertexShader = /* glsl */ `
 
 const fragmentShader = /* glsl */ `
   precision highp float;
-  
+
   uniform float u_time;
   uniform vec2 u_mouse;
   uniform vec2 u_resolution;
   uniform float u_bass;
   uniform float u_energy;
-  
+
   varying vec2 vUv;
-  
-  // Simplex-like noise
+
+  // FORGE HUD palette (linear-ish RGB of the brand tokens)
+  const vec3 INK      = vec3(0.016, 0.024, 0.043); // ink-950
+  const vec3 INK_BLUE = vec3(0.030, 0.052, 0.090); // ink-850, cooled
+  const vec3 PLASMA   = vec3(0.184, 0.839, 0.961); // plasma-400
+  const vec3 PLASMA_D = vec3(0.043, 0.561, 0.678); // plasma-600
+  const vec3 VIOLET   = vec3(0.655, 0.545, 0.980); // viz-3
+  const vec3 EMBER    = vec3(1.000, 0.541, 0.239); // ember-400
+  const vec3 STAR     = vec3(0.860, 0.910, 0.970); // fg, a touch cooler
+
+  // Simplex noise
   vec3 mod289(vec3 x) { return x - floor(x * (1.0/289.0)) * 289.0; }
   vec2 mod289(vec2 x) { return x - floor(x * (1.0/289.0)) * 289.0; }
   vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
-  
+
   float snoise(vec2 v) {
     const vec4 C = vec4(0.211324865405187, 0.366025403784439,
                        -0.577350269189626, 0.024390243902439);
@@ -58,60 +69,95 @@ const fragmentShader = /* glsl */ `
     g.yz = a0.yz * x12.xz + h.yz * x12.yw;
     return 130.0 * dot(m, g);
   }
-  
-  // Fractal Brownian Motion
+
+  // Fractal Brownian Motion: 5 octaves for the gas, 3 for the warp field
   float fbm(vec2 p) {
     float f = 0.0;
     float w = 0.5;
     for (int i = 0; i < 5; i++) {
       f += w * snoise(p);
-      p *= 2.0;
+      p = p * 2.02 + vec2(1.7, 9.2);
       w *= 0.5;
     }
     return f;
   }
-  
+  float fbm3(vec2 p) {
+    float f = 0.5 * snoise(p);
+    p = p * 2.03 + vec2(3.1, 4.7);
+    f += 0.25 * snoise(p);
+    p = p * 2.01 + vec2(8.3, 2.8);
+    f += 0.125 * snoise(p);
+    return f;
+  }
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+
+  // Sparse star dust, one candidate per cell
+  float stars(vec2 p, float density) {
+    vec2 g = p * density;
+    vec2 id = floor(g);
+    float h = hash(id);
+    if (h < 0.955) return 0.0;
+    vec2 off = vec2(hash(id + 17.3), hash(id + 41.9)) - 0.5;
+    float d = length(fract(g) - 0.5 - off * 0.7);
+    float twinkle = 0.7 + 0.3 * sin(u_time * (0.4 + h * 1.6) + h * 60.0);
+    return smoothstep(0.075, 0.0, d) * twinkle * ((h - 0.955) / 0.045);
+  }
+
   void main() {
     vec2 uv = vUv;
     float aspect = u_resolution.x / u_resolution.y;
-    uv.x *= aspect;
-    
-    float time = u_time * 0.08;
-    
-    // Multiple layers of FBM noise
-    float n1 = fbm(uv * 2.5 + time * 0.7);
-    float n2 = fbm(uv * 3.5 - time * 0.5 + vec2(5.2, 1.3));
-    float n3 = fbm(uv * 4.0 + time * 0.3 + vec2(n1, n2) * 0.5);
-    
-    // Mouse ripple
-    float dist = distance(uv, vec2(u_mouse.x * aspect, u_mouse.y));
-    float ripple = 0.04 / (dist + 0.05);
-    
-    // Color palette — cyan to purple nebula
-    vec3 col1 = vec3(0.0, 0.4, 0.8);   // Deep blue
-    vec3 col2 = vec3(0.3, 0.0, 0.7);   // Purple
-    vec3 col3 = vec3(0.0, 0.7, 0.6);   // Teal
-    vec3 col4 = vec3(0.5, 0.0, 0.4);   // Magenta
-    
-    vec3 color = mix(col1, col2, n1 * 0.5 + 0.5);
-    color = mix(color, col3, n2 * 0.3 + 0.3);
-    color += col4 * n3 * 0.15;
-    
-    // Add ripple glow
-    color += vec3(0.0, 0.5, 1.0) * ripple * 0.15;
-    
-    // Audio reactivity — boost brightness with bass
-    float audioBoost = 1.0 + u_bass * 0.3 + u_energy * 0.1;
-    color *= audioBoost;
-    
-    // Keep dark overall
-    color *= 0.25;
-    
-    // Subtle vignette
-    float vig = 1.0 - smoothstep(0.4, 1.2, length(vUv - 0.5) * 1.5);
-    color *= vig;
-    
-    gl_FragColor = vec4(color, 1.0);
+    vec2 p = vec2(uv.x * aspect, uv.y);
+    vec2 par = (u_mouse - 0.5) * 0.035;
+
+    float t = u_time * 0.035;
+
+    // Domain-warped gas
+    vec2 q = vec2(fbm3(p * 0.9 + par + vec2(t, 0.0)), fbm3(p * 0.9 - par + vec2(5.2, 1.3) - t * 0.7));
+    float gas = fbm(p * 1.15 + q * 1.3 + vec2(t * 0.5, -t * 0.35));
+    float wisp = fbm3(p * 2.3 - q * 1.2 + vec2(11.7, 3.3) - t * 0.25);
+
+    // Composition: the gas gathers in a soft diagonal band (lower left →
+    // upper right) and thins out toward the corners, like a galactic arm.
+    float arm = uv.y - (0.18 + uv.x * 0.62 + sin(uv.x * 3.1 + 0.6) * 0.06);
+    float band = exp(-arm * arm * 9.0);
+
+    float density = smoothstep(-0.3, 0.75, gas) * mix(0.22, 1.0, band);
+    float filament = smoothstep(0.2, 0.8, wisp) * density;
+
+    // Deep ink, cooler where the gas is
+    vec3 col = mix(INK, INK_BLUE, smoothstep(0.0, 0.9, density));
+    col += PLASMA_D * density * density * 0.2;
+    // Soft luminous arm under the gas, plasma cooling to violet
+    col += mix(PLASMA_D, VIOLET, smoothstep(0.1, 0.9, uv.x)) * band * (0.025 + density * 0.045);
+    col += PLASMA * filament * filament * 0.16;
+    col += VIOLET * smoothstep(0.05, 0.7, q.y) * density * 0.07;
+
+    // A distant forge: restrained ember light low on the right
+    float forge = exp(-3.2 * length((p - vec2(aspect * 0.84, 0.08)) * vec2(0.75, 1.5)));
+    col += EMBER * forge * (0.045 + 0.035 * density);
+
+    // Pointer: the faintest plasma lift where the cursor rests
+    float md = distance(p, vec2(u_mouse.x * aspect, u_mouse.y));
+    col += PLASMA * 0.018 * smoothstep(0.45, 0.0, md);
+
+    // Audio: a gentle swell, never a flash
+    col *= 1.0 + u_bass * 0.22 + u_energy * 0.06;
+
+    // Two depths of stars, dimmed inside the brightest gas
+    float s = stars(p + par * 0.4, 70.0) * 0.7 + stars(p * 1.7 + par, 110.0) * 0.4;
+    col += STAR * s * (1.0 - filament * 0.6);
+
+    // Vignette
+    float vig = smoothstep(1.3, 0.3, length((uv - 0.5) * vec2(aspect * 0.85, 1.0)));
+    col *= mix(0.5, 1.0, vig);
+
+    // Dither: no banding in the dark gradients
+    col += (hash(gl_FragCoord.xy + fract(u_time * 0.37) * 91.0) - 0.5) / 255.0;
+
+    gl_FragColor = vec4(max(col, 0.0), 1.0);
   }
 `;
 

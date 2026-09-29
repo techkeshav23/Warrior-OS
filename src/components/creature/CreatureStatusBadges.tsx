@@ -30,10 +30,16 @@ export interface CreatureIslandSignal {
   goldenAura: boolean;
 }
 
-const TONE_COLOR: Record<CreatureIslandTone, string> = {
-  warning: '#ffab00',
-  success: '#00e676',
-  info: '#00f0ff',
+/** Tone → FORGE HUD token classes (text + LED). */
+const TONE_TEXT: Record<CreatureIslandTone, string> = {
+  warning: 'text-warning',
+  success: 'text-success',
+  info: 'text-accent',
+};
+const TONE_LED: Record<CreatureIslandTone, string> = {
+  warning: 'bg-warning',
+  success: 'bg-success',
+  info: 'bg-accent',
 };
 
 function utcDayKey(ms: number): string {
@@ -82,20 +88,30 @@ interface CreatureIslandBadgeProps {
 function CreatureIslandBadgeInner({ expanded = false, className }: CreatureIslandBadgeProps) {
   const signal = useCreatureIslandSignal();
   if (!signal.visible) return null;
-  const color = TONE_COLOR[signal.tone];
-  return (
-    <div className={cn('flex items-center gap-1.5 min-w-0', className)} title={signal.text}>
-      <div className="-my-2 shrink-0">
-        <CreatureCanvas form={signal.form} stage={signal.stage} mood={signal.mood} size={expanded ? 18 : 13} goldenAura={signal.goldenAura} />
-      </div>
-      {expanded ? (
-        <span className="text-[10px] font-mono truncate" style={{ color }}>
-          {signal.text}
+  const moodLabel = CREATURE_MOOD_META[signal.mood]?.label ?? '';
+  if (expanded) {
+    return (
+      <span className={cn('flex min-w-0 items-center gap-3', className)} title={signal.text}>
+        <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-control border border-line-strong bg-ink-850">
+          <CreatureCanvas form={signal.form} stage={signal.stage} mood={signal.mood} size={18} goldenAura={signal.goldenAura} />
         </span>
-      ) : (
-        <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ background: color }} />
-      )}
-    </div>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-ui font-medium text-fg">{signal.name}</span>
+          <span className={cn('block truncate text-xs', TONE_TEXT[signal.tone])}>{signal.text}</span>
+        </span>
+      </span>
+    );
+  }
+  return (
+    <span className={cn('flex min-w-0 items-center gap-2', className)} title={signal.text}>
+      <span className="-my-2 shrink-0">
+        <CreatureCanvas form={signal.form} stage={signal.stage} mood={signal.mood} size={13} goldenAura={signal.goldenAura} />
+      </span>
+      <span className="min-w-0 truncate text-xs text-fg-muted">
+        {signal.name} <span className={TONE_TEXT[signal.tone]}>· {moodLabel}</span>
+      </span>
+      <span aria-hidden className={cn('size-1.5 shrink-0 rounded-full motion-safe:animate-pulse-soft', TONE_LED[signal.tone])} />
+    </span>
   );
 }
 
@@ -121,7 +137,7 @@ function CreatureLockBadgeInner({ className }: CreatureLockBadgeProps) {
   return (
     <div
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 pl-1 pr-3 py-0.5',
+        'inline-flex items-center gap-2 rounded-full border border-line-strong bg-ink-950/60 py-1 pl-1.5 pr-3 backdrop-blur-md lite:bg-ink-900',
         className
       )}
       title={`${name} · ${moodMeta.label}`}
@@ -129,9 +145,9 @@ function CreatureLockBadgeInner({ className }: CreatureLockBadgeProps) {
       <div className="-my-2">
         <CreatureCanvas form={form} stage={stage} mood={mood === 'sad' ? 'sad' : 'idle'} size={14} goldenAura={goldenAuraDate === today} />
       </div>
-      <span className="text-[11px] font-mono text-text-secondary">
-        {name} · <span className="text-accent-primary font-bold">Lv.{level}</span>{' '}
-        <span className="text-text-muted">{getStageInfo(stage).label}</span>
+      <span className="text-xs text-fg-muted">
+        {name} <span className="text-fg-faint">·</span> <span className="tabular font-medium text-accent">Lv {level}</span>{' '}
+        <span className="text-fg-subtle">{getStageInfo(stage).label}</span>
       </span>
     </div>
   );

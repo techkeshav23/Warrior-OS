@@ -12,6 +12,7 @@
 import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useMusicGenStore } from '@/stores/useMusicGenStore';
+import { LINE, PLASMA } from '@/styles/tokens';
 
 const WINDOW_MS = 4000;
 const LOW_MIDI = 24; // C1
@@ -32,7 +33,7 @@ interface NoteStaffProps {
   color?: string;
 }
 
-export function NoteStaff({ className, color = '#00f0ff' }: NoteStaffProps) {
+export function NoteStaff({ className, color = PLASMA[400] }: NoteStaffProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef(color);
   useEffect(() => {
@@ -67,7 +68,7 @@ export function NoteStaff({ className, color = '#00f0ff' }: NoteStaffProps) {
       ctx.clearRect(0, 0, w, h);
 
       // Staff: five hairlines
-      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.strokeStyle = LINE.base;
       ctx.lineWidth = 1;
       for (let i = 0; i < 5; i++) {
         const y = Math.round(pad + (i * (h - pad * 2)) / 4) + 0.5;

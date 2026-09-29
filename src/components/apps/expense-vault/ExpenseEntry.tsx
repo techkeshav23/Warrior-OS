@@ -1,23 +1,22 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Expense Entry
-// Glass quick-add form (amount, category, note, date) with inline
+// Quick-add card (amount, category chips, date, note) with inline
 // validation. The same form edits an existing expense; the parent
 // remounts it (key) whenever the expense being edited changes.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo, useId, useRef, useState, type FormEvent } from 'react';
-import { Check, IndianRupee, Plus, X } from 'lucide-react';
+import { memo, useId, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { Check, IndianRupee, Pencil, Plus, X } from 'lucide-react';
 import { parseISO, subDays } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { Button, Card, Chip, Input } from '@/components/ui';
 import { MAX_EXPENSE_NOTE_LENGTH, useExpenseStore } from '@/stores/useExpenseStore';
 import type { Expense, ExpenseCategory } from '@/types/expense';
 import { checkBudgetAlert, checkFirstExpenseAchievement } from './expense-alerts';
 import {
   EARLIEST_EXPENSE_DATE,
   EXPENSE_CATEGORIES,
-  EXPENSE_CATEGORY_MAP,
   formatINR,
   isValidDateKey,
   parseAmountInput,
@@ -71,8 +70,6 @@ function ExpenseEntryInner({ className, editing, todayKey, onSaved, onCancelEdit
   const { errors, amount: parsedAmount } = validate(amount, date, note, todayKey);
   const visibleErrors: FieldErrors = submitted ? errors : {};
   const yesterdayKey = toDateKey(subDays(parseISO(todayKey), 1));
-  const selectedMeta = EXPENSE_CATEGORY_MAP[category];
-  const SelectedIcon = selectedMeta.Icon;
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -118,173 +115,123 @@ function ExpenseEntryInner({ className, editing, todayKey, onSaved, onCancelEdit
     amountRef.current?.focus();
   };
 
-  const inputBase =
-    'w-full rounded-lg border bg-black/30 text-white outline-none transition-colors placeholder:text-white/30 focus:border-cyan-400/60';
+  const nearNoteLimit = note.length > MAX_EXPENSE_NOTE_LENGTH - 20;
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      noValidate
-      aria-label={isEditing ? 'Edit expense' : 'Add expense'}
-      className={cn(
-        'rounded-xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md',
-        isEditing ? 'border-cyan-500/30 bg-cyan-500/[0.06]' : 'border-white/10 bg-white/[0.05]',
-        className
-      )}
+    <Card
+      title={isEditing ? 'Edit expense' : 'Quick add'}
+      description={isEditing ? 'Changes update the month instantly' : 'Log it the moment you spend it'}
+      icon={isEditing ? Pencil : Plus}
+      tone={isEditing ? 'accent' : 'default'}
+      actions={
+        isEditing ? (
+          <Button variant="ghost" size="sm" leadingIcon={X} onClick={onCancelEdit}>
+            Cancel
+          </Button>
+        ) : undefined
+      }
+      className={className}
     >
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white">{isEditing ? 'Edit expense' : 'Quick add'}</h3>
-        {isEditing && (
-          <button
-            type="button"
-            onClick={onCancelEdit}
-            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-white/55 hover:bg-white/10 hover:text-white"
-          >
-            <X className="h-3 w-3" /> Cancel
-          </button>
-        )}
-      </div>
-
-      {/* Amount */}
-      <label htmlFor={`${fieldId}-amount`} className="mb-1 block text-[11px] text-white/60">
-        Amount
-      </label>
-      <div className="relative">
-        <IndianRupee className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-        <input
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        aria-label={isEditing ? 'Edit expense' : 'Add expense'}
+        className="space-y-4"
+      >
+        <Input
           ref={amountRef}
           id={`${fieldId}-amount`}
+          label="Amount"
+          size="lg"
+          leadingIcon={IndianRupee}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           inputMode="decimal"
           autoComplete="off"
           placeholder="0"
           autoFocus={isEditing}
-          aria-invalid={visibleErrors.amount ? true : undefined}
-          aria-describedby={`${fieldId}-amount-hint`}
-          className={cn(
-            inputBase,
-            'py-2 pl-8 pr-3 font-mono text-lg',
-            visibleErrors.amount ? 'border-red-500/50' : 'border-white/10'
-          )}
+          error={visibleErrors.amount}
+          hint={parsedAmount !== null ? `= ${formatINR(parsedAmount, 'always')}` : 'Rupees, up to 2 decimals'}
+          className="tabular font-mono font-medium"
         />
-      </div>
-      <p id={`${fieldId}-amount-hint`} className={cn('mt-1 min-h-[1rem] text-[11px]', visibleErrors.amount ? 'text-red-300' : 'text-white/45')}>
-        {visibleErrors.amount ?? (parsedAmount !== null ? `= ${formatINR(parsedAmount, 'always')}` : 'Rupees, up to 2 decimals')}
-      </p>
 
-      {/* Category + date */}
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <div className="min-w-0">
-          <label htmlFor={`${fieldId}-category`} className="mb-1 block text-[11px] text-white/60">
+        {/* Category */}
+        <div className="space-y-1.5">
+          <p id={`${fieldId}-category`} className="text-xs font-medium text-fg-muted">
             Category
-          </label>
-          <div className="relative">
-            <SelectedIcon
-              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2"
-              style={{ color: selectedMeta.color }}
-            />
-            <select
-              id={`${fieldId}-category`}
-              value={category}
-              onChange={(e) => {
-                const next = EXPENSE_CATEGORIES.find((c) => c.id === e.target.value);
-                if (next) setCategory(next.id);
-              }}
-              className={cn(inputBase, 'border-white/10 py-2 pl-8 pr-2 text-sm')}
-            >
-              {EXPENSE_CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id} className="bg-[#111118] text-white">
+          </p>
+          <div role="group" aria-labelledby={`${fieldId}-category`} className="flex flex-wrap gap-1.5">
+            {EXPENSE_CATEGORIES.map((c) => {
+              const Icon = c.Icon;
+              const active = category === c.id;
+              return (
+                <Chip
+                  key={c.id}
+                  selected={active}
+                  onClick={() => setCategory(c.id)}
+                  icon={
+                    <span
+                      className="flex text-accent"
+                      style={{ '--accent': c.color } as CSSProperties}
+                      aria-hidden
+                    >
+                      <Icon size={14} strokeWidth={1.75} />
+                    </span>
+                  }
+                >
                   {c.label}
-                </option>
-              ))}
-            </select>
+                </Chip>
+              );
+            })}
           </div>
         </div>
-        <div className="min-w-0">
-          <label htmlFor={`${fieldId}-date`} className="mb-1 block text-[11px] text-white/60">
-            Date
-          </label>
-          <input
+
+        {/* Date */}
+        <div className="space-y-2">
+          <Input
             id={`${fieldId}-date`}
+            label="Date"
             type="date"
             value={date}
             min={EARLIEST_EXPENSE_DATE}
             max={todayKey}
             onChange={(e) => setDate(e.target.value)}
-            aria-invalid={visibleErrors.date ? true : undefined}
-            aria-describedby={visibleErrors.date ? `${fieldId}-date-error` : undefined}
-            className={cn(
-              inputBase,
-              'px-2 py-[7px] text-sm',
-              visibleErrors.date ? 'border-red-500/50' : 'border-white/10'
-            )}
+            error={visibleErrors.date}
+            className="tabular font-mono"
           />
+          <div className="flex items-center gap-1.5">
+            {[
+              { key: todayKey, label: 'Today' },
+              { key: yesterdayKey, label: 'Yesterday' },
+            ].map((d) => (
+              <Chip key={d.label} size="sm" selected={date === d.key} onClick={() => setDate(d.key)}>
+                {d.label}
+              </Chip>
+            ))}
+          </div>
         </div>
-      </div>
-      <div className="mt-1 flex items-center gap-1">
-        {[
-          { key: todayKey, label: 'Today' },
-          { key: yesterdayKey, label: 'Yesterday' },
-        ].map((d) => (
-          <button
-            key={d.label}
-            type="button"
-            onClick={() => setDate(d.key)}
-            aria-pressed={date === d.key}
-            className={cn(
-              'rounded-full border px-2 py-0.5 text-[10px] transition-colors',
-              date === d.key
-                ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300'
-                : 'border-white/10 text-white/50 hover:bg-white/10'
-            )}
-          >
-            {d.label}
-          </button>
-        ))}
-      </div>
-      {visibleErrors.date && (
-        <p id={`${fieldId}-date-error`} className="mt-1 text-[11px] text-red-300">
-          {visibleErrors.date}
-        </p>
-      )}
 
-      {/* Note */}
-      <div className="mt-2 flex items-baseline justify-between">
-        <label htmlFor={`${fieldId}-note`} className="block text-[11px] text-white/60">
-          Note <span className="text-white/35">(optional)</span>
-        </label>
-        {note.length > MAX_EXPENSE_NOTE_LENGTH - 20 && (
-          <span className="text-[10px] text-white/40">
-            {note.length}/{MAX_EXPENSE_NOTE_LENGTH}
-          </span>
-        )}
-      </div>
-      <input
-        id={`${fieldId}-note`}
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        maxLength={MAX_EXPENSE_NOTE_LENGTH}
-        autoComplete="off"
-        placeholder="Masala chai, metro card, sci-fi paperback..."
-        aria-invalid={visibleErrors.note ? true : undefined}
-        className={cn(inputBase, 'mt-1 px-2.5 py-2 text-sm', visibleErrors.note ? 'border-red-500/50' : 'border-white/10')}
-      />
-      {visibleErrors.note && <p className="mt-1 text-[11px] text-red-300">{visibleErrors.note}</p>}
+        <Input
+          id={`${fieldId}-note`}
+          label={
+            <>
+              Note <span className="font-normal text-fg-subtle">(optional)</span>
+            </>
+          }
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={MAX_EXPENSE_NOTE_LENGTH}
+          autoComplete="off"
+          placeholder="Masala chai, metro card, sci-fi paperback…"
+          error={visibleErrors.note}
+          hint={nearNoteLimit ? `${note.length}/${MAX_EXPENSE_NOTE_LENGTH}` : undefined}
+        />
 
-      <button
-        type="submit"
-        className={cn(
-          'mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-semibold transition-colors',
-          isEditing
-            ? 'border-cyan-400/40 bg-cyan-500/20 text-cyan-200 hover:bg-cyan-500/30'
-            : 'border-emerald-400/40 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30'
-        )}
-      >
-        {isEditing ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-        {isEditing ? 'Save changes' : 'Add expense'}
-      </button>
-    </form>
+        <Button type="submit" variant="primary" size="lg" fullWidth leadingIcon={isEditing ? Check : Plus}>
+          {isEditing ? 'Save changes' : 'Add expense'}
+        </Button>
+      </form>
+    </Card>
   );
 }
 

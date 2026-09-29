@@ -1,8 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — War Cry System
 // Anonymous war cries. The composer (in the leaderboard + campfire)
-// offers presets and custom text (max 50 chars), rate-limited to one
-// per 2 minutes. Cries float up as glass bubbles on every online
+// offers preset chips and custom text (max 50 chars) with an ember Send
+// button, rate-limited to one per 2 minutes (the counter turns into a
+// cooldown). Cries float up as glass popover bubbles on every online
 // warrior's desktop (realtime mode) and fade within 5 s; max 3 are
 // visible at once, the rest queue. In local (offline) mode a cry
 // reaches this browser's other open tabs only — and the UI says so;
@@ -13,7 +14,10 @@
 
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Megaphone, Send } from 'lucide-react';
+import { CircleCheck, Megaphone, Send, TriangleAlert } from 'lucide-react';
+import { Badge, Chip } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import {
   MAX_VISIBLE_WARCRIES,
   WARCRY_MAX_LENGTH,
@@ -88,36 +92,32 @@ export function WarCryComposer({ compact = false }: { compact?: boolean }) {
   };
 
   const presets = compact ? WARCRY_PRESETS.slice(0, 3) : WARCRY_PRESETS;
+  const canSend = !disabled && text.trim().length > 0;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-1.5">
-        <Megaphone size={13} className="text-accent-secondary" />
-        <span className="text-[11px] font-medium text-text-secondary">Send an anonymous war cry</span>
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-fg-muted">
+          <Megaphone size={14} strokeWidth={1.75} className="shrink-0 text-ember-400" aria-hidden />
+          <span className="truncate">{compact ? 'Anonymous war cry' : 'Send an anonymous war cry'}</span>
+        </span>
+        <span className="shrink-0 font-mono text-2xs text-fg-subtle tabular" aria-live="polite">
+          {cooling ? `Next in ${Math.ceil(remaining / 1000)}s` : `${text.length}/${WARCRY_MAX_LENGTH}`}
+        </span>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
         {presets.map((p) => (
-          <button
-            key={p.label}
-            type="button"
-            disabled={disabled}
-            onClick={() => send(p.message)}
-            className={cn(
-              'rounded-full border border-white/10 bg-white/5 text-text-primary transition-all',
-              compact ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-[11px]',
-              disabled
-                ? 'cursor-not-allowed opacity-40'
-                : 'hover:border-accent-secondary/50 hover:bg-accent-secondary/10'
-            )}
-          >
+          <Chip key={p.label} size="sm" disabled={disabled} onClick={() => send(p.message)}>
             {p.label}
-          </button>
+          </Chip>
         ))}
       </div>
 
-      <div className="flex items-center gap-1.5">
-        <input
+      <div className="flex items-center gap-2">
+        <Input
+          size="sm"
+          wrapperClassName="min-w-0 flex-1"
           type="text"
           value={text}
           maxLength={WARCRY_MAX_LENGTH}
@@ -127,34 +127,35 @@ export function WarCryComposer({ compact = false }: { compact?: boolean }) {
             if (e.key === 'Enter') send(text);
           }}
           placeholder={offline ? 'Connecting…' : cooling ? 'Cooling down…' : 'Custom war cry…'}
-          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-2.5 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus-ring disabled:opacity-40"
           aria-label="Custom war cry"
         />
-        <button
-          type="button"
-          disabled={disabled || !text.trim()}
+        <Button
+          variant="ember"
+          size="sm"
+          leadingIcon={Send}
+          loading={sending}
+          disabled={!canSend}
           onClick={() => send(text)}
-          className={cn(
-            'flex items-center justify-center rounded-lg p-2 transition-all',
-            disabled || !text.trim()
-              ? 'cursor-not-allowed bg-white/5 text-text-muted'
-              : 'bg-accent-secondary/20 text-accent-secondary hover:bg-accent-secondary/30'
-          )}
           aria-label="Send war cry"
         >
-          <Send size={13} />
-        </button>
+          Send
+        </Button>
       </div>
 
-      <div className="flex items-center justify-between gap-2 text-[10px] text-text-secondary">
-        <span>
-          {text.length}/{WARCRY_MAX_LENGTH}
-        </span>
-        {cooling && <span>Next in {Math.ceil(remaining / 1000)}s</span>}
-      </div>
       {status && (
-        <p className={cn('text-[10px]', status.tone === 'ok' ? 'text-accent-success' : 'text-accent-warning')}>
-          {status.text}
+        <p
+          role="status"
+          className={cn(
+            'flex items-start gap-1.5 text-xs',
+            status.tone === 'ok' ? 'text-success' : 'text-warning'
+          )}
+        >
+          {status.tone === 'ok' ? (
+            <CircleCheck size={14} strokeWidth={1.75} className="mt-px shrink-0" aria-hidden />
+          ) : (
+            <TriangleAlert size={14} strokeWidth={1.75} className="mt-px shrink-0" aria-hidden />
+          )}
+          <span className="min-w-0">{status.text}</span>
         </p>
       )}
     </div>
@@ -223,26 +224,41 @@ function WarCryBubblesInner() {
               key={cry.id}
               className="absolute"
               style={{ left: `${left}vw`, bottom: '16%' }}
-              initial={{ opacity: 0, y: 30, scale: 0.88 }}
-              animate={{ opacity: [0, 1, 1, 0], y: -150, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: BUBBLE_LIFETIME_MS / 1000, ease: 'easeOut', times: [0, 0.12, 0.75, 1] }}
+              initial={{ opacity: 0, y: 24, scale: 0.96 }}
+              animate={{ opacity: [0, 1, 1, 0], y: -140, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.18 } }}
+              transition={{
+                opacity: { duration: BUBBLE_LIFETIME_MS / 1000, times: [0, 0.08, 0.78, 1], ease: 'linear' },
+                y: { duration: BUBBLE_LIFETIME_MS / 1000, ease: [0.22, 0.61, 0.36, 1] },
+                scale: { duration: 0.26, ease: [0.16, 1, 0.3, 1] },
+              }}
             >
               <div
                 className={cn(
-                  'glass-dark max-w-[250px] rounded-2xl border px-3.5 py-2 shadow-xl',
-                  cry.isSelf ? 'border-accent-primary/40 glass-glow' : 'border-accent-secondary/30'
+                  'glass-popover max-w-[260px] rounded-card px-3 py-2',
+                  cry.isSelf && 'border-accent/45 shadow-glow'
                 )}
               >
-                <p className="font-mono text-[10px] text-text-secondary">
-                  {cry.isSelf ? `${cry.anonymousId} (you)` : cry.anonymousId}
+                <p className="flex items-center gap-1.5 font-mono text-2xs text-fg-subtle">
+                  <Megaphone
+                    size={12}
+                    strokeWidth={1.75}
+                    aria-hidden
+                    className={cry.isSelf ? 'text-accent' : 'text-ember-400'}
+                  />
+                  <span className="truncate">{cry.anonymousId}</span>
+                  {cry.isSelf && <span className="text-accent">you</span>}
                 </p>
-                <p className="text-sm text-text-primary text-glow-sm break-words">{cry.message}</p>
+                <p className="mt-0.5 break-words text-sm font-medium text-fg">{cry.message}</p>
                 {cry.isSimulated ? (
-                  <p className="mt-0.5 text-[9px] text-accent-warning/80">SIM · simulated warrior</p>
+                  <Badge tone="warning" size="sm" className="mt-1.5">
+                    Sim · simulated warrior
+                  </Badge>
                 ) : (
                   cry.isLocalOnly && (
-                    <p className="mt-0.5 text-[9px] text-accent-warning/80">offline · local tabs only</p>
+                    <Badge tone="warning" size="sm" className="mt-1.5">
+                      Offline · local tabs only
+                    </Badge>
                   )
                 )}
               </div>

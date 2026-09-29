@@ -11,8 +11,38 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo, useRef, memo, type KeyboardEvent } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  CircleMinus,
+  CircleX,
+  Clock,
+  Flag,
+  ListChecks,
+  Play,
+  Plus,
+  RotateCcw,
+  Sparkles,
+  Timer,
+  X,
+  Zap,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Badge,
+  Button,
+  Card,
+  Chip,
+  EmptyState,
+  ProgressBar,
+  SegmentedControl,
+  StatTile,
+  Switch,
+} from '@/components/ui';
+import { TRANSITION } from '@/styles/tokens';
 import { useXPStore } from '@/stores/useXPStore';
 import { useQuizHistoryStore } from '@/stores/useQuizHistoryStore';
 import {
@@ -26,9 +56,21 @@ import { recordQuizCompletion } from '@/components/achievements/quiz-achievement
 import type { QuizCard, RecordAttemptInput } from '@/types/learning';
 import type { DeckTarget } from './deep-link';
 import { QuestionView } from './QuestionView';
-import { AccuracyBar, Chip, Field, StatTile } from './QuizControls';
 import {
-  DIFFICULTY_STYLES,
+  AccuracyBar,
+  ConfirmBar,
+  DeckPickCard,
+  DifficultyBadge,
+  KeyHints,
+  PaletteButton,
+  ReviewRow,
+  ScoreHero,
+  SettingRow,
+  TabHeader,
+  type PaletteState,
+} from './QuizControls';
+import {
+  KIND_LABELS,
   answerFromKey,
   answerStatus,
   createStopwatch,
@@ -39,7 +81,6 @@ import {
   letterGrade,
   percent,
   shuffle,
-  type AnswerStatus,
   type UserAnswer,
 } from './grading';
 
@@ -119,18 +160,6 @@ function quizXP(correct: number, total: number, retry: boolean): number {
   return correct * XP_PER_CORRECT + bonus;
 }
 
-const STATUS_MARKS: Record<AnswerStatus, { icon: string; className: string }> = {
-  correct: { icon: '✓', className: 'text-green-400' },
-  wrong: { icon: '✗', className: 'text-red-400' },
-  skipped: { icon: '—', className: 'text-white/40' },
-};
-
-const REVIEW_STYLES: Record<AnswerStatus, string> = {
-  correct: 'bg-green-500/10 border-green-500/20',
-  wrong: 'bg-red-500/10 border-red-500/20',
-  skipped: 'bg-white/5 border-white/10',
-};
-
 function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
   const [phase, setPhase] = useState<Phase>('setup');
   const [deckId, setDeckId] = useState<string | null>(initialTarget?.deckId ?? null);
@@ -143,6 +172,7 @@ function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
   const [stopwatch] = useState(createStopwatch);
   const finishedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
 
   const addXP = useXPStore((s) => s.addXP);
   const recordSession = useQuizHistoryStore((s) => s.recordAttempt);
@@ -424,87 +454,87 @@ function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
     }
   };
 
+
   // ─── Setup ───
   if (phase === 'setup') {
     const hasQuizCards = decks.some((d) => countOf(d.id) > 0);
+    const summary = [
+      `${plannedCount} question${plannedCount === 1 ? '' : 's'}`,
+      settings.paceSeconds > 0 ? `${formatClock(plannedCount * settings.paceSeconds)} on the clock` : 'untimed',
+      settings.feedback === 'instant' ? 'instant feedback' : 'feedback at the end',
+    ].join(' · ');
     return (
-      <div className="p-6 space-y-6">
-        <div>
-          <h3 className="text-lg font-bold text-white">📝 Quiz</h3>
-          <p className="text-xs text-white/40 mt-1">Pick a deck, set the pace, prove what you know.</p>
-        </div>
+      <div className="@container space-y-6 p-5">
+        <TabHeader icon={ListChecks} title="Quiz" description="Pick a deck, set the pace, prove what you know." />
 
-        {!hasQuizCards && (
-          <p className="text-sm text-white/40">
-            No quiz questions yet. Decks need multiple-choice, multi-select or numeric cards to run a quiz.
-          </p>
+        {!hasQuizCards ? (
+          <EmptyState
+            icon={ListChecks}
+            title="No quiz questions yet"
+            description="Decks need multiple-choice, multi-select or numeric cards to run a quiz. Add some in Decks."
+          />
+        ) : (
+          <section className="space-y-3" aria-label="Deck">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="hud-label">Deck</span>
+              {!selectedDeck && <span className="text-xs text-fg-subtle">Choose one to set up the quiz</span>}
+            </div>
+            <div className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
+              {decks.map((deck) => {
+                const count = countOf(deck.id);
+                return (
+                  <DeckPickCard
+                    key={deck.id}
+                    icon={deck.icon}
+                    name={deck.name}
+                    meta={count === 0 ? 'No quiz cards' : `${count} question${count === 1 ? '' : 's'}`}
+                    mastery={deckStats.mastery.get(deck.id) ?? 0}
+                    selected={selectedDeck?.id === deck.id}
+                    disabled={count === 0}
+                    onClick={() => {
+                      setDeckId(deck.id);
+                      setTopicId(null);
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </section>
         )}
 
-        <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(170px,1fr))]">
-          {decks.map((deck) => {
-            const count = countOf(deck.id);
-            const mastery = Math.round((deckStats.mastery.get(deck.id) ?? 0) * 100);
-            const active = selectedDeck?.id === deck.id;
-            return (
-              <button
-                key={deck.id}
-                type="button"
-                disabled={count === 0}
-                aria-pressed={active}
-                onClick={() => {
-                  setDeckId(deck.id);
-                  setTopicId(null);
-                }}
-                className={cn(
-                  'p-3 rounded-lg text-sm border transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed',
-                  active
-                    ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
-                    : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
-                )}
-              >
-                <span className="flex items-center gap-1.5">
-                  <span>{deck.icon}</span>
-                  <span className="truncate">{deck.name}</span>
-                </span>
-                <span className="block text-[10px] text-white/40 mt-1">
-                  {count} question{count === 1 ? '' : 's'} · {mastery}% mastery
-                </span>
-                <span className="block h-1 mt-2 rounded bg-white/10 overflow-hidden">
-                  <span className="block h-full rounded" style={{ width: `${mastery}%`, backgroundColor: deck.color }} />
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
         {selectedDeck && topics.length > 1 && (
-          <Field label="Topic (optional)">
-            <Chip active={!activeTopic} onClick={() => setTopicId(null)}>
-              All topics
-            </Chip>
-            {topics.map((t) => (
-              <Chip key={t.id} active={activeTopic?.id === t.id} onClick={() => setTopicId(t.id)}>
-                {t.name} <span className="opacity-50">{countOf(t.id)}</span>
+          <section className="space-y-3" aria-label="Topic">
+            <span className="hud-label">Topic</span>
+            <div className="flex flex-wrap gap-2">
+              <Chip selected={!activeTopic} onClick={() => setTopicId(null)}>
+                All topics
               </Chip>
-            ))}
-          </Field>
+              {topics.map((t) => (
+                <Chip key={t.id} selected={activeTopic?.id === t.id} onClick={() => setTopicId(t.id)}>
+                  {t.name}
+                  <span className="ml-1.5 font-mono tabular opacity-60">{countOf(t.id)}</span>
+                </Chip>
+              ))}
+            </div>
+          </section>
         )}
 
         {selectedDeck && (
-          <div className="space-y-4 p-4 rounded-lg border border-white/10 bg-white/[0.03]">
-            <Field label="Questions">
-              {COUNT_OPTIONS.map((n) => (
-                <Chip
-                  key={n}
-                  active={countChoice === n}
-                  disabled={n > poolSize}
-                  onClick={() => setSettings((s) => ({ ...s, count: n }))}
-                >
-                  {n === 0 ? `All (${poolSize})` : n}
-                </Chip>
-              ))}
-            </Field>
-            <Field
+          <Card eyebrow="Session" title="Set the pace" bodyClassName="divide-y divide-line">
+            <SettingRow label="Questions" hint={`${poolSize} in scope`}>
+              <SegmentedControl
+                size="sm"
+                aria-label="Questions"
+                value={String(countChoice)}
+                onChange={(v) => setSettings((s) => ({ ...s, count: Number(v) }))}
+                options={COUNT_OPTIONS.map((n) => ({
+                  value: String(n),
+                  label: n === 0 ? `All ${poolSize}` : String(n),
+                  disabled: n > poolSize,
+                }))}
+              />
+            </SettingRow>
+            <SettingRow
               label="Feedback"
               hint={
                 settings.feedback === 'instant'
@@ -512,51 +542,43 @@ function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
                   : 'Answer everything first; the review comes with the results.'
               }
             >
-              <Chip
-                active={settings.feedback === 'instant'}
-                onClick={() => setSettings((s) => ({ ...s, feedback: 'instant' }))}
-              >
-                Instant
-              </Chip>
-              <Chip active={settings.feedback === 'end'} onClick={() => setSettings((s) => ({ ...s, feedback: 'end' }))}>
-                At the end
-              </Chip>
-            </Field>
-            <Field label="Timer">
-              {PACE_OPTIONS.map((sec) => (
-                <Chip
-                  key={sec}
-                  active={settings.paceSeconds === sec}
-                  onClick={() => setSettings((s) => ({ ...s, paceSeconds: sec }))}
-                >
-                  {sec === 0 ? 'Off' : `${sec}s / question`}
-                </Chip>
-              ))}
-            </Field>
-            <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer w-fit">
-              <input
-                type="checkbox"
-                checked={settings.weakFirst}
-                onChange={(e) => setSettings((s) => ({ ...s, weakFirst: e.target.checked }))}
-                className="accent-cyan-400"
+              <SegmentedControl
+                size="sm"
+                aria-label="Feedback"
+                value={settings.feedback}
+                onChange={(feedback) => setSettings((s) => ({ ...s, feedback }))}
+                options={[
+                  { value: 'instant', label: 'Instant', icon: Zap },
+                  { value: 'end', label: 'At the end', icon: Flag },
+                ]}
               />
-              Weakest cards first (lowest mastery)
-            </label>
-          </div>
+            </SettingRow>
+            <SettingRow label="Timer" hint="Seconds per question. At zero the quiz submits itself.">
+              <SegmentedControl
+                size="sm"
+                aria-label="Timer"
+                value={String(settings.paceSeconds)}
+                onChange={(v) => setSettings((s) => ({ ...s, paceSeconds: Number(v) }))}
+                options={PACE_OPTIONS.map((sec) => ({ value: String(sec), label: sec === 0 ? 'Off' : `${sec}s` }))}
+              />
+            </SettingRow>
+            <SettingRow label="Weakest cards first" hint="Lowest mastery and never-answered cards lead the quiz.">
+              <Switch
+                checked={settings.weakFirst}
+                onCheckedChange={(on) => setSettings((s) => ({ ...s, weakFirst: on }))}
+                aria-label="Weakest cards first"
+              />
+            </SettingRow>
+          </Card>
         )}
 
         {selectedDeck && (
-          <button
-            type="button"
-            onClick={startQuiz}
-            className="px-6 py-2 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/30 transition-all text-sm font-semibold"
-          >
-            Start Quiz →{' '}
-            <span className="font-normal text-cyan-300/60">
-              {plannedCount} question{plannedCount === 1 ? '' : 's'}
-              {settings.paceSeconds > 0 ? ` · ${formatClock(plannedCount * settings.paceSeconds)}` : ''}
-            </span>
-          </button>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
+            <p className="text-ui text-fg-muted tabular">{summary}</p>
+            <Button variant="primary" size="lg" leadingIcon={Play} onClick={startQuiz} disabled={plannedCount === 0}>
+              Start quiz
+            </Button>
+          </div>
         )}
       </div>
     );
@@ -573,173 +595,153 @@ function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
     const timeLeft = run.endsAt !== null ? Math.max(0, Math.ceil((run.endsAt - now) / 1000)) : null;
     const timeBudget = run.endsAt !== null ? (run.endsAt - run.startedAt) / 1000 : 0;
     const elapsed = Math.max(0, Math.floor((now - run.startedAt) / 1000));
+    const lowTime = timeLeft !== null && timeLeft <= Math.max(10, timeBudget * 0.15);
+    const paletteState = (item: QuizItem, i: number): PaletteState => {
+      if (i === run.index) return 'current';
+      if (run.checked[item.card.id]) return answerStatus(item.card, run.answers[item.card.id]) === 'correct' ? 'correct' : 'wrong';
+      return isAnswered(run.answers[item.card.id]) ? 'answered' : 'empty';
+    };
 
     return (
-      <div ref={containerRef} tabIndex={-1} onKeyDown={onKeyDown} className="p-6 h-full flex flex-col outline-none">
+      <div ref={containerRef} tabIndex={-1} onKeyDown={onKeyDown} className="@container flex h-full flex-col outline-none">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-4 text-xs">
-          <span className="text-white/50 shrink-0">
-            Question {run.index + 1} / {run.items.length}
+        <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-line px-5">
+          <span className="min-w-0 flex-1 truncate text-xs text-fg-subtle" title={`${run.deckName} › ${topicName}`}>
+            <span className="text-fg-muted">{run.deckName}</span> › {topicName}
           </span>
-          <span className="flex-1 truncate text-center text-white/40">
-            {run.deckName} • {topicName}
-            {run.retry ? ' • retry round' : ''}
-          </span>
-          <span className={cn('px-2 py-0.5 rounded shrink-0', DIFFICULTY_STYLES[card.difficulty])}>{card.difficulty}</span>
+          {run.retry && (
+            <Badge tone="ember" size="sm" icon={RotateCcw}>
+              Retry
+            </Badge>
+          )}
+          <DifficultyBadge difficulty={card.difficulty} />
           <span
             title={timeLeft !== null ? 'Time left' : 'Time elapsed'}
             className={cn(
-              'font-mono shrink-0',
+              'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-control px-2 font-mono text-ui font-medium tabular',
               timeLeft === null
-                ? 'text-white/40'
-                : timeLeft <= Math.max(10, timeBudget * 0.15)
-                ? 'text-red-400 animate-pulse'
-                : 'text-cyan-300'
+                ? 'text-fg-muted'
+                : lowTime
+                  ? 'bg-danger/12 text-danger motion-safe:animate-pulse-soft'
+                  : 'bg-accent/10 text-accent'
             )}
           >
-            {timeLeft !== null ? `⏱ ${formatClock(timeLeft)}` : formatClock(elapsed)}
+            {timeLeft !== null ? (
+              <Timer size={14} strokeWidth={1.75} aria-hidden />
+            ) : (
+              <Clock size={14} strokeWidth={1.75} aria-hidden />
+            )}
+            {timeLeft !== null ? formatClock(timeLeft) : formatClock(elapsed)}
           </span>
-          <button type="button" onClick={requestFinish} className="shrink-0 text-green-300/70 hover:text-green-200">
+          <span aria-hidden className="mx-0.5 h-5 w-px bg-line-strong" />
+          <Button variant="ghost" size="sm" leadingIcon={Flag} onClick={requestFinish}>
             Finish
-          </button>
-          <button type="button" onClick={quitQuiz} className="shrink-0 text-white/40 hover:text-white/70">
+          </Button>
+          <Button variant="ghost" size="sm" leadingIcon={X} onClick={quitQuiz}>
             Quit
-          </button>
-        </div>
-
-        {/* Progress bar */}
-        <div className="w-full h-1 bg-white/10 rounded mb-6">
-          <div
-            className="h-full bg-cyan-500 rounded transition-all"
-            style={{ width: `${((run.index + 1) / run.items.length) * 100}%` }}
-          />
+          </Button>
         </div>
 
         {/* Question */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={card.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.15 }}
-            className="flex-1"
-          >
-            <QuestionView
-              card={card}
-              answer={answer}
-              onAnswer={(a) => setAnswer(card.id, a)}
-              reveal={checked}
-              autoFocus
+        <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          <div className="mx-auto w-full max-w-3xl space-y-4">
+            <ProgressBar
+              value={run.index + 1}
+              max={run.items.length}
+              size="sm"
+              animated={false}
+              label={`Question ${run.index + 1} of ${run.items.length}`}
+              valueLabel={`${run.items.length - unanswered} answered`}
             />
-          </motion.div>
-        </AnimatePresence>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={card.id}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
+                transition={TRANSITION.small}
+                className="glass-panel rounded-card p-5"
+              >
+                <div className="mb-4 flex items-center gap-2">
+                  <span className="hud-label text-accent">Q{run.index + 1}</span>
+                  <span aria-hidden className="text-fg-faint">
+                    ·
+                  </span>
+                  <span className="hud-label">{KIND_LABELS[card.kind]}</span>
+                </div>
+                <QuestionView
+                  card={card}
+                  answer={answer}
+                  onAnswer={(a) => setAnswer(card.id, a)}
+                  reveal={checked}
+                  autoFocus
+                  size="lg"
+                  keyHints
+                />
+              </motion.div>
+            </AnimatePresence>
 
-        {confirmFinish && (
-          <div className="mt-4 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 text-xs text-yellow-200 flex flex-wrap items-center justify-between gap-2">
-            <span>
-              {unanswered} question{unanswered === 1 ? '' : 's'} unanswered: they count as wrong.
-            </span>
-            <span className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmFinish(false)}
-                className="px-3 py-1 rounded border border-white/10 text-white/60 hover:text-white"
+            {confirmFinish && (
+              <ConfirmBar
+                actions={
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setConfirmFinish(false)}>
+                      Keep going
+                    </Button>
+                    <Button variant="primary" size="sm" onClick={() => finishQuiz(false)}>
+                      Submit anyway
+                    </Button>
+                  </>
+                }
               >
-                Keep going
-              </button>
-              <button
-                type="button"
-                onClick={() => finishQuiz(false)}
-                className="px-3 py-1 rounded bg-green-500/20 border border-green-500/40 text-green-300 hover:bg-green-500/30"
-              >
-                Submit anyway
-              </button>
-            </span>
+                {unanswered} question{unanswered === 1 ? '' : 's'} unanswered: they count as wrong.
+              </ConfirmBar>
+            )}
+
+            <KeyHints
+              items={[
+                { keys: ['1', '9'], label: 'pick', range: true },
+                { keys: ['Enter'], label: instant ? 'check / next' : 'next' },
+                { keys: ['←', '→'], label: 'move' },
+              ]}
+            />
           </div>
-        )}
+        </div>
 
         {/* Navigation */}
-        <div className="flex items-center justify-between gap-3 mt-6 pt-4 border-t border-white/10">
-          <button
-            type="button"
-            onClick={() => goTo(run.index - 1)}
-            disabled={run.index === 0}
-            className="px-4 py-2 rounded text-sm text-white/60 hover:text-white disabled:opacity-30 disabled:hover:text-white/60"
-          >
-            ← Prev
-          </button>
-
-          <div className="flex flex-wrap justify-center gap-1">
-            {run.items.map((item, i) => {
-              const done = Boolean(run.checked[item.card.id]);
-              const status = done ? answerStatus(item.card, run.answers[item.card.id]) : null;
-              return (
-                <button
-                  key={item.card.id}
-                  type="button"
-                  onClick={() => goTo(i)}
-                  aria-label={`Question ${i + 1}`}
-                  className={cn(
-                    'w-6 h-6 rounded text-[10px] transition-all',
-                    i === run.index
-                      ? 'bg-cyan-500 text-black'
-                      : status === 'correct'
-                      ? 'bg-green-500/30 text-green-300'
-                      : status === 'wrong'
-                      ? 'bg-red-500/30 text-red-300'
-                      : isAnswered(run.answers[item.card.id])
-                      ? 'bg-cyan-500/30 text-cyan-300'
-                      : 'bg-white/10 text-white/40'
-                  )}
-                >
-                  {i + 1}
-                </button>
-              );
-            })}
+        <div className="flex shrink-0 items-center gap-3 border-t border-line px-5 py-3">
+          <Button variant="ghost" leadingIcon={ChevronLeft} onClick={() => goTo(run.index - 1)} disabled={run.index === 0}>
+            Prev
+          </Button>
+          <div className="scrollbar-none hidden min-w-0 flex-1 overflow-x-auto @lg:block">
+            <div className="mx-auto flex w-max items-center gap-1 p-1">
+              {run.items.map((item, i) => (
+                <PaletteButton key={item.card.id} index={i} state={paletteState(item, i)} onClick={() => goTo(i)} size="sm" />
+              ))}
+            </div>
           </div>
-
+          <div className="flex-1 @lg:hidden" />
           <div className="flex shrink-0 gap-2">
             {instant && !checked ? (
               <>
-                <button
-                  type="button"
-                  onClick={() => (last ? requestFinish() : goTo(run.index + 1))}
-                  className="px-3 py-2 rounded text-sm text-white/40 hover:text-white/70"
-                >
+                <Button variant="ghost" onClick={() => (last ? requestFinish() : goTo(run.index + 1))}>
                   Skip
-                </button>
-                <button
-                  type="button"
-                  onClick={checkCurrent}
-                  disabled={!isAnswered(answer)}
-                  className="px-4 py-2 rounded text-sm bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/30 disabled:opacity-30"
-                >
+                </Button>
+                <Button variant="primary" leadingIcon={Check} onClick={checkCurrent} disabled={!isAnswered(answer)}>
                   Check
-                </button>
+                </Button>
               </>
             ) : last ? (
-              <button
-                type="button"
-                onClick={requestFinish}
-                className="px-4 py-2 rounded text-sm bg-green-500/20 border border-green-500/40 text-green-300 hover:bg-green-500/30"
-              >
-                {instant ? 'Finish ✓' : 'Submit ✓'}
-              </button>
+              <Button variant="primary" leadingIcon={Flag} onClick={requestFinish}>
+                {instant ? 'Finish' : 'Submit'}
+              </Button>
             ) : (
-              <button
-                type="button"
-                onClick={() => goTo(run.index + 1)}
-                className="px-4 py-2 rounded text-sm text-white/60 hover:text-white"
-              >
-                Next →
-              </button>
+              <Button variant={instant ? 'primary' : 'secondary'} trailingIcon={ChevronRight} onClick={() => goTo(run.index + 1)}>
+                Next
+              </Button>
             )}
           </div>
         </div>
-        <p className="mt-2 text-center text-[10px] text-white/25">
-          Keys: 1–9 pick · Enter {instant ? 'checks / next' : 'next'} · ← → move
-        </p>
       </div>
     );
   }
@@ -752,7 +754,7 @@ function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
     const skipped = statuses.length - correct - wrong;
     const missed = wrong + skipped;
     const pct = percent(correct, run.items.length);
-    const { grade, color } = letterGrade(pct);
+    const { grade, color, tone } = letterGrade(pct);
     const duration = (run.finishedAt ?? run.startedAt) - run.startedAt;
     const answeredTime = run.items.reduce(
       (sum, item, i) => sum + (statuses[i] === 'skipped' ? 0 : run.spentMs[item.card.id] ?? 0),
@@ -777,116 +779,152 @@ function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
       );
 
     return (
-      <div className="p-6 space-y-6">
-        {/* Score */}
-        <div className="text-center space-y-2">
-          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className={cn('text-6xl font-black', color)}>
-            {grade}
-          </motion.div>
-          <p className="text-white text-xl font-bold">
-            {correct} / {run.items.length} correct
-          </p>
-          <p className="text-white/50 text-sm">
-            {run.deckName}
-            {run.topicName ? ` › ${run.topicName}` : ''} • {Math.round(pct)}% • {formatDuration(duration)}
-          </p>
-          <p className="text-xs font-semibold text-cyan-300">+{run.xpEarned} XP earned</p>
-          {run.timedOut && <p className="text-xs text-red-300">⏱ Time ran out: the quiz was submitted automatically.</p>}
-          {run.retry && (
-            <p className="text-[11px] text-white/40">Retry round: no bonus XP, streak or perfect-score unlocks.</p>
-          )}
-        </div>
+      <div className="@container space-y-6 p-5">
+        <ScoreHero
+          grade={grade}
+          gradeColor={color}
+          tone={tone}
+          pct={pct}
+          eyebrow={run.retry ? 'Retry round · results' : 'Quiz results'}
+          title={
+            <>
+              {correct} / {run.items.length} correct
+            </>
+          }
+          meta={
+            <>
+              {run.deckName}
+              {run.topicName ? ` › ${run.topicName}` : ''} · {Math.round(pct)}% · {formatDuration(duration)}
+            </>
+          }
+          badges={
+            <>
+              <Badge tone="gold" icon={Sparkles}>
+                +{run.xpEarned} XP earned
+              </Badge>
+              {missed === 0 && (
+                <Badge tone="success" icon={CircleCheck}>
+                  Flawless
+                </Badge>
+              )}
+              {run.timedOut && (
+                <Badge tone="danger" icon={Timer}>
+                  Time ran out
+                </Badge>
+              )}
+            </>
+          }
+          footnote={
+            run.timedOut || run.retry ? (
+              <>
+                {run.timedOut && 'Time ran out: the quiz was submitted automatically. '}
+                {run.retry && 'Retry round: no bonus XP, streak or perfect-score unlocks.'}
+              </>
+            ) : undefined
+          }
+        />
 
-        <div className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(96px,1fr))]">
-          <StatTile value={correct} label="Correct" tone="green" />
-          <StatTile value={wrong} label="Wrong" tone="red" />
-          <StatTile value={skipped} label="Skipped" />
+        <div className="grid grid-cols-2 gap-3 @xl:grid-cols-4">
+          <StatTile size="sm" label="Correct" icon={CircleCheck} value={<span className="text-success">{correct}</span>} />
+          <StatTile size="sm" label="Wrong" icon={CircleX} value={<span className="text-danger">{wrong}</span>} />
+          <StatTile size="sm" label="Skipped" icon={CircleMinus} value={skipped} />
           <StatTile
-            value={correct + wrong > 0 ? formatDuration(answeredTime / (correct + wrong)) : '—'}
+            size="sm"
             label="Avg / answer"
-            tone="cyan"
+            icon={Timer}
+            value={correct + wrong > 0 ? formatDuration(answeredTime / (correct + wrong)) : '—'}
           />
         </div>
 
         {topicRows.length > 1 && (
-          <div className="space-y-2">
-            <h4 className="text-sm font-semibold text-white/80">By topic</h4>
-            {topicRows.map((row) => (
-              <div key={row.id} className="space-y-1 text-xs">
-                <div className="flex justify-between text-white/60">
-                  <span className="truncate">{row.name}</span>
-                  <span>
-                    {row.correct}/{row.total}
-                  </span>
-                </div>
-                <AccuracyBar pct={percent(row.correct, row.total)} />
-              </div>
-            ))}
-          </div>
+          <Card eyebrow="Breakdown" title="By topic">
+            <ul className="space-y-3.5">
+              {topicRows.map((row) => {
+                const rowPct = percent(row.correct, row.total);
+                return (
+                  <li key={row.id} className="space-y-1.5">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="truncate text-ui text-fg-muted" title={row.name}>
+                        {row.name}
+                      </span>
+                      <span className="shrink-0 font-mono text-xs text-fg tabular">
+                        {row.correct}/{row.total}
+                        <span className="ml-2 inline-block w-9 text-right text-fg-subtle">{Math.round(rowPct)}%</span>
+                      </span>
+                    </div>
+                    <AccuracyBar pct={rowPct} label={`${row.name}: ${Math.round(rowPct)}%`} />
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
         )}
 
         <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={retryMissed}
-            disabled={missed === 0}
-            className="flex-1 p-3 rounded-lg bg-purple-500/20 border border-purple-500/40 text-purple-300 hover:bg-purple-500/30 text-sm font-semibold disabled:opacity-40 disabled:cursor-default"
-          >
-            {missed > 0 ? `↻ Retry wrong ones (${missed})` : 'Flawless: nothing to retry'}
-          </button>
-          <button
-            type="button"
-            onClick={quitQuiz}
-            className="flex-1 p-3 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/30 text-sm font-semibold"
-          >
-            New Quiz
-          </button>
+          {missed > 0 && (
+            <Button variant="primary" size="lg" leadingIcon={RotateCcw} onClick={retryMissed}>
+              Retry wrong ones ({missed})
+            </Button>
+          )}
+          <Button variant={missed > 0 ? 'secondary' : 'primary'} size="lg" leadingIcon={Plus} onClick={quitQuiz}>
+            New quiz
+          </Button>
         </div>
 
         {/* Per-card review */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h4 className="text-sm font-semibold text-white/80">Review</h4>
-            <div className="flex gap-1">
-              <Chip active={reviewFilter === 'all'} onClick={() => setReviewFilter('all')}>
-                All
+        <section className="space-y-3" aria-label="Review">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h4 className="text-sm font-semibold text-fg">Review</h4>
+            <div className="flex flex-wrap gap-2">
+              <Chip selected={reviewFilter === 'all'} onClick={() => setReviewFilter('all')}>
+                All ({run.items.length})
               </Chip>
-              <Chip active={reviewFilter === 'missed'} onClick={() => setReviewFilter('missed')}>
+              <Chip tone="danger" selected={reviewFilter === 'missed'} onClick={() => setReviewFilter('missed')}>
                 Wrong ({missed})
               </Chip>
-              <Chip active={reviewFilter === 'correct'} onClick={() => setReviewFilter('correct')}>
+              <Chip tone="success" selected={reviewFilter === 'correct'} onClick={() => setReviewFilter('correct')}>
                 Correct ({correct})
               </Chip>
             </div>
           </div>
-          {reviewed.length === 0 && <p className="text-xs text-white/40">Nothing here.</p>}
-          {reviewed.map(({ item, i, status }) => {
-            const spent = run.spentMs[item.card.id];
-            return (
-              <details key={item.card.id} className={cn('p-3 rounded-lg border text-sm', REVIEW_STYLES[status])}>
-                <summary className="cursor-pointer text-white/80">
-                  <span className="text-white/40 mr-2">Q{i + 1}.</span>
-                  {item.card.prompt.length > PROMPT_PREVIEW
-                    ? `${item.card.prompt.slice(0, PROMPT_PREVIEW)}…`
-                    : item.card.prompt}
-                  <span className={cn('ml-2', STATUS_MARKS[status].className)}>{STATUS_MARKS[status].icon}</span>
-                </summary>
-                <div className="mt-3 space-y-2">
-                  <QuestionView
-                    card={item.card}
-                    answer={run.answers[item.card.id]}
-                    reveal
-                    hidePrompt={item.card.prompt.length <= PROMPT_PREVIEW}
-                  />
-                  <p className="text-[10px] text-white/30">
-                    {item.topicName}
-                    {spent ? ` · ${formatDuration(spent)} on this card` : ''}
-                  </p>
-                </div>
-              </details>
-            );
-          })}
-        </div>
+          {reviewed.length === 0 ? (
+            <EmptyState
+              size="sm"
+              icon={reviewFilter === 'missed' ? CircleCheck : CircleX}
+              title={reviewFilter === 'missed' ? 'Nothing missed' : 'No correct answers this round'}
+              description={
+                reviewFilter === 'missed' ? 'Every question landed. Take a harder deck next.' : 'Retry the wrong ones to turn these around.'
+              }
+            />
+          ) : (
+            <div className="glass-panel divide-y divide-line overflow-hidden rounded-card">
+              {reviewed.map(({ item, i, status }) => {
+                const spent = run.spentMs[item.card.id];
+                return (
+                  <ReviewRow
+                    key={item.card.id}
+                    index={i}
+                    status={status}
+                    prompt={item.card.prompt}
+                    preview={PROMPT_PREVIEW}
+                    meta={spent ? formatDuration(spent) : undefined}
+                  >
+                    <QuestionView
+                      card={item.card}
+                      answer={run.answers[item.card.id]}
+                      reveal
+                      hidePrompt={item.card.prompt.length <= PROMPT_PREVIEW}
+                    />
+                    <p className="text-xs text-fg-subtle">
+                      {item.topicName}
+                      {spent ? ` · ${formatDuration(spent)} on this card` : ''}
+                    </p>
+                  </ReviewRow>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
     );
   }

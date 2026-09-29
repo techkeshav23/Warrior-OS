@@ -8,7 +8,8 @@
 
 'use client';
 
-import { memo, useMemo, Suspense, lazy, type ComponentType } from 'react';
+import { memo, useMemo, Suspense, lazy, type ComponentType, type ReactNode } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useParallax } from '@/hooks/useParallax';
 import { useAudioStore } from '@/stores/useAudioStore';
@@ -103,7 +104,26 @@ function hasWebGL(): boolean {
 
 // Fallback while loading
 function WallpaperFallback() {
-  return <div className="absolute inset-0 bg-[#020204]" />;
+  return <div className="absolute inset-0 bg-ink-950" />;
+}
+
+/**
+ * A switched-in wallpaper rises out of the ink (0.7 s) instead of cutting
+ * in, which also hides a shader's first blank frames. Remounts with the
+ * wallpaper (the boundary above is keyed by id).
+ */
+function WallpaperFade({ children }: { children: ReactNode }) {
+  const reduceMotion = useReducedMotion() ?? false;
+  return (
+    <motion.div
+      className="absolute inset-0"
+      initial={{ opacity: reduceMotion ? 1 : 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
 }
 
 /** The chosen wallpaper, fed live parallax + audio uniforms. */
@@ -154,7 +174,9 @@ function WallpaperEngineInner() {
           fallback={stillWallpaper}
         >
           <Suspense fallback={<WallpaperFallback />}>
-            <LiveWallpaper component={component} />
+            <WallpaperFade>
+              <LiveWallpaper component={component} />
+            </WallpaperFade>
           </Suspense>
         </LayerBoundary>
       )}

@@ -1,7 +1,10 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Fluid Simulation Wallpaper
-// GLSL Navier-Stokes-style fluid, mouse creates ink swirls,
-// audio-reactive turbulence
+// GLSL curl-noise fluid in the FORGE HUD palette: blue and violet ink
+// currents over ink-950, plasma light where the currents meet, a thin
+// plasma trail behind the pointer, audio-reactive turbulence. The flow
+// field uses a 3-octave noise (it only needs low frequencies), which
+// roughly halves the per-pixel cost. Dithered (no banding).
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -21,21 +24,29 @@ const vertexShader = /* glsl */ `
 
 const fragmentShader = /* glsl */ `
   precision highp float;
-  
+
   uniform float u_time;
   uniform vec2 u_mouse;
   uniform vec2 u_prevMouse;
   uniform vec2 u_resolution;
   uniform float u_bass;
   uniform float u_energy;
-  
+
   varying vec2 vUv;
-  
-  // Noise functions
+
+  // FORGE HUD palette
+  const vec3 INK       = vec3(0.016, 0.024, 0.043); // ink-950
+  const vec3 INK_BLUE  = vec3(0.030, 0.068, 0.120);
+  const vec3 INK_VIOLET= vec3(0.075, 0.058, 0.170);
+  const vec3 DEEP_TEAL = vec3(0.016, 0.170, 0.210);
+  const vec3 PLASMA    = vec3(0.184, 0.839, 0.961); // plasma-400
+  const vec3 PLASMA_HI = vec3(0.486, 0.906, 0.984); // plasma-300
+  const vec3 VIOLET    = vec3(0.655, 0.545, 0.980); // viz-3
+
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
   }
-  
+
   float noise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
@@ -46,92 +57,89 @@ const fragmentShader = /* glsl */ `
       f.y
     );
   }
-  
+
+  // 5 octaves for the ink, 3 for the (low-frequency) flow field
   float fbm(vec2 p) {
     float f = 0.0;
     float w = 0.5;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 5; i++) {
       f += w * noise(p);
       p *= 2.03;
       w *= 0.5;
     }
     return f;
   }
-  
+  float fbm3(vec2 p) {
+    float f = 0.5 * noise(p);
+    p *= 2.03;
+    f += 0.25 * noise(p);
+    p *= 2.03;
+    f += 0.125 * noise(p);
+    return f;
+  }
+
   // Curl noise for fluid-like flow
   vec2 curl(vec2 p, float t) {
-    float eps = 0.01;
-    float n = fbm(p + vec2(0.0, eps) + t * 0.1);
-    float s = fbm(p - vec2(0.0, eps) + t * 0.1);
-    float e = fbm(p + vec2(eps, 0.0) + t * 0.1);
-    float w2 = fbm(p - vec2(eps, 0.0) + t * 0.1);
+    float eps = 0.02;
+    float n = fbm3(p + vec2(0.0, eps) + t * 0.1);
+    float s = fbm3(p - vec2(0.0, eps) + t * 0.1);
+    float e = fbm3(p + vec2(eps, 0.0) + t * 0.1);
+    float w2 = fbm3(p - vec2(eps, 0.0) + t * 0.1);
     return vec2(n - s, -(e - w2)) / (2.0 * eps);
   }
-  
+
   void main() {
     vec2 uv = vUv;
     float aspect = u_resolution.x / u_resolution.y;
     vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
-    
-    float time = u_time * 0.1;
-    
+
+    float time = u_time * 0.07;
+
     // Mouse velocity for disturbance
     vec2 mousePos = (u_mouse - 0.5) * vec2(aspect, 1.0);
     vec2 prevMousePos = (u_prevMouse - 0.5) * vec2(aspect, 1.0);
-    vec2 mouseVel = mousePos - prevMousePos;
-    float mouseSpeed = length(mouseVel);
-    
+    float mouseSpeed = length(mousePos - prevMousePos);
+
     // Fluid advection (curl noise)
-    vec2 flow = curl(p * 3.0, time);
-    flow += curl(p * 6.0 + time * 0.5, time * 1.5) * 0.5;
-    
-    // Audio turbulence boost
-    float turbulence = 1.0 + u_bass * 2.0 + u_energy * 0.5;
-    flow *= turbulence;
-    
-    // Mouse interaction — ink injection
+    vec2 flow = curl(p * 2.6, time);
+    flow += curl(p * 5.0 + time * 0.5, time * 1.4) * 0.45;
+
+    // Audio turbulence
+    flow *= 1.0 + u_bass * 1.5 + u_energy * 0.4;
+
+    // Mouse interaction: ink pushed away from the pointer
     float mouseDist = distance(p, mousePos);
-    float mouseInfluence = smoothstep(0.3, 0.0, mouseDist) * (0.5 + mouseSpeed * 10.0);
-    vec2 mouseForce = normalize(p - mousePos + 0.001) * mouseInfluence;
-    flow += mouseForce * 0.3;
-    
-    // Advected coordinates
-    vec2 advectedUV = p + flow * 0.05;
-    
-    // Color layers from warped noise
-    float n1 = fbm(advectedUV * 2.0 + time);
-    float n2 = fbm(advectedUV * 3.0 - time * 0.7 + vec2(5.2, 1.3));
-    float n3 = fbm(advectedUV * 4.0 + vec2(n1, n2) * 0.8);
-    
-    // Deep color palette — dark fluid
-    vec3 col1 = vec3(0.0, 0.15, 0.35);  // Deep navy
-    vec3 col2 = vec3(0.2, 0.0, 0.4);    // Purple
-    vec3 col3 = vec3(0.0, 0.3, 0.3);    // Teal
-    vec3 col4 = vec3(0.35, 0.0, 0.2);   // Wine
-    
-    vec3 color = mix(col1, col2, n1);
-    color = mix(color, col3, n2 * 0.5);
-    color += col4 * n3 * 0.3;
-    
-    // Mouse ink splash
-    float inkNoise = fbm(p * 8.0 + time * 2.0);
-    vec3 inkColor = vec3(0.0, 0.5, 0.8) * mouseInfluence * inkNoise;
-    color += inkColor * 0.4;
-    
-    // Bright edge highlights
-    float edge = abs(n1 - n2) * 2.0;
-    color += vec3(0.0, 0.4, 0.7) * edge * 0.1;
-    
-    // Overall brightness (keep dark)
-    color *= 0.35;
-    
-    // Audio glow
-    color *= 1.0 + u_bass * 0.2;
-    
-    // Vignette
-    float vig = 1.0 - dot(vUv - 0.5, vUv - 0.5) * 1.5;
-    color *= vig;
-    
+    float mouseInfluence = smoothstep(0.32, 0.0, mouseDist) * (0.4 + mouseSpeed * 10.0);
+    flow += normalize(p - mousePos + 0.001) * mouseInfluence * 0.3;
+
+    vec2 q = p + flow * 0.05;
+
+    // Warped ink layers
+    float n1 = fbm(q * 1.8 + time);
+    float n2 = fbm(q * 2.8 - time * 0.7 + vec2(5.2, 1.3));
+    float n3 = fbm3(q * 4.0 + vec2(n1, n2) * 0.8);
+
+    vec3 color = mix(INK, INK_BLUE, smoothstep(0.25, 0.6, n1));
+    color = mix(color, INK_VIOLET, smoothstep(0.5, 0.8, n1) * 0.9);
+    color = mix(color, DEEP_TEAL, smoothstep(0.42, 0.78, n2) * 0.75);
+    color += VIOLET * smoothstep(0.5, 0.8, n3) * 0.05;
+
+    // Plasma light where the currents meet
+    float seam = 1.0 - smoothstep(0.0, 0.06, abs(n1 - n2));
+    color += PLASMA * seam * smoothstep(0.3, 0.7, n3) * 0.1;
+
+    // Pointer: a thin plasma ink trail
+    color += PLASMA_HI * mouseInfluence * fbm3(p * 7.0 + time * 2.0) * 0.07;
+
+    // Settle into ink at the edges
+    float vig = smoothstep(1.2, 0.25, length((uv - 0.5) * vec2(aspect * 0.8, 1.0)));
+    color = mix(INK, color, mix(0.35, 1.0, vig));
+
+    color *= 1.0 + u_bass * 0.15;
+
+    // Dither: no banding in the dark gradients
+    color += (hash(gl_FragCoord.xy + fract(u_time * 0.37) * 91.0) - 0.5) / 255.0;
+
     gl_FragColor = vec4(max(color, 0.0), 1.0);
   }
 `;

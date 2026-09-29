@@ -14,6 +14,8 @@
 
 import type { CardKind, CardReview, Deck } from '@/types/learning';
 import { unlockPhase6Achievement } from '@/components/creature/osBridge';
+import { EMBER, FG, PLASMA, STATUS, VIZ } from '@/styles/tokens';
+import { ROOM_ACCENTS } from './palaceTheme';
 
 // ─────────────────────────────────────────────────────────────
 // Content types + room themes
@@ -60,18 +62,18 @@ export interface RoomTheme {
 type StyleBase = Omit<RoomTheme, 'contentType' | 'style'>;
 
 export const ROOM_STYLES: Record<RoomStyle, StyleBase> = {
-  library: { label: 'Library', accent: '#ffca28', wall: '#3a2a1c', floor: '#2a1d12', furniture: '#6b4a2e', vibe: 'Library · wooden shelves · your words in the air' },
-  observatory: { label: 'Observatory', accent: '#b388ff', wall: '#1f1a2c', floor: '#15111f', furniture: '#352c4d', vibe: 'Observatory · star charts · ideas in orbit' },
-  lattice: { label: 'Idea Crystal', accent: '#18ffff', wall: '#15222a', floor: '#0e171c', furniture: '#26404b', vibe: 'Idea crystal · connected thoughts' },
-  network: { label: 'Link Web', accent: '#7c4dff', wall: '#1d1d30', floor: '#131322', furniture: '#2b2b44', vibe: 'Link web · notes joined by threads of light' },
-  archive: { label: 'Archive', accent: '#b0bec5', wall: '#22262b', floor: '#171a1e', furniture: '#4a4f57', vibe: 'Archive · everything not filed yet' },
-  laboratory: { label: 'Mastery Lab', accent: '#22d3ee', wall: '#241a1c', floor: '#181113', furniture: '#d7dde3', vibe: 'Mastery lab · each tube fills as a topic sticks' },
-  vault: { label: 'Card Vault', accent: '#00e676', wall: '#1b2226', floor: '#101518', furniture: '#1d2328', vibe: 'Card vault · recall lights (red = due)' },
-  orbit: { label: 'Review Loop', accent: '#ff4081', wall: '#1e1426', floor: '#140d1a', furniture: '#3a2748', vibe: 'Review loop · recall nodes in orbit' },
-  forge: { label: 'Forge', accent: '#ffab40', wall: '#2a2214', floor: '#1c170d', furniture: '#4a3a1c', vibe: 'Forge · ideas hammered into things' },
-  workshop: { label: 'Workshop', accent: '#82b1ff', wall: '#181d2a', floor: '#10141d', furniture: '#2c3550', vibe: 'Workshop · benches and blueprints' },
-  depot: { label: 'Depot', accent: '#ffd740', wall: '#2a2416', floor: '#1d190f', furniture: '#8a5a12', vibe: 'Depot · crates of shipped and shipping work' },
-  pipeline: { label: 'Pipeline', accent: '#40c4ff', wall: '#15202a', floor: '#0e161d', furniture: '#233444', vibe: 'Pipeline · ideas → build → test → ship' },
+  library: { label: 'Library', accent: VIZ[6], wall: '#33291f', floor: '#241c14', furniture: '#5e4630', vibe: 'Library · wooden shelves · your words in the air' },
+  observatory: { label: 'Observatory', accent: VIZ[2], wall: '#1d1b2c', floor: '#14121f', furniture: '#312c49', vibe: 'Observatory · star charts · ideas in orbit' },
+  lattice: { label: 'Idea Crystal', accent: PLASMA[300], wall: '#152029', floor: '#0e161d', furniture: '#243a47', vibe: 'Idea crystal · connected thoughts' },
+  network: { label: 'Link Web', accent: VIZ[5], wall: '#1a1e30', floor: '#121522', furniture: '#283048', vibe: 'Link web · notes joined by threads of light' },
+  archive: { label: 'Archive', accent: FG.muted, wall: '#20252d', floor: '#161a21', furniture: '#454d5a', vibe: 'Archive · everything not filed yet' },
+  laboratory: { label: 'Mastery Lab', accent: PLASMA[400], wall: '#1f1b20', floor: '#161216', furniture: '#d3dae3', vibe: 'Mastery lab · each tube fills as a topic sticks' },
+  vault: { label: 'Card Vault', accent: STATUS.success, wall: '#1a2127', floor: '#0f1519', furniture: '#1c232a', vibe: 'Card vault · recall lights (red = due)' },
+  orbit: { label: 'Review Loop', accent: VIZ[4], wall: '#1d1526', floor: '#130e1a', furniture: '#372848', vibe: 'Review loop · recall nodes in orbit' },
+  forge: { label: 'Forge', accent: EMBER[400], wall: '#281f15', floor: '#1b150e', furniture: '#46361d', vibe: 'Forge · ideas hammered into things' },
+  workshop: { label: 'Workshop', accent: VIZ[5], wall: '#181d2a', floor: '#10141d', furniture: '#2c3550', vibe: 'Workshop · benches and blueprints' },
+  depot: { label: 'Depot', accent: VIZ[6], wall: '#282216', floor: '#1c180f', furniture: '#7d5414', vibe: 'Depot · crates of shipped and shipping work' },
+  pipeline: { label: 'Pipeline', accent: PLASMA[500], wall: '#15202a', floor: '#0e161d', furniture: '#233444', vibe: 'Pipeline · ideas → build → test → ship' },
 };
 
 /** Styles a room of each content type is drawn from (picked per room). */
@@ -81,8 +83,8 @@ export const CONTENT_STYLES: Record<PalaceContentType, RoomStyle[]> = {
   projects: ['forge', 'workshop', 'depot', 'pipeline'],
 };
 
-const NOTE_ACCENTS = ['#ffca28', '#4fc3f7', '#b388ff', '#18ffff', '#ff8a65', '#69f0ae'];
-const PROJECT_ACCENTS = ['#ffab40', '#ffd740', '#69f0ae', '#ff6e40'];
+const NOTE_ACCENTS: readonly string[] = ROOM_ACCENTS.notes;
+const PROJECT_ACCENTS: readonly string[] = ROOM_ACCENTS.projects;
 
 /** Stable 32-bit FNV-1a hash (room styles, seeds). */
 export function hashString(s: string): number {

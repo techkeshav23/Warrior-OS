@@ -1,14 +1,15 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Resume Preview
-// Live A4 preview of the print layout, scaled to fit the pane,
-// with approximate page-break guides and a page count
+// Live A4 preview of the print layout on a quiet "desk", scaled
+// to fit the pane, with approximate page-break guides, a page
+// count and Fit / 100% zoom.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, useEffect, useRef, useState } from 'react';
 import { Eye } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Badge, SegmentedControl, Toolbar, ToolbarSpacer } from '@/components/ui';
 import { useResumeStore } from '@/stores/useResumeStore';
 import { ResumeDocument } from './ResumeDocument';
 import {
@@ -23,10 +24,15 @@ const PAGE_WIDTH_PX = PAGE_WIDTH_MM * MM_TO_PX;
 const PAGE_HEIGHT_PX = PAGE_HEIGHT_MM * MM_TO_PX;
 const MARGIN_Y_PX = PAGE_MARGIN_Y_MM * MM_TO_PX;
 const CONTENT_HEIGHT_PX = PAGE_CONTENT_HEIGHT_MM * MM_TO_PX;
-/** Horizontal padding of the scroll pane (p-4 on both sides). */
-const PANE_PADDING_PX = 32;
+/** Horizontal padding of the scroll pane (p-6 on both sides). */
+const PANE_PADDING_PX = 48;
 
 type ZoomMode = 'fit' | 'actual';
+
+const ZOOM_OPTIONS: { value: ZoomMode; label: string }[] = [
+  { value: 'fit', label: 'Fit' },
+  { value: 'actual', label: '100%' },
+];
 
 function ResumePreviewInner() {
   const resume = useResumeStore((s) => s.resume);
@@ -59,37 +65,27 @@ function ResumePreviewInner() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 border-b border-white/10 bg-black/20 px-3 py-1.5 text-[11px] text-white/50">
-        <Eye className="h-3.5 w-3.5 shrink-0 text-cyan-300/80" />
-        <span className="shrink-0 font-medium text-white/70">Live preview</span>
+      <Toolbar aria-label="Preview">
+        <Eye size={16} strokeWidth={1.75} aria-hidden className="ml-1 shrink-0 text-fg-subtle" />
+        <span className="ml-1 shrink-0 text-ui font-medium text-fg">Live preview</span>
         <span
-          className="hidden min-w-0 truncate @4xl:inline"
+          className="ml-2 hidden min-w-0 truncate text-xs text-fg-subtle @4xl:inline"
           title="Export opens the print dialog: pick Save as PDF and untick Headers and footers"
         >
-          A4 · Export opens the print dialog: pick Save as PDF, untick Headers and footers
+          A4 · export opens the print dialog: pick Save as PDF, untick Headers and footers
         </span>
-        <span className="ml-auto shrink-0 tabular-nums">
+        <ToolbarSpacer />
+        <Badge tone={pages > 1 ? 'warning' : 'neutral'} className="tabular">
           ≈ {pages} {pages === 1 ? 'page' : 'pages'}
-        </span>
-        <div className="flex shrink-0 rounded-md border border-white/10 p-0.5">
-          {(['fit', 'actual'] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              aria-pressed={zoom === mode}
-              onClick={() => setZoom(mode)}
-              className={cn(
-                'rounded px-1.5 py-0.5 text-[10px]',
-                zoom === mode ? 'bg-cyan-500/20 text-cyan-200' : 'text-white/50 hover:text-white/80'
-              )}
-            >
-              {mode === 'fit' ? 'Fit' : '100%'}
-            </button>
-          ))}
-        </div>
-      </div>
+        </Badge>
+        <span className="w-1" aria-hidden />
+        <SegmentedControl size="sm" aria-label="Zoom" value={zoom} onChange={setZoom} options={ZOOM_OPTIONS} />
+      </Toolbar>
 
-      <div ref={paneRef} className="min-h-0 flex-1 overflow-auto bg-black/40 p-4">
+      <div
+        ref={paneRef}
+        className="scrollbar-thin min-h-0 flex-1 overflow-auto bg-ink-950/55 bg-[radial-gradient(var(--color-line)_1px,transparent_1px)] bg-[length:16px_16px] p-6"
+      >
         <div className="mx-auto" style={{ width: PAGE_WIDTH_PX * scale, height: paperHeight * scale }}>
           <div className="wr-paper" style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
             <div ref={docRef}>

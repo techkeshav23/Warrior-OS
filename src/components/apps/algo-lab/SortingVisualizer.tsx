@@ -16,7 +16,7 @@ import { handlePlaybackKeys, usePlayback } from './usePlayback';
 import { PlaybackControls } from './PlaybackControls';
 import { CodePanel } from './CodePanel';
 import { ComplexityCard } from './ComplexityCard';
-import { DatasetControls } from './DatasetControls';
+import { useDatasetControls } from './DatasetControls';
 import { SortBars, SortLegend } from './SortBars';
 import { LabLayout, Stat, StepMessage } from './LabLayout';
 
@@ -29,6 +29,7 @@ function SortingVisualizerInner({ algorithm }: { algorithm: SortAlgorithmId }) {
   const speedLevel = useAlgoLabStore((s) => s.speeds.sort);
   const setSpeed = useAlgoLabStore((s) => s.setSpeed);
   const recordRun = useAlgoLabStore((s) => s.recordRun);
+  const datasetControls = useDatasetControls();
 
   const frames = useMemo(() => buildSortFrames(algorithm, dataset), [algorithm, dataset]);
   const maxValue = useMemo(() => dataset.reduce((max, value) => Math.max(max, value), 1), [dataset]);
@@ -43,13 +44,14 @@ function SortingVisualizerInner({ algorithm }: { algorithm: SortAlgorithmId }) {
 
   return (
     <LabLayout
+      view={algorithm}
       title={meta.name}
-      subtitle={meta.description}
       category="sorting"
-      toolbar={<DatasetControls />}
+      toolbar={datasetControls.toolbar}
+      subbar={datasetControls.subbar}
       stageLabel="Sorting bars. Space plays or pauses; arrow keys step."
       stage={
-        <div className="flex h-full min-h-0 flex-col">
+        <>
           <div className="min-h-0 flex-1">
             <SortBars
               frame={frame}
@@ -58,24 +60,28 @@ function SortingVisualizerInner({ algorithm }: { algorithm: SortAlgorithmId }) {
             />
           </div>
           <SortLegend />
-        </div>
-      }
-      footer={
-        <>
-          <StepMessage message={frame.message}>
-            <Stat label="comparisons" value={frame.comparisons} className="text-yellow-200" />
-            <Stat label={moveLabel} value={frame.moves} className="text-rose-300" />
-          </StepMessage>
-          <PlaybackControls
-            player={player}
-            speedKind="sort"
-            speedLevel={speedLevel}
-            onSpeedChange={(level) => setSpeed('sort', level)}
-          />
         </>
       }
-      code={<CodePanel title={meta.name} lines={meta.pseudocode} activeLine={frame.line} />}
-      details={<ComplexityCard meta={meta} />}
+      narration={
+        <StepMessage message={frame.message}>
+          <Stat label="cmp" value={frame.comparisons} tone="warning" />
+          <Stat label={moveLabel} value={frame.moves} tone="danger" />
+        </StepMessage>
+      }
+      aside={
+        <>
+          <ComplexityCard meta={meta} />
+          <CodePanel title={meta.name} lines={meta.pseudocode} activeLine={frame.line} meta={meta} className="flex-1" />
+        </>
+      }
+      playback={
+        <PlaybackControls
+          player={player}
+          speedKind="sort"
+          speedLevel={speedLevel}
+          onSpeedChange={(level) => setSpeed('sort', level)}
+        />
+      }
       onStageKeyDown={(event) => handlePlaybackKeys(event, player)}
     />
   );

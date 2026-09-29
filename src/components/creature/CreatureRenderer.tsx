@@ -471,9 +471,9 @@ function CreatureRendererInner({ vitals, onClick }: CreatureRendererProps) {
       title={title}
       aria-label={title}
       className={cn(
-        'relative block overflow-visible',
-        'transition-transform duration-150 hover:scale-110 active:scale-95 origin-bottom',
-        'focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary rounded-full'
+        'group relative block overflow-visible rounded-full origin-bottom',
+        'transition-transform duration-180 ease-out-quint hover:scale-110 active:scale-95',
+        'focus-ring motion-reduce:hover:scale-100'
       )}
       style={{ width: box, height: box - TASKBAR_SPRITE_SINK }}
     >

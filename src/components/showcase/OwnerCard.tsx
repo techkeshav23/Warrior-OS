@@ -51,23 +51,29 @@ export function getOwnerLinks(owner: OwnerProfile = OWNER): OwnerLink[] {
 function OwnerLinkIcon({ id, className }: { id: OwnerLinkId; className?: string }) {
   switch (id) {
     case 'github':
-      return <Github className={className} aria-hidden />;
+      return <Github className={className} strokeWidth={1.75} aria-hidden />;
     case 'linkedin':
-      return <Linkedin className={className} aria-hidden />;
+      return <Linkedin className={className} strokeWidth={1.75} aria-hidden />;
     case 'website':
-      return <Globe className={className} aria-hidden />;
+      return <Globe className={className} strokeWidth={1.75} aria-hidden />;
     case 'email':
-      return <Mail className={className} aria-hidden />;
+      return <Mail className={className} strokeWidth={1.75} aria-hidden />;
     case 'repo':
-      return <CodeXml className={className} aria-hidden />;
+      return <CodeXml className={className} strokeWidth={1.75} aria-hidden />;
   }
 }
 
-// ─── Avatar: initials inside a slowly spinning conic ring ───
+// ─── Avatar: initials on an ink medallion inside a slowly turning ring ───
+// Plasma → ember conic hairline (the forge palette); the ring rests
+// under reduced motion and lite mode (animate-spin-slow).
 const AVATAR_SIZES = {
-  md: 'h-16 w-16 text-xl',
-  lg: 'h-20 w-20 text-2xl',
+  sm: 'size-11 text-sm',
+  md: 'size-14 text-lg',
+  lg: 'size-18 text-2xl',
 } as const;
+
+const AVATAR_RING =
+  'conic-gradient(from 210deg, var(--color-plasma-400), color-mix(in oklab, var(--color-plasma-400) 0%, transparent) 38%, color-mix(in oklab, var(--color-ember-400) 0%, transparent) 62%, var(--color-ember-400) 88%, var(--color-plasma-400))';
 
 export function OwnerAvatar({
   name = OWNER.name,
@@ -80,21 +86,17 @@ export function OwnerAvatar({
 }) {
   return (
     <div
-      className={cn('relative shrink-0 rounded-full p-[2px]', AVATAR_SIZES[size], className)}
+      className={cn('relative shrink-0 rounded-full p-[1.5px]', AVATAR_SIZES[size], className)}
       aria-hidden
     >
+      <div className="absolute inset-0 rounded-full opacity-80 animate-spin-slow" style={{ background: AVATAR_RING }} />
       <div
-        className="absolute inset-0 rounded-full animate-spin-slow"
-        style={{
-          background:
-            'conic-gradient(from 0deg, var(--accent-primary), var(--accent-secondary), transparent 55%, var(--accent-primary))',
-        }}
-      />
-      <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-surface">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(0,240,255,0.2),transparent_65%)]" />
-        <span className="relative font-display font-bold tracking-wider bg-gradient-to-br from-accent-primary to-accent-secondary bg-clip-text text-transparent">
-          {getOwnerInitials(name)}
-        </span>
+        className={cn(
+          'relative flex size-full items-center justify-center overflow-hidden rounded-full',
+          'bg-linear-to-b from-ink-600 to-ink-850 inset-shadow-[0_1px_0_rgb(255_255_255/0.08)]'
+        )}
+      >
+        <span className="font-display font-semibold tracking-[0.06em] text-fg">{getOwnerInitials(name)}</span>
       </div>
     </div>
   );
@@ -129,36 +131,20 @@ function OwnerCardInner({
       aria-label={`Creator: ${owner.name}`}
       data-owner-card=""
       className={cn(
-        'relative overflow-hidden rounded-[var(--radius-lg)] glass-glow p-5',
+        'relative overflow-hidden rounded-card glass-panel p-5',
         stacked ? 'text-center' : 'text-left',
         className
       )}
     >
-      {/* Soft corner glows */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-accent-secondary/15 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -bottom-20 -left-16 h-40 w-40 rounded-full bg-accent-primary/10 blur-3xl"
-      />
-
       <div className={cn('relative flex gap-4', stacked ? 'flex-col items-center' : 'items-center')}>
         <OwnerAvatar name={owner.name} size={stacked ? 'lg' : 'md'} />
         <div className="min-w-0">
-          {eyebrow && (
-            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-accent-primary/70">
-              {eyebrow}
-            </p>
-          )}
-          <p className="mt-0.5 font-display text-lg font-bold tracking-wide text-text-primary">
+          {eyebrow && <p className="hud-label">{eyebrow}</p>}
+          <p className="mt-1 truncate text-base font-semibold text-fg" title={owner.name}>
             {owner.name}
           </p>
-          {handle && <p className="font-mono text-xs text-accent-primary">@{handle}</p>}
-          {owner.tagline && (
-            <p className="mt-1 text-xs leading-relaxed text-text-secondary">{owner.tagline}</p>
-          )}
+          {handle && <p className="font-mono text-xs text-accent">@{handle}</p>}
+          {owner.tagline && <p className="mt-1 text-ui text-fg-muted">{owner.tagline}</p>}
         </div>
       </div>
 
@@ -172,15 +158,14 @@ function OwnerCardInner({
                 rel={link.external ? 'noopener noreferrer' : undefined}
                 aria-label={link.external ? `${link.label} (opens in a new tab)` : link.label}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5',
-                  'border border-white/10 bg-white/5 font-mono text-xs text-text-secondary',
-                  'transition-colors hover:border-accent-primary/50 hover:text-accent-primary',
-                  'focus-ring'
+                  'inline-flex h-7 items-center gap-1.5 rounded-full border border-line-strong bg-surface-2 px-2.5',
+                  'text-xs font-medium text-fg-muted transition-colors duration-120 ease-out-quint',
+                  'hover:border-fg-faint hover:bg-surface-hover hover:text-fg active:bg-surface-active focus-ring'
                 )}
               >
-                <OwnerLinkIcon id={link.id} className="h-3.5 w-3.5" />
+                <OwnerLinkIcon id={link.id} className="size-3.5" />
                 {link.label}
-                {link.external && <ExternalLink className="h-3 w-3 opacity-50" aria-hidden />}
+                {link.external && <ExternalLink className="size-3 text-fg-subtle" aria-hidden />}
               </a>
             </li>
           ))}

@@ -1,11 +1,10 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Desktop Widgets barrel
 // Drop-in: <DesktopWidgets /> (mount once in the desktop phase).
-// Settings: <WidgetSettings /> or useWidgetStore directly.
+// Settings (Settings → Widgets) reads and writes useWidgetStore directly.
 // ═══════════════════════════════════════════════════════════
 
 export { DesktopWidgets, WIDGET_SIZES, defaultWidgetSlots } from './DesktopWidgets';
-export { WidgetSettings } from './WidgetSettings';
 export { ClockWidget } from './ClockWidget';
 export { StreakWidget } from './StreakWidget';
 export { TargetWidget, TARGET_ACHIEVEMENT_ID, DAILY_TARGET_XP } from './TargetWidget';

@@ -117,8 +117,8 @@ function GlitchTransitionInner() {
         const hgt = 1 + Math.random() * 5;
         ctx.fillStyle =
           Math.random() < 0.5
-            ? `rgba(0, 240, 255, ${0.25 + Math.random() * 0.35})`
-            : `rgba(255, 45, 120, ${0.2 + Math.random() * 0.35})`;
+            ? `rgba(47, 214, 245, ${0.22 + Math.random() * 0.3})` // plasma-400
+            : `rgba(255, 138, 61, ${0.18 + Math.random() * 0.3})`; // ember-400
         ctx.fillRect(Math.random() * canvas.width * 0.3, y, canvas.width * (0.4 + Math.random() * 0.6), hgt);
       }
       canvas.style.opacity = String(Math.min(1, 0.35 + intensity * 0.65));

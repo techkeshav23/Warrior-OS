@@ -3,13 +3,26 @@
 // One running timer at a time (survives reloads: only startedAt
 // is stored), manual time logging, hours per project this week
 // and a session log. Compact mode for a single project.
+// The running clock is the hero: Orbitron, tabular, ember-lit.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo, useId, useMemo, useState, type FormEvent } from 'react';
-import { History, Play, Plus, Square, Timer, TriangleAlert, X } from 'lucide-react';
+import { memo, useMemo, useState, type CSSProperties, type FormEvent } from 'react';
+import {
+  Anvil,
+  CalendarDays,
+  CircleCheck,
+  History,
+  Play,
+  Plus,
+  Square,
+  Timer,
+  TriangleAlert,
+  X,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge, Button, Card, EmptyState, Input, ProgressBar, Select } from '@/components/ui';
 import { useProjectForgeStore } from '@/stores/useProjectForgeStore';
 import type { ForgeActiveTimer, ForgeProject, ForgeSession, ForgeStage } from '@/types/project-forge';
 import { ConfirmButton } from './ConfirmButton';
@@ -37,13 +50,12 @@ const LONG_RUN_MS = 8 * HOUR_MS;
 const MANUAL_MAX_HOURS = 16;
 const PAGE_SIZE = 40;
 
-const LABEL = 'text-[10px] font-semibold uppercase tracking-wider text-white/45';
-const INPUT =
-  'w-full rounded-md border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-white/90 outline-none placeholder:text-white/30 focus:border-cyan-400/50';
-const SELECT =
-  'w-full rounded-md border border-white/10 bg-[#0d121b] px-2 py-1.5 text-xs text-white/90 outline-none focus:border-cyan-400/50';
-
 const STAGE_RANK: Record<ForgeStage, number> = { building: 0, testing: 1, ideas: 2, shipped: 3 };
+
+/** Ember HUD brackets for the live timer card. */
+const EMBER_CORNERS = {
+  '--hud-corner-color': 'color-mix(in oklab, var(--color-ember-400) 55%, transparent)',
+} as CSSProperties;
 
 function sortForPicker(projects: readonly ForgeProject[]): ForgeProject[] {
   return [...projects].sort(
@@ -61,7 +73,6 @@ interface ManualLogFormProps {
 
 function ManualLogFormInner({ projects, fixedProjectId }: ManualLogFormProps) {
   const logManualSession = useProjectForgeStore((s) => s.logManualSession);
-  const uid = useId();
   const [today] = useState(() => localDateKey(Date.now()));
   const [pickedId, setPickedId] = useState('');
   const [hours, setHours] = useState('0');
@@ -112,87 +123,72 @@ function ManualLogFormInner({ projects, fixedProjectId }: ManualLogFormProps) {
   };
 
   return (
-    <form onSubmit={submit} className="space-y-2">
+    <form onSubmit={submit} className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
         {!fixedProjectId && (
-          <div className="flex min-w-[150px] flex-1 flex-col gap-1">
-            <label htmlFor={`${uid}-project`} className={LABEL}>
-              Project
-            </label>
-            <select
-              id={`${uid}-project`}
+          <div className="min-w-[160px] flex-1">
+            <Select
+              label="Project"
               value={projectId}
-              onChange={(e) => setPickedId(e.target.value)}
-              className={SELECT}
-            >
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={setPickedId}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            />
           </div>
         )}
-        <div className="flex w-16 flex-col gap-1">
-          <label htmlFor={`${uid}-hours`} className={LABEL}>
-            Hours
-          </label>
-          <input
-            id={`${uid}-hours`}
+        <div className="w-[72px]">
+          <Input
+            label="Hours"
             type="number"
             min={0}
             max={MANUAL_MAX_HOURS}
             value={hours}
             onChange={(e) => setHours(e.target.value)}
-            className={INPUT}
+            className="tabular font-mono"
           />
         </div>
-        <div className="flex w-16 flex-col gap-1">
-          <label htmlFor={`${uid}-minutes`} className={LABEL}>
-            Min
-          </label>
-          <input
-            id={`${uid}-minutes`}
+        <div className="w-[72px]">
+          <Input
+            label="Min"
             type="number"
             min={0}
             max={59}
             value={minutes}
             onChange={(e) => setMinutes(e.target.value)}
-            className={INPUT}
+            className="tabular font-mono"
           />
         </div>
-        <div className="flex w-[136px] flex-col gap-1">
-          <label htmlFor={`${uid}-date`} className={LABEL}>
-            Date
-          </label>
-          <input
-            id={`${uid}-date`}
+        <div className="w-[148px]">
+          <Input
+            label="Date"
             type="date"
             max={today}
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className={INPUT}
+            className="tabular font-mono"
           />
         </div>
       </div>
       <div className="flex gap-2">
-        <input
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          maxLength={200}
-          placeholder="Note (optional)"
-          aria-label="Session note"
-          className={cn(INPUT, 'min-w-0 flex-1')}
-        />
-        <button
-          type="submit"
-          className="flex shrink-0 items-center gap-1 rounded-md border border-cyan-400/40 bg-cyan-400/10 px-3 text-xs font-semibold text-cyan-200 hover:bg-cyan-400/20"
-        >
-          <Plus className="h-3.5 w-3.5" /> Log time
-        </button>
+        <div className="min-w-0 flex-1">
+          <Input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={200}
+            placeholder="Note (optional)"
+            aria-label="Session note"
+          />
+        </div>
+        <Button type="submit" variant="secondary" leadingIcon={Plus}>
+          Log time
+        </Button>
       </div>
       {message && (
-        <p role="status" className={cn('text-[11px]', message.ok ? 'text-emerald-300' : 'text-red-300')}>
+        <p role="status" className={cn('flex items-center gap-1.5 text-xs', message.ok ? 'text-success' : 'text-danger')}>
+          {message.ok ? (
+            <CircleCheck size={14} strokeWidth={1.75} aria-hidden />
+          ) : (
+            <TriangleAlert size={14} strokeWidth={1.75} aria-hidden />
+          )}
           {message.text}
         </p>
       )}
@@ -218,7 +214,14 @@ function SessionListInner({ sessions, projectsById, now, showProject, onOpenProj
   const deleteSession = useProjectForgeStore((s) => s.deleteSession);
 
   if (sessions.length === 0) {
-    return <p className="py-3 text-center text-[11px] text-white/35">No sessions logged yet.</p>;
+    return (
+      <EmptyState
+        size="sm"
+        icon={History}
+        title="No sessions logged yet"
+        description="Start the timer or log time manually; sessions land here."
+      />
+    );
   }
 
   const groups: { day: number; total: number; items: ForgeSession[] }[] = [];
@@ -234,53 +237,54 @@ function SessionListInner({ sessions, projectsById, now, showProject, onOpenProj
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {groups.map((group) => (
         <div key={group.day}>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-white/40">
-            {formatDayLabel(group.day, now)} · {formatDuration(group.total)}
-          </p>
-          <ul className="space-y-1">
+          <div className="flex h-7 items-center justify-between gap-3 px-2">
+            <p className="hud-label">{formatDayLabel(group.day, now)}</p>
+            <span className="tabular font-mono text-2xs text-fg-muted">{formatDuration(group.total)}</span>
+          </div>
+          <ul className="divide-y divide-line">
             {group.items.map((session) => {
               const project = projectsById[session.projectId];
               return (
                 <li
                   key={session.id}
-                  className="group flex items-center gap-2 rounded-md border border-white/5 bg-white/[0.02] px-2 py-1.5 text-xs"
+                  className="group/session flex min-h-10 items-center gap-3 rounded-control px-2 transition-colors duration-120 hover:bg-surface-hover"
                 >
-                  <span className="shrink-0 font-mono tabular-nums text-white/50">
+                  <span className="tabular shrink-0 font-mono text-xs text-fg-subtle">
                     {formatTimeOfDay(session.start)}–{formatTimeOfDay(session.end)}
                   </span>
-                  <span className="w-14 shrink-0 font-semibold tabular-nums text-white/85">
+                  <span className="tabular w-14 shrink-0 font-mono text-xs font-medium text-fg">
                     {formatDuration(session.end - session.start)}
                   </span>
                   {showProject && project && (
                     <button
                       type="button"
                       onClick={() => onOpenProject?.(project.id)}
-                      className="flex min-w-0 max-w-[40%] items-center gap-1.5 text-white/70 hover:text-cyan-300"
+                      title={`Open ${project.name}`}
+                      className="focus-ring flex min-w-0 max-w-[40%] items-center gap-1.5 rounded-[4px] text-ui text-fg-muted transition-colors duration-120 hover:text-fg"
                     >
-                      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STAGE_META[project.stage].dot)} />
+                      <span className={cn('size-1.5 shrink-0 rounded-full', STAGE_META[project.stage].dot)} />
                       <span className="truncate">{project.name}</span>
                     </button>
                   )}
-                  <span className="min-w-0 flex-1 truncate text-white/45" title={session.note || undefined}>
+                  <span className="min-w-0 flex-1 truncate text-xs text-fg-subtle" title={session.note || undefined}>
                     {session.note}
                   </span>
                   {session.manual && (
-                    <span className="rounded bg-white/[0.06] px-1 text-[9px] uppercase tracking-wide text-white/40">
-                      manual
-                    </span>
+                    <Badge size="sm" tone="neutral">
+                      Manual
+                    </Badge>
                   )}
                   <ConfirmButton
                     label="Delete session"
+                    icon={X}
+                    size="xs"
                     onConfirm={() => deleteSession(session.id)}
                     armedChildren="Delete?"
-                    className="rounded p-0.5 text-white/30 opacity-0 transition-opacity hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
-                    armedClassName="rounded bg-red-500/20 px-1.5 text-[10px] font-semibold text-red-200"
-                  >
-                    <X className="h-3 w-3" />
-                  </ConfirmButton>
+                    className="opacity-0 focus:opacity-100 group-hover/session:opacity-100"
+                  />
                 </li>
               );
             })}
@@ -304,60 +308,64 @@ interface TimerCardProps {
 }
 
 /** Running timer readout with note, stop and discard. */
-function RunningTimer({ activeTimer, runningProject, now, onOpenProject }: Omit<TimerCardProps, 'project'> & { activeTimer: ForgeActiveTimer }) {
+function RunningTimer({
+  activeTimer,
+  runningProject,
+  now,
+  onOpenProject,
+}: Omit<TimerCardProps, 'project'> & { activeTimer: ForgeActiveTimer }) {
   const stopTimer = useProjectForgeStore((s) => s.stopTimer);
   const discardTimer = useProjectForgeStore((s) => s.discardTimer);
   const setTimerNote = useProjectForgeStore((s) => s.setTimerNote);
   const elapsed = now - activeTimer.startedAt;
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-cyan-400" />
+    <div className="space-y-4">
+      <div className="flex min-w-0 items-center gap-2">
+        <Badge tone="ember" dot pulse>
+          Live
+        </Badge>
         {runningProject && onOpenProject ? (
           <button
             type="button"
             onClick={() => onOpenProject(runningProject.id)}
-            className="min-w-0 truncate text-sm font-semibold text-cyan-200 hover:underline"
+            className="focus-ring min-w-0 truncate rounded-[4px] text-ui font-medium text-fg transition-colors duration-120 hover:text-ember-300"
           >
             {runningProject.name}
           </button>
         ) : (
-          <span className="min-w-0 truncate text-sm font-semibold text-cyan-200">
-            {runningProject?.name ?? 'Timer running'}
-          </span>
+          <span className="min-w-0 truncate text-ui font-medium text-fg">{runningProject?.name ?? 'Timer running'}</span>
         )}
       </div>
-      <RunningClock startedAt={activeTimer.startedAt} className="block text-3xl font-semibold text-white" />
-      <input
+      <RunningClock
+        face="display"
+        startedAt={activeTimer.startedAt}
+        className="block text-4xl leading-none text-fg [text-shadow:0_0_24px_color-mix(in_oklab,var(--color-ember-500)_35%,transparent)]"
+      />
+      <Input
         value={activeTimer.note}
         onChange={(e) => setTimerNote(e.target.value)}
         maxLength={200}
         placeholder="What are you working on? Saved with the session."
         aria-label="Timer note"
-        className={INPUT}
       />
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => stopTimer()}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-cyan-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-cyan-300"
-        >
-          <Square className="h-3.5 w-3.5" /> Stop and log
-        </button>
+      <div className="grid grid-cols-[1fr_auto] gap-2">
+        <Button variant="ember" fullWidth leadingIcon={Square} onClick={() => stopTimer()}>
+          Stop and log
+        </Button>
         <ConfirmButton
           label="Discard timer without logging"
+          variant="secondary"
+          size="md"
           onConfirm={discardTimer}
           armedChildren="Discard?"
-          className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-white/55 hover:border-red-400/40 hover:text-red-300"
-          armedClassName="rounded-md border border-red-400/60 bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-100"
         >
           Discard
         </ConfirmButton>
       </div>
       {elapsed > LONG_RUN_MS && (
-        <p className="flex items-start gap-1.5 text-[11px] text-amber-300">
-          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <p className="flex items-start gap-2 rounded-control bg-warning/10 px-3 py-2 text-xs text-warning">
+          <TriangleAlert size={14} strokeWidth={1.75} aria-hidden className="mt-px shrink-0" />
           Running for {formatDuration(elapsed)}. Discard it if you forgot to stop it.
         </p>
       )}
@@ -374,19 +382,23 @@ function ProjectTimerControl({ project, activeTimer, runningProject, now }: Time
   }
 
   return (
-    <div className="space-y-1.5">
-      <button
-        type="button"
-        onClick={() => startTimer(project.id)}
-        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-cyan-400/40 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-400/20"
-      >
-        <Play className="h-3.5 w-3.5" /> {runningProject ? 'Switch the timer here' : 'Start timer'}
-      </button>
+    <div className="space-y-2">
+      <Button variant="ember" fullWidth leadingIcon={Play} onClick={() => startTimer(project.id)}>
+        {runningProject ? 'Switch the timer here' : 'Start timer'}
+      </Button>
       {runningProject && (
-        <p className="text-[10px] text-white/40">
-          Stops and logs the timer running on {runningProject.name}.
-        </p>
+        <p className="text-xs text-fg-subtle">Stops and logs the timer running on {runningProject.name}.</p>
       )}
+    </div>
+  );
+}
+
+/** Small unbordered stat well. */
+function TimeStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-control bg-ink-950/40 px-3 py-2.5">
+      <p className="hud-label">{label}</p>
+      <p className="tabular mt-1 font-display text-lg font-semibold leading-6 text-fg">{value}</p>
     </div>
   );
 }
@@ -397,9 +409,11 @@ interface TimeTrackerProps {
   /** Compact single-project mode (project details). Omit for the full overview. */
   projectId?: string;
   onOpenProject?: (id: string) => void;
+  /** Overview empty state: open the new-project dialog. */
+  onCreateProject?: () => void;
 }
 
-function TimeTrackerInner({ projectId, onOpenProject }: TimeTrackerProps) {
+function TimeTrackerInner({ projectId, onOpenProject, onCreateProject }: TimeTrackerProps) {
   const projects = useProjectForgeStore((s) => s.projects);
   const sessions = useProjectForgeStore((s) => s.sessions);
   const archivedMs = useProjectForgeStore((s) => s.archivedMs);
@@ -449,6 +463,7 @@ function TimeTrackerInner({ projectId, onOpenProject }: TimeTrackerProps) {
       week={week}
       totals={totals}
       onOpenProject={onOpenProject}
+      onCreateProject={onCreateProject}
     />
   );
 }
@@ -489,52 +504,111 @@ function ProjectTimePanel({
         .slice(0, 8),
     [sessions, project.id]
   );
+  const live = activeTimer?.projectId === project.id;
 
   return (
-    <section className="space-y-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-      <header className="flex items-center gap-2">
-        <Timer className="h-3.5 w-3.5 text-cyan-300" />
-        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-white/45">Time tracker</h3>
-      </header>
+    <Card
+      title="Time tracker"
+      icon={Timer}
+      tone={live ? 'ember' : 'default'}
+      hud={live}
+      style={live ? EMBER_CORNERS : undefined}
+    >
+      <div className="space-y-4">
+        <ProjectTimerControl
+          project={project}
+          activeTimer={activeTimer}
+          runningProject={runningProject}
+          now={now}
+        />
 
-      <ProjectTimerControl
-        project={project}
-        activeTimer={activeTimer}
-        runningProject={runningProject}
-        now={now}
-      />
-
-      <div className="grid grid-cols-2 gap-2 text-center">
-        <div className="rounded-md bg-white/[0.04] py-2">
-          <p className="text-base font-semibold tabular-nums text-white/90">{formatDuration(weekMs)}</p>
-          <p className="text-[10px] text-white/40">this week</p>
+        <div className="grid grid-cols-2 gap-2">
+          <TimeStat label="This week" value={formatDuration(weekMs)} />
+          <TimeStat label="All time" value={formatDuration(totalMs)} />
         </div>
-        <div className="rounded-md bg-white/[0.04] py-2">
-          <p className="text-base font-semibold tabular-nums text-white/90">{formatDuration(totalMs)}</p>
-          <p className="text-[10px] text-white/40">all time</p>
-        </div>
-      </div>
 
-      <button
-        type="button"
-        aria-expanded={showManual}
-        onClick={() => setShowManual((v) => !v)}
-        className="flex items-center gap-1.5 text-[11px] text-white/55 hover:text-cyan-300"
-      >
-        <Plus className={cn('h-3 w-3 transition-transform', showManual && 'rotate-45')} />
-        {showManual ? 'Hide manual log' : 'Log time manually'}
-      </button>
-      {showManual && <ManualLogForm projects={[project]} fixedProjectId={project.id} />}
-
-      {recent.length > 0 && (
         <div>
-          <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/45">
-            <History className="h-3 w-3" /> Recent sessions
-          </p>
-          <SessionList sessions={recent} projectsById={projectsById} now={minuteNow} showProject={false} />
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-expanded={showManual}
+            onClick={() => setShowManual((v) => !v)}
+            leadingIcon={
+              <Plus
+                size={14}
+                strokeWidth={1.75}
+                aria-hidden
+                className={cn('shrink-0 transition-transform duration-180 ease-out-quint', showManual && 'rotate-45')}
+              />
+            }
+          >
+            {showManual ? 'Hide manual log' : 'Log time manually'}
+          </Button>
+          {showManual && (
+            <div className="mt-3 animate-fade-in">
+              <ManualLogForm projects={[project]} fixedProjectId={project.id} />
+            </div>
+          )}
         </div>
+
+        {recent.length > 0 && (
+          <div>
+            <p className="hud-label mb-1 flex items-center gap-1.5">
+              <History size={12} strokeWidth={1.75} aria-hidden /> Recent sessions
+            </p>
+            <SessionList sessions={recent} projectsById={projectsById} now={minuteNow} showProject={false} />
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// ─── Week bars ───
+
+function WeekBars({ week, today }: { week: WeekSummary; today: number }) {
+  const maxDay = Math.max(...week.byDay);
+  return (
+    <div className="relative flex gap-2" role="list" aria-label="Tracked time per day this week">
+      {week.total === 0 && (
+        <p className="pointer-events-none absolute inset-x-0 top-10 text-center text-xs text-fg-subtle">
+          Nothing tracked yet this week
+        </p>
       )}
-    </section>
+      {DAY_LABELS.map((label, i) => {
+        const ms = week.byDay[i];
+        const isToday = addDays(week.weekStart, i) === today;
+        const pct = maxDay > 0 ? (ms / maxDay) * 100 : 0;
+        return (
+          <div
+            key={label}
+            role="listitem"
+            aria-label={`${label}: ${formatDuration(ms)}`}
+            className="group/day flex min-w-0 flex-1 flex-col items-center gap-2"
+          >
+            <div className="relative flex h-28 w-full items-end justify-center border-b border-line">
+              {ms > 0 && (
+                <div
+                  className={cn(
+                    'w-full max-w-7 rounded-t-[4px] transition-[height,background-color] duration-260 ease-out-quint',
+                    isToday
+                      ? 'bg-ember-400 shadow-[0_0_18px_-4px_var(--color-ember-500)]'
+                      : 'bg-ember-400/45 group-hover/day:bg-ember-400/70'
+                  )}
+                  style={{ height: `max(4px, ${pct}%)` }}
+                />
+              )}
+              <span className="glass-popover pointer-events-none absolute bottom-full z-10 mb-1 hidden whitespace-nowrap rounded-control px-2 py-1 font-mono text-2xs text-fg tabular group-hover/day:block">
+                {formatDuration(ms)}
+              </span>
+            </div>
+            <span className={cn('font-mono text-2xs', isToday ? 'font-medium text-ember-300' : 'text-fg-subtle')}>
+              {label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -551,6 +625,7 @@ interface TimeOverviewProps {
   week: WeekSummary;
   totals: Record<string, number>;
   onOpenProject?: (id: string) => void;
+  onCreateProject?: () => void;
 }
 
 function TimeOverview({
@@ -564,6 +639,7 @@ function TimeOverview({
   week,
   totals,
   onOpenProject,
+  onCreateProject,
 }: TimeOverviewProps) {
   const startTimer = useProjectForgeStore((s) => s.startTimer);
   const [picked, setPicked] = useState('');
@@ -587,18 +663,20 @@ function TimeOverview({
     .filter(([id, ms]) => ms > 0 && projectsById[id])
     .sort((a, b) => b[1] - a[1]);
   const maxWeek = weekRows[0]?.[1] ?? 0;
-  const maxDay = Math.max(...week.byDay);
   const today = startOfDay(now);
   const allTime = Object.entries(totals).reduce((sum, [id, ms]) => (projectsById[id] ? sum + ms : sum), 0);
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="grid gap-3 @3xl:grid-cols-2">
+    <div className="space-y-4 p-5">
+      <div className="grid gap-4 @3xl:grid-cols-2">
         {/* Timer */}
-        <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <h3 className="mb-3 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/45">
-            <Timer className="h-3.5 w-3.5 text-cyan-300" /> Timer
-          </h3>
+        <Card
+          title="Timer"
+          icon={Timer}
+          tone={activeTimer ? 'ember' : 'default'}
+          hud={Boolean(activeTimer)}
+          style={activeTimer ? EMBER_CORNERS : undefined}
+        >
           {activeTimer ? (
             <RunningTimer
               activeTimer={activeTimer}
@@ -607,149 +685,144 @@ function TimeOverview({
               onOpenProject={onOpenProject}
             />
           ) : pickerProjects.length === 0 ? (
-            <p className="text-xs text-white/45">Create a project on the Board first, then time it here.</p>
+            <EmptyState
+              size="sm"
+              tone="ember"
+              icon={Anvil}
+              title="No projects to time yet"
+              description="Create a project on the board, then track its hours here."
+              actions={
+                onCreateProject && (
+                  <Button variant="ember" size="sm" leadingIcon={Plus} onClick={onCreateProject}>
+                    New project
+                  </Button>
+                )
+              }
+            />
           ) : (
-            <div className="space-y-2">
-              <p className="text-3xl font-semibold tabular-nums text-white/25">00:00:00</p>
-              <div className="flex gap-2">
-                <select
-                  value={startTarget}
-                  onChange={(e) => setPicked(e.target.value)}
-                  aria-label="Project to time"
-                  className={cn(SELECT, 'min-w-0 flex-1')}
-                >
-                  {pickerProjects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} · {STAGE_META[p.stage].label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  disabled={!startTarget}
-                  onClick={() => startTimer(startTarget)}
-                  className="flex shrink-0 items-center gap-1.5 rounded-md bg-cyan-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-cyan-300 disabled:opacity-40"
-                >
-                  <Play className="h-3.5 w-3.5" /> Start
-                </button>
-              </div>
-              <p className="text-[10px] text-white/35">
-                The timer keeps running if you close this window or reload the OS.
+            <div className="space-y-4">
+              <p aria-hidden className="tabular font-display text-4xl font-semibold leading-none text-fg-faint">
+                00:00:00
               </p>
+              <div className="flex gap-2">
+                <div className="min-w-0 flex-1">
+                  <Select
+                    value={startTarget}
+                    onValueChange={setPicked}
+                    aria-label="Project to time"
+                    options={pickerProjects.map((p) => ({
+                      value: p.id,
+                      label: `${p.name} · ${STAGE_META[p.stage].label}`,
+                    }))}
+                  />
+                </div>
+                <Button variant="ember" leadingIcon={Play} disabled={!startTarget} onClick={() => startTimer(startTarget)}>
+                  Start
+                </Button>
+              </div>
+              <p className="text-xs text-fg-subtle">The timer keeps running if you close this window or reload the OS.</p>
             </div>
           )}
-        </section>
+        </Card>
 
         {/* This week */}
-        <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <div className="flex items-baseline justify-between gap-2">
-            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-white/45">This week</h3>
-            <span className="text-xl font-semibold tabular-nums text-white">{formatDuration(week.total)}</span>
-          </div>
-          <div className="mt-3 flex h-24 items-end gap-1.5">
-            {DAY_LABELS.map((label, i) => {
-              const ms = week.byDay[i];
-              const isToday = addDays(week.weekStart, i) === today;
-              const pct = maxDay > 0 ? (ms / maxDay) * 100 : 0;
-              return (
-                <div
-                  key={label}
-                  className="flex h-full flex-1 flex-col items-center gap-1"
-                  title={`${label}: ${formatDuration(ms)}`}
-                >
-                  <div className="flex w-full flex-1 items-end overflow-hidden rounded bg-white/[0.04]">
-                    <div
-                      className={cn('w-full rounded', isToday ? 'bg-cyan-400/80' : 'bg-cyan-400/35')}
-                      style={{ height: ms > 0 ? `max(3px, ${pct}%)` : 0 }}
-                    />
-                  </div>
-                  <span className={cn('text-[10px]', isToday ? 'font-semibold text-cyan-300' : 'text-white/40')}>
-                    {label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mt-2 text-[10px] text-white/40">
-            Monday to Sunday, local time · all time {formatHours(allTime)}
+        <Card
+          title="This week"
+          icon={CalendarDays}
+          actions={
+            <span className="tabular font-display text-xl font-semibold leading-none text-fg">
+              {formatDuration(week.total)}
+            </span>
+          }
+        >
+          <WeekBars week={week} today={today} />
+          <p className="mt-3 text-xs text-fg-subtle">
+            Monday to Sunday, local time · all time <span className="tabular font-mono text-fg-muted">{formatHours(allTime)}</span>
           </p>
-        </section>
+        </Card>
       </div>
 
-      {/* Hours per project */}
-      <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-        <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-white/45">
-          Hours per project · this week
-        </h3>
-        {weekRows.length === 0 ? (
-          <p className="text-xs text-white/40">
-            No time tracked this week yet. Press play on any project card or start the timer above.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {weekRows.map(([id, ms]) => {
-              const project = projectsById[id];
-              return (
-                <li key={id} className="flex items-center gap-3 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => onOpenProject?.(id)}
-                    className="flex w-36 min-w-0 shrink-0 items-center gap-1.5 text-left text-white/80 hover:text-cyan-300"
-                  >
-                    <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STAGE_META[project.stage].dot)} />
-                    <span className="truncate">{project.name}</span>
-                  </button>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
-                    <div
-                      className={cn('h-full rounded-full', STAGE_META[project.stage].bar)}
-                      style={{ width: `${maxWeek > 0 ? (ms / maxWeek) * 100 : 0}%` }}
+      <div className="grid gap-4 @3xl:grid-cols-2">
+        {/* Hours per project */}
+        <Card title="Hours per project" description="This week">
+          {weekRows.length === 0 ? (
+            <EmptyState
+              size="sm"
+              icon={Timer}
+              title="No time tracked this week"
+              description="Press play on any project card or start the timer above."
+            />
+          ) : (
+            <ul className="space-y-3">
+              {weekRows.map(([id, ms]) => {
+                const project = projectsById[id];
+                const meta = STAGE_META[project.stage];
+                return (
+                  <li key={id} className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => onOpenProject?.(id)}
+                      title={`Open ${project.name}`}
+                      className="focus-ring flex w-32 min-w-0 shrink-0 items-center gap-2 rounded-[4px] text-left text-ui text-fg-muted transition-colors duration-120 hover:text-fg"
+                    >
+                      <span className={cn('size-1.5 shrink-0 rounded-full', meta.dot)} />
+                      <span className="truncate">{project.name}</span>
+                    </button>
+                    <ProgressBar
+                      value={ms}
+                      max={maxWeek}
+                      tone={meta.progress}
+                      size="sm"
+                      animated={false}
+                      aria-label={`${project.name}: ${formatHours(ms)} this week`}
+                      className="flex-1"
                     />
-                  </div>
-                  <span className="w-14 shrink-0 text-right font-semibold tabular-nums text-white/85">
-                    {formatHours(ms)}
-                  </span>
-                  <span className="hidden w-20 shrink-0 text-right tabular-nums text-white/40 @2xl:inline">
-                    {formatHours(totals[id] ?? 0)} total
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+                    <span className="tabular w-11 shrink-0 text-right font-mono text-xs text-fg">{formatHours(ms)}</span>
+                    <span className="tabular hidden w-[72px] shrink-0 text-right font-mono text-xs text-fg-subtle @5xl:inline">
+                      {formatHours(totals[id] ?? 0)} total
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
 
-      {/* Manual log */}
-      <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-        <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-white/45">Log time manually</h3>
-        {pickerProjects.length === 0 ? (
-          <p className="text-xs text-white/40">Create a project first.</p>
-        ) : (
-          <ManualLogForm projects={pickerProjects} />
-        )}
-      </section>
+        {/* Manual log */}
+        <Card title="Log time manually" description="For work you did away from the timer">
+          {pickerProjects.length === 0 ? (
+            <EmptyState size="sm" icon={Plus} title="Nothing to log against" description="Create a project first." />
+          ) : (
+            <ManualLogForm projects={pickerProjects} />
+          )}
+        </Card>
+      </div>
 
       {/* Session log */}
-      <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <History className="h-3.5 w-3.5 text-white/45" />
-          <h3 className="flex-1 text-[10px] font-semibold uppercase tracking-wider text-white/45">Session log</h3>
-          <select
-            value={activeFilter}
-            onChange={(e) => {
-              setFilter(e.target.value);
-              setLimit(PAGE_SIZE);
-            }}
-            aria-label="Filter sessions by project"
-            className={cn(SELECT, 'w-auto max-w-[180px]')}
-          >
-            <option value="all">All projects</option>
-            {pickerProjects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <Card
+        title="Session log"
+        icon={History}
+        actions={
+          <div className="w-48">
+            <Select
+              size="sm"
+              value={activeFilter}
+              onValueChange={(value) => {
+                setFilter(value);
+                setLimit(PAGE_SIZE);
+              }}
+              aria-label="Filter sessions by project"
+            >
+              <option value="all">All projects</option>
+              {pickerProjects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        }
+      >
         <SessionList
           sessions={visible}
           projectsById={projectsById}
@@ -758,15 +831,11 @@ function TimeOverview({
           onOpenProject={onOpenProject}
         />
         {filtered.length > limit && (
-          <button
-            type="button"
-            onClick={() => setLimit((l) => l + PAGE_SIZE)}
-            className="mt-3 w-full rounded-md border border-white/10 py-1.5 text-xs text-white/55 hover:bg-white/5"
-          >
+          <Button variant="ghost" size="sm" fullWidth className="mt-3" onClick={() => setLimit((l) => l + PAGE_SIZE)}>
             Show {Math.min(PAGE_SIZE, filtered.length - limit)} more
-          </button>
+          </Button>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

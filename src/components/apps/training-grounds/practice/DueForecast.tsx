@@ -1,14 +1,17 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Due Forecast
-// Reviews due per day for the next week: one series, so one colour
-// and no legend; counts ride the bar caps, the full date is on hover.
+// Reviews due per day for the next week: one series (viz-1), so no
+// legend; counts ride the bar caps, hairline gridlines, 11px mono
+// ticks and a glass-popover tooltip with the full date on hover/focus.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo } from 'react';
-import { motion } from 'framer-motion';
+import { memo, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { CalendarClock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EASE_OUT_QUINT } from '@/styles/tokens';
 import { DAY_MS, relativeDayLabel, shortDateLabel, weekdayLabel } from './schedule';
 
 interface DueForecastProps {
@@ -22,10 +25,21 @@ interface DueForecastProps {
 }
 
 /** Tallest bar uses this share of the plot, leaving room for its cap label. */
-const MAX_BAR = 82;
+const MAX_BAR = 78;
+const SERIES = 'var(--color-viz-1)';
+
+/** A friendly top gridline: 1, 2, 5, 10, 20, 50… at or above `max`. */
+function niceCeil(max: number): number {
+  if (max <= 4) return Math.max(1, max);
+  const pow = 10 ** Math.floor(Math.log10(max));
+  for (const step of [1, 2, 5, 10]) if (step * pow >= max) return step * pow;
+  return 10 * pow;
+}
 
 function DueForecastInner({ counts, todayStart, newCount = 0, className }: DueForecastProps) {
-  const max = Math.max(1, ...counts);
+  const reduceMotion = useReducedMotion();
+  const [hover, setHover] = useState<number | null>(null);
+  const top = niceCeil(Math.max(1, ...counts));
   const total = counts.reduce((sum, n) => sum + n, 0);
   const days = counts.map((count, i) => {
     const ms = todayStart + i * DAY_MS;
@@ -37,59 +51,115 @@ function DueForecastInner({ counts, todayStart, newCount = 0, className }: DueFo
     };
   });
   const summary = days.map((d) => `${d.full}: ${d.count}`).join('; ');
+  const gridlines = top % 2 === 0 ? [1, 0.5] : [1];
 
   return (
-    <figure className={cn('rounded-xl border border-white/10 bg-white/[0.03] p-4', className)}>
-      <figcaption className="flex items-baseline justify-between gap-3">
-        <span className="text-xs font-semibold text-white/75">Reviews due · next {counts.length} days</span>
-        <span className="text-[11px] text-white/40 tabular-nums">
-          {total} scheduled{newCount > 0 ? ` · ${newCount} new waiting` : ''}
+    <figure className={cn('glass-panel rounded-card p-4', className)}>
+      <figcaption className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+        <span className="min-w-0">
+          <span className="hud-label block">Next {counts.length} days</span>
+          <span className="mt-1 block text-sm font-semibold text-fg">Reviews due</span>
+        </span>
+        <span className="font-mono text-xs text-fg-subtle tabular">
+          <span className="text-fg">{total}</span> scheduled
+          {newCount > 0 ? (
+            <>
+              {' · '}
+              <span className="text-fg">{newCount}</span> new waiting
+            </>
+          ) : null}
         </span>
       </figcaption>
 
-      <div className="mt-3 flex h-24 items-stretch gap-2 border-b border-white/10" role="img" aria-label={`Reviews due. ${summary}`}>
-        {days.map((day, i) => {
-          const height = (day.count / max) * MAX_BAR;
-          return (
-            <div key={day.ms} className="group relative flex flex-1 items-end justify-center">
-              <motion.div
-                initial={{ height: 0 }}
-                animate={{ height: `${height}%` }}
-                transition={{ duration: 0.5, delay: i * 0.04, ease: 'easeOut' }}
-                className={cn(
-                  'w-full max-w-[24px] rounded-t-[4px] transition-colors',
-                  i === 0 ? 'bg-cyan-300 group-hover:bg-cyan-200' : 'bg-cyan-400/70 group-hover:bg-cyan-300'
-                )}
-              />
-              {day.count > 0 && (
-                <span
-                  className="pointer-events-none absolute inset-x-0 text-center text-[10px] text-white/65 tabular-nums"
-                  style={{ bottom: `calc(${height}% + 3px)` }}
-                >
-                  {day.count}
-                </span>
-              )}
-              <span
-                className={cn(
-                  'pointer-events-none absolute bottom-full z-10 mb-1 whitespace-nowrap rounded-md border border-white/10 bg-slate-950/95 px-2 py-1 text-[10px] text-white/60 opacity-0 shadow-lg transition-opacity group-hover:opacity-100',
-                  i === 0 ? 'left-0' : i === days.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'
-                )}
-              >
-                <span className="font-semibold text-white">{day.count}</span> due · {day.full}
+      <div className="relative mt-4 font-mono">
+        {/* Plot */}
+        <div className="relative ml-7 h-28" role="img" aria-label={`Reviews due. ${summary}`}>
+          {gridlines.map((g) => (
+            <div
+              key={g}
+              aria-hidden
+              className="absolute inset-x-0 border-t border-line"
+              style={{ bottom: `${g * MAX_BAR}%` }}
+            >
+              <span className="absolute -left-7 w-5 -translate-y-1/2 text-right text-2xs text-fg-subtle tabular">
+                {Math.round(top * g)}
               </span>
             </div>
-          );
-        })}
-      </div>
-      <div className="mt-1.5 flex gap-2">
-        {days.map((day, i) => (
-          <span
-            key={day.ms}
-            className={cn('flex-1 text-center text-[10px]', i === 0 ? 'font-semibold text-white/80' : 'text-white/40')}
-          >
-            {day.short}
-          </span>
-        ))}
+          ))}
+          <div aria-hidden className="absolute inset-x-0 bottom-0 border-t border-line-strong" />
+          {total === 0 && (
+            <div className="absolute inset-x-0 top-1/3 flex items-center justify-center gap-1.5 font-sans text-xs text-fg-subtle">
+              <CalendarClock size={14} strokeWidth={1.75} aria-hidden />
+              Nothing scheduled this week
+            </div>
+          )}
+          <div className="absolute inset-0 flex items-stretch gap-2">
+            {days.map((day, i) => {
+              const height = (day.count / top) * MAX_BAR;
+              const active = hover === i;
+              return (
+                <div
+                  key={day.ms}
+                  className="relative flex flex-1 items-end justify-center"
+                  onMouseEnter={() => setHover(i)}
+                  onMouseLeave={() => setHover((h) => (h === i ? null : h))}
+                >
+                  {active && <div aria-hidden className="absolute inset-y-0 -inset-x-1 rounded-control bg-surface-hover" />}
+                  <motion.div
+                    initial={reduceMotion ? false : { height: 0 }}
+                    animate={{ height: `${height}%` }}
+                    transition={{ duration: 0.5, delay: reduceMotion ? 0 : i * 0.035, ease: EASE_OUT_QUINT }}
+                    className="relative w-full max-w-7 rounded-t-[4px] transition-opacity duration-120"
+                    style={{
+                      background: SERIES,
+                      opacity: day.count === 0 ? 0 : i === 0 || active ? 1 : 0.62,
+                      boxShadow: i === 0 && day.count > 0 ? '0 0 16px -4px var(--color-viz-1)' : undefined,
+                    }}
+                  />
+                  {day.count > 0 && (
+                    <span
+                      className={cn(
+                        'pointer-events-none absolute inset-x-0 text-center text-2xs tabular',
+                        i === 0 || active ? 'text-fg' : 'text-fg-muted'
+                      )}
+                      style={{ bottom: `calc(${height}% + 4px)` }}
+                    >
+                      {day.count}
+                    </span>
+                  )}
+                  {active && (
+                    <div
+                      role="tooltip"
+                      className={cn(
+                        'glass-popover pointer-events-none absolute bottom-full z-10 mb-2 animate-scale-in whitespace-nowrap rounded-control px-3 py-2 text-xs',
+                        i === 0 ? 'left-0' : i === days.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'
+                      )}
+                    >
+                      <div className="hud-label mb-1">{day.full}</div>
+                      <div className="flex items-center gap-2">
+                        <span aria-hidden className="size-2 rounded-full" style={{ background: SERIES }} />
+                        <span className="font-sans text-fg-muted">Due</span>
+                        <span className="ml-auto pl-3 text-fg tabular">{day.count}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Ticks */}
+        <div className="ml-7 mt-2 flex gap-2">
+          {days.map((day, i) => (
+            <span
+              key={day.ms}
+              className={cn('flex-1 truncate text-center text-2xs', i === 0 ? 'font-medium text-fg' : 'text-fg-subtle')}
+            >
+              {day.short}
+            </span>
+          ))}
+        </div>
       </div>
     </figure>
   );

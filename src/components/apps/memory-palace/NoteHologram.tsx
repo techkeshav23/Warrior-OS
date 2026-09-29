@@ -16,10 +16,12 @@ import { memo, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { BookOpen, CheckCircle2, ExternalLink, Eye, Hammer, Layers, RotateCcw, X } from 'lucide-react';
+import { BookOpen, CircleCheck, ExternalLink, Eye, Hammer, Layers, RotateCcw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button, IconButton } from '@/components/ui';
 import type { PalaceItem, PalaceReview } from './palaceData';
 import { DUE_COLOR, KIND_LABELS, NEW_COLOR, RECENCY_STYLES, ShapeGeometry } from './KnowledgeObject';
+import { PALACE } from './palaceTheme';
 
 // ─────────────────────────────────────────────────────────────
 // Safe markdown → React (no dangerouslySetInnerHTML)
@@ -29,10 +31,10 @@ function inline(text: string, keyBase: string): React.ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[\[[^\]]+\]\]|\$[^$]+\$|\*[^*\s][^*]*\*|_[^_\s][^_]*_)/g).filter(Boolean);
   return parts.map((p, i) => {
     const key = `${keyBase}-${i}`;
-    if (p.startsWith('**') && p.endsWith('**')) return <strong key={key} className="font-semibold text-white">{p.slice(2, -2)}</strong>;
-    if (p.startsWith('`') && p.endsWith('`')) return <code key={key} className="rounded bg-white/10 px-1 font-mono text-[11px] text-accent-primary">{p.slice(1, -1)}</code>;
-    if (p.startsWith('[[') && p.endsWith(']]')) return <span key={key} className="text-accent-secondary underline decoration-dotted">{p.slice(2, -2)}</span>;
-    if (p.startsWith('$') && p.endsWith('$') && p.length > 2) return <span key={key} className="font-mono italic text-amber-200">{p.slice(1, -1)}</span>;
+    if (p.startsWith('**') && p.endsWith('**')) return <strong key={key} className="font-semibold text-fg">{p.slice(2, -2)}</strong>;
+    if (p.startsWith('`') && p.endsWith('`')) return <code key={key} className="rounded-[4px] bg-surface-active px-1 font-mono text-[11px] text-plasma-300">{p.slice(1, -1)}</code>;
+    if (p.startsWith('[[') && p.endsWith(']]')) return <span key={key} className="text-info underline decoration-dotted underline-offset-2">{p.slice(2, -2)}</span>;
+    if (p.startsWith('$') && p.endsWith('$') && p.length > 2) return <span key={key} className="font-mono italic text-gold">{p.slice(1, -1)}</span>;
     if ((p.startsWith('*') && p.endsWith('*')) || (p.startsWith('_') && p.endsWith('_'))) return <em key={key}>{p.slice(1, -1)}</em>;
     return <span key={key}>{p}</span>;
   });
@@ -55,7 +57,7 @@ export function renderNoteMarkdown(md: string): React.ReactNode[] {
       }
       i += 1;
       out.push(
-        <pre key={k} className="my-1 overflow-x-auto rounded-md border border-white/10 bg-black/60 p-2 font-mono text-[10.5px] leading-snug text-emerald-200">
+        <pre key={k} className="my-1 overflow-x-auto rounded-control border border-line bg-ink-950/70 p-2 font-mono text-[11px] leading-snug text-fg-muted">
           {code.join('\n')}
         </pre>
       );
@@ -70,8 +72,8 @@ export function renderNoteMarkdown(md: string): React.ReactNode[] {
         <div
           key={k}
           className={cn(
-            'font-display font-bold tracking-wide',
-            level === 1 ? 'mt-1 text-[15px] text-white' : level === 2 ? 'mt-1 text-[13px] text-accent-primary' : 'text-[12px] text-accent-primary/80'
+            'font-semibold tracking-tight',
+            level === 1 ? 'mt-1 text-sm text-fg' : level === 2 ? 'mt-1 text-[13px] text-fg' : 'text-xs text-fg-muted'
           )}
         >
           {inline(text, k)}
@@ -80,37 +82,37 @@ export function renderNoteMarkdown(md: string): React.ReactNode[] {
     } else if (/^[-*+]\s+\[( |x|X)\]\s/.test(trimmed)) {
       const done = /^[-*+]\s+\[(x|X)\]/.test(trimmed);
       out.push(
-        <div key={k} className="flex items-start gap-1.5 text-[12px] text-white/80">
-          <span className={cn('mt-0.5 inline-block h-2.5 w-2.5 shrink-0 rounded-sm border', done ? 'border-accent-success bg-accent-success/60' : 'border-white/40')} />
+        <div key={k} className="flex items-start gap-1.5 text-xs text-fg-muted">
+          <span className={cn('mt-0.5 inline-block size-2.5 shrink-0 rounded-[3px] border', done ? 'border-success bg-success/60' : 'border-fg-subtle')} />
           <span className={cn(done && 'line-through opacity-60')}>{inline(trimmed.replace(/^[-*+]\s+\[.\]\s/, ''), k)}</span>
         </div>
       );
     } else if (/^[-*+]\s/.test(trimmed)) {
       out.push(
-        <div key={k} className="flex gap-1.5 pl-1 text-[12px] text-white/80">
-          <span className="text-accent-primary">•</span>
+        <div key={k} className="flex gap-1.5 pl-1 text-xs text-fg-muted">
+          <span className="text-accent">•</span>
           <span>{inline(trimmed.slice(2), k)}</span>
         </div>
       );
     } else if (/^\d+[.)]\s/.test(trimmed)) {
       const num = trimmed.match(/^\d+/)?.[0];
       out.push(
-        <div key={k} className="flex gap-1.5 pl-1 text-[12px] text-white/80">
-          <span className="font-mono text-accent-primary">{num}.</span>
+        <div key={k} className="flex gap-1.5 pl-1 text-xs text-fg-muted">
+          <span className="tabular font-mono text-accent">{num}.</span>
           <span>{inline(trimmed.replace(/^\d+[.)]\s/, ''), k)}</span>
         </div>
       );
     } else if (trimmed.startsWith('>')) {
       out.push(
-        <div key={k} className="border-l-2 border-accent-primary/50 pl-2 text-[12px] italic text-white/60">
+        <div key={k} className="border-l-2 border-accent/50 pl-2 text-xs italic text-fg-muted">
           {inline(trimmed.replace(/^>\s?/, ''), k)}
         </div>
       );
     } else if (/^(-{3,}|\*{3,})$/.test(trimmed)) {
-      out.push(<hr key={k} className="my-1 border-white/10" />);
+      out.push(<hr key={k} className="my-1 border-line" />);
     } else {
       out.push(
-        <p key={k} className="text-[12px] leading-relaxed text-white/80">
+        <p key={k} className="text-xs leading-relaxed text-fg-muted">
           {inline(trimmed, k)}
         </p>
       );
@@ -169,27 +171,27 @@ const OPEN_LABEL: Record<PalaceItem['kind'], string> = {
 };
 
 function KindIcon({ kind, color }: { kind: PalaceItem['kind']; color: string }) {
-  const cls = 'h-3.5 w-3.5 shrink-0';
-  if (kind === 'card') return <Layers className={cls} style={{ color }} />;
-  if (kind === 'project') return <Hammer className={cls} style={{ color }} />;
-  return <BookOpen className={cls} style={{ color }} />;
+  const props = { size: 14, strokeWidth: 1.75, className: 'shrink-0', style: { color }, 'aria-hidden': true } as const;
+  if (kind === 'card') return <Layers {...props} />;
+  if (kind === 'project') return <Hammer {...props} />;
+  return <BookOpen {...props} />;
 }
 
 function ScheduleLabel({ item, review, now }: { item: PalaceItem; review: PalaceReview; now: number }) {
   if (item.kind === 'project') {
-    return <span className="text-white/50">{item.project?.onHold ? 'parked' : `${item.project?.progress ?? 0}% done`}</span>;
+    return <span className="text-fg-subtle">{item.project?.onHold ? 'parked' : `${item.project?.progress ?? 0}% done`}</span>;
   }
-  if (review.isNew) return <span className="font-semibold text-amber-300">new · not studied yet</span>;
+  if (review.isNew) return <span className="text-warning">new · not studied yet</span>;
   const word = item.kind === 'card' ? 'review' : 'revision';
   if (review.isDue) {
     return (
-      <span className="font-semibold text-accent-danger">
+      <span className="text-danger">
         {review.overdueDays > 0 ? `${word} ${review.overdueDays}d overdue` : `${word} due`}
       </span>
     );
   }
   const dueIn = Math.max(1, Math.ceil((review.dueAt - now) / DAY_MS));
-  return <span className="text-white/50">next {word} in {dueIn}d</span>;
+  return <span className="text-fg-subtle">next {word} in {dueIn}d</span>;
 }
 
 function CardBody({ item, revealed }: { item: PalaceItem; revealed: boolean }) {
@@ -206,9 +208,9 @@ function CardBody({ item, revealed }: { item: PalaceItem; revealed: boolean }) {
             return (
               <div
                 key={`${i}:${o}`}
-                className={cn('flex gap-1.5 rounded px-1.5 py-0.5 text-[11.5px]', right ? 'bg-accent-success/15 text-accent-success' : 'text-white/70')}
+                className={cn('flex gap-1.5 rounded-[6px] px-1.5 py-0.5 text-xs', right ? 'bg-success/12 text-success' : 'text-fg-muted')}
               >
-                <span className="font-mono text-white/40">{String.fromCharCode(65 + i)}</span>
+                <span className="font-mono text-fg-subtle">{String.fromCharCode(65 + i)}</span>
                 <span>{o}</span>
               </div>
             );
@@ -216,10 +218,10 @@ function CardBody({ item, revealed }: { item: PalaceItem; revealed: boolean }) {
         </div>
       )}
       {revealed && (
-        <div className="mt-2 rounded-md border border-accent-success/25 bg-accent-success/[0.07] px-2 py-1.5">
-          <div className="text-[9.5px] uppercase tracking-wider text-accent-success/80">Answer</div>
-          <div className="text-[12px] font-semibold text-white">{card.answer || '—'}</div>
-          {card.explanation && <div className="mt-1 text-[11px] leading-relaxed text-white/60">{card.explanation}</div>}
+        <div className="mt-2 rounded-control border border-success/25 bg-success/[0.07] px-2.5 py-2">
+          <div className="hud-label text-success">Answer</div>
+          <div className="mt-0.5 text-xs font-semibold text-fg">{card.answer || '—'}</div>
+          {card.explanation && <div className="mt-1 text-xs leading-relaxed text-fg-muted">{card.explanation}</div>}
         </div>
       )}
     </>
@@ -237,21 +239,21 @@ function ProjectBody({ item }: { item: PalaceItem }) {
     <>
       {description}
       <div className="pt-2">
-        <div className="flex items-center justify-between text-[10px] text-white/50">
+        <div className="flex items-center justify-between text-2xs text-fg-subtle">
           <span>Progress</span>
-          <span className="font-mono">
+          <span className="tabular font-mono">
             {project.tasksTotal > 0 ? `${project.tasksDone}/${project.tasksTotal} tasks · ` : ''}
             {project.progress}%
           </span>
         </div>
-        <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full rounded-full bg-accent-success" style={{ width: `${project.progress}%` }} />
+        <div className="mt-1 h-1 overflow-hidden rounded-full bg-ink-600">
+          <div className="h-full rounded-full bg-success" style={{ width: `${project.progress}%` }} />
         </div>
       </div>
       {project.techStack.length > 0 && (
         <div className="flex flex-wrap gap-1 pt-2">
           {project.techStack.map((t) => (
-            <span key={t} className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/70">
+            <span key={t} className="rounded-full bg-surface-active px-2 py-0.5 font-mono text-[10px] text-fg-muted">
               {t}
             </span>
           ))}
@@ -284,7 +286,7 @@ function NoteHologramInner({
   const [revealed, setRevealed] = useState(false);
   const [graded, setGraded] = useState<'recalled' | 'forgot' | null>(null);
   const style = RECENCY_STYLES[review.recency];
-  const color = review.isDue ? DUE_COLOR : review.isNew ? NEW_COLOR : style.color === '#4a3f33' ? '#b0bec5' : style.color;
+  const color = review.isDue ? DUE_COLOR : review.isNew ? NEW_COLOR : review.recency === 'stale' ? PALACE.archive : style.color;
   const noteBody = useMemo(
     () => (item.kind === 'note' ? renderNoteMarkdown(item.body.trim() ? item.body : '*This note is empty.*') : null),
     [item.kind, item.body]
@@ -356,41 +358,53 @@ function NoteHologramInner({
         {panelVisible && (
           <Html transform distanceFactor={2} zIndexRange={[60, 0]} style={{ pointerEvents: 'auto' }}>
             <div
-              className="w-[340px] select-text overflow-hidden rounded-xl border bg-black/75 text-left backdrop-blur-md"
-              style={{ borderColor: `${color}66`, boxShadow: `0 0 36px ${color}40, inset 0 0 24px ${color}14` }}
+              className="glass-popover relative w-[340px] select-text overflow-hidden rounded-card text-left text-fg"
+              style={
+                {
+                  '--holo': color,
+                  borderColor: `color-mix(in oklab, ${color} 45%, transparent)`,
+                  boxShadow: `0 0 0 1px rgb(0 0 0 / 0.3), 0 16px 40px -8px rgb(0 0 0 / 0.6), 0 0 32px -10px ${color}`,
+                } as React.CSSProperties
+              }
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
               onWheel={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center gap-2 border-b border-white/10 bg-white/5 px-3 py-2">
-                <KindIcon kind={item.kind} color={color} />
-                <span className="flex-1 truncate font-display text-[12px] font-bold tracking-wide text-white">{item.title}</span>
-                <button
-                  onClick={() => onRequestClose(item.id)}
-                  className="rounded p-0.5 text-white/50 transition-colors hover:bg-white/10 hover:text-accent-danger"
-                  aria-label="Close hologram"
+              <span aria-hidden className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-[var(--holo)] to-transparent opacity-70" />
+              <div className="flex items-center gap-2.5 px-3 pb-2 pt-3">
+                <span
+                  className="flex size-7 shrink-0 items-center justify-center rounded-control border border-line-strong bg-ink-800"
+                  style={{ color }}
                 >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+                  <KindIcon kind={item.kind} color={color} />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-fg" title={item.title}>
+                  {item.title}
+                </span>
+                <IconButton icon={X} size="xs" aria-label="Close hologram" tooltip shortcut="X" onClick={() => onRequestClose(item.id)} />
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5 border-b border-white/5 px-3 py-1.5 text-[9.5px] uppercase tracking-wider">
-                <span className="max-w-[190px] truncate rounded px-1.5 py-0.5" style={{ backgroundColor: `${color}22`, color }}>
+              <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-3 pb-2 font-mono text-[10px] uppercase tracking-[0.1em]">
+                <span
+                  className="max-w-[180px] truncate rounded-full px-2 py-0.5"
+                  style={{ backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)`, color }}
+                  title={item.context}
+                >
                   {item.context}
                 </span>
-                <span className="text-white/40">{KIND_LABELS[item.kind]}</span>
-                <span className="text-white/25">·</span>
+                <span className="text-fg-subtle">{KIND_LABELS[item.kind]}</span>
+                <span className="text-fg-faint">·</span>
                 <ScheduleLabel item={item} review={review} now={now} />
               </div>
 
-              <div className="max-h-[300px] space-y-1 overflow-y-auto px-3 py-2">
+              <div className="scrollbar-thin max-h-[300px] space-y-1.5 overflow-y-auto px-3 py-2.5">
                 {item.kind === 'note' && noteBody}
                 {item.kind === 'card' && <CardBody item={item} revealed={revealed || graded !== null} />}
                 {item.kind === 'project' && <ProjectBody item={item} />}
                 {item.kind !== 'project' && item.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 pt-2">
                     {item.tags.map((t) => (
-                      <span key={t} className="rounded bg-accent-secondary/20 px-1.5 py-0.5 text-[10px] text-accent-secondary">
+                      <span key={t} className="rounded-full bg-info/12 px-2 py-0.5 text-[10px] text-info">
                         #{t}
                       </span>
                     ))}
@@ -398,62 +412,47 @@ function NoteHologramInner({
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 border-t border-white/10 bg-white/[0.03] px-3 py-2">
-                {item.kind === 'note' && (
-                  <button
-                    onClick={() => onRevise(item)}
-                    disabled={review.revisedToday}
-                    className={cn(
-                      'flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors',
-                      review.revisedToday
-                        ? 'cursor-default bg-accent-success/15 text-accent-success/80'
-                        : 'bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25'
-                    )}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    {review.revisedToday ? 'Revised today' : 'Mark revised'}
-                  </button>
-                )}
+              <div className="flex flex-wrap items-center gap-1.5 border-t border-line bg-ink-950/30 px-3 py-2">
+                {item.kind === 'note' &&
+                  (review.revisedToday ? (
+                    <span className="flex h-7 items-center gap-1.5 px-1 text-xs font-medium text-success">
+                      <CircleCheck size={14} strokeWidth={1.75} aria-hidden />
+                      Revised today
+                    </span>
+                  ) : (
+                    <Button size="sm" variant="primary" leadingIcon={CircleCheck} onClick={() => onRevise(item)}>
+                      Mark revised
+                    </Button>
+                  ))}
                 {item.kind === 'card' &&
                   (graded ? (
-                    <span className={cn('flex items-center gap-1 text-[11px] font-semibold', graded === 'recalled' ? 'text-accent-success' : 'text-amber-300')}>
-                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span
+                      className={cn(
+                        'flex h-7 items-center gap-1.5 px-1 text-xs font-medium',
+                        graded === 'recalled' ? 'text-success' : 'text-warning'
+                      )}
+                    >
+                      <CircleCheck size={14} strokeWidth={1.75} aria-hidden />
                       {graded === 'recalled' ? 'Recalled' : 'Back in the queue'}
                     </span>
                   ) : !revealed ? (
-                    <button
-                      onClick={() => setRevealed(true)}
-                      className="flex items-center gap-1 rounded-md bg-accent-primary/15 px-2 py-1 text-[11px] font-semibold text-accent-primary transition-colors hover:bg-accent-primary/25"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
+                    <Button size="sm" variant="primary" leadingIcon={Eye} onClick={() => setRevealed(true)}>
                       Reveal answer
-                    </button>
+                    </Button>
                   ) : (
                     <>
-                      <button
-                        onClick={() => grade(false)}
-                        className="flex items-center gap-1 rounded-md bg-amber-400/15 px-2 py-1 text-[11px] font-semibold text-amber-300 transition-colors hover:bg-amber-400/25"
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" />
+                      <Button size="sm" variant="secondary" leadingIcon={RotateCcw} onClick={() => grade(false)}>
                         Forgot
-                      </button>
-                      <button
-                        onClick={() => grade(true)}
-                        className="flex items-center gap-1 rounded-md bg-accent-success/15 px-2 py-1 text-[11px] font-semibold text-accent-success transition-colors hover:bg-accent-success/25"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="primary" leadingIcon={CircleCheck} onClick={() => grade(true)}>
                         Recalled
-                      </button>
+                      </Button>
                     </>
                   ))}
-                <button
-                  onClick={() => onOpenSource(item)}
-                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
+                <Button size="sm" variant="ghost" leadingIcon={ExternalLink} onClick={() => onOpenSource(item)}>
                   {OPEN_LABEL[item.kind]}
-                </button>
-                <span className="ml-auto text-[9.5px] text-white/35">
+                </Button>
+                <span className="tabular ml-auto font-mono text-[10px] text-fg-subtle">
                   {lastTouched ? `touched ${lastTouched.toLocaleDateString()}` : ''}
                 </span>
               </div>

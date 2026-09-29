@@ -1,16 +1,18 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — NEXUS Markdown
 // Safe markdown → React elements for AI replies. Supports fenced
-// code (with copy button), inline code, bold, italics, strike,
-// headings, lists, quotes, tables, rules and links. Model output
-// is never passed to dangerouslySetInnerHTML — every node is built
-// as a React element, and links are limited to http(s)/mailto.
+// code (language header, copy, line numbers, FORGE syntax colours),
+// inline code, bold, italics, strike, headings, lists, quotes,
+// tables, rules and links. Model output is never passed to
+// dangerouslySetInnerHTML — every node is built as a React element,
+// and links are limited to http(s)/mailto.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, useMemo, useState, type ReactNode } from 'react';
 import { Check, Copy, X } from 'lucide-react';
+import { highlight, resolveSyntaxLang } from '@/components/apps/code-lab/syntax';
 import { cn } from '@/lib/utils';
 
 // ─── Block parsing ───
@@ -187,7 +189,8 @@ function findItalicEnd(text: string, from: number, marker: string): number {
   return -1;
 }
 
-const LINK_CLASS = 'text-cyan-300 underline decoration-cyan-300/40 underline-offset-2 hover:decoration-cyan-300';
+const LINK_CLASS =
+  'rounded-[2px] text-accent underline decoration-accent/40 underline-offset-2 transition-[text-decoration-color] duration-120 ease-out-quint hover:decoration-accent';
 
 function renderInline(text: string, keyBase: string): ReactNode[] {
   const out: ReactNode[] = [];
@@ -225,7 +228,7 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
         out.push(
           <code
             key={key('c')}
-            className="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.85em] text-cyan-200"
+            className="rounded-[5px] bg-surface-active px-1.5 py-px font-mono text-[0.86em] text-fg ring-1 ring-inset ring-line box-decoration-clone"
           >
             {code}
           </code>
@@ -243,7 +246,7 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
       const end = text.indexOf(ch + ch, i + 2);
       if (end > i + 2) {
         flush();
-        out.push(<strong key={key('b')} className="font-semibold text-white">{renderInline(text.slice(i + 2, end), key('bi'))}</strong>);
+        out.push(<strong key={key('b')} className="font-semibold text-fg">{renderInline(text.slice(i + 2, end), key('bi'))}</strong>);
         i = end + 2;
         continue;
       }
@@ -254,7 +257,7 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
       const end = text.indexOf('~~', i + 2);
       if (end > i + 2) {
         flush();
-        out.push(<del key={key('s')} className="opacity-70">{renderInline(text.slice(i + 2, end), key('si'))}</del>);
+        out.push(<del key={key('s')} className="text-fg-subtle">{renderInline(text.slice(i + 2, end), key('si'))}</del>);
         i = end + 2;
         continue;
       }
@@ -271,7 +274,7 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
       const end = findItalicEnd(text, i, ch);
       if (end !== -1) {
         flush();
-        out.push(<em key={key('i')} className="italic text-white/90">{renderInline(text.slice(i + 1, end), key('ii'))}</em>);
+        out.push(<em key={key('i')} className="italic">{renderInline(text.slice(i + 1, end), key('ii'))}</em>);
         i = end + 1;
         continue;
       }
@@ -323,8 +326,46 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
 
 // ─── Code block ───
 
+const LANG_LABELS: Record<string, string> = {
+  js: 'JavaScript',
+  javascript: 'JavaScript',
+  jsx: 'JSX',
+  ts: 'TypeScript',
+  typescript: 'TypeScript',
+  tsx: 'TSX',
+  py: 'Python',
+  python: 'Python',
+  sh: 'Shell',
+  bash: 'Bash',
+  shell: 'Shell',
+  zsh: 'Shell',
+  html: 'HTML',
+  css: 'CSS',
+  scss: 'SCSS',
+  json: 'JSON',
+  sql: 'SQL',
+  java: 'Java',
+  c: 'C',
+  cpp: 'C++',
+  cs: 'C#',
+  go: 'Go',
+  rust: 'Rust',
+  rs: 'Rust',
+  md: 'Markdown',
+  markdown: 'Markdown',
+  yaml: 'YAML',
+  yml: 'YAML',
+};
+
+/** Line numbers appear once a snippet is long enough to talk about by line. */
+const LINE_NUMBERS_FROM = 4;
+
 function CodeBlock({ code, lang }: { code: string; lang: string }) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const syntax = resolveSyntaxLang(lang);
+  const highlighted = useMemo(() => highlight(code, syntax), [code, syntax]);
+  const lineCount = useMemo(() => code.split('\n').length, [code]);
+  const label = LANG_LABELS[lang.toLowerCase()] ?? (lang || 'Code');
 
   const copy = () => {
     const done = (state: 'copied' | 'failed') => {
@@ -342,30 +383,56 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   };
 
   return (
-    <div className="my-2 overflow-hidden rounded-lg border border-white/10 bg-black/50">
-      <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.03] px-3 py-1">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-white/45">{lang || 'code'}</span>
+    <figure className="my-3 overflow-hidden rounded-card border border-line bg-ink-850 shadow-e1">
+      <figcaption className="flex h-8 items-center justify-between gap-2 border-b border-line bg-surface-2 pl-3 pr-1">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="size-1.5 shrink-0 rounded-full bg-plasma-400/80" aria-hidden />
+          <span className="truncate font-mono text-2xs font-medium uppercase tracking-[0.12em] text-fg-subtle">
+            {label}
+          </span>
+        </span>
         <button
           type="button"
           onClick={copy}
           className={cn(
-            'flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] transition-colors',
+            'focus-ring flex h-6 items-center gap-1.5 rounded-[6px] px-2 text-xs font-medium',
+            'transition-colors duration-120 ease-out-quint',
             copyState === 'copied'
-              ? 'text-emerald-300'
+              ? 'text-success'
               : copyState === 'failed'
-                ? 'text-rose-300'
-                : 'text-white/55 hover:bg-white/5 hover:text-cyan-300'
+                ? 'text-danger'
+                : 'text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active'
           )}
           aria-label="Copy code"
         >
-          {copyState === 'copied' ? <Check size={11} /> : copyState === 'failed' ? <X size={11} /> : <Copy size={11} />}
-          {copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy'}
+          {copyState === 'copied' ? (
+            <Check size={13} strokeWidth={2} aria-hidden />
+          ) : copyState === 'failed' ? (
+            <X size={13} strokeWidth={2} aria-hidden />
+          ) : (
+            <Copy size={13} strokeWidth={1.75} aria-hidden />
+          )}
+          <span aria-live="polite">
+            {copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy'}
+          </span>
         </button>
+      </figcaption>
+      <div className="scrollbar-thin flex max-h-80 overflow-auto">
+        {lineCount >= LINE_NUMBERS_FROM && (
+          <div
+            aria-hidden
+            className="sticky left-0 shrink-0 select-none border-r border-line bg-ink-850 py-3 pl-3 pr-2.5 text-right font-mono text-xs leading-5 text-fg-faint tabular"
+          >
+            {Array.from({ length: lineCount }, (_, i) => (
+              <div key={i}>{i + 1}</div>
+            ))}
+          </div>
+        )}
+        <pre className="min-w-0 flex-1 select-text whitespace-pre px-3.5 py-3 font-mono text-xs leading-5 text-fg [font-variant-ligatures:none]">
+          <code>{highlighted}</code>
+        </pre>
       </div>
-      <pre className="max-h-80 overflow-auto p-3 font-mono text-[12px] leading-relaxed text-cyan-50/90">
-        <code>{code}</code>
-      </pre>
-    </div>
+    </figure>
   );
 }
 
@@ -388,41 +455,45 @@ function renderBlock(block: Block, key: string): ReactNode {
       return (
         <p
           key={key}
+          role="heading"
+          aria-level={Math.min(6, block.level + 2)}
           className={cn(
-            'font-semibold text-white',
-            block.level <= 2 ? 'text-[15px]' : 'text-sm',
-            'mt-1'
+            'font-semibold tracking-tight text-fg [&:not(:first-child)]:mt-4',
+            block.level <= 2 ? 'text-base' : 'text-sm'
           )}
         >
           {renderInline(block.text, key)}
         </p>
       );
     case 'rule':
-      return <hr key={key} className="my-2 border-white/10" />;
+      return <hr key={key} className="my-4 border-line" />;
     case 'quote':
       return (
-        <blockquote key={key} className="border-l-2 border-cyan-400/40 pl-3 text-white/70">
+        <blockquote key={key} className="border-l-2 border-accent/40 pl-3.5 text-fg-muted">
           {renderParagraphLines(block.lines, key)}
         </blockquote>
       );
     case 'table':
       return (
-        <div key={key} className="my-1 overflow-x-auto rounded-lg border border-white/10">
+        <div key={key} className="scrollbar-thin my-1 overflow-x-auto rounded-control border border-line">
           <table className="w-full border-collapse text-left text-xs">
-            <thead className="bg-white/5">
+            <thead className="bg-surface-2">
               <tr>
                 {block.header.map((cell, c) => (
-                  <th key={`${key}-h${c}`} className="border-b border-white/10 px-2 py-1.5 font-semibold text-white/85">
+                  <th
+                    key={`${key}-h${c}`}
+                    className="border-b border-line px-3 py-2 font-mono text-2xs font-medium uppercase tracking-[0.12em] text-fg-subtle"
+                  >
                     {renderInline(cell, `${key}-h${c}`)}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-line">
               {block.rows.map((row, r) => (
-                <tr key={`${key}-r${r}`} className="odd:bg-white/[0.02]">
+                <tr key={`${key}-r${r}`} className="transition-colors duration-120 hover:bg-surface-hover">
                   {row.map((cell, c) => (
-                    <td key={`${key}-r${r}c${c}`} className="border-b border-white/5 px-2 py-1.5 align-top text-white/75">
+                    <td key={`${key}-r${r}c${c}`} className="px-3 py-2 align-top text-fg-muted">
                       {renderInline(cell, `${key}-r${r}c${c}`)}
                     </td>
                   ))}
@@ -434,16 +505,16 @@ function renderBlock(block: Block, key: string): ReactNode {
       );
     case 'list': {
       const items = block.items.map((item, idx) => (
-        <li key={`${key}-i${idx}`} style={{ marginLeft: `${item.depth * 14}px` }} className="pl-0.5">
+        <li key={`${key}-i${idx}`} style={{ marginLeft: `${item.depth * 16}px` }} className="pl-1">
           {renderInline(item.text, `${key}-i${idx}`)}
         </li>
       ));
       return block.ordered ? (
-        <ol key={key} start={block.start} className="list-decimal space-y-0.5 pl-5 marker:text-cyan-300/70">
+        <ol key={key} start={block.start} className="list-decimal space-y-1 pl-5 marker:font-mono marker:text-xs marker:text-fg-subtle">
           {items}
         </ol>
       ) : (
-        <ul key={key} className="list-disc space-y-0.5 pl-5 marker:text-cyan-300/70">
+        <ul key={key} className="list-disc space-y-1 pl-5 marker:text-accent/70">
           {items}
         </ul>
       );
@@ -461,7 +532,7 @@ interface NexusMarkdownProps {
 function NexusMarkdownInner({ text, className }: NexusMarkdownProps) {
   const blocks = useMemo(() => parseMarkdownBlocks(text), [text]);
   return (
-    <div className={cn('space-y-2 break-words text-sm leading-relaxed', className)}>
+    <div className={cn('select-text space-y-3 break-words text-sm', className)}>
       {blocks.map((block, idx) => renderBlock(block, `b${idx}`))}
     </div>
   );

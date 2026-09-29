@@ -1,17 +1,18 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Trends Graph
-// Recharts line of daily spending over the past 30 days, with the
-// daily budget (month budget ÷ days in that month) overlaid as a
-// dashed step line. Days above the line get a red dot.
+// Recharts area of daily spending over the past 30 days (viz-1),
+// with the daily budget (month budget ÷ days in that month) as a
+// dashed neutral step line. Days above the line get a danger dot.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo, useMemo, type ReactNode } from 'react';
+import { memo, useId, useMemo, type ReactNode } from 'react';
 import {
+  Area,
   CartesianGrid,
+  ComposedChart,
   Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -20,14 +21,17 @@ import {
 } from 'recharts';
 import { addDays, format, getDaysInMonth, parseISO, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Card } from '@/components/ui';
+import { CHART, FG, INK, LINE, STATUS, VIZ } from '@/styles/tokens';
 import { resolveMonthBudget, toPaise } from '@/stores/useExpenseStore';
 import type { Expense } from '@/types/expense';
 import { formatINR, formatINRCompact, toDateKey } from './expense-utils';
 
 const WINDOW_DAYS = 30;
-const SPENT_COLOR = '#00f0ff';
-const LIMIT_COLOR = '#ffab00';
-const OVER_COLOR = '#ff1744';
+const SPENT_COLOR = VIZ[0];
+/** Reference line: neutral, so it never competes with the data. */
+const LIMIT_COLOR = FG.subtle;
+const OVER_COLOR = STATUS.danger;
 
 interface TrendsGraphProps {
   className?: string;
@@ -56,15 +60,19 @@ function renderTrendTooltip({ active, payload }: ChartTooltipProps): ReactNode {
   if (!active || !row) return null;
   const diff = row.limit - row.spent;
   return (
-    <div className="rounded-lg border border-white/10 bg-[rgba(10,10,16,0.94)] px-2.5 py-1.5 text-xs shadow-lg">
-      <p className="font-semibold text-white">{format(parseISO(row.key), 'EEE, d MMM')}</p>
-      <p className="mt-0.5 font-mono" style={{ color: SPENT_COLOR }}>
-        Spent {formatINR(row.spent)}
-      </p>
-      <p className="font-mono" style={{ color: LIMIT_COLOR }}>
-        Daily budget {formatINR(row.limit, 'never')}
-      </p>
-      <p className={cn('mt-0.5 text-[11px]', row.over ? 'text-red-300' : 'text-white/50')}>
+    <div className="glass-popover min-w-44 rounded-control px-3 py-2 text-xs">
+      <p className="hud-label mb-1.5">{format(parseISO(row.key), 'EEE, d MMM')}</p>
+      <div className="flex items-center gap-2">
+        <span className="size-2 rounded-full" style={{ background: SPENT_COLOR }} />
+        <span className="text-fg-muted">Spent</span>
+        <span className="tabular ml-auto pl-3 font-mono text-fg">{formatINR(row.spent)}</span>
+      </div>
+      <div className="mt-0.5 flex items-center gap-2">
+        <span className="w-2 border-t-2 border-dashed border-fg-subtle" />
+        <span className="text-fg-muted">Daily budget</span>
+        <span className="tabular ml-auto pl-3 font-mono text-fg">{formatINR(row.limit, 'never')}</span>
+      </div>
+      <p className={cn('mt-1.5 border-t border-line pt-1.5', row.over ? 'text-danger' : 'text-fg-subtle')}>
         {row.spent === 0
           ? 'No spending'
           : row.over
@@ -78,21 +86,23 @@ function renderTrendTooltip({ active, payload }: ChartTooltipProps): ReactNode {
 function renderSpendDot(props: DotItemDotProps): ReactNode {
   const { cx, cy, index } = props;
   const row = props.payload as TrendRow | undefined;
-  if (cx == null || cy == null || !row || row.spent <= 0) return <g key={`spend-dot-${index}`} />;
+  if (cx == null || cy == null || !row || !row.over) return <g key={`spend-dot-${index}`} />;
   return (
     <circle
       key={`spend-dot-${index}`}
       cx={cx}
       cy={cy}
-      r={row.over ? 3.5 : 2.5}
-      fill={row.over ? OVER_COLOR : SPENT_COLOR}
-      stroke="rgba(10,10,16,0.9)"
-      strokeWidth={1}
+      r={3.5}
+      fill={OVER_COLOR}
+      stroke={INK[900]}
+      strokeWidth={2}
     />
   );
 }
 
 function TrendsGraphInner({ className, expenses, budgets, todayKey }: TrendsGraphProps) {
+  const fillId = `trend-fill-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
   const rows = useMemo<TrendRow[]>(() => {
     const today = parseISO(todayKey);
     const start = subDays(today, WINDOW_DAYS - 1);
@@ -136,84 +146,95 @@ function TrendsGraphInner({ className, expenses, budgets, todayKey }: TrendsGrap
   }, [rows]);
 
   return (
-    <section
+    <Card
+      role="region"
       aria-label="Daily spending over the past 30 days"
-      className={cn('rounded-xl border border-white/10 bg-white/[0.03] p-4', className)}
-    >
-      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-white">Last 30 days</h3>
-          <p className="text-[11px] text-white/50">
-            {formatINR(summary.total)} spent · avg {formatINR(summary.average, 'never')}/day ·{' '}
-            <span className={summary.daysOver > 0 ? 'text-red-300' : 'text-emerald-300'}>
-              {summary.daysOver} {summary.daysOver === 1 ? 'day' : 'days'} over the daily budget
-            </span>
-          </p>
-        </div>
-        <div className="flex items-center gap-3 text-[11px] text-white/55">
+      title="Last 30 days"
+      description={
+        <>
+          <span className="tabular font-mono">{formatINR(summary.total)}</span> spent · avg{' '}
+          <span className="tabular font-mono">{formatINR(summary.average, 'never')}</span>/day ·{' '}
+          <span className={summary.daysOver > 0 ? 'text-danger' : 'text-success'}>
+            {summary.daysOver} {summary.daysOver === 1 ? 'day' : 'days'} over the daily budget
+          </span>
+        </>
+      }
+      actions={
+        <div className="flex items-center gap-3 text-xs text-fg-muted">
           <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-4 rounded" style={{ background: SPENT_COLOR }} />
-            Spent per day
+            <span className="h-0.5 w-3.5 rounded-full" style={{ background: SPENT_COLOR }} />
+            Spent
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-4 border-t-2 border-dashed" style={{ borderColor: LIMIT_COLOR }} />
+            <span className="w-3.5 border-t-2 border-dashed border-fg-subtle" />
             Daily budget
           </span>
         </div>
-      </div>
-
-      <div className="h-48 w-full">
+      }
+      className={cn('@container', className)}
+    >
+      <div className="h-48 w-full font-mono">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+          <ComposedChart data={rows} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+            <defs>
+              <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={SPENT_COLOR} stopOpacity={CHART.areaOpacity} />
+                <stop offset="100%" stopColor={SPENT_COLOR} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} stroke={CHART.grid} />
             <XAxis
               dataKey="label"
-              tick={{ fill: '#8888a0', fontSize: 10 }}
-              stroke="rgba(255,255,255,0.1)"
+              tick={CHART.tick}
+              axisLine={false}
               tickLine={false}
               interval="preserveStartEnd"
-              minTickGap={20}
+              minTickGap={24}
+              tickMargin={8}
             />
             <YAxis
               width={52}
-              tick={{ fill: '#8888a0', fontSize: 10 }}
-              stroke="rgba(255,255,255,0.1)"
+              tick={CHART.tick}
+              axisLine={false}
               tickLine={false}
               tickFormatter={formatINRCompact}
               allowDecimals={false}
             />
-            <Tooltip content={renderTrendTooltip} cursor={{ stroke: 'rgba(255,255,255,0.15)' }} />
+            <Tooltip content={renderTrendTooltip} cursor={{ stroke: LINE.strong, strokeWidth: 1 }} />
             <Line
               type="stepAfter"
               dataKey="limit"
               name="Daily budget"
               stroke={LIMIT_COLOR}
               strokeWidth={1.5}
-              strokeDasharray="5 4"
+              strokeDasharray="4 4"
               dot={false}
               activeDot={false}
               isAnimationActive={false}
             />
-            <Line
+            <Area
               type="monotone"
               dataKey="spent"
               name="Spent"
               stroke={SPENT_COLOR}
-              strokeWidth={2}
+              strokeWidth={CHART.strokeWidth}
+              strokeLinejoin="round"
+              fill={`url(#${fillId})`}
               dot={renderSpendDot}
-              activeDot={{ r: 4 }}
+              activeDot={{ r: 4, stroke: INK[950], strokeWidth: 2, fill: SPENT_COLOR }}
               isAnimationActive={false}
             />
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
 
       {summary.peak && (
-        <p className="mt-2 text-[11px] text-white/45">
-          Biggest day: {format(parseISO(summary.peak.key), 'EEE, d MMM')} at {formatINR(summary.peak.spent)}
+        <p className="mt-3 text-xs text-fg-subtle">
+          Biggest day: {format(parseISO(summary.peak.key), 'EEE, d MMM')} at{' '}
+          <span className="tabular font-mono text-fg-muted">{formatINR(summary.peak.spent)}</span>
         </p>
       )}
-    </section>
+    </Card>
   );
 }
 

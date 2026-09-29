@@ -1,18 +1,24 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Warrior Leaderboard
-// Glass panel (toggled from the tray OnlineCounter): "Today's Top
-// Warriors" — top 10 anonymous warriors by focused hours today, with
-// quizzes and streak. Your own row is highlighted (and your rank is
-// shown even outside the top 10). Updates live from the ghost store.
-// Simulated data is labelled as such.
+// Glass popover (toggled from the tray OnlineCounter): "Today's top
+// warriors": the top 10 anonymous warriors by focused hours today, with
+// quizzes and streak. Top three get gold / steel / ember rank marks;
+// your own row is highlighted (and your rank is shown even outside the
+// top 10). Live, connecting and offline states each have their own
+// status line; the war-cry composer sits in the footer. Updates live
+// from the ghost store. Simulated data is labelled as such.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, useEffect, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { BookOpen, Clock, Flame, Radio, Trophy, X } from 'lucide-react';
+import { BookOpen, Clock, Flame, LoaderCircle, Trophy, Users, WifiOff, X } from 'lucide-react';
 import { rankWarriors, useGhostStore } from '@/stores/useGhostStore';
+import { Badge } from '@/components/ui/Badge';
+import { IconButton } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { EASE_OUT_QUINT } from '@/styles/tokens';
 import { cn } from '@/lib/utils';
 import { WarCryComposer } from './WarCrySystem';
 
@@ -24,33 +30,61 @@ interface WarriorLeaderboardProps {
   anchor?: 'top' | 'bottom';
 }
 
-const RANK_COLORS = ['text-accent-warning', 'text-text-primary', 'text-accent-tertiary'];
+/** Rank marks for the podium: gold, steel, ember. */
+const PODIUM = [
+  'bg-gold/14 text-gold ring-gold/35',
+  'bg-fg-muted/12 text-fg ring-fg-muted/30',
+  'bg-ember-400/14 text-ember-300 ring-ember-400/35',
+];
 
-function ModeBanner() {
+function ModeLine({ onlineCount }: { onlineCount: number }) {
   const mode = useGhostStore((s) => s.mode);
   const lastError = useGhostStore((s) => s.lastError);
+
   if (mode === 'realtime') {
     return (
-      <p className="mb-3 flex items-center gap-1.5 text-[11px] text-accent-success">
-        <Radio size={11} /> Live · anonymous warriors studying right now
-        {lastError && <span className="text-accent-warning"> · {lastError}</span>}
-      </p>
+      <div className="flex items-center gap-2 text-xs text-fg-muted">
+        <Badge tone="success" dot pulse size="sm">
+          Live
+        </Badge>
+        <span className="tabular">
+          {onlineCount} warrior{onlineCount === 1 ? '' : 's'} online
+        </span>
+        {lastError && (
+          <span className="truncate text-warning" title={lastError}>
+            · {lastError}
+          </span>
+        )}
+      </div>
     );
   }
   if (mode === 'connecting') {
     return (
-      <p className="mb-3 text-[11px] text-text-secondary">
-        Connecting to the campfire…{lastError ? ` (${lastError})` : ''}
+      <p className="flex items-center gap-2 text-xs text-fg-muted">
+        <LoaderCircle size={14} strokeWidth={1.75} className="animate-spin text-fg-subtle" aria-hidden />
+        <span className="truncate" title={lastError ?? undefined}>
+          Connecting to the campfire…{lastError ? ` (${lastError})` : ''}
+        </span>
       </p>
     );
   }
   return (
-    <div className="mb-3 rounded-lg border border-accent-warning/30 bg-accent-warning/10 px-2.5 py-1.5 text-[11px] text-accent-warning">
-      <p className="font-semibold">Offline campfire</p>
-      <p className="text-accent-warning/80">
-        Your other open tabs are real; SIM warriors are simulated.{' '}
-        {lastError ?? 'Set NEXT_PUBLIC_FIREBASE_DATABASE_URL to meet real warriors.'}
-      </p>
+    <div className="flex gap-2.5 rounded-control bg-warning/8 px-3 py-2 ring-1 ring-inset ring-warning/20">
+      <WifiOff size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+      <div className="min-w-0 text-xs">
+        <p className="font-medium text-warning">
+          Offline campfire <span className="font-normal text-fg-subtle tabular">· {onlineCount} here</span>
+        </p>
+        <p className="mt-0.5 text-fg-muted">
+          Your other open tabs are real; SIM warriors are simulated.{' '}
+          {lastError ?? (
+            <>
+              Set <code className="font-mono text-2xs text-fg">NEXT_PUBLIC_FIREBASE_DATABASE_URL</code> to meet real
+              warriors.
+            </>
+          )}
+        </p>
+      </div>
     </div>
   );
 }
@@ -88,86 +122,123 @@ function WarriorLeaderboardInner({ isOpen, onClose, anchor = 'top' }: WarriorLea
       {open && (
         <motion.div
           className={cn(
-            'glass-border fixed right-3 w-80 rounded-xl p-4 shadow-2xl',
+            'glass-popover fixed right-3 flex w-[336px] flex-col rounded-card',
             anchor === 'top' ? 'top-14' : 'bottom-14'
           )}
-          style={{ zIndex: 'var(--z-notification)', background: 'rgba(12, 12, 20, 0.95)', backdropFilter: 'blur(20px)' }}
-          initial={{ opacity: 0, y: anchor === 'top' ? -12 : 12, scale: 0.96 }}
+          style={{
+            zIndex: 'var(--z-notification)',
+            transformOrigin: anchor === 'top' ? 'top right' : 'bottom right',
+          }}
+          initial={{ opacity: 0, y: anchor === 'top' ? -6 : 6, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: anchor === 'top' ? -12 : 12, scale: 0.96 }}
-          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+          exit={{ opacity: 0, y: anchor === 'top' ? -4 : 4, scale: 0.98, transition: { duration: 0.14 } }}
+          transition={{ duration: 0.26, ease: EASE_OUT_QUINT }}
           role="dialog"
           aria-label="Today's top warriors"
         >
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Trophy size={16} className="text-accent-warning" />
-              <h3 className="font-display text-sm text-text-primary text-glow-sm">Today&apos;s Top Warriors</h3>
+          {/* Header */}
+          <div className="flex items-start gap-3 px-4 pb-3 pt-3.5">
+            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-control bg-gold/12 ring-1 ring-inset ring-gold/25">
+              <Trophy size={16} strokeWidth={1.75} className="text-gold" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-semibold text-fg">Today&apos;s top warriors</h3>
+              <p className="hud-label mt-0.5">Focused hours · anonymous</p>
             </div>
-            <button
-              type="button"
-              onClick={close}
-              className="rounded-md p-1 text-text-muted transition-colors hover:bg-white/10 hover:text-text-primary focus-ring"
-              aria-label="Close leaderboard"
-            >
-              <X size={14} />
-            </button>
+            <IconButton icon={X} aria-label="Close leaderboard" size="sm" onClick={close} />
           </div>
 
-          <ModeBanner />
+          <div className="px-4 pb-3">
+            <ModeLine onlineCount={onlineCount} />
+          </div>
 
-          <p className="mb-2 flex items-center gap-1.5 text-[11px] text-text-secondary">
-            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-accent-success" />
-            {onlineCount} warrior{onlineCount === 1 ? '' : 's'} online
-          </p>
-
-          <div className="flex max-h-[45vh] flex-col gap-1.5 overflow-y-auto">
-            {top.length === 0 && <p className="py-6 text-center text-xs text-text-secondary">No warriors online yet.</p>}
-            {top.map((w, i) => (
-              <div
-                key={w.anonymousId}
-                className={cn(
-                  'flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors',
-                  w.isSelf ? 'border border-accent-primary/50 bg-accent-primary/10 neon-border' : 'bg-white/5 hover:bg-white/10'
-                )}
-              >
-                <span className={cn('w-5 text-center font-mono text-xs font-bold', RANK_COLORS[i] ?? 'text-text-secondary')}>
-                  {i + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className={cn('truncate font-mono text-xs', w.isSelf ? 'text-accent-primary' : 'text-text-primary')}>
-                    {w.anonymousId}
-                    {w.isSelf && <span className="ml-1 text-[10px] text-accent-primary/70">(you)</span>}
-                    {w.isLocalTab && (
-                      <span className="ml-1 rounded bg-accent-primary/15 px-1 text-[9px] text-accent-primary">TAB</span>
+          {/* Ranking */}
+          <div className="border-t border-line">
+            {top.length === 0 ? (
+              <EmptyState
+                size="sm"
+                icon={Users}
+                title="No warriors online yet"
+                description="Warriors appear here as they join the campfire."
+              />
+            ) : (
+              <ol className="scrollbar-thin flex max-h-[45vh] flex-col gap-0.5 overflow-y-auto p-1.5" aria-label="Ranking">
+                {top.map((w, i) => (
+                  <li
+                    key={w.anonymousId}
+                    className={cn(
+                      'relative flex items-center gap-3 rounded-control px-2.5 py-1.5 transition-colors duration-120 ease-out-quint',
+                      w.isSelf ? 'bg-accent/10 ring-1 ring-inset ring-accent/30' : 'hover:bg-surface-hover'
                     )}
-                    {w.isSimulated && (
-                      <span className="ml-1 rounded bg-accent-warning/15 px-1 text-[9px] text-accent-warning">SIM</span>
-                    )}
-                  </p>
-                  <div className="mt-0.5 flex items-center gap-2.5 text-[10px] text-text-secondary">
-                    <span className="flex items-center gap-0.5" title="Focused hours today">
-                      <Clock size={9} /> {w.studyHoursToday.toFixed(1)}h
+                    aria-current={w.isSelf ? 'true' : undefined}
+                  >
+                    <span
+                      className={cn(
+                        'flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-2xs font-semibold tabular',
+                        i < 3 ? cn('ring-1 ring-inset', PODIUM[i]) : 'text-fg-subtle'
+                      )}
+                      aria-label={`Rank ${i + 1}`}
+                    >
+                      {i + 1}
                     </span>
-                    <span className="flex items-center gap-0.5" title="Quizzes today">
-                      <BookOpen size={9} /> {w.quizzesToday}
+                    <div className="min-w-0 flex-1">
+                      <p className="flex min-w-0 items-center gap-1.5">
+                        <span
+                          className={cn('truncate font-mono text-ui', w.isSelf ? 'text-accent' : 'text-fg')}
+                          title={w.anonymousId}
+                        >
+                          {w.anonymousId}
+                        </span>
+                        {w.isSelf && (
+                          <Badge tone="accent" size="sm">
+                            You
+                          </Badge>
+                        )}
+                        {w.isLocalTab && (
+                          <Badge tone="info" size="sm">
+                            Tab
+                          </Badge>
+                        )}
+                        {w.isSimulated && (
+                          <Badge tone="warning" size="sm">
+                            Sim
+                          </Badge>
+                        )}
+                      </p>
+                      <p className="mt-0.5 flex items-center gap-3 text-2xs text-fg-subtle tabular">
+                        <span className="flex items-center gap-1" title="Quizzes today">
+                          <BookOpen size={12} strokeWidth={1.75} aria-hidden /> {w.quizzesToday}
+                        </span>
+                        <span className="flex items-center gap-1 text-ember-300/90" title="Day streak">
+                          <Flame size={12} strokeWidth={1.75} aria-hidden /> {w.streak}
+                        </span>
+                      </p>
+                    </div>
+                    <span
+                      className="flex shrink-0 items-center gap-1 font-mono text-ui font-medium text-fg tabular"
+                      title="Focused hours today"
+                    >
+                      <Clock size={12} strokeWidth={1.75} className="text-fg-subtle" aria-hidden />
+                      {w.studyHoursToday.toFixed(1)}
+                      <span className="text-2xs text-fg-subtle">h</span>
                     </span>
-                    <span className="flex items-center gap-0.5 text-accent-tertiary" title="Day streak">
-                      <Flame size={9} /> {w.streak}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
 
           {selfIndex >= 10 && (
-            <p className="mt-2 rounded-lg border border-accent-primary/30 bg-accent-primary/5 px-2 py-1 font-mono text-[11px] text-accent-primary">
-              Your rank: #{selfIndex + 1} of {onlineCount}
+            <p className="mx-3 mb-2 flex items-center justify-between rounded-control bg-accent/8 px-3 py-1.5 text-xs ring-1 ring-inset ring-accent/25">
+              <span className="text-fg-muted">Your rank</span>
+              <span className="font-mono font-medium text-accent tabular">
+                #{selfIndex + 1} of {onlineCount}
+              </span>
             </p>
           )}
 
-          <div className="mt-3 border-t border-white/10 pt-3">
+          {/* War cry */}
+          <div className="border-t border-line px-4 pb-4 pt-3">
             <WarCryComposer compact />
           </div>
         </motion.div>

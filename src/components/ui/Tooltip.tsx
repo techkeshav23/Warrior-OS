@@ -1,88 +1,165 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Tooltip Component
-// Minimal tooltip using CSS positioning
+// WARRIOR OS — Tooltip (FORGE HUD kit)
+// Small popover label shown on hover and keyboard focus. Rendered in a
+// portal with fixed positioning, so window bodies (overflow: hidden)
+// never clip it. Optional keyboard shortcut renders as <Kbd>.
+//   <Tooltip content="New note" shortcut="Ctrl N"><IconButton … /></Tooltip>
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useState, useRef, useEffect, type ReactNode } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
-interface TooltipProps {
+export type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
+
+export interface TooltipProps {
   children: ReactNode;
-  content: string;
-  side?: 'top' | 'bottom' | 'left' | 'right';
+  /** Tooltip text (or rich content). */
+  content: ReactNode;
+  side?: TooltipSide;
+  /** Hover delay in ms before showing. */
   delay?: number;
+  /** Keyboard shortcut shown on the right, e.g. "Ctrl K". */
+  shortcut?: string;
+  /** Suppress the tooltip (renders children only). */
+  disabled?: boolean;
   className?: string;
+  /** Class for the inline wrapper around the trigger. */
+  wrapperClassName?: string;
 }
 
-const POSITION_MAP = {
-  top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',
-  bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
-  left: 'right-full top-1/2 -translate-y-1/2 mr-2',
-  right: 'left-full top-1/2 -translate-y-1/2 ml-2',
+interface Coords {
+  x: number;
+  y: number;
+}
+
+const GAP = 8;
+
+// Individual `translate` (not `transform`) so the entry keyframes' scale composes with it.
+const TRANSLATE: Record<TooltipSide, string> = {
+  top: '-50% -100%',
+  bottom: '-50% 0',
+  left: '-100% -50%',
+  right: '0 -50%',
 };
 
-const MOTION_MAP = {
-  top: { initial: { opacity: 0, y: 4 }, animate: { opacity: 1, y: 0 } },
-  bottom: { initial: { opacity: 0, y: -4 }, animate: { opacity: 1, y: 0 } },
-  left: { initial: { opacity: 0, x: 4 }, animate: { opacity: 1, x: 0 } },
-  right: { initial: { opacity: 0, x: -4 }, animate: { opacity: 1, x: 0 } },
-};
+function coordsFor(el: HTMLElement, side: TooltipSide): Coords {
+  const r = el.getBoundingClientRect();
+  switch (side) {
+    case 'bottom':
+      return { x: r.left + r.width / 2, y: r.bottom + GAP };
+    case 'left':
+      return { x: r.left - GAP, y: r.top + r.height / 2 };
+    case 'right':
+      return { x: r.right + GAP, y: r.top + r.height / 2 };
+    default:
+      return { x: r.left + r.width / 2, y: r.top - GAP };
+  }
+}
 
+/** Hover/focus tooltip. Keeps the old `content: string` API working. */
 export function Tooltip({
   children,
   content,
   side = 'top',
-  delay = 400,
+  delay = 350,
+  shortcut,
+  disabled = false,
   className,
+  wrapperClassName,
 }: TooltipProps) {
-  const [show, setShow] = useState(false);
+  const [coords, setCoords] = useState<Coords | null>(null);
+  const wrapRef = useRef<HTMLSpanElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const id = useId();
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
-  const handleEnter = () => {
-    timerRef.current = setTimeout(() => setShow(true), delay);
+  // Hide on scroll/resize: fixed coordinates would drift from the trigger.
+  useEffect(() => {
+    if (!coords) return;
+    const hide = () => setCoords(null);
+    window.addEventListener('scroll', hide, true);
+    window.addEventListener('resize', hide);
+    return () => {
+      window.removeEventListener('scroll', hide, true);
+      window.removeEventListener('resize', hide);
+    };
+  }, [coords]);
+
+  if (disabled || content == null || content === '') return <>{children}</>;
+
+  const show = (immediate: boolean) => {
+    clearTimeout(timerRef.current);
+    const open = () => {
+      const el = wrapRef.current?.firstElementChild ?? wrapRef.current;
+      if (el instanceof HTMLElement) setCoords(coordsFor(el, side));
+    };
+    if (immediate) open();
+    else timerRef.current = setTimeout(open, delay);
   };
 
-  const handleLeave = () => {
+  const hide = () => {
     clearTimeout(timerRef.current);
-    setShow(false);
+    setCoords(null);
   };
+
+  const trigger =
+    isValidElement(children) && coords
+      ? cloneElement(children as ReactElement<{ 'aria-describedby'?: string }>, { 'aria-describedby': id })
+      : children;
 
   return (
-    <div
-      className="relative inline-flex"
-      onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave}
+    <span
+      ref={wrapRef}
+      className={cn('inline-flex', wrapperClassName)}
+      onMouseEnter={() => show(false)}
+      onMouseLeave={hide}
+      onFocus={(e) => {
+        if ((e.target as HTMLElement).matches?.(':focus-visible')) show(true);
+      }}
+      onBlur={hide}
+      onMouseDown={hide}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') hide();
+      }}
     >
-      {children}
-      <AnimatePresence>
-        {show && (
-          <motion.div
-            {...MOTION_MAP[side]}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+      {trigger}
+      {coords &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            id={id}
+            role="tooltip"
             className={cn(
-              'absolute whitespace-nowrap z-[9999]',
-              'px-2 py-1 rounded-[var(--radius-sm)]',
-              'text-[10px] font-mono text-text-primary',
-              'pointer-events-none',
-              POSITION_MAP[side],
+              'pointer-events-none fixed z-[9990] flex max-w-72 items-center gap-2',
+              'glass-popover rounded-control px-2 py-1',
+              'text-xs font-medium text-fg',
+              'motion-safe:animate-scale-in',
               className
             )}
-            style={{
-              background: 'rgba(20, 20, 30, 0.95)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-            }}
+            style={{ left: coords.x, top: coords.y, translate: TRANSLATE[side] }}
           >
-            {content}
-          </motion.div>
+            <span className="min-w-0">{content}</span>
+            {shortcut && (
+              <kbd className="rounded-[4px] border border-line-strong bg-ink-800 px-1 font-mono text-2xs text-fg-muted">
+                {shortcut}
+              </kbd>
+            )}
+          </div>,
+          document.body
         )}
-      </AnimatePresence>
-    </div>
+    </span>
   );
 }

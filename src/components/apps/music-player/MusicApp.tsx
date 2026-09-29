@@ -1,75 +1,114 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Music Player App (WarBeats)
-// Two tabs:
+// WARRIOR OS — Music Player App (WarBeats) · FORGE HUD
+// Two tabs under one header:
 //   Procedural — the OS composes for you (Tone.js engine, 4 moods)
-//   My Library — your own audio files, stored on this device
+//   Library    — your own audio files, stored on this device
 // Both stay mounted so switching tabs never cuts the music.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles, Library } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Library, Sparkles } from 'lucide-react';
+import { AppHeader, AppIcon, Badge, Tabs } from '@/components/ui';
+import { useMusicGenStore } from '@/stores/useMusicGenStore';
+import { useAudioStore } from '@/stores/useAudioStore';
+import { MOOD_LABELS } from '@/lib/procedural-music/engine';
+import { TRANSITION } from '@/styles/tokens';
 import { ProceduralMusicPlayer } from '@/components/music/ProceduralMusicPlayer';
 import { LocalLibrary } from './LocalLibrary';
 
 type MusicTab = 'procedural' | 'library';
 
-const TABS: { id: MusicTab; label: string; icon: typeof Sparkles }[] = [
+const TABS = [
   { id: 'procedural', label: 'Procedural', icon: Sparkles },
-  { id: 'library', label: 'My Library', icon: Library },
+  { id: 'library', label: 'Library', icon: Library },
 ];
+
+/** Live status for the header: what is making sound right now. */
+function useHeaderStatus(): { text: string; badge: React.ReactNode } {
+  const status = useMusicGenStore((s) => s.status);
+  const mood = useMusicGenStore((s) => s.currentMood);
+  const isGenerating = useMusicGenStore((s) => s.isGenerating);
+  const fileTitle = useAudioStore((s) => s.trackTitle);
+  const filePlaying = useAudioStore((s) => s.isPlaying);
+
+  if (isGenerating && status === 'playing') {
+    return {
+      text: `Composing · ${MOOD_LABELS[mood]}`,
+      badge: (
+        <Badge tone="success" dot pulse>
+          Live
+        </Badge>
+      ),
+    };
+  }
+  if (isGenerating && status === 'starting') {
+    return { text: `Warming up · ${MOOD_LABELS[mood]}`, badge: <Badge tone="warning" dot>Starting</Badge> };
+  }
+  if (status === 'error') return { text: 'Engine error', badge: <Badge tone="danger" dot>Error</Badge> };
+  if (filePlaying && fileTitle && !fileTitle.startsWith('Procedural')) {
+    return {
+      text: `Playing · ${fileTitle}`,
+      badge: (
+        <Badge tone="success" dot pulse>
+          Live
+        </Badge>
+      ),
+    };
+  }
+  return { text: `Idle · ${MOOD_LABELS[mood]}`, badge: null };
+}
 
 function MusicAppInner() {
   const [tab, setTab] = useState<MusicTab>('procedural');
+  const reduceMotion = useReducedMotion();
+  const header = useHeaderStatus();
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-black/30 text-text-primary">
-      <div className="flex shrink-0 border-b border-white/10 bg-black/20" role="tablist" aria-label="Music">
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className={cn(
-              'relative flex items-center gap-1.5 px-4 py-2 text-xs transition-colors',
-              tab === id ? 'text-text-primary' : 'text-text-muted hover:text-text-secondary'
-            )}
-          >
-            <Icon className="h-3.5 w-3.5" aria-hidden />
-            {label}
-            {tab === id && (
-              <motion.span
-                layoutId="music-tab-underline"
-                className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-accent-primary"
-              />
-            )}
-          </button>
-        ))}
-      </div>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-ink-950/25 text-ui text-fg">
+      <AppHeader
+        leading={<AppIcon appId="music-player" size={28} active />}
+        title="WarBeats"
+        subtitle={<span title={header.text}>{header.text}</span>}
+        actions={header.badge}
+        tabs={
+          <Tabs
+            aria-label="Music"
+            idPrefix="warbeats"
+            value={tab}
+            onChange={(id) => setTab(id === 'library' ? 'library' : 'procedural')}
+            tabs={TABS}
+            size="sm"
+          />
+        }
+      />
 
       <div className="relative min-h-0 flex-1">
-        {TABS.map(({ id }) => (
-          <motion.div
-            key={id}
-            role="tabpanel"
-            className="absolute inset-0"
-            initial={false}
-            animate={
-              tab === id
-                ? { opacity: 1, x: 0, visibility: 'visible' }
-                : { opacity: 0, x: -10, transitionEnd: { visibility: 'hidden' } }
-            }
-            transition={{ duration: 0.15 }}
-            style={{ pointerEvents: tab === id ? 'auto' : 'none' }}
-          >
-            {id === 'procedural' ? <ProceduralMusicPlayer /> : <LocalLibrary />}
-          </motion.div>
-        ))}
+        {TABS.map(({ id }) => {
+          const active = tab === id;
+          return (
+            <motion.div
+              key={id}
+              id={`warbeats-panel-${id}`}
+              role="tabpanel"
+              aria-labelledby={`warbeats-tab-${id}`}
+              aria-hidden={!active}
+              className="absolute inset-0"
+              initial={false}
+              animate={
+                active
+                  ? { opacity: 1, x: 0, visibility: 'visible' }
+                  : { opacity: 0, x: reduceMotion ? 0 : -6, transitionEnd: { visibility: 'hidden' } }
+              }
+              transition={TRANSITION.small}
+              style={{ pointerEvents: active ? 'auto' : 'none' }}
+            >
+              {id === 'procedural' ? <ProceduralMusicPlayer /> : <LocalLibrary />}
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );

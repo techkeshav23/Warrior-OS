@@ -8,13 +8,12 @@
 
 'use client';
 
-import { memo, useId, useState, type FormEvent, type KeyboardEvent, type MouseEvent } from 'react';
-import { motion } from 'framer-motion';
-import { Bell, Check, Clock, Repeat, Trash2, X } from 'lucide-react';
+import { memo, useId, useRef, useState, type FormEvent } from 'react';
+import { Bell, CalendarCog, CalendarPlus, Check, Clock, Repeat, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Button, Dialog, IconButton, Input, SegmentedControl, Select, Switch, Textarea } from '@/components/ui';
 import {
-  CALENDAR_CATEGORY_COLORS,
   MAX_EVENT_NOTES_LENGTH,
   MAX_EVENT_TITLE_LENGTH,
   REMINDER_OPTIONS,
@@ -29,12 +28,16 @@ import type {
 import { checkCalendarPlannerAchievement } from './calendar-achievements';
 import {
   CALENDAR_CATEGORIES,
+  CATEGORY_COLOR,
   EVENT_COLOR_SWATCHES,
   RECURRENCE_OPTIONS,
   describeRecurrence,
+  eventColor,
+  isCategoryDefaultColor,
   isValidDateKey,
   isValidTime,
   reminderLabel,
+  tintColor,
 } from './calendar-utils';
 
 export type EventModalState =
@@ -96,6 +99,7 @@ function validateForm(v: FormValues): FormErrors {
 
 function EventModalInner({ state, event, onClose, onSaved }: EventModalProps) {
   const ids = useId();
+  const titleRef = useRef<HTMLInputElement>(null);
   const occurrenceDate = state.mode === 'edit' ? state.occurrenceDate : state.date;
   const isRecurringEdit = event !== null && event.recurrence !== 'none';
 
@@ -105,9 +109,9 @@ function EventModalInner({ state, event, onClose, onSaved }: EventModalProps) {
   const [allDay, setAllDay] = useState(() => (event ? event.time === null : false));
   const [time, setTime] = useState(() => event?.time ?? DEFAULT_TIME);
   const [category, setCategory] = useState<CalendarEventCategory>(() => event?.category ?? 'study');
-  const [color, setColor] = useState(() => event?.color ?? CALENDAR_CATEGORY_COLORS.study);
+  const [color, setColor] = useState(() => (event ? eventColor(event.color) : CATEGORY_COLOR.study));
   const [colorTouched, setColorTouched] = useState(() =>
-    event ? event.color !== CALENDAR_CATEGORY_COLORS[event.category] : false
+    event ? !isCategoryDefaultColor(event.color, event.category) : false
   );
   const [recurrence, setRecurrence] = useState<CalendarRecurrence>(() => event?.recurrence ?? 'none');
   const [recurUntil, setRecurUntil] = useState(() => event?.recurUntil ?? '');
@@ -151,7 +155,7 @@ function EventModalInner({ state, event, onClose, onSaved }: EventModalProps) {
 
   const pickCategory = (next: CalendarEventCategory) => {
     setCategory(next);
-    if (!colorTouched) setColor(CALENDAR_CATEGORY_COLORS[next]);
+    if (!colorTouched) setColor(CATEGORY_COLOR[next]);
   };
 
   const pickColor = (next: string) => {
@@ -164,7 +168,7 @@ function EventModalInner({ state, event, onClose, onSaved }: EventModalProps) {
     date,
     time: allDay ? null : time,
     category,
-    color: HEX_RE.test(color) ? color : CALENDAR_CATEGORY_COLORS[category],
+    color: HEX_RE.test(color) ? color : CATEGORY_COLOR[category],
     recurrence: effectiveRecurrence,
     recurUntil: effectiveRecurrence !== 'none' && recurUntil ? recurUntil : null,
     reminderMinutes: allDay ? null : reminder,
@@ -207,397 +211,289 @@ function EventModalInner({ state, event, onClose, onSaved }: EventModalProps) {
     onClose();
   };
 
-  const onDialogKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      onClose();
-    }
-  };
-
-  const onBackdropMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
-  const fieldBase =
-    'w-full rounded-lg border bg-black/30 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-cyan-400/60 disabled:cursor-not-allowed disabled:opacity-40';
+  const colorLabelId = `${ids}-color-label`;
+  const allDayId = `${ids}-allday`;
 
   return (
-    <motion.div
-      className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15 }}
-      onMouseDown={onBackdropMouseDown}
-      onKeyDown={onDialogKeyDown}
-    >
-      <motion.div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={`${ids}-heading`}
-        initial={{ y: 20, opacity: 0, scale: 0.98 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={{ y: 12, opacity: 0, scale: 0.98 }}
-        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className="flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-[rgba(12,12,20,0.96)] shadow-[0_16px_60px_rgba(0,0,0,0.55)]"
-      >
-        {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
-          <h3 id={`${ids}-heading`} className="font-display text-xs font-bold uppercase tracking-wider text-white">
-            {event ? 'Edit event' : 'New event'}
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
-            {/* Series vs single day (recurring events opened from a day) */}
+    <Dialog
+      open
+      onClose={onClose}
+      title={event ? 'Edit event' : 'New event'}
+      description={
+        event
+          ? isRecurringEdit
+            ? `Part of a repeating series · ${occurrenceLabel}`
+            : occurrenceLabel
+          : `Plan something for ${occurrenceLabel}.`
+      }
+      icon={event ? CalendarCog : CalendarPlus}
+      iconTone="accent"
+      size="md"
+      initialFocus={titleRef}
+      footer={
+        event && confirmingDelete ? (
+          <div className="flex w-full flex-wrap items-center gap-2" role="group" aria-label="Confirm delete">
+            <p className="mr-auto flex items-center gap-2 text-ui text-fg">
+              <Trash2 size={16} strokeWidth={1.75} className="text-danger" aria-hidden />
+              {isRecurringEdit ? 'Delete which events?' : `Delete “${event.title}”?`}
+            </p>
+            <Button variant="ghost" onClick={() => setConfirmingDelete(false)}>
+              Keep it
+            </Button>
             {isRecurringEdit && (
-              <div>
-                <p className="mb-1 text-[11px] text-white/60">Apply changes to</p>
-                <div className="grid grid-cols-2 gap-1 rounded-lg border border-white/10 bg-black/30 p-1">
-                  {(
-                    [
-                      { id: 'series', label: 'Whole series' },
-                      { id: 'single', label: `Only ${occurrenceLabel}` },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => switchScope(opt.id)}
-                      aria-pressed={scope === opt.id}
-                      className={cn(
-                        'truncate rounded-md px-2 py-1 text-xs transition-colors',
-                        scope === opt.id ? 'bg-cyan-500/20 text-cyan-200' : 'text-white/55 hover:bg-white/5'
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <Button variant="danger" onClick={deleteOccurrence}>
+                Only {occurrenceLabel}
+              </Button>
             )}
-
-            {/* Title */}
-            <div>
-              <label htmlFor={`${ids}-title`} className="mb-1 block text-[11px] text-white/60">
-                Title
-              </label>
-              <input
-                id={`${ids}-title`}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                maxLength={MAX_EVENT_TITLE_LENGTH}
-                autoFocus
-                autoComplete="off"
-                placeholder="Deep-work block, sprint review, gym..."
-                aria-invalid={visible.title ? true : undefined}
-                className={cn(fieldBase, 'px-3 py-2 text-base', visible.title ? 'border-red-500/50' : 'border-white/10')}
+            <Button variant="danger" onClick={deleteSeries}>
+              {isRecurringEdit ? 'Entire series' : 'Delete event'}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex w-full items-center gap-2">
+            {event && (
+              <IconButton
+                icon={Trash2}
+                variant="ghost-danger"
+                aria-label="Delete event"
+                tooltip
+                onClick={() => setConfirmingDelete(true)}
               />
-              {visible.title && <p className="mt-1 text-[11px] text-red-300">{visible.title}</p>}
+            )}
+            <div className="ml-auto flex items-center gap-2">
+              <Button variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit" form={`${ids}-form`} leadingIcon={Check}>
+                {event ? 'Save' : 'Add event'}
+              </Button>
             </div>
-
-            {/* Date + time */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="min-w-0">
-                <label htmlFor={`${ids}-date`} className="mb-1 block text-[11px] text-white/60">
-                  {effectiveRecurrence !== 'none' ? 'Starts on' : 'Date'}
-                </label>
-                <input
-                  id={`${ids}-date`}
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  aria-invalid={visible.date ? true : undefined}
-                  className={cn(fieldBase, 'px-2 py-[7px]', visible.date ? 'border-red-500/50' : 'border-white/10')}
-                />
-                {visible.date && <p className="mt-1 text-[11px] text-red-300">{visible.date}</p>}
-              </div>
-              <div className="min-w-0">
-                <div className="mb-1 flex items-center justify-between">
-                  <label htmlFor={`${ids}-time`} className="flex items-center gap-1 text-[11px] text-white/60">
-                    <Clock className="h-3 w-3" /> Time
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-1 text-[11px] text-white/60">
-                    <input
-                      type="checkbox"
-                      checked={allDay}
-                      onChange={(e) => setAllDay(e.target.checked)}
-                      className="h-3 w-3 accent-cyan-400"
-                    />
-                    All day
-                  </label>
-                </div>
-                <input
-                  id={`${ids}-time`}
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  disabled={allDay}
-                  aria-invalid={visible.time ? true : undefined}
-                  className={cn(fieldBase, 'px-2 py-[7px]', visible.time ? 'border-red-500/50' : 'border-white/10')}
-                />
-                {visible.time && <p className="mt-1 text-[11px] text-red-300">{visible.time}</p>}
-              </div>
-            </div>
-            {event && scope === 'series' && isRecurringEdit && (
-              <p className="-mt-1 text-[11px] text-white/45">
+          </div>
+        )
+      }
+    >
+      <form id={`${ids}-form`} onSubmit={handleSubmit} noValidate className="space-y-4">
+        {/* Series vs single day (recurring events opened from a day) */}
+        {isRecurringEdit && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-fg-muted">Apply changes to</p>
+            <SegmentedControl
+              fullWidth
+              aria-label="Apply changes to"
+              value={scope}
+              onChange={switchScope}
+              options={[
+                { value: 'series', label: 'Whole series' },
+                { value: 'single', label: `Only ${occurrenceLabel}` },
+              ]}
+            />
+            {scope === 'series' && (
+              <p className="text-xs text-fg-subtle">
                 Changes apply to every day in this series. Pick “Only {occurrenceLabel}” to change just that day.
               </p>
             )}
+          </div>
+        )}
 
-            {/* Category */}
-            <div>
-              <p className="mb-1 text-[11px] text-white/60">Category</p>
-              <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="Category">
-                {CALENDAR_CATEGORIES.map((c) => {
-                  const Icon = c.Icon;
-                  const active = category === c.id;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => pickCategory(c.id)}
-                      aria-pressed={active}
-                      className={cn(
-                        'flex items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs transition-colors',
-                        active ? 'text-white' : 'border-white/10 text-white/55 hover:bg-white/5'
-                      )}
-                      style={active ? { borderColor: `${c.color}99`, background: `${c.color}24` } : undefined}
-                    >
-                      <Icon className="h-3.5 w-3.5" style={{ color: c.color }} />
-                      {c.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+        {/* Title */}
+        <Input
+          ref={titleRef}
+          id={`${ids}-title`}
+          label="Title"
+          size="lg"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={MAX_EVENT_TITLE_LENGTH}
+          autoComplete="off"
+          placeholder="Deep-work block, sprint review, gym..."
+          error={visible.title}
+        />
 
-            {/* Colour */}
-            <div>
-              <p id={`${ids}-color-label`} className="mb-1 text-[11px] text-white/60">
-                Colour
-              </p>
-              <div
-                role="radiogroup"
-                aria-labelledby={`${ids}-color-label`}
-                className="flex flex-wrap items-center gap-1.5"
-              >
-                {EVENT_COLOR_SWATCHES.map((swatch) => {
-                  const active = color.toLowerCase() === swatch;
-                  return (
-                    <button
-                      key={swatch}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      aria-label={`Colour ${swatch}`}
-                      onClick={() => pickColor(swatch)}
-                      className={cn(
-                        'flex h-6 w-6 items-center justify-center rounded-full border-2 transition-transform hover:scale-110',
-                        active ? 'border-white' : 'border-transparent'
-                      )}
-                      style={{ background: swatch }}
-                    >
-                      {active && <Check className="h-3 w-3 text-black" />}
-                    </button>
-                  );
-                })}
-                <label
-                  className="relative flex h-6 cursor-pointer items-center gap-1 rounded-full border border-white/15 px-2 text-[10px] text-white/60 hover:bg-white/5"
-                  title="Custom colour"
-                >
-                  <span className="h-3 w-3 rounded-full border border-white/30" style={{ background: color }} />
-                  Custom
-                  <input
-                    type="color"
-                    value={HEX_RE.test(color) ? color : '#00f0ff'}
-                    onChange={(e) => pickColor(e.target.value)}
-                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                    aria-label="Custom colour"
-                  />
+        {/* Date + time */}
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            id={`${ids}-date`}
+            type="date"
+            label={effectiveRecurrence !== 'none' ? 'Starts on' : 'Date'}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            error={visible.date}
+            className="tabular"
+          />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor={`${ids}-time`} className="text-xs font-medium text-fg-muted">
+                Time
+              </label>
+              <span className="flex items-center gap-1.5">
+                <label htmlFor={allDayId} className="cursor-pointer text-xs text-fg-muted">
+                  All day
                 </label>
-              </div>
+                <Switch id={allDayId} size="sm" checked={allDay} onCheckedChange={setAllDay} />
+              </span>
             </div>
+            <Input
+              id={`${ids}-time`}
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              disabled={allDay}
+              leadingIcon={Clock}
+              error={visible.time}
+              className="tabular"
+            />
+          </div>
+        </div>
 
-            {/* Repeat */}
-            {scope === 'series' && (
-              <div>
-                <p className="mb-1 flex items-center gap-1 text-[11px] text-white/60">
-                  <Repeat className="h-3 w-3" /> Repeat
-                </p>
-                <div className="grid grid-cols-4 gap-1 rounded-lg border border-white/10 bg-black/30 p-1" role="group" aria-label="Repeat">
-                  {RECURRENCE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setRecurrence(opt.id)}
-                      aria-pressed={recurrence === opt.id}
-                      className={cn(
-                        'rounded-md py-1 text-xs transition-colors',
-                        recurrence === opt.id ? 'bg-cyan-500/20 text-cyan-200' : 'text-white/55 hover:bg-white/5'
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                {recurrence !== 'none' && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <label htmlFor={`${ids}-until`} className="shrink-0 text-[11px] text-white/60">
-                      Until
-                    </label>
-                    <input
-                      id={`${ids}-until`}
-                      type="date"
-                      value={recurUntil}
-                      min={isValidDateKey(date) ? date : undefined}
-                      onChange={(e) => setRecurUntil(e.target.value)}
-                      aria-invalid={visible.recurUntil ? true : undefined}
-                      className={cn(
-                        fieldBase,
-                        'px-2 py-1 text-xs',
-                        visible.recurUntil ? 'border-red-500/50' : 'border-white/10'
-                      )}
-                    />
-                    {recurUntil && (
-                      <button
-                        type="button"
-                        onClick={() => setRecurUntil('')}
-                        className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-white/50 hover:bg-white/10 hover:text-white"
-                      >
-                        No end
-                      </button>
-                    )}
-                  </div>
-                )}
-                {visible.recurUntil && <p className="mt-1 text-[11px] text-red-300">{visible.recurUntil}</p>}
-                {recurrencePreview && <p className="mt-1 text-[11px] text-cyan-200/70">{recurrencePreview}</p>}
-              </div>
-            )}
+        {/* Category */}
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-fg-muted">Category</p>
+          <div className="grid grid-cols-3 gap-2" role="group" aria-label="Category">
+            {CALENDAR_CATEGORIES.map((c) => {
+              const Icon = c.Icon;
+              const active = category === c.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => pickCategory(c.id)}
+                  aria-pressed={active}
+                  className={cn(
+                    'focus-ring flex h-9 items-center justify-center gap-2 rounded-control border text-ui font-medium',
+                    'transition-[background-color,border-color,color] duration-120 ease-out-quint',
+                    active ? 'text-fg' : 'border-line-strong bg-surface-2 text-fg-muted hover:border-fg-faint hover:bg-surface-hover hover:text-fg'
+                  )}
+                  style={active ? { borderColor: tintColor(c.color, 55), background: tintColor(c.color, 14) } : undefined}
+                >
+                  <Icon size={16} strokeWidth={1.75} style={{ color: c.color }} aria-hidden />
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-            {/* Reminder */}
-            <div>
-              <label htmlFor={`${ids}-reminder`} className="mb-1 flex items-center gap-1 text-[11px] text-white/60">
-                <Bell className="h-3 w-3" /> Reminder
-              </label>
-              <select
-                id={`${ids}-reminder`}
-                value={allDay || reminder === null ? 'none' : String(reminder)}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setReminder(value === 'none' ? null : Number(value));
-                }}
-                disabled={allDay}
-                className={cn(fieldBase, 'border-white/10 px-2 py-1.5')}
-              >
-                <option value="none" className="bg-[#111118]">
-                  No reminder
-                </option>
-                {REMINDER_OPTIONS.map((minutes) => (
-                  <option key={minutes} value={String(minutes)} className="bg-[#111118]">
-                    {reminderLabel(minutes)}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-[10px] text-white/40">
-                {allDay
-                  ? 'Add a start time to get a reminder.'
-                  : 'NEXUS reminds you while Warrior OS is open in this browser.'}
-              </p>
-            </div>
-
-            {/* Notes */}
-            <div>
-              <label htmlFor={`${ids}-notes`} className="mb-1 block text-[11px] text-white/60">
-                Notes <span className="text-white/35">(optional)</span>
-              </label>
-              <textarea
-                id={`${ids}-notes`}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                maxLength={MAX_EVENT_NOTES_LENGTH}
-                rows={2}
-                placeholder="Agenda, links, what to bring..."
-                className={cn(fieldBase, 'resize-none px-3 py-2', visible.notes ? 'border-red-500/50' : 'border-white/10')}
+        {/* Colour */}
+        <div className="space-y-1.5">
+          <p id={colorLabelId} className="text-xs font-medium text-fg-muted">
+            Colour
+          </p>
+          <div role="radiogroup" aria-labelledby={colorLabelId} className="flex flex-wrap items-center gap-2">
+            {EVENT_COLOR_SWATCHES.map((swatch) => {
+              const active = color.toLowerCase() === swatch;
+              return (
+                <button
+                  key={swatch}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  aria-label={`Colour ${swatch}`}
+                  onClick={() => pickColor(swatch)}
+                  className={cn(
+                    'focus-ring flex size-6 items-center justify-center rounded-full transition-transform duration-120 ease-out-quint hover:scale-110',
+                    active && 'ring-2 ring-fg ring-offset-2 ring-offset-ink-850'
+                  )}
+                  style={{ background: swatch }}
+                >
+                  {active && <Check size={12} strokeWidth={3} className="text-ink-950" aria-hidden />}
+                </button>
+              );
+            })}
+            <label
+              className="relative ml-1 flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-line-strong px-2.5 text-xs text-fg-muted transition-colors duration-120 hover:border-fg-faint hover:bg-surface-hover hover:text-fg focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent"
+              title="Custom colour"
+            >
+              <span className="size-3 rounded-full ring-1 ring-line-strong" style={{ background: color }} aria-hidden />
+              Custom
+              <input
+                type="color"
+                value={HEX_RE.test(color) ? color : CATEGORY_COLOR.study}
+                onChange={(e) => pickColor(e.target.value)}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                aria-label="Custom colour"
               />
-              {visible.notes && <p className="mt-1 text-[11px] text-red-300">{visible.notes}</p>}
-            </div>
+            </label>
           </div>
+        </div>
 
-          {/* Delete confirmation */}
-          {event && confirmingDelete && (
-            <div className="shrink-0 border-t border-red-500/20 bg-red-500/10 px-4 py-2.5">
-              <p className="text-xs text-red-200">
-                {isRecurringEdit ? 'Delete which events?' : `Delete “${event.title}”?`}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {isRecurringEdit && (
-                  <button
-                    type="button"
-                    onClick={deleteOccurrence}
-                    className="rounded-md border border-red-400/40 bg-red-500/15 px-2 py-1 text-xs text-red-200 hover:bg-red-500/25"
-                  >
-                    Only {occurrenceLabel}
-                  </button>
+        {/* Repeat */}
+        {scope === 'series' && (
+          <div className="space-y-1.5">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-fg-muted">
+              <Repeat size={14} strokeWidth={1.75} aria-hidden /> Repeat
+            </p>
+            <SegmentedControl
+              fullWidth
+              aria-label="Repeat"
+              value={recurrence}
+              onChange={setRecurrence}
+              options={RECURRENCE_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
+            />
+            {recurrence !== 'none' && (
+              <div className="flex items-end gap-2 pt-1.5">
+                <Input
+                  id={`${ids}-until`}
+                  type="date"
+                  size="sm"
+                  label="Until"
+                  value={recurUntil}
+                  min={isValidDateKey(date) ? date : undefined}
+                  onChange={(e) => setRecurUntil(e.target.value)}
+                  error={visible.recurUntil}
+                  wrapperClassName="max-w-48"
+                  className="tabular"
+                />
+                {recurUntil && (
+                  <Button size="sm" variant="ghost" onClick={() => setRecurUntil('')}>
+                    No end
+                  </Button>
                 )}
-                <button
-                  type="button"
-                  onClick={deleteSeries}
-                  className="rounded-md border border-red-400/40 bg-red-500/25 px-2 py-1 text-xs font-semibold text-red-100 hover:bg-red-500/35"
-                >
-                  {isRecurringEdit ? 'Entire series' : 'Delete event'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmingDelete(false)}
-                  className="rounded-md px-2 py-1 text-xs text-white/60 hover:bg-white/10"
-                >
-                  Keep it
-                </button>
               </div>
-            </div>
-          )}
-
-          {/* Footer */}
-          <div className="flex shrink-0 items-center gap-2 border-t border-white/10 px-4 py-3">
-            {event && !confirmingDelete && (
-              <button
-                type="button"
-                onClick={() => setConfirmingDelete(true)}
-                className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-red-300/80 transition-colors hover:bg-red-500/10 hover:text-red-200"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Delete
-              </button>
             )}
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-lg px-3 py-1.5 text-xs text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex items-center gap-1 rounded-lg border border-cyan-400/40 bg-cyan-500/20 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition-colors hover:bg-cyan-500/30"
-              >
-                <Check className="h-3.5 w-3.5" />
-                {event ? 'Save' : 'Add event'}
-              </button>
-            </div>
+            {recurrencePreview && (
+              <p className="flex items-center gap-1.5 text-xs text-fg-muted">
+                <Repeat size={12} strokeWidth={1.75} className="text-accent" aria-hidden />
+                {recurrencePreview}
+              </p>
+            )}
           </div>
-        </form>
-      </motion.div>
-    </motion.div>
+        )}
+
+        {/* Reminder */}
+        <Select
+          id={`${ids}-reminder`}
+          label={
+            <span className="flex items-center gap-1.5">
+              <Bell size={14} strokeWidth={1.75} aria-hidden /> Reminder
+            </span>
+          }
+          value={allDay || reminder === null ? 'none' : String(reminder)}
+          onValueChange={(value) => setReminder(value === 'none' ? null : Number(value))}
+          disabled={allDay}
+          hint={
+            allDay ? 'Add a start time to get a reminder.' : 'NEXUS reminds you while Warrior OS is open in this browser.'
+          }
+          options={[
+            { value: 'none', label: 'No reminder' },
+            ...REMINDER_OPTIONS.map((minutes) => ({ value: String(minutes), label: reminderLabel(minutes) })),
+          ]}
+        />
+
+        {/* Notes */}
+        <Textarea
+          id={`${ids}-notes`}
+          label="Notes"
+          labelAside="Optional"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          maxLength={MAX_EVENT_NOTES_LENGTH}
+          rows={2}
+          resizable={false}
+          placeholder="Agenda, links, what to bring..."
+          error={visible.notes}
+        />
+      </form>
+    </Dialog>
   );
 }
 

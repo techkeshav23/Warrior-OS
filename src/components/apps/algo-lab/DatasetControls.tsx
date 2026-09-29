@@ -1,15 +1,17 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Algo Lab Dataset Controls
-// Array-size slider, dataset shapes, reshuffle and a validated
-// custom-input editor. Shared by the sorting visualizer and
-// Compare Mode (both sort the same dataset).
+// WARRIOR OS — Algo Lab Dataset Controls (FORGE HUD)
+// Array-size slider, dataset shapes (segmented), reshuffle and a
+// validated custom-input editor that opens as a sub-bar under the
+// toolbar. Shared by the sorting visualizer and Compare Mode (both
+// sort the same dataset). useDatasetControls() returns the toolbar
+// content and the sub-bar so LabLayout can place each one.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo, useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Check, Keyboard, Shuffle, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Button, IconButton, Input, SegmentedControl, Slider, ToolbarSeparator } from '@/components/ui';
 import { DATASET_SHAPES, parseCustomArray } from '@/lib/algorithms/dataset';
 import {
   ARRAY_SIZE_MAX,
@@ -19,9 +21,14 @@ import {
   CUSTOM_VALUE_MAX,
   CUSTOM_VALUE_MIN,
 } from '@/lib/algorithms/constants';
-import { useAlgoLabStore } from './useAlgoLabStore';
+import { useAlgoLabStore, type DatasetSource } from './useAlgoLabStore';
 
-function DatasetControlsInner() {
+const SHAPE_OPTIONS: { value: DatasetSource; label: string; icon?: typeof Keyboard }[] = [
+  ...DATASET_SHAPES.map((shape) => ({ value: shape.id as DatasetSource, label: shape.label })),
+  { value: 'custom', label: 'Custom', icon: Keyboard },
+];
+
+export function useDatasetControls(): { toolbar: ReactNode; subbar: ReactNode } {
   const dataset = useAlgoLabStore((s) => s.dataset);
   const source = useAlgoLabStore((s) => s.datasetSource);
   const arraySize = useAlgoLabStore((s) => s.arraySize);
@@ -45,11 +52,7 @@ function DatasetControlsInner() {
     if (sizeDraft !== arraySize) regenerate(undefined, sizeDraft);
   };
 
-  const toggleEditor = () => {
-    if (editorOpen) {
-      setEditorOpen(false);
-      return;
-    }
+  const openEditor = () => {
     setDraft(dataset.join(', '));
     setError(null);
     setEditorOpen(true);
@@ -67,119 +70,96 @@ function DatasetControlsInner() {
     setEditorOpen(false);
   };
 
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <label className="flex items-center gap-2 text-[11px] text-white/60">
-          <span className="whitespace-nowrap">Array size</span>
-          <input
-            type="range"
+  const onShape = (value: DatasetSource) => {
+    if (value === 'custom') {
+      if (editorOpen) setEditorOpen(false);
+      else openEditor();
+      return;
+    }
+    setEditorOpen(false);
+    regenerate(value, sizeDraft);
+  };
+
+  const shapeHint = DATASET_SHAPES.find((shape) => shape.id === source)?.hint ?? 'Your own values';
+
+  const toolbar = (
+    <>
+      <div className="flex shrink-0 items-center gap-2.5" title="Array size (applies when you let go)">
+        <span className="hud-label">Size</span>
+        <div className="w-24">
+          <Slider
+            value={sizeDraft}
+            onValueChange={setSizeDraft}
             min={ARRAY_SIZE_MIN}
             max={ARRAY_SIZE_MAX}
             step={1}
-            value={sizeDraft}
-            onChange={(event) => setSizeDraft(Number(event.target.value))}
             onPointerUp={commitSize}
             onKeyUp={commitSize}
             onBlur={commitSize}
             aria-label="Array size"
-            className="w-24 accent-cyan-400"
           />
-          <span className="w-12 font-mono tabular-nums text-white/80">n = {sizeDraft === arraySize ? dataset.length : sizeDraft}</span>
-        </label>
-
-        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Dataset shape">
-          {DATASET_SHAPES.map((shape) => (
-            <button
-              key={shape.id}
-              type="button"
-              title={shape.hint}
-              aria-pressed={source === shape.id}
-              onClick={() => regenerate(shape.id, sizeDraft)}
-              className={cn(
-                'rounded-md border px-2 py-1 text-[11px] transition-colors',
-                source === shape.id
-                  ? 'border-cyan-500/40 bg-cyan-500/20 text-cyan-200'
-                  : 'border-white/10 bg-white/5 text-white/65 hover:bg-white/10 hover:text-white'
-              )}
-            >
-              {shape.label}
-            </button>
-          ))}
         </div>
-
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => regenerate(undefined, sizeDraft)}
-            className="flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/75 transition-colors hover:bg-white/10 hover:text-white"
-            title="Generate a new dataset of the same shape"
-          >
-            <Shuffle className="h-3.5 w-3.5" aria-hidden />
-            New data
-          </button>
-          <button
-            type="button"
-            onClick={toggleEditor}
-            aria-expanded={editorOpen}
-            className={cn(
-              'flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors',
-              editorOpen || source === 'custom'
-                ? 'border-cyan-500/40 bg-cyan-500/20 text-cyan-200'
-                : 'border-white/10 bg-white/5 text-white/75 hover:bg-white/10 hover:text-white'
-            )}
-            title="Type your own values"
-          >
-            <Keyboard className="h-3.5 w-3.5" aria-hidden />
-            Custom
-          </button>
-        </div>
+        <span className="tabular w-12 font-mono text-xs text-fg">
+          <span className="text-fg-subtle">n=</span>
+          {sizeDraft === arraySize ? dataset.length : sizeDraft}
+        </span>
       </div>
 
-      {editorOpen && (
-        <form onSubmit={applyCustom} className="flex flex-col gap-1">
-          <div className="flex items-center gap-1.5">
-            <input
-              type="text"
-              value={draft}
-              onChange={(event) => {
-                setDraft(event.target.value);
-                if (error) setError(null);
-              }}
-              placeholder="e.g. 42, 7, 19, 3, 25"
-              aria-label="Custom values"
-              aria-invalid={error !== null}
-              spellCheck={false}
-              autoFocus
-              className={cn(
-                'min-w-0 flex-1 rounded-md border bg-black/40 px-2.5 py-1.5 font-mono text-[12px] text-white outline-none placeholder:text-white/35',
-                error ? 'border-rose-500/60 focus:border-rose-400' : 'border-white/15 focus:border-cyan-400/60'
-              )}
-            />
-            <button
-              type="submit"
-              className="flex items-center gap-1 rounded-md border border-cyan-500/40 bg-cyan-500/20 px-2.5 py-1.5 text-[11px] text-cyan-100 hover:bg-cyan-500/30"
-            >
-              <Check className="h-3.5 w-3.5" aria-hidden />
-              Apply
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditorOpen(false)}
-              aria-label="Cancel custom input"
-              className="flex h-7 w-7 items-center justify-center rounded-md text-white/60 hover:bg-white/10 hover:text-white"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <p className={cn('text-[11px]', error ? 'text-rose-300' : 'text-white/50')} role={error ? 'alert' : undefined}>
-            {error ??
-              `${CUSTOM_MIN_LENGTH}–${CUSTOM_MAX_LENGTH} whole numbers from ${CUSTOM_VALUE_MIN} to ${CUSTOM_VALUE_MAX}, separated by commas or spaces.`}
-          </p>
-        </form>
-      )}
-    </div>
-  );
-}
+      <ToolbarSeparator />
 
-export const DatasetControls = memo(DatasetControlsInner);
+      <div title={shapeHint}>
+        <SegmentedControl<DatasetSource>
+          size="sm"
+          aria-label="Dataset shape"
+          value={editorOpen ? 'custom' : source}
+          onChange={onShape}
+          options={SHAPE_OPTIONS}
+        />
+      </div>
+
+      <IconButton
+        icon={Shuffle}
+        size="sm"
+        aria-label="New dataset of the same shape"
+        tooltip
+        onClick={() => regenerate(undefined, sizeDraft)}
+      />
+    </>
+  );
+
+  const subbar = editorOpen ? (
+    <form
+      onSubmit={applyCustom}
+      className="flex shrink-0 flex-wrap items-start gap-x-2 gap-y-1 border-b border-line bg-ink-950/30 px-3 py-2 animate-fade-in"
+    >
+      <div className="min-w-[14rem] flex-1">
+        <Input
+          size="sm"
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            if (error) setError(null);
+          }}
+          placeholder="e.g. 42, 7, 19, 3, 25"
+          aria-label="Custom values"
+          leadingIcon={Keyboard}
+          error={error ?? undefined}
+          hint={
+            error
+              ? undefined
+              : `${CUSTOM_MIN_LENGTH}–${CUSTOM_MAX_LENGTH} whole numbers from ${CUSTOM_VALUE_MIN} to ${CUSTOM_VALUE_MAX}, separated by commas or spaces.`
+          }
+          spellCheck={false}
+          autoFocus
+          className="font-mono"
+        />
+      </div>
+      <Button type="submit" size="sm" variant="primary" leadingIcon={Check}>
+        Apply
+      </Button>
+      <IconButton icon={X} size="sm" aria-label="Cancel custom input" tooltip onClick={() => setEditorOpen(false)} />
+    </form>
+  ) : null;
+
+  return { toolbar, subbar };
+}

@@ -1,39 +1,76 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Deck Vault: shared UI constants and helpers
-// Class names, colour / icon choices, card-kind metadata and the
-// per-deck summary (mastery, due and new counts) the Decks tab shows.
+// Deck hues, card-kind + difficulty metadata, the Training Grounds
+// tab icons, the per-deck summary (mastery, due and new counts) and
+// small text / file helpers the Decks tab shares.
 // ═══════════════════════════════════════════════════════════
 
+import { useEffect, useState, type CSSProperties } from 'react';
+import {
+  CircleDot,
+  Crosshair,
+  Hash,
+  Layers,
+  LibraryBig,
+  ListChecks,
+  Orbit,
+  Repeat,
+  Route,
+  StickyNote,
+  Timer,
+  type LucideIcon,
+} from 'lucide-react';
+import type { Tone } from '@/components/ui';
 import { computeDeckMastery, deckCards, isQuizCard } from '@/stores/useLearningStore';
+import { VIZ } from '@/styles/tokens';
 import type { CardKind, CardReview, Deck, Difficulty, Mastery } from '@/types/learning';
+import type { TrainingTab } from '../deep-link';
 
-// ─── Class names ───
+// ─── Training Grounds tabs ───
 
-export const INPUT =
-  'w-full rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-white/90 outline-none transition-colors placeholder:text-white/30 focus:border-cyan-400/50 focus:bg-white/[0.06]';
-export const LABEL = 'text-[10px] font-semibold uppercase tracking-wider text-white/45';
-
-const BTN = 'inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40';
-export const BTN_PRIMARY = `${BTN} border-cyan-400/40 bg-cyan-500/20 font-semibold text-cyan-100 hover:bg-cyan-500/30`;
-export const BTN_GHOST = `${BTN} border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/10 hover:text-white`;
-export const BTN_DANGER = `${BTN} border-red-400/40 bg-red-500/20 font-semibold text-red-100 hover:bg-red-500/30`;
-export const ICON_BTN =
-  'rounded-md p-1.5 text-white/45 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30';
+/** Glyph per Training Grounds tab (sidebar nav + the deck's study launchers). */
+export const TAB_ICONS: Readonly<Record<'decks' | TrainingTab, LucideIcon>> = {
+  decks: Layers,
+  quiz: Crosshair,
+  flashcards: Repeat,
+  'skill-tree': Orbit,
+  bank: LibraryBig,
+  mock: Timer,
+  planner: Route,
+};
 
 // ─── Deck look ───
 
-export const DECK_COLOR_CHOICES: readonly string[] = [
-  '#22d3ee',
-  '#a78bfa',
-  '#34d399',
-  '#f472b6',
-  '#fbbf24',
-  '#60a5fa',
-  '#f87171',
-  '#fb923c',
-  '#2dd4bf',
-  '#e879f9',
-];
+/** Colours offered for a deck: the FORGE HUD viz palette. */
+export const DECK_COLOR_CHOICES: readonly string[] = VIZ;
+
+/** Deck colours from the pre-FORGE swatches → their on-palette successor (data, not styling). */
+const LEGACY_DECK_COLORS: Readonly<Record<string, string>> = {
+  '#22d3ee': VIZ[0], // cyan → plasma
+  '#fb923c': VIZ[1], // orange → ember
+  '#34d399': VIZ[3], // emerald → mint
+  '#f472b6': VIZ[4], // pink → rose
+  '#60a5fa': VIZ[5], // blue → azure
+  '#fbbf24': VIZ[6], // amber → gold
+};
+
+const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/**
+ * The colour to paint for a stored deck colour: old swatches mapped onto
+ * the palette, anything invalid → plasma. Always a plain hex, safe in CSS.
+ */
+export function deckHue(color: string | null | undefined): string {
+  if (typeof color !== 'string') return VIZ[0];
+  const hex = color.trim().toLowerCase();
+  if (!HEX_COLOR.test(hex)) return VIZ[0];
+  return LEGACY_DECK_COLORS[hex] ?? hex;
+}
+
+/** Exposes a deck's hue as `--deck`, for `text-(--deck)`, `bg-(--deck)/10`, … */
+export function deckStyle(color: string | null | undefined): CSSProperties {
+  return { '--deck': deckHue(color) } as CSSProperties;
+}
 
 export const DECK_ICON_CHOICES: readonly string[] = [
   '📚', '🧠', '💻', '⚛️', '🧮', '🔬', '🧪', '🧬', '🌍', '🗣️', '🎵', '🎨',
@@ -54,32 +91,41 @@ export const LIMITS = {
   icon: 16,
 } as const;
 
-/** #rgb / #rrggbb / #rrggbbaa → rgba() with the given alpha (for tints and glows). */
-export function withAlpha(hex: string, alpha: number): string {
-  let h = hex.replace('#', '');
-  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  if ([r, g, b].some((n) => Number.isNaN(n))) return `rgba(34, 211, 238, ${alpha})`;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 // ─── Cards ───
 
-export const KIND_META: Readonly<Record<CardKind, { label: string; short: string; badge: string }>> = {
-  mcq: { label: 'Multiple choice', short: 'MCQ', badge: 'border-cyan-400/30 bg-cyan-400/10 text-cyan-200' },
-  'multi-select': { label: 'Multi-select', short: 'MULTI', badge: 'border-purple-400/30 bg-purple-400/10 text-purple-200' },
-  numeric: { label: 'Numeric', short: 'NUM', badge: 'border-amber-400/30 bg-amber-400/10 text-amber-200' },
-  flashcard: { label: 'Flashcard', short: 'CARD', badge: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' },
+export const KIND_META: Readonly<Record<CardKind, { label: string; short: string; icon: LucideIcon; hint: string }>> = {
+  mcq: {
+    label: 'Multiple choice',
+    short: 'MCQ',
+    icon: CircleDot,
+    hint: 'One correct option. Auto-graded in quizzes and mock tests.',
+  },
+  'multi-select': {
+    label: 'Multi-select',
+    short: 'Multi',
+    icon: ListChecks,
+    hint: 'Every correct option (and only those) must be picked.',
+  },
+  numeric: {
+    label: 'Numeric',
+    short: 'Num',
+    icon: Hash,
+    hint: 'A typed number, optionally within a tolerance.',
+  },
+  flashcard: {
+    label: 'Flashcard',
+    short: 'Card',
+    icon: StickyNote,
+    hint: 'Front and back. You grade your own recall in reviews.',
+  },
 };
 
 export const CARD_KINDS: readonly CardKind[] = ['mcq', 'multi-select', 'numeric', 'flashcard'];
 
-export const DIFFICULTY_META: Readonly<Record<Difficulty, { label: string; dot: string; active: string }>> = {
-  easy: { label: 'Easy', dot: 'bg-green-400', active: 'border-green-400/40 bg-green-500/15 text-green-200' },
-  medium: { label: 'Medium', dot: 'bg-yellow-400', active: 'border-yellow-400/40 bg-yellow-500/15 text-yellow-200' },
-  hard: { label: 'Hard', dot: 'bg-red-400', active: 'border-red-400/40 bg-red-500/15 text-red-200' },
+export const DIFFICULTY_META: Readonly<Record<Difficulty, { label: string; tone: Tone }>> = {
+  easy: { label: 'Easy', tone: 'success' },
+  medium: { label: 'Medium', tone: 'warning' },
+  hard: { label: 'Hard', tone: 'danger' },
 };
 
 export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
@@ -112,10 +158,56 @@ export function summarizeDeck(deck: Deck, reviews: Readonly<Record<string, CardR
   return { mastery: computeDeckMastery(deck, reviews), cards, quizCards, due, fresh };
 }
 
+/** Answered cards across every deck whose review is due at `now`. */
+export function countDueCards(
+  decks: readonly Deck[],
+  reviews: Readonly<Record<string, CardReview>>,
+  now: number
+): number {
+  let due = 0;
+  for (const deck of decks) {
+    for (const card of deckCards(deck)) {
+      const review = reviews[card.id];
+      if (review && review.dueAt <= now) due += 1;
+    }
+  }
+  return due;
+}
+
+/** Epoch ms that ticks once a minute: enough for due counts, and it keeps render pure. */
+export function useMinuteNow(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  return now;
+}
+
+/** Epoch ms of the most recent answer across all reviews (null = never studied). */
+export function lastStudiedAt(reviews: Readonly<Record<string, CardReview>>): number | null {
+  let last = 0;
+  for (const review of Object.values(reviews)) if (review.lastReviewedAt > last) last = review.lastReviewedAt;
+  return last > 0 ? last : null;
+}
+
 // ─── Text + files ───
 
 export function plural(n: number, word: string, many = `${word}s`): string {
   return `${n} ${n === 1 ? word : many}`;
+}
+
+/** "just now" · "12m ago" · "3h ago" · "5d ago" · "12 Aug". */
+export function timeAgo(ms: number, now: number): string {
+  const diff = Math.max(0, now - ms);
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 export function fileSlug(name: string): string {

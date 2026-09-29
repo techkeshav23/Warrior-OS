@@ -1,11 +1,15 @@
 /* ═══════════════════════════════════════════════════════════
-   WARRIOR OS — Animation Keyframes
+   WARRIOR OS — Animation Keyframes (legacy)
+   New motion uses the theme animations in globals.css (animate-fade-in,
+   animate-rise-in, animate-scale-in, animate-shimmer, animate-pulse-soft)
+   or framer-motion with TRANSITION from src/styles/tokens.ts.
    ═══════════════════════════════════════════════════════════ */
 
 /* ─── Pulse Glow ─── */
+/* Follows the live accent; restrained (FORGE HUD: glow marks live status only). */
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 5px var(--accent-primary), 0 0 10px transparent; }
-  50% { box-shadow: 0 0 15px var(--accent-primary), 0 0 30px rgba(0, 240, 255, 0.2); }
+  0%, 100% { box-shadow: 0 0 4px color-mix(in oklab, var(--accent) 45%, transparent), 0 0 10px transparent; }
+  50% { box-shadow: 0 0 12px color-mix(in oklab, var(--accent) 60%, transparent), 0 0 24px color-mix(in oklab, var(--accent) 18%, transparent); }
 }
 
 /* ─── Float ─── */
@@ -169,4 +173,16 @@
 .animate-gradient-shift {
   background-size: 200% 200%;
   animation: gradient-shift 3s ease infinite;
+}
+
+/* ─── Lite mode: decorative loops rest (functional spinners keep going) ─── */
+[data-lite-mode] :is(
+    .animate-pulse-glow,
+    .animate-float,
+    .animate-breathe,
+    .animate-spin-slow,
+    .animate-hologram-flicker,
+    .animate-gradient-shift
+  ) {
+  animation: none;
 }

@@ -31,7 +31,7 @@ function NexusLayerInner() {
       <NexusSuggestions />
       <NexusPomodoroEngine />
       <div
-        className="pointer-events-none fixed bottom-[60px] left-3 flex flex-col items-start gap-2"
+        className="pointer-events-none fixed bottom-15 left-3 flex flex-col items-start gap-2"
         style={{ zIndex: 'var(--z-dynamic-island)' }}
       >
         <NexusVoiceIndicator />

@@ -92,7 +92,7 @@ const motivateCommand: EasterEggHandler = () => {
     `
   ╔═══════════════════════════════╗
   ║   YOU ARE STRONGER THAN       ║
-  ║   YOUR EXCUSES               ║
+  ║   YOUR EXCUSES                ║
   ╚═══════════════════════════════╝
 
   Every hour you put in is one step closer.

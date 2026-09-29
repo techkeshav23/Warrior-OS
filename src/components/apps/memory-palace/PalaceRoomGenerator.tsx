@@ -32,6 +32,8 @@ import {
 } from './PalaceGrowth';
 import { createPatternMaterial, useLabelTexture, type SurfacePattern } from './palaceTextures';
 import { RoomDecor } from './RoomDecor';
+import { PALACE } from './palaceTheme';
+import { PLASMA, VIZ } from '@/styles/tokens';
 
 export type { RoomTheme } from './palaceData';
 
@@ -347,7 +349,7 @@ function Chandelier({ y }: { y: number }) {
                 </mesh>
                 <mesh position={[0, 0.16, 0]}>
                   <sphereGeometry args={[0.055, 8, 8]} />
-                  <meshBasicMaterial color="#ffd180" toneMapped={false} />
+                  <meshBasicMaterial color={PALACE.lamp} toneMapped={false} />
                 </mesh>
               </group>
             );
@@ -360,11 +362,11 @@ function Chandelier({ y }: { y: number }) {
         return (
           <mesh key={i} position={[Math.cos(a) * 2, -0.5 - (i % 3) * 0.18, Math.sin(a) * 2]}>
             <octahedronGeometry args={[0.07]} />
-            <meshStandardMaterial color="#e0f7fa" emissive="#80deea" emissiveIntensity={0.6} transparent opacity={0.85} />
+            <meshStandardMaterial color={PLASMA[300]} emissive={PLASMA[500]} emissiveIntensity={0.6} transparent opacity={0.85} />
           </mesh>
         );
       })}
-      <pointLight color="#ffd180" intensity={60} distance={30} decay={1.6} position={[0, -0.8, 0]} />
+      <pointLight color={PALACE.lamp} intensity={60} distance={30} decay={1.6} position={[0, -0.8, 0]} />
     </group>
   );
 }
@@ -408,12 +410,12 @@ export function GrandHall({ layout }: { layout: PalaceLayout }) {
   const [hx, hz] = layout.hall.center;
   const s = layout.hall.size / 2 - 2;
   const statues: { p: [number, number, number]; r: number; c: string }[] = [
-    { p: [-s, 0, -s * 0.5], r: Math.PI / 2, c: '#4fc3f7' },
-    { p: [-s, 0, s * 0.5], r: Math.PI / 2, c: '#00e676' },
-    { p: [s, 0, -s * 0.5], r: -Math.PI / 2, c: '#ff4081' },
-    { p: [s, 0, s * 0.5], r: -Math.PI / 2, c: '#ffab00' },
-    { p: [-s * 0.45, 0, -s], r: 0, c: '#7c4dff' },
-    { p: [s * 0.45, 0, -s], r: 0, c: '#ffd740' },
+    { p: [-s, 0, -s * 0.5], r: Math.PI / 2, c: VIZ[5] },
+    { p: [-s, 0, s * 0.5], r: Math.PI / 2, c: VIZ[3] },
+    { p: [s, 0, -s * 0.5], r: -Math.PI / 2, c: VIZ[4] },
+    { p: [s, 0, s * 0.5], r: -Math.PI / 2, c: VIZ[1] },
+    { p: [-s * 0.45, 0, -s], r: 0, c: VIZ[2] },
+    { p: [s * 0.45, 0, -s], r: 0, c: VIZ[6] },
   ];
   return (
     <group position={[hx, 0, hz]}>

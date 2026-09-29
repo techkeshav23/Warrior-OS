@@ -1,6 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — HolographicCard Component
-// 3D perspective tilt card with holographic sheen
+// 3D perspective tilt card with holographic sheen (FORGE HUD: subtle
+// tilt, hairline edge, plasma→ember rim light on hover — use sparingly,
+// e.g. achievement / profile hero cards).
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -19,7 +21,7 @@ interface HolographicCardProps {
 export function HolographicCard({
   children,
   className,
-  intensity = 10,
+  intensity = 6,
   glare = true,
 }: HolographicCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -61,8 +63,7 @@ export function HolographicCard({
       }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       className={cn(
-        'relative overflow-hidden rounded-[var(--radius-lg)]',
-        'bg-bg-elevated border border-white/5',
+        'glass-panel relative overflow-hidden rounded-card',
         className
       )}
       style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
@@ -74,11 +75,11 @@ export function HolographicCard({
         <div
           className="absolute inset-0 pointer-events-none transition-opacity duration-300"
           style={{
-            opacity: 0.15,
+            opacity: 0.1,
             background: `radial-gradient(
               circle at ${glarePos.x}% ${glarePos.y}%,
-              rgba(255, 255, 255, 0.4) 0%,
-              transparent 60%
+              rgba(255, 255, 255, 0.35) 0%,
+              transparent 55%
             )`,
           }}
         />
@@ -87,15 +88,15 @@ export function HolographicCard({
       {/* Rainbow spectrum edge */}
       {isHovering && (
         <div
-          className="absolute inset-0 pointer-events-none rounded-[var(--radius-lg)]"
+          className="absolute inset-0 pointer-events-none rounded-card"
           style={{
-            opacity: 0.3,
+            opacity: 0.55,
             background: `linear-gradient(
               ${135 + tilt.y * 5}deg,
-              rgba(0, 240, 255, 0.3),
-              rgba(123, 97, 255, 0.3),
-              rgba(255, 61, 113, 0.3),
-              rgba(0, 240, 255, 0.3)
+              color-mix(in srgb, var(--accent, #2fd6f5) 45%, transparent),
+              transparent 40%,
+              transparent 60%,
+              color-mix(in srgb, var(--color-ember-400, #ff8a3d) 45%, transparent)
             )`,
             mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
             maskComposite: 'exclude',

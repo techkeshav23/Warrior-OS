@@ -5,7 +5,7 @@
 //   Stage 2 (150 min) 0.3px softness on everything, window glass +5 %
 //                     opaque, world time-scale 0.5 for particles
 //   Stage 3 (180 min) red/orange edge vignette ramping over 15 minutes,
-//                     accent colour drifting from cyan toward amber
+//                     accent colour drifting from the user's accent toward ember
 //   Stage 4 (210 min) heartbeat pulse + taskbar micro-vibration
 //                     (the Howler heartbeat audio lives in DecayEngine)
 //   Stage 5 (240 min) hairline SVG cracks, windows shudder when pressed
@@ -18,6 +18,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { DECAY_BASE_THRESHOLDS, DECAY_VIGNETTE_RAMP_MINUTES } from '@/stores/useDecayStore';
+import { EMBER, resolveAccent } from '@/styles/tokens';
 
 // Grade sits just below the stage overlays; both stay under BreakMode (960).
 const GRADE_Z = 935;
@@ -52,12 +53,10 @@ export function DecayStage1({ stage, repairing }: { stage: number; repairing: bo
 }
 
 // ─── Stage 2: slower world + heavier glass ───
-// Windows paint their glass inline at rgba(15,15,25,0.85); +5 % opacity → 0.90.
+// Window glass (the glass-window material / bg-surface) reads
+// --glass-boost: +5 % opacity on top of the Glass Opacity setting.
 const STAGE2_CSS = `
-:root { --decay-time-scale: 0.5; }
-.react-draggable > div:has(> .window-drag-handle) {
-  background-color: rgba(15, 15, 25, 0.9) !important;
-}`;
+:root { --decay-time-scale: 0.5; --glass-boost: 0.05; }`;
 
 export function DecayStage2({ active }: { active: boolean }) {
   if (!active) return null;
@@ -70,10 +69,6 @@ function vignetteIntensity(minutes: number, thresholdOffset: number): number {
   return Math.max(0, Math.min(1, (minutes - start) / DECAY_VIGNETTE_RAMP_MINUTES));
 }
 
-/** Only plain hex colours are interpolated into the injected CSS. */
-function safeHex(color: string): string {
-  return /^#[0-9a-f]{3,8}$/i.test(color) ? color : '#00f0ff';
-}
 
 export function DecayStage3({
   minutes,
@@ -96,7 +91,7 @@ export function DecayStage3({
         style={{
           zIndex: DECAY_Z,
           background:
-            'radial-gradient(ellipse at center, transparent 52%, rgba(255,86,0,0.22) 80%, rgba(255,23,68,0.42) 100%)',
+            'radial-gradient(ellipse at center, transparent 54%, rgba(247,107,21,0.16) 80%, rgba(212,82,11,0.34) 100%)',
         }}
         initial={{ opacity: 0 }}
         animate={{ opacity: repairing ? 0 : opacity }}
@@ -106,7 +101,8 @@ export function DecayStage3({
         aria-hidden
       />
       {!repairing && (
-        <style data-warrior-decay="stage-3">{`:root{--accent-primary:color-mix(in oklab, ${safeHex(accentBase)} ${100 - warmth}%, #ffab00 ${warmth}%) !important;}`}</style>
+        // resolveAccent always returns a plain hex, so it is safe to interpolate.
+        <style data-warrior-decay="stage-3">{`:root{--accent-primary:color-mix(in oklab, ${resolveAccent(accentBase)} ${100 - warmth}%, ${EMBER[400]} ${warmth}%) !important;}`}</style>
       )}
     </>
   );
@@ -135,7 +131,7 @@ export function DecayStage4({ active }: { active: boolean }) {
             className="pointer-events-none fixed inset-0"
             style={{
               zIndex: DECAY_Z,
-              background: 'radial-gradient(ellipse at center, rgba(255,23,68,0.32) 0%, transparent 70%)',
+              background: 'radial-gradient(ellipse at center, transparent 30%, rgba(255,84,112,0.3) 100%)',
             }}
             initial={{ opacity: 0 }}
             // lub … dub … rest — one cycle per second, matching the 60 bpm audio loop
@@ -262,7 +258,7 @@ export function DecayStage5({ closing }: { closing: boolean }) {
             <motion.path
               d={c.d}
               fill="none"
-              stroke="rgba(0,0,0,0.45)"
+              stroke="rgba(4,6,11,0.5)"
               strokeWidth={c.width + 1.2}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -277,7 +273,7 @@ export function DecayStage5({ closing }: { closing: boolean }) {
             <motion.path
               d={c.d}
               fill="none"
-              stroke="rgba(232,238,255,0.8)"
+              stroke="rgba(230,237,247,0.72)"
               strokeWidth={c.width}
               strokeLinecap="round"
               strokeLinejoin="round"

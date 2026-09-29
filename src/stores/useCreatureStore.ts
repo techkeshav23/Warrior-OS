@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { persist } from 'zustand/middleware';
+import { FG, PLASMA, STATUS, VIZ } from '@/styles/tokens';
 import type {
   CreatureActivityKind,
   CreatureDayLog,
@@ -517,12 +518,12 @@ export const useCreatureStore = create<CreatureStore>()(
 
 /** Mood metadata shared by the popup, island badge and lock badge. */
 export const CREATURE_MOOD_META: Record<CreatureMood, { label: string; color: string }> = {
-  idle: { label: 'Content', color: '#8888a0' },
-  happy: { label: 'Happy', color: '#00e676' },
-  sad: { label: 'Sad', color: '#ffab00' },
-  sleeping: { label: 'Sleeping', color: '#7b61ff' },
-  excited: { label: 'Excited', color: '#ff3d71' },
-  dance: { label: 'Ecstatic', color: '#ff3d71' },
-  eating: { label: 'Munching', color: '#00f0ff' },
-  curious: { label: 'Curious', color: '#00f0ff' },
+  idle: { label: 'Content', color: FG.muted },
+  happy: { label: 'Happy', color: STATUS.success },
+  sad: { label: 'Sad', color: STATUS.warning },
+  sleeping: { label: 'Sleeping', color: VIZ[2] },
+  excited: { label: 'Excited', color: VIZ[4] },
+  dance: { label: 'Ecstatic', color: VIZ[4] },
+  eating: { label: 'Munching', color: PLASMA[400] },
+  curious: { label: 'Curious', color: PLASMA[400] },
 };

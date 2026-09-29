@@ -10,7 +10,11 @@
 'use client';
 
 import { memo } from 'react';
+import { LoaderCircle, RotateCw, TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from './Button';
+import { Skeleton } from './Divider';
+import { EmptyState } from './EmptyState';
 
 export interface AppLoadingProps {
   /** App name for the status line, e.g. "Code Lab" */
@@ -29,23 +33,21 @@ const LINE_WIDTHS = ['w-3/4', 'w-full', 'w-5/6', 'w-2/3'] as const;
 function AppLoadingInner({ label, className, error, retry }: AppLoadingProps) {
   if (error) {
     return (
-      <div
+      <EmptyState
         role="alert"
-        className={cn('flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center', className)}
-      >
-        <p className="font-mono text-xs text-accent-danger">
-          {label ? `${label} failed to load.` : 'This app failed to load.'}
-        </p>
-        {retry && (
-          <button
-            type="button"
-            onClick={retry}
-            className="rounded-full border border-accent-primary/40 bg-accent-primary/10 px-4 py-1.5 font-mono text-xs text-accent-primary transition-colors hover:bg-accent-primary/20 focus-ring"
-          >
-            Retry
-          </button>
-        )}
-      </div>
+        className={cn('h-full', className)}
+        icon={TriangleAlert}
+        tone="danger"
+        title={label ? `${label} failed to load` : 'This app failed to load'}
+        description="Check your connection, then try again."
+        actions={
+          retry ? (
+            <Button variant="secondary" size="sm" leadingIcon={RotateCw} onClick={retry}>
+              Retry
+            </Button>
+          ) : undefined
+        }
+      />
     );
   }
 
@@ -61,51 +63,36 @@ function AppLoadingInner({ label, className, error, retry }: AppLoadingProps) {
     >
       {/* Toolbar skeleton */}
       <div className="flex items-center gap-2">
-        <div className="h-7 w-24 animate-pulse rounded-md bg-white/10" />
-        <div className="h-7 flex-1 animate-pulse rounded-md bg-white/5" style={{ animationDelay: '120ms' }} />
-        <div className="h-7 w-7 animate-pulse rounded-md bg-white/10" style={{ animationDelay: '240ms' }} />
+        <Skeleton className="h-7 w-24 rounded-control" />
+        <Skeleton className="h-7 flex-1 rounded-control opacity-60" />
+        <Skeleton className="size-7 rounded-control" />
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4">
         {/* Sidebar skeleton (container query: hidden in narrow windows) */}
         <div className="hidden w-1/4 min-w-[96px] flex-col gap-2 @md:flex">
           {[0, 1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="h-6 animate-pulse rounded-md bg-white/5"
-              style={{ animationDelay: `${i * 90}ms` }}
-            />
+            <Skeleton key={i} className="h-7 rounded-control opacity-70" />
           ))}
         </div>
 
         {/* Content card skeleton */}
-        <div className="glass glass-border flex min-w-0 flex-1 flex-col gap-3 rounded-[var(--radius-md)] p-4">
-          <div className="h-4 w-1/3 animate-pulse rounded bg-accent-primary/15" />
-          {LINE_WIDTHS.map((width, i) => (
-            <div
-              key={width}
-              className={cn('h-3 animate-pulse rounded bg-white/10', width)}
-              style={{ animationDelay: `${150 + i * 110}ms` }}
-            />
+        <div className="glass-panel flex min-w-0 flex-1 flex-col gap-3 rounded-card p-4">
+          <Skeleton className="h-4 w-1/3" />
+          {LINE_WIDTHS.map((width) => (
+            <Skeleton key={width} className={width} />
           ))}
           <div className="mt-auto grid grid-cols-3 gap-2">
             {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="h-12 animate-pulse rounded-md bg-white/5"
-                style={{ animationDelay: `${300 + i * 120}ms` }}
-              />
+              <Skeleton key={i} shape="block" className="h-12 rounded-control opacity-70" />
             ))}
           </div>
         </div>
       </div>
 
       {/* Status line */}
-      <div className="flex items-center justify-center gap-2 font-mono text-[11px] text-text-secondary">
-        <span
-          aria-hidden="true"
-          className="h-3 w-3 animate-spin rounded-full border-2 border-accent-primary/30 border-t-accent-primary"
-        />
+      <div className="flex items-center justify-center gap-2 text-xs text-fg-subtle">
+        <LoaderCircle size={14} strokeWidth={2} aria-hidden className="animate-spin text-accent" />
         {label ? `Loading ${label}…` : 'Loading app…'}
       </div>
     </div>

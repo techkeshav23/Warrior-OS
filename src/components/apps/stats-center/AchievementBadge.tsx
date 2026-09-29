@@ -1,16 +1,20 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Achievement Badge
-// Round medallion for one achievement: rarity-coloured ring when
-// unlocked, grey + padlock when locked, "?" when hidden and locked
+// Round medallion for one achievement, the same object the unlock
+// cinematic presents: rarity-gradient rim, ink face with a hairline
+// ring and the category's lucide glyph lit in the rarity colour.
+// Locked = cold ink rim, dim glyph and a padlock chip; hidden and
+// locked = a shield-question glyph.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, ShieldQuestion, Trophy } from 'lucide-react';
 import type { Achievement } from '@/types/achievement';
-import { RARITY_STYLE } from '@/components/effects/effects-utils';
+import { CATEGORY_ICON, RARITY_STYLE } from '@/components/effects/effects-utils';
 import { cn } from '@/lib/utils';
+import { tint } from './achievement-data';
 
 interface AchievementBadgeProps {
   achievement: Achievement;
@@ -18,11 +22,16 @@ interface AchievementBadgeProps {
   className?: string;
 }
 
+const FACE = 'radial-gradient(circle at 50% 30%, var(--color-ink-600) 0%, var(--color-ink-800) 58%, var(--color-ink-900) 100%)';
+const HIGHLIGHT = 'color-mix(in oklab, var(--color-fg) 10%, transparent)';
+
 function AchievementBadgeInner({ achievement, size = 48, className }: AchievementBadgeProps) {
   const unlocked = !!achievement.unlockedAt;
   const secret = !unlocked && !!achievement.hidden;
-  const rarity = RARITY_STYLE[achievement.rarity];
-  const ring = Math.max(2, Math.round(size / 18));
+  const rarity = RARITY_STYLE[achievement.rarity] ?? RARITY_STYLE.common;
+  const Glyph = CATEGORY_ICON[achievement.category] ?? Trophy;
+  const rim = Math.max(2, Math.round(size / 28));
+  const glyph = Math.round(size * 0.44);
 
   return (
     <div
@@ -30,37 +39,53 @@ function AchievementBadgeInner({ achievement, size = 48, className }: Achievemen
       style={{
         width: size,
         height: size,
-        padding: ring,
-        background: unlocked
-          ? rarity.gradient
-          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04))',
-        boxShadow: unlocked ? `0 0 ${Math.round(size / 3)}px ${rarity.glow}` : undefined,
+        padding: rim,
+        background: unlocked ? rarity.gradient : 'linear-gradient(135deg, var(--color-ink-500), var(--color-ink-700))',
+        boxShadow: unlocked && achievement.rarity !== 'common' ? `0 0 ${Math.round(size / 4)}px ${rarity.glow}` : undefined,
       }}
     >
       <div
-        className="flex h-full w-full items-center justify-center rounded-full"
-        style={{ background: 'radial-gradient(circle at 35% 28%, #2c2c3e 0%, #121219 60%, #07070c 100%)' }}
+        className="relative flex size-full items-center justify-center overflow-hidden rounded-full"
+        style={{
+          background: FACE,
+          boxShadow: unlocked
+            ? `inset 0 1px 0 ${HIGHLIGHT}, inset 0 0 ${Math.round(size / 4)}px ${rarity.glow}`
+            : `inset 0 1px 0 ${HIGHLIGHT}`,
+        }}
       >
-        {secret ? (
-          <span className="font-black leading-none text-white/40" style={{ fontSize: size * 0.42 }}>
-            ?
-          </span>
-        ) : (
+        {size >= 40 && (
           <span
-            aria-hidden="true"
-            className={cn('select-none leading-none', !unlocked && 'opacity-40 grayscale')}
-            style={{ fontSize: size * 0.46 }}
-          >
-            {achievement.icon}
-          </span>
+            aria-hidden
+            className="absolute rounded-full"
+            style={{
+              inset: Math.round(size * 0.09),
+              border: `1px solid ${unlocked ? tint(rarity.color, 32) : 'var(--color-line)'}`,
+            }}
+          />
+        )}
+        {secret ? (
+          <ShieldQuestion aria-hidden size={glyph} strokeWidth={1.5} className="relative text-fg-faint" />
+        ) : (
+          <Glyph
+            aria-hidden
+            size={glyph}
+            strokeWidth={1.5}
+            className={cn('relative', !unlocked && 'text-fg-faint')}
+            style={
+              unlocked
+                ? { color: rarity.color, filter: `drop-shadow(0 0 ${Math.max(2, Math.round(size / 12))}px ${rarity.glow})` }
+                : undefined
+            }
+          />
         )}
       </div>
-      {!unlocked && !secret && (
+      {!unlocked && !secret && size >= 28 && (
         <span
-          className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full border border-white/15 bg-black/85"
-          style={{ width: size * 0.36, height: size * 0.36 }}
+          aria-hidden
+          className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full border border-line-strong bg-ink-850 text-fg-muted"
+          style={{ width: Math.round(size * 0.38), height: Math.round(size * 0.38) }}
         >
-          <Lock className="text-white/55" style={{ width: size * 0.18, height: size * 0.18 }} />
+          <Lock size={Math.max(8, Math.round(size * 0.19))} strokeWidth={2} />
         </span>
       )}
     </div>

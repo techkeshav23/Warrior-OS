@@ -99,18 +99,21 @@ export function describeAnswer(card: QuizCard, answer: UserAnswer | undefined): 
 
 export type LetterGrade = 'S' | 'A+' | 'A' | 'B' | 'C';
 
-/** Minimum percentage per grade, best first. */
-const GRADE_SCALE: readonly { grade: LetterGrade; min: number; color: string }[] = [
-  { grade: 'S', min: 95, color: 'text-yellow-300' },
-  { grade: 'A+', min: 85, color: 'text-green-300' },
-  { grade: 'A', min: 75, color: 'text-green-400' },
-  { grade: 'B', min: 60, color: 'text-cyan-400' },
-  { grade: 'C', min: Number.NEGATIVE_INFINITY, color: 'text-orange-400' },
+/** Kit tone per grade: gold (legendary) and ember (fire) are earned, accent is solid, neutral is "keep going". */
+export type GradeTone = 'gold' | 'ember' | 'accent' | 'neutral';
+
+/** Minimum percentage per grade, best first. `color` is the grade's text colour. */
+const GRADE_SCALE: readonly { grade: LetterGrade; min: number; tone: GradeTone; color: string }[] = [
+  { grade: 'S', min: 95, tone: 'gold', color: 'text-gold' },
+  { grade: 'A+', min: 85, tone: 'ember', color: 'text-ember-400' },
+  { grade: 'A', min: 75, tone: 'ember', color: 'text-ember-400' },
+  { grade: 'B', min: 60, tone: 'accent', color: 'text-accent' },
+  { grade: 'C', min: Number.NEGATIVE_INFINITY, tone: 'neutral', color: 'text-fg-muted' },
 ];
 
-export function letterGrade(pct: number): { grade: LetterGrade; color: string } {
+export function letterGrade(pct: number): { grade: LetterGrade; color: string; tone: GradeTone } {
   const step = GRADE_SCALE.find((g) => pct >= g.min) ?? GRADE_SCALE[GRADE_SCALE.length - 1];
-  return { grade: step.grade, color: step.color };
+  return { grade: step.grade, color: step.color, tone: step.tone };
 }
 
 /** 0..100, 0 when there is nothing to divide by. */
@@ -187,9 +190,16 @@ export const KIND_LABELS: Readonly<Record<CardKind, string>> = {
   flashcard: 'Flashcard',
 };
 
-/** Chip colours per difficulty. */
+/** Kit Badge tone per difficulty (easy = calm, hard = attention). */
+export const DIFFICULTY_TONE: Readonly<Record<Difficulty, 'success' | 'warning' | 'danger'>> = {
+  easy: 'success',
+  medium: 'warning',
+  hard: 'danger',
+};
+
+/** Soft token classes per difficulty, for places that can't use <Badge>. */
 export const DIFFICULTY_STYLES: Readonly<Record<Difficulty, string>> = {
-  easy: 'bg-green-500/20 text-green-300',
-  medium: 'bg-yellow-500/20 text-yellow-300',
-  hard: 'bg-red-500/20 text-red-300',
+  easy: 'bg-success/12 text-success ring-1 ring-inset ring-success/25',
+  medium: 'bg-warning/12 text-warning ring-1 ring-inset ring-warning/25',
+  hard: 'bg-danger/12 text-danger ring-1 ring-inset ring-danger/25',
 };

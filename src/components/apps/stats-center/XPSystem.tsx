@@ -1,40 +1,125 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — XP System Widget
-// Shows total XP and the XP still needed for the next level
+// WARRIOR OS — XP System
+// The profile's hero: level ring, total XP, and a segmented gold →
+// ember bar for the XP still needed for the next level
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo } from 'react';
-import { motion } from 'framer-motion';
+import { memo, type CSSProperties } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Card } from '@/components/ui';
 import { useXPStore } from '@/stores/useXPStore';
-import { MAX_LEVEL, levelTitle, xpToNextLevel } from '@/components/effects/effects-utils';
+import { MAX_LEVEL, levelInfo, levelProgress, levelTitle, xpToNextLevel } from '@/components/effects/effects-utils';
+import { LevelProgress } from './LevelProgress';
+
+const SEGMENTS = 24;
+
+const GOLD_FRAME = {
+  borderColor: 'color-mix(in oklab, var(--color-gold) 24%, transparent)',
+  '--hud-corner-color': 'color-mix(in oklab, var(--color-gold) 55%, transparent)',
+} as CSSProperties;
+
+/** Cell colour along the bar: gold at the start, ember at the end. */
+function segmentColor(i: number): string {
+  const t = Math.round((i / (SEGMENTS - 1)) * 100);
+  return `color-mix(in oklab, var(--color-ember-400) ${t}%, var(--color-gold))`;
+}
+
+function XpSegments({ progress, label }: { progress: number; label: string }) {
+  const filled = (progress / 100) * SEGMENTS;
+  return (
+    <div
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(progress)}
+      className="flex h-2.5 gap-[3px]"
+    >
+      {Array.from({ length: SEGMENTS }, (_, i) => {
+        const cell = Math.min(Math.max(filled - i, 0), 1);
+        return (
+          <span key={i} className="relative h-full flex-1 overflow-hidden rounded-[2px] bg-ink-600/70">
+            {cell > 0 && (
+              <span
+                className="absolute inset-y-0 left-0 transition-[width] duration-260 ease-out-quint"
+                style={{
+                  width: `${cell * 100}%`,
+                  background: segmentColor(i),
+                  boxShadow: `0 0 8px color-mix(in oklab, ${segmentColor(i)} 45%, transparent)`,
+                }}
+              />
+            )}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 function XPSystemInner() {
   // Derive from primitives: store getter calls during render can be
   // memoised into stale values by the React Compiler.
   const xp = useXPStore((s) => s.xp);
   const level = useXPStore((s) => s.level);
+  const reduceMotion = useReducedMotion();
   const toNext = xpToNextLevel(xp, level);
+  const progress = levelProgress(xp, level);
+  const info = levelInfo(level);
+  const maxed = level >= MAX_LEVEL;
+  const nextTitle = maxed ? null : levelTitle(level + 1);
 
   return (
-    <div className="p-4 rounded-xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-purple-500/10">
-      <p className="text-xs text-cyan-400/60 mb-1">Total XP</p>
-      <motion.p
-        className="text-3xl font-black text-cyan-300"
-        key={xp}
-        initial={{ scale: 1.1 }}
-        animate={{ scale: 1 }}
-      >
-        {xp.toLocaleString()}
-      </motion.p>
-      <p className="text-xs text-white/40 mt-1">
-        {level >= MAX_LEVEL ? 'Max level reached' : `${toNext.toLocaleString()} XP to next level`}
-      </p>
-      <p className="text-[10px] text-white/30 mt-0.5">
-        Lv.{level} — {levelTitle(level)}
-      </p>
-    </div>
+    <Card hud padding="lg" style={GOLD_FRAME} role="region" aria-label="Level and XP">
+      <div className="flex items-center gap-5">
+        <LevelProgress />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+            <div className="min-w-0">
+              <p className="font-mono text-2xs font-medium uppercase tracking-[0.14em] text-gold">Total XP</p>
+              <p className="mt-1.5 flex items-baseline gap-1.5 leading-none">
+                <motion.span
+                  key={xp}
+                  className="tabular font-display text-3xl font-semibold text-fg"
+                  initial={reduceMotion ? false : { opacity: 0.5, y: 3 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  {xp.toLocaleString()}
+                </motion.span>
+                <span className="font-mono text-xs text-fg-subtle">XP</span>
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="hud-label">{maxed ? 'Max level' : `Next · ${nextTitle}`}</p>
+              <p className="mt-1 text-ui text-fg-muted">
+                {maxed ? (
+                  'Every rank earned'
+                ) : (
+                  <>
+                    <span className="tabular font-mono font-medium text-fg">{toNext.toLocaleString()}</span> XP to go
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="mt-3.5">
+            <XpSegments progress={progress} label={`Progress to level ${maxed ? level : level + 1}`} />
+            <div className="tabular mt-1.5 flex justify-between font-mono text-2xs text-fg-subtle">
+              <span>
+                LV {level} · {info.minXP.toLocaleString()}
+              </span>
+              {!maxed && (
+                <span>
+                  {info.maxXP.toLocaleString()} · LV {level + 1}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
 

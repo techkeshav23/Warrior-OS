@@ -7,6 +7,19 @@
 
 import { memo, useEffect, useRef } from 'react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { readAccent } from '@/styles/tokens';
+
+/** "rgb(r, g, b)" / "#rrggbb" → "r, g, b" for rgba() strings (Plasma fallback). */
+function rgbTriplet(color: string): string {
+  const rgb = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(color);
+  if (rgb) return `${rgb[1]}, ${rgb[2]}, ${rgb[3]}`;
+  const hex = /^#([0-9a-f]{6})$/i.exec(color.trim());
+  if (hex) {
+    const n = parseInt(hex[1], 16);
+    return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+  }
+  return '47, 214, 245';
+}
 
 interface TrailPoint {
   x: number;
@@ -38,6 +51,11 @@ function CursorTrailInner() {
       canvas.height = window.innerHeight;
     };
     resize();
+    // The live accent (Settings / workspace / decay warming), re-read now and then.
+    let tint = rgbTriplet(readAccent());
+    const tintTimer = window.setInterval(() => {
+      tint = rgbTriplet(readAccent());
+    }, 5000);
 
     const handleMouseMove = (e: MouseEvent) => {
       mouseRef.current.x = e.clientX;
@@ -72,13 +90,13 @@ function CursorTrailInner() {
           const p = trail[i];
           const prev = trail[i - 1];
           const progress = p.age / TRAIL_LIFETIME;
-          const alpha = Math.max(0, 1 - progress) * 0.6;
+          const alpha = Math.max(0, 1 - progress) * 0.5;
           const width = Math.max(0.5, (1 - progress) * 3);
 
           ctx.beginPath();
           ctx.moveTo(prev.x, prev.y);
           ctx.lineTo(p.x, p.y);
-          ctx.strokeStyle = `rgba(0, 240, 255, ${alpha})`;
+          ctx.strokeStyle = `rgba(${tint}, ${alpha})`;
           ctx.lineWidth = width;
           ctx.stroke();
         }
@@ -86,7 +104,7 @@ function CursorTrailInner() {
         const head = trail[0];
         ctx.beginPath();
         ctx.arc(head.x, head.y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 240, 255, 0.15)';
+        ctx.fillStyle = `rgba(${tint}, 0.15)`;
         ctx.fill();
       }
 
@@ -98,6 +116,7 @@ function CursorTrailInner() {
     animRef.current = requestAnimationFrame(draw);
 
     return () => {
+      window.clearInterval(tintTimer);
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', handleMouseMove);
       cancelAnimationFrame(animRef.current);

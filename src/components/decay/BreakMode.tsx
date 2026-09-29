@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useDecayStore } from '@/stores/useDecayStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { createSynthLoop } from '@/lib/procedural-music/synth-samples';
+import { cn } from '@/lib/utils';
 
 const STRETCH_TIPS: string[] = [
   'Roll your shoulders slowly — five times forward, five times back.',
@@ -61,6 +62,10 @@ function formatClock(totalSeconds: number): string {
 
 const RING_R = 118;
 const RING_C = 2 * Math.PI * RING_R;
+
+/** Deep ink with a faint azure lift at the top and a hint of ember dawn below. */
+const BACKDROP =
+  'radial-gradient(ellipse 80% 60% at 50% 30%, color-mix(in oklab, var(--color-info) 10%, transparent), transparent 70%), radial-gradient(ellipse 70% 40% at 50% 115%, color-mix(in oklab, var(--color-ember-500) 10%, transparent), transparent 70%), linear-gradient(180deg, var(--color-ink-900), var(--color-ink-950))';
 
 interface BreakModeProps {
   /** Called once the countdown reaches zero. */
@@ -150,14 +155,12 @@ export function BreakMode({ onComplete }: BreakModeProps) {
   const circleScale = breath.phase === 'exhale' ? 0.72 : 1.3;
   const progress = 1 - remainingMs / totalMs;
   const remainingSec = Math.ceil(remainingMs / 1000);
+  const voluntary = breakReason === 'voluntary';
 
   return (
     <motion.div
-      className="fixed inset-0 flex select-none flex-col items-center justify-center overflow-hidden"
-      style={{
-        zIndex: 960,
-        background: 'radial-gradient(circle at 50% 38%, #143f73 0%, #0b2344 50%, #050b18 100%)',
-      }}
+      className="fixed inset-0 flex select-none flex-col items-center justify-center overflow-hidden bg-ink-950 px-6 text-fg"
+      style={{ zIndex: 960 }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -166,36 +169,46 @@ export function BreakMode({ onComplete }: BreakModeProps) {
       aria-modal="true"
       aria-label="Recovery break"
     >
-      {/* Slow drifting light for calm */}
+      {/* Calm backdrop: deep ink, a slow drifting plasma haze, a hint of dawn */}
+      <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: BACKDROP }} />
       <motion.div
         className="pointer-events-none absolute h-[70vmax] w-[70vmax] rounded-full"
-        style={{ background: 'radial-gradient(circle, rgba(0,240,255,0.08) 0%, transparent 60%)' }}
+        style={{ background: 'radial-gradient(circle, color-mix(in oklab, var(--color-plasma-400) 7%, transparent) 0%, transparent 60%)' }}
         animate={{ x: ['-12%', '10%', '-12%'], y: ['-8%', '6%', '-8%'] }}
         transition={{ duration: 38, repeat: Infinity, ease: 'easeInOut' }}
         aria-hidden
       />
 
-      <div className="relative mb-8 text-center">
-        <p className="font-display text-sm uppercase tracking-[0.3em] text-accent-primary text-glow-sm">
-          {breakReason === 'voluntary' ? 'Recovery Break' : 'Forced Recovery'}
-        </p>
-        <p className="mx-auto mt-2 max-w-md text-sm text-text-secondary">
-          {breakReason === 'voluntary'
+      <div className="relative mb-6 text-center">
+        <p className="hud-label text-accent">{voluntary ? 'Recovery break' : 'Forced recovery'}</p>
+        <p className="mx-auto mt-2 max-w-md text-sm text-fg-muted">
+          {voluntary
             ? 'Good call, warrior. Rest now — the OS will repair itself when the timer ends.'
             : 'Your focus is legendary. Your body is mortal. This break cannot be skipped.'}
         </p>
       </div>
 
       {/* Breathing circle inside the break-progress ring */}
-      <div className="relative flex h-72 w-72 items-center justify-center">
-        <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 288 288" aria-hidden>
-          <circle cx="144" cy="144" r={RING_R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2" />
+      <div className="relative flex size-72 items-center justify-center">
+        <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 288 288" aria-hidden>
+          <circle cx="144" cy="144" r={RING_R} fill="none" stroke="var(--color-line-strong)" strokeWidth="1.5" />
+          {/* tick marks: one per minute of the ring */}
+          <circle
+            cx="144"
+            cy="144"
+            r={RING_R + 10}
+            fill="none"
+            stroke="var(--color-line)"
+            strokeWidth="4"
+            strokeDasharray={`1 ${((2 * Math.PI * (RING_R + 10)) / 60 - 1).toFixed(3)}`}
+          />
           <circle
             cx="144"
             cy="144"
             r={RING_R}
             fill="none"
-            stroke="rgba(0,240,255,0.55)"
+            stroke="var(--accent)"
+            strokeOpacity="0.8"
             strokeWidth="2"
             strokeLinecap="round"
             strokeDasharray={RING_C}
@@ -203,57 +216,59 @@ export function BreakMode({ onComplete }: BreakModeProps) {
             style={{ transition: 'stroke-dashoffset 0.25s linear' }}
           />
         </svg>
+        {/* the breath: a soft plasma sphere with a hairline rim */}
         <motion.div
           className="absolute rounded-full"
           style={{
-            width: 170,
-            height: 170,
+            width: 168,
+            height: 168,
             background:
-              'radial-gradient(circle, rgba(0,240,255,0.26) 0%, rgba(123,97,255,0.12) 60%, transparent 76%)',
-            border: '1px solid rgba(0,240,255,0.35)',
-            boxShadow: '0 0 40px rgba(0,240,255,0.12)',
+              'radial-gradient(circle at 50% 40%, color-mix(in oklab, var(--color-plasma-300) 20%, transparent) 0%, color-mix(in oklab, var(--color-plasma-500) 9%, transparent) 55%, transparent 74%)',
+            border: '1px solid color-mix(in oklab, var(--color-plasma-400) 32%, transparent)',
+            boxShadow: '0 0 60px -10px color-mix(in oklab, var(--color-plasma-400) 30%, transparent)',
           }}
           initial={{ scale: 0.72 }}
           animate={{ scale: circleScale }}
           transition={{ duration: breath.phase === 'hold' ? 0.3 : breath.left, ease: 'easeInOut' }}
         />
-        <div className="relative z-10 text-center">
-          <p className="font-display text-2xl text-text-primary text-glow-sm">{PHASE_LABEL[breath.phase]}</p>
-          <p className="mt-1 font-mono text-sm text-text-secondary">{Math.ceil(breath.left)}</p>
-          <p className="mt-1 text-[10px] uppercase tracking-widest text-text-muted">
-            4 · 7 · 8 — cycle {breath.cycle}
-          </p>
+        <div className="relative z-10 text-center" aria-live="polite">
+          <p className="text-2xl font-semibold text-fg">{PHASE_LABEL[breath.phase]}</p>
+          <p className="mt-1 font-mono text-sm text-fg-muted tabular">{Math.ceil(breath.left)}</p>
+          <p className="mt-2 hud-label">4 · 7 · 8 — cycle {breath.cycle}</p>
         </div>
       </div>
 
       {/* Countdown */}
-      <div className="mt-8 text-center">
-        <p className="font-mono text-4xl tracking-widest text-text-primary tabular-nums">
+      <div className="relative mt-6 text-center">
+        <p className="font-display text-4xl font-medium text-fg tabular" aria-label={`${formatClock(remainingSec)} remaining`}>
           {formatClock(remainingSec)}
         </p>
-        <p className="mt-1 text-xs uppercase tracking-widest text-text-muted">remaining</p>
+        <p className="mt-2 hud-label">Remaining</p>
       </div>
 
       {/* Stretch tip carousel */}
-      <div className="mt-8 flex h-10 max-w-lg items-center px-6 text-center">
+      <div className="relative mt-8 flex h-12 w-full max-w-lg items-center justify-center rounded-card border border-line bg-surface-2 px-5 text-center">
         <AnimatePresence mode="wait">
           <motion.p
             key={tipIndex}
-            className="text-sm text-text-secondary"
-            initial={{ opacity: 0, y: 8 }}
+            className="text-sm text-fg-muted"
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.5 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           >
             {STRETCH_TIPS[tipIndex]}
           </motion.p>
         </AnimatePresence>
       </div>
-      <div className="mt-3 flex gap-1.5" aria-hidden>
+      <div className="relative mt-3 flex gap-1.5" aria-hidden>
         {STRETCH_TIPS.map((_, i) => (
           <span
             key={i}
-            className={i === tipIndex ? 'h-1 w-4 rounded-full bg-accent-primary/70' : 'h-1 w-1 rounded-full bg-white/20'}
+            className={cn(
+              'h-1 rounded-full transition-[width,background-color] duration-260 ease-out-quint',
+              i === tipIndex ? 'w-4 bg-accent/70' : 'w-1 bg-fg-faint'
+            )}
           />
         ))}
       </div>

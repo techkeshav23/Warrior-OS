@@ -16,8 +16,9 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { Eraser, Flag, Hand, MousePointer2, Play, Target, Trash2, X } from 'lucide-react';
+import { Eraser, Flag, Hand, Info, MousePointer2, Play, RotateCcw, Target, Trash2, TriangleAlert, Waypoints, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button, EmptyState, IconButton, Input, SegmentedControl, Select, ToolbarSeparator } from '@/components/ui';
 import type { AlgoFrontierKind, AlgoGraphFrame, GraphAlgorithmId } from '@/types/algo';
 import { GRAPH_ALGORITHMS, GRAPH_PRESETS } from '@/data/algorithms';
 import { buildGraphFrames, compareNodeIds, formatDistance } from '@/lib/algorithms/graph';
@@ -36,7 +37,8 @@ import { handlePlaybackKeys, usePlayback } from './usePlayback';
 import { PlaybackControls } from './PlaybackControls';
 import { CodePanel } from './CodePanel';
 import { ComplexityCard } from './ComplexityCard';
-import { LabLayout, Stat, StepMessage } from './LabLayout';
+import { LabLayout, StageLegend, Stat, StepMessage, type LegendItem } from './LabLayout';
+import { ACCENT, LAB, nodeStyle, tint, type NodeStyle } from './labTheme';
 
 type Tool = 'build' | 'move';
 type Selection = { kind: 'node' | 'edge'; id: string } | null;
@@ -52,20 +54,20 @@ type EdgeState = 'idle' | 'tree' | 'selected' | 'active' | 'path';
 const EMPTY_FRAMES: AlgoGraphFrame[] = [];
 const NO_IDS: readonly string[] = [];
 
-const NODE_STYLE: Record<NodeState, { fill: string; stroke: string; text: string; width: number }> = {
-  idle: { fill: '#0f172a', stroke: 'rgba(34, 211, 238, 0.55)', text: '#e2e8f0', width: 2 },
-  frontier: { fill: '#1e1b4b', stroke: '#a78bfa', text: '#ddd6fe', width: 2.5 },
-  visited: { fill: 'rgba(59, 130, 246, 0.38)', stroke: '#60a5fa', text: '#dbeafe', width: 2.5 },
-  current: { fill: 'rgba(250, 204, 21, 0.35)', stroke: '#facc15', text: '#fef9c3', width: 3.5 },
-  path: { fill: 'rgba(16, 185, 129, 0.42)', stroke: '#34d399', text: '#d1fae5', width: 3.5 },
+const NODE_STYLE: Record<NodeState, NodeStyle> = {
+  idle: nodeStyle(tint(LAB.plasma[400], 45)),
+  frontier: nodeStyle(LAB.frontier, { width: 2 }),
+  visited: nodeStyle(LAB.visited, { hot: true, width: 2.5 }),
+  current: nodeStyle(LAB.compare, { hot: true, width: 3 }),
+  path: nodeStyle(LAB.sorted, { hot: true, width: 3 }),
 };
 
 const EDGE_STYLE: Record<EdgeState, { stroke: string; width: number }> = {
-  idle: { stroke: 'rgba(255, 255, 255, 0.22)', width: 2 },
-  tree: { stroke: 'rgba(96, 165, 250, 0.75)', width: 3 },
-  selected: { stroke: '#22d3ee', width: 3.5 },
-  active: { stroke: '#facc15', width: 4 },
-  path: { stroke: '#34d399', width: 5 },
+  idle: { stroke: LAB.edge, width: 1.5 },
+  tree: { stroke: tint(LAB.visited, 70), width: 2.5 },
+  selected: { stroke: ACCENT, width: 3 },
+  active: { stroke: LAB.compare, width: 3.5 },
+  path: { stroke: LAB.sorted, width: 4 },
 };
 
 const FRONTIER_LABEL: Record<AlgoFrontierKind, string> = {
@@ -74,16 +76,16 @@ const FRONTIER_LABEL: Record<AlgoFrontierKind, string> = {
   'priority-queue': 'Priority queue',
 };
 
-const TOOL_OPTIONS: { id: Tool; label: string; hint: string }[] = [
-  { id: 'build', label: 'Build', hint: 'Click to add nodes, drag node to node to connect' },
-  { id: 'move', label: 'Move', hint: 'Drag nodes to reposition them' },
+const TOOL_OPTIONS = [
+  { value: 'build' as Tool, label: 'Build', icon: MousePointer2 },
+  { value: 'move' as Tool, label: 'Move', icon: Hand },
 ];
 
-const LEGEND: { label: string; color: string; dashed?: boolean }[] = [
-  { label: 'Current', color: '#facc15' },
-  { label: 'Visited', color: '#60a5fa' },
-  { label: 'In frontier', color: '#a78bfa', dashed: true },
-  { label: 'Path', color: '#34d399' },
+const LEGEND: LegendItem[] = [
+  { label: 'Current', color: LAB.compare, ring: true },
+  { label: 'Visited', color: LAB.visited, ring: true },
+  { label: 'In frontier', color: LAB.frontier, ring: true, dashed: true },
+  { label: 'Path', color: LAB.sorted, ring: true },
 ];
 
 function autoWeight(a: Point, b: Point): number {
@@ -103,8 +105,8 @@ function clampPoint(p: Point): Point {
 function NodeBadge({ letter, color, x, y }: { letter: string; color: string; x: number; y: number }) {
   return (
     <g transform={`translate(${x} ${y})`} pointerEvents="none">
-      <circle r={8} fill={color} />
-      <text textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={700} fill="#0b1020">
+      <circle r={8} style={{ fill: color }} stroke={LAB.ink[950]} strokeWidth={1.5} />
+      <text textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={700} fill={LAB.ink[950]}>
         {letter}
       </text>
     </g>
@@ -116,29 +118,29 @@ function EdgeWeightEditor({ weight, onCommit }: { weight: number; onCommit: (wei
   const value = Number(draft);
   const valid = /^\d+$/.test(draft) && value >= EDGE_WEIGHT_MIN && value <= EDGE_WEIGHT_MAX;
   return (
-    <label className="flex items-center gap-1.5 text-[11px] text-white/60">
-      Weight
-      <input
-        type="number"
-        min={EDGE_WEIGHT_MIN}
-        max={EDGE_WEIGHT_MAX}
-        step={1}
-        value={draft}
-        onChange={(event) => {
-          const next = event.target.value;
-          setDraft(next);
-          const parsed = Number(next);
-          if (/^\d+$/.test(next) && parsed >= EDGE_WEIGHT_MIN && parsed <= EDGE_WEIGHT_MAX) onCommit(parsed);
-        }}
-        aria-invalid={!valid}
-        aria-label="Edge weight"
-        className={cn(
-          'w-16 rounded-md border bg-black/40 px-2 py-1 font-mono text-[12px] text-white outline-none',
-          valid ? 'border-white/15 focus:border-cyan-400/60' : 'border-rose-500/60'
-        )}
-      />
-      {!valid && <span className="text-rose-300">{`${EDGE_WEIGHT_MIN}–${EDGE_WEIGHT_MAX}`}</span>}
-    </label>
+    <div className="flex items-center gap-2">
+      <span className="hud-label">Weight</span>
+      <div className="w-20">
+        <Input
+          size="sm"
+          type="number"
+          min={EDGE_WEIGHT_MIN}
+          max={EDGE_WEIGHT_MAX}
+          step={1}
+          value={draft}
+          onChange={(event) => {
+            const next = event.target.value;
+            setDraft(next);
+            const parsed = Number(next);
+            if (/^\d+$/.test(next) && parsed >= EDGE_WEIGHT_MIN && parsed <= EDGE_WEIGHT_MAX) onCommit(parsed);
+          }}
+          aria-invalid={!valid}
+          aria-label="Edge weight"
+          className="tabular font-mono"
+        />
+      </div>
+      {!valid && <span className="text-xs text-danger">{`${EDGE_WEIGHT_MIN}–${EDGE_WEIGHT_MAX}`}</span>}
+    </div>
   );
 }
 
@@ -153,18 +155,16 @@ function DistanceTable({
   const previous = frame?.previous ?? null;
   const settled = new Set(frame?.visited ?? NO_IDS);
   return (
-    <div className="flex w-36 shrink-0 flex-col border-l border-white/10 bg-black/25">
-      <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-white/55">
-        dist[ ] &amp; prev[ ]
-      </div>
+    <div className="flex w-40 shrink-0 flex-col border-l border-line bg-ink-950/35">
+      <div className="hud-label flex h-9 shrink-0 items-center border-b border-line px-3">dist · prev</div>
       {distances && previous ? (
-        <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-          <table className="w-full font-mono text-[11px]">
-            <thead className="sticky top-0 bg-[#0c0f1a] text-white/50">
-              <tr>
-                <th className="px-2 py-1 text-left font-normal">v</th>
-                <th className="px-1 py-1 text-right font-normal">dist</th>
-                <th className="px-2 py-1 text-right font-normal">prev</th>
+        <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
+          <table className="w-full font-mono text-xs">
+            <thead className="sticky top-0 bg-ink-900">
+              <tr className="text-fg-subtle">
+                <th scope="col" className="px-3 py-1.5 text-left text-2xs font-medium uppercase tracking-[0.14em]">v</th>
+                <th scope="col" className="px-1 py-1.5 text-right text-2xs font-medium uppercase tracking-[0.14em]">dist</th>
+                <th scope="col" className="px-3 py-1.5 text-right text-2xs font-medium uppercase tracking-[0.14em]">prev</th>
               </tr>
             </thead>
             <tbody>
@@ -172,28 +172,31 @@ function DistanceTable({
                 const isCurrent = frame?.current === id;
                 const isUpdated = frame?.updated === id;
                 const onPath = frame?.path.includes(id) ?? false;
+                const done = settled.has(id);
                 return (
                   <tr
                     key={id}
                     className={cn(
-                      'transition-colors duration-200',
+                      'border-t border-line transition-colors duration-180',
                       onPath
-                        ? 'bg-emerald-400/15 text-emerald-200'
+                        ? 'bg-success/12 text-success'
                         : isUpdated
-                          ? 'bg-emerald-400/10 text-emerald-200'
+                          ? 'bg-success/8 text-success'
                           : isCurrent
-                            ? 'bg-yellow-400/15 text-yellow-100'
-                            : settled.has(id)
-                              ? 'text-sky-200'
-                              : 'text-white/70'
+                            ? 'bg-warning/12 text-warning'
+                            : done
+                              ? 'text-info'
+                              : 'text-fg-muted'
                     )}
                   >
-                    <td className="px-2 py-0.5">
-                      {id}
-                      {settled.has(id) && <span className="ml-1 text-sky-300">✓</span>}
+                    <td className="px-3 py-1">
+                      <span className="flex items-center gap-1">
+                        {id}
+                        {done && <span className="size-1 rounded-full bg-current" aria-label="settled" />}
+                      </span>
                     </td>
-                    <td className="px-1 py-0.5 text-right tabular-nums">{formatDistance(distances[id] ?? Infinity)}</td>
-                    <td className="px-2 py-0.5 text-right">{previous[id] ?? '–'}</td>
+                    <td className="tabular px-1 py-1 text-right">{formatDistance(distances[id] ?? Infinity)}</td>
+                    <td className="px-3 py-1 text-right">{previous[id] ?? '–'}</td>
                   </tr>
                 );
               })}
@@ -201,9 +204,7 @@ function DistanceTable({
           </table>
         </div>
       ) : (
-        <p className="px-2.5 text-[11px] leading-snug text-white/50">
-          Run Dijkstra to watch every tentative distance and predecessor update.
-        </p>
+        <p className="px-3 py-3 text-xs text-fg-subtle">Run Dijkstra to watch every tentative distance and predecessor update.</p>
       )}
     </div>
   );
@@ -446,210 +447,186 @@ function GraphVisualizerInner({ algorithm }: { algorithm: GraphAlgorithmId }) {
 
   // ─── Toolbar ───
 
+  const runLabel = algorithm === 'dijkstra' ? 'Dijkstra' : algorithm.toUpperCase();
+  const nodeOptions = nodeIds.map((id) => ({ value: id, label: id }));
+
   const toolbar = (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px]">
-        <div className="flex items-center rounded-md border border-white/10 bg-white/5 p-0.5" role="group" aria-label="Editing tool">
-          {TOOL_OPTIONS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              title={option.hint}
-              aria-pressed={tool === option.id}
-              onClick={() => setTool(option.id)}
-              className={cn(
-                'flex items-center gap-1 rounded px-2 py-0.5 transition-colors',
-                tool === option.id ? 'bg-cyan-500/25 text-cyan-100' : 'text-white/60 hover:text-white'
-              )}
-            >
-              {option.id === 'build' ? (
-                <MousePointer2 className="h-3.5 w-3.5" aria-hidden />
-              ) : (
-                <Hand className="h-3.5 w-3.5" aria-hidden />
-              )}
-              {option.label}
-            </button>
-          ))}
-        </div>
+    <>
+      <SegmentedControl<Tool>
+        size="sm"
+        aria-label="Editing tool"
+        value={tool}
+        onChange={setTool}
+        options={TOOL_OPTIONS}
+      />
 
-        <label className="flex items-center gap-1.5 text-white/60">
-          <Flag className="h-3.5 w-3.5 text-cyan-300" aria-hidden />
-          Source
-          <select
-            value={source ?? ''}
-            onChange={(event) => {
-              setGraphSource(event.target.value === '' ? null : event.target.value);
-              invalidateRun();
-            }}
-            className="rounded-md border border-white/15 bg-black/40 px-1.5 py-1 font-mono text-white outline-none focus:border-cyan-400/60"
-          >
-            <option value="" className="bg-[#0f1220]">
-              –
-            </option>
-            {nodeIds.map((id) => (
-              <option key={id} value={id} className="bg-[#0f1220]">
-                {id}
-              </option>
-            ))}
-          </select>
-        </label>
+      <ToolbarSeparator />
 
-        <label className="flex items-center gap-1.5 text-white/60">
-          <Target className="h-3.5 w-3.5 text-pink-300" aria-hidden />
-          Target
-          <select
-            value={target ?? ''}
-            onChange={(event) => {
-              setGraphTarget(event.target.value === '' ? null : event.target.value);
-              invalidateRun();
-            }}
-            className="rounded-md border border-white/15 bg-black/40 px-1.5 py-1 font-mono text-white outline-none focus:border-cyan-400/60"
-          >
-            <option value="" className="bg-[#0f1220]">
-              none (visit all)
-            </option>
-            {nodeIds.map((id) => (
-              <option key={id} value={id} className="bg-[#0f1220]">
-                {id}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="w-24 shrink-0" title="Source node">
+        <Select
+          size="sm"
+          aria-label="Source"
+          leadingIcon={Flag}
+          value={source ?? ''}
+          onValueChange={(value) => {
+            setGraphSource(value === '' ? null : value);
+            invalidateRun();
+          }}
+          options={[{ value: '', label: '–' }, ...nodeOptions]}
+        />
+      </div>
+      <div className="w-36 shrink-0" title="Target node">
+        <Select
+          size="sm"
+          aria-label="Target"
+          leadingIcon={Target}
+          value={target ?? ''}
+          onValueChange={(value) => {
+            setGraphTarget(value === '' ? null : value);
+            invalidateRun();
+          }}
+          options={[{ value: '', label: 'None (visit all)' }, ...nodeOptions]}
+        />
+      </div>
 
-        <button
-          type="button"
+      {run ? (
+        <>
+          <Button size="sm" variant="secondary" leadingIcon={RotateCcw} onClick={runAlgorithm}>
+            Run again
+          </Button>
+          <IconButton
+            icon={X}
+            size="sm"
+            aria-label="Clear the highlights and go back to editing"
+            tooltip
+            onClick={invalidateRun}
+          />
+        </>
+      ) : (
+        <Button
+          size="sm"
+          variant="primary"
+          leadingIcon={Play}
           onClick={runAlgorithm}
           disabled={source === null || graph.nodes.length === 0}
-          className="flex items-center gap-1.5 rounded-md border border-cyan-500/40 bg-cyan-500/20 px-2.5 py-1 font-medium text-cyan-100 transition-colors hover:bg-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Play className="h-3.5 w-3.5" aria-hidden />
-          {run ? 'Run again' : `Run ${algorithm === 'dijkstra' ? 'Dijkstra' : algorithm.toUpperCase()}`}
-        </button>
-        {run && (
-          <button
-            type="button"
-            onClick={invalidateRun}
-            className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-white/70 hover:bg-white/10 hover:text-white"
-            title="Clear the highlights and go back to editing"
-          >
-            <X className="h-3.5 w-3.5" aria-hidden />
-            Clear run
-          </button>
-        )}
+          Run {runLabel}
+        </Button>
+      )}
 
-        <div className="ml-auto flex items-center gap-1.5">
-          <select
+      <div className="ml-auto flex items-center gap-1 pl-2">
+        <div className="w-44 shrink-0">
+          <Select
+            size="sm"
+            aria-label="Preset graph"
             value={preset === 'custom' ? '' : preset}
-            onChange={(event) => {
-              const chosen = GRAPH_PRESETS.find((candidate) => candidate.id === event.target.value);
+            onValueChange={(value) => {
+              const chosen = GRAPH_PRESETS.find((candidate) => candidate.id === value);
               if (!chosen) return;
               loadGraphPreset(chosen.id);
               setSelection(null);
               setNotice(null);
               invalidateRun();
             }}
-            aria-label="Preset graph"
-            className="rounded-md border border-white/15 bg-black/40 px-1.5 py-1 text-white outline-none focus:border-cyan-400/60"
           >
-            <option value="" disabled className="bg-[#0f1220]">
+            <option value="" disabled>
               Custom graph
             </option>
             {GRAPH_PRESETS.map((candidate) => (
-              <option key={candidate.id} value={candidate.id} className="bg-[#0f1220]">
+              <option key={candidate.id} value={candidate.id}>
                 Preset: {candidate.name}
               </option>
             ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => {
-              clearGraph();
-              setSelection(null);
-              setNotice(null);
+          </Select>
+        </div>
+        <IconButton
+          icon={Eraser}
+          size="sm"
+          variant="ghost-danger"
+          aria-label="Remove every node and edge"
+          tooltip
+          onClick={() => {
+            clearGraph();
+            setSelection(null);
+            setNotice(null);
+            invalidateRun();
+          }}
+        />
+      </div>
+    </>
+  );
+
+  const subbar = (
+    <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-1.5 text-xs">
+      {selectedEdge ? (
+        <>
+          <span className="font-mono text-ui font-medium text-accent">
+            Edge {selectedEdge.from}–{selectedEdge.to}
+          </span>
+          <EdgeWeightEditor
+            key={selectedEdge.id}
+            weight={selectedEdge.weight}
+            onCommit={(weight) => {
+              setEdgeWeight(selectedEdge.id, weight);
               invalidateRun();
             }}
-            className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-white/70 hover:bg-white/10 hover:text-white"
-            title="Remove every node and edge"
+          />
+          <Button size="sm" variant="danger" leadingIcon={Trash2} onClick={deleteSelection}>
+            Delete edge
+          </Button>
+        </>
+      ) : selectedNode ? (
+        <>
+          <span className="font-mono text-ui font-medium text-accent">Node {selectedNode.id}</span>
+          <Button
+            size="sm"
+            variant="secondary"
+            leadingIcon={Flag}
+            onClick={() => {
+              setGraphSource(selectedNode.id);
+              invalidateRun();
+            }}
+            disabled={source === selectedNode.id}
           >
-            <Eraser className="h-3.5 w-3.5" aria-hidden />
-            Clear
-          </button>
-        </div>
-      </div>
-
-      <div className="flex min-h-[1.75rem] flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-        {selectedEdge ? (
-          <>
-            <span className="font-mono text-cyan-200">
-              Edge {selectedEdge.from}–{selectedEdge.to}
-            </span>
-            <EdgeWeightEditor
-              key={selectedEdge.id}
-              weight={selectedEdge.weight}
-              onCommit={(weight) => {
-                setEdgeWeight(selectedEdge.id, weight);
-                invalidateRun();
-              }}
-            />
-            <button
-              type="button"
-              onClick={deleteSelection}
-              className="flex items-center gap-1 rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-rose-200 hover:bg-rose-500/20"
-            >
-              <Trash2 className="h-3.5 w-3.5" aria-hidden />
-              Delete edge
-            </button>
-          </>
-        ) : selectedNode ? (
-          <>
-            <span className="font-mono text-cyan-200">Node {selectedNode.id}</span>
-            <button
-              type="button"
-              onClick={() => {
-                setGraphSource(selectedNode.id);
-                invalidateRun();
-              }}
-              disabled={source === selectedNode.id}
-              className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-white/75 hover:bg-white/10 disabled:opacity-40"
-            >
-              Set as source
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setGraphTarget(selectedNode.id);
-                invalidateRun();
-              }}
-              disabled={target === selectedNode.id}
-              className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-white/75 hover:bg-white/10 disabled:opacity-40"
-            >
-              Set as target
-            </button>
-            <button
-              type="button"
-              onClick={deleteSelection}
-              className="flex items-center gap-1 rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-rose-200 hover:bg-rose-500/20"
-            >
-              <Trash2 className="h-3.5 w-3.5" aria-hidden />
-              Delete node
-            </button>
-          </>
-        ) : notice ? (
-          <span className="text-amber-200">{notice}</span>
-        ) : (
-          <span className="text-white/50">
-            Click empty space to add a node · drag from one node to another to connect them · Shift+drag (or Move)
-            to reposition · click a node or weight to edit · Delete removes the selection
+            Set as source
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            leadingIcon={Target}
+            onClick={() => {
+              setGraphTarget(selectedNode.id);
+              invalidateRun();
+            }}
+            disabled={target === selectedNode.id}
+          >
+            Set as target
+          </Button>
+          <Button size="sm" variant="danger" leadingIcon={Trash2} onClick={deleteSelection}>
+            Delete node
+          </Button>
+        </>
+      ) : notice ? (
+        <span className="flex items-center gap-2 text-warning" role="status">
+          <TriangleAlert size={14} strokeWidth={1.75} className="shrink-0" aria-hidden />
+          {notice}
+        </span>
+      ) : (
+        <span className="flex min-w-0 items-center gap-2 text-fg-subtle">
+          <Info size={14} strokeWidth={1.75} className="shrink-0" aria-hidden />
+          <span className="truncate" title="Click empty space to add a node · drag from one node to another to connect them · Shift+drag (or Move) to reposition · click a node or weight to edit · Delete removes the selection">
+            Click empty space to add a node · drag node to node to connect · Shift+drag (or Move) to reposition · click a
+            node or weight to edit · Delete removes the selection
           </span>
-        )}
-      </div>
+        </span>
+      )}
     </div>
   );
 
   // ─── Stage ───
 
   const stage = (
-    <div className="flex h-full min-h-0">
+    <div className="flex min-h-0 flex-1">
       <div className="relative min-w-0 flex-1">
         <svg
           ref={svgRef}
@@ -664,7 +641,7 @@ function GraphVisualizerInner({ algorithm }: { algorithm: GraphAlgorithmId }) {
         >
           <defs>
             <pattern id={patternId} width={40} height={40} patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke={LAB.grid} strokeWidth={1} />
             </pattern>
           </defs>
           <rect x={0} y={0} width={W} height={H} fill={`url(#${patternId})`} onPointerDown={onBackgroundPointerDown} />
@@ -709,15 +686,15 @@ function GraphVisualizerInner({ algorithm }: { algorithm: GraphAlgorithmId }) {
                     width={28}
                     height={20}
                     rx={6}
-                    fill="#0b1020"
-                    stroke={state === 'idle' ? 'rgba(255,255,255,0.18)' : style.stroke}
+                    fill={LAB.ink[900]}
+                    style={{ stroke: state === 'idle' ? LAB.line.strong : style.stroke }}
                   />
                   <text
                     textAnchor="middle"
                     dominantBaseline="central"
                     fontSize={12}
                     fontFamily="var(--font-mono), monospace"
-                    fill={state === 'idle' ? 'rgba(255,255,255,0.8)' : style.stroke}
+                    style={{ fill: state === 'idle' ? LAB.fg.muted : style.stroke }}
                     pointerEvents="none"
                   >
                     {edge.weight}
@@ -733,8 +710,8 @@ function GraphVisualizerInner({ algorithm }: { algorithm: GraphAlgorithmId }) {
               y1={linkFrom.y}
               x2={drag.x}
               y2={drag.y}
-              stroke="#22d3ee"
-              strokeWidth={2.5}
+              style={{ stroke: ACCENT }}
+              strokeWidth={2}
               strokeDasharray="7 6"
               strokeLinecap="round"
               pointerEvents="none"
@@ -754,8 +731,8 @@ function GraphVisualizerInner({ algorithm }: { algorithm: GraphAlgorithmId }) {
                 className={tool === 'move' ? 'cursor-grab' : 'cursor-pointer'}
                 onPointerDown={(event) => onNodePointerDown(event, node.id)}
               >
-                {selected && <circle r={R + 7} fill="none" stroke="#22d3ee" strokeOpacity={0.6} strokeWidth={2} />}
-                {state === 'current' && <circle r={R + 6} fill="none" stroke="#facc15" strokeOpacity={0.35} strokeWidth={6} />}
+                {selected && <circle r={R + 7} fill="none" style={{ stroke: ACCENT }} strokeOpacity={0.7} strokeWidth={1.5} strokeDasharray="4 3" />}
+                {state === 'current' && <circle r={R + 6} fill="none" stroke={LAB.compare} strokeOpacity={0.28} strokeWidth={6} />}
                 <circle
                   r={R}
                   strokeDasharray={state === 'frontier' ? '5 4' : undefined}
@@ -777,15 +754,15 @@ function GraphVisualizerInner({ algorithm }: { algorithm: GraphAlgorithmId }) {
                 >
                   {node.id}
                 </text>
-                {node.id === source && <NodeBadge letter="S" color="#22d3ee" x={-R + 3} y={-R + 3} />}
-                {node.id === target && <NodeBadge letter="T" color="#f472b6" x={R - 3} y={-R + 3} />}
+                {node.id === source && <NodeBadge letter="S" color={ACCENT} x={-R + 3} y={-R + 3} />}
+                {node.id === target && <NodeBadge letter="T" color={LAB.target} x={R - 3} y={-R + 3} />}
                 {distance !== undefined && (
                   <text
                     y={R + 15}
                     textAnchor="middle"
                     fontSize={12}
                     fontFamily="var(--font-mono), monospace"
-                    fill={frame?.updated === node.id ? '#6ee7b7' : 'rgba(255,255,255,0.75)'}
+                    fill={frame?.updated === node.id ? LAB.sorted : LAB.fg.muted}
                     fontWeight={frame?.updated === node.id ? 700 : 400}
                     pointerEvents="none"
                   >
@@ -798,8 +775,14 @@ function GraphVisualizerInner({ algorithm }: { algorithm: GraphAlgorithmId }) {
         </svg>
 
         {graph.nodes.length === 0 && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-white/50">
-            Empty canvas. Click anywhere to add your first node, or pick a preset.
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <EmptyState
+              size="sm"
+              grid={false}
+              icon={Waypoints}
+              title="Empty canvas"
+              description="Click anywhere to add your first node, or pick a preset."
+            />
           </div>
         )}
       </div>
@@ -807,77 +790,85 @@ function GraphVisualizerInner({ algorithm }: { algorithm: GraphAlgorithmId }) {
     </div>
   );
 
-  // ─── Footer ───
+  // ─── Narration ───
 
-  const footer = (
-    <>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px]">
-        <span className="flex min-w-0 items-center gap-1.5 text-white/60">
-          <span className="shrink-0">{FRONTIER_LABEL[frame?.frontierKind ?? (algorithm === 'bfs' ? 'queue' : algorithm === 'dfs' ? 'stack' : 'priority-queue')]}:</span>
-          <span className="truncate font-mono text-violet-200">
-            {frame && frame.frontier.length > 0
-              ? frame.frontier
-                  .map((id) =>
-                    frame.frontierKind === 'priority-queue' && frame.distances
-                      ? `${id}(${formatDistance(frame.distances[id] ?? Infinity)})`
-                      : id
-                  )
-                  .join(frame.frontierKind === 'stack' ? ' → ' : ' · ')
-              : 'empty'}
-          </span>
+  const frontierKind = frame?.frontierKind ?? (algorithm === 'bfs' ? 'queue' : algorithm === 'dfs' ? 'stack' : 'priority-queue');
+  const frontierText =
+    frame && frame.frontier.length > 0
+      ? frame.frontier
+          .map((id) =>
+            frame.frontierKind === 'priority-queue' && frame.distances
+              ? `${id}(${formatDistance(frame.distances[id] ?? Infinity)})`
+              : id
+          )
+          .join(frame.frontierKind === 'stack' ? ' → ' : ' · ')
+      : 'empty';
+  const orderText = frame && frame.order.length > 0 ? frame.order.join(' ') : '–';
+
+  const structures = (
+    <div className="grid shrink-0 grid-cols-1 gap-x-6 gap-y-1 border-b border-line px-3 py-2 @xl/stage:grid-cols-2">
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="hud-label shrink-0">{FRONTIER_LABEL[frontierKind]}</span>
+        <span className="tabular min-w-0 truncate font-mono text-xs text-viz-3" title={frontierText}>
+          {frontierText}
         </span>
-        <span className="flex min-w-0 items-center gap-1.5 text-white/60">
-          <span className="shrink-0">Order:</span>
-          <span className="truncate font-mono text-sky-200">{frame && frame.order.length > 0 ? frame.order.join(' ') : '–'}</span>
+      </span>
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="hud-label shrink-0">Order</span>
+        <span className="tabular min-w-0 truncate font-mono text-xs text-info" title={orderText}>
+          {orderText}
         </span>
-        <span className="ml-auto flex items-center gap-3 text-white/55">
-          {LEGEND.map((item) => (
-            <span key={item.label} className="flex items-center gap-1">
-              <span
-                className="h-2.5 w-2.5 rounded-full border-2"
-                style={{ borderColor: item.color, borderStyle: item.dashed ? 'dashed' : 'solid' }}
-                aria-hidden
-              />
-              {item.label}
-            </span>
-          ))}
-        </span>
-      </div>
-      <StepMessage
-        message={
-          frame
-            ? frame.message
-            : `Pick a source${algorithm === 'bfs' || algorithm === 'dijkstra' ? ' and target' : ''}, then press Run. ${graph.nodes.length} nodes, ${graph.edges.length} edges.`
-        }
-      >
-        {frame ? (
-          <>
-            {frame.pathCost !== null && <Stat label="path cost" value={frame.pathCost} className="text-emerald-300" />}
-            <Stat label="visited" value={frame.visited.length} />
-          </>
-        ) : null}
-      </StepMessage>
-      <PlaybackControls
-        player={player}
-        speedKind="graph"
-        speedLevel={speedLevel}
-        onSpeedChange={(level) => setSpeed('graph', level)}
-        disabled={!run}
-      />
-    </>
+      </span>
+    </div>
   );
 
   return (
     <LabLayout
+      view={algorithm}
       title={meta.name}
-      subtitle={meta.description}
       category="graph"
       toolbar={toolbar}
-      stage={stage}
+      subbar={subbar}
+      stage={
+        <>
+          {structures}
+          {stage}
+          <StageLegend items={LEGEND} />
+        </>
+      }
       stageLabel="Graph canvas. Delete removes the selected node or edge; Space plays or pauses."
-      footer={footer}
-      code={<CodePanel title={meta.name} lines={meta.pseudocode} activeLine={frame ? frame.line : -1} />}
-      details={<ComplexityCard meta={meta} />}
+      narration={
+        <StepMessage
+          message={
+            frame
+              ? frame.message
+              : `Pick a source${algorithm === 'bfs' || algorithm === 'dijkstra' ? ' and target' : ''}, then press Run. ${graph.nodes.length} nodes, ${graph.edges.length} edges.`
+          }
+        >
+          {frame ? (
+            <>
+              {frame.pathCost !== null && <Stat label="path cost" value={frame.pathCost} tone="success" />}
+              <Stat label="visited" value={frame.visited.length} tone="info" />
+            </>
+          ) : null}
+        </StepMessage>
+      }
+      aside={
+        <>
+          <ComplexityCard meta={meta} />
+          <CodePanel title={meta.name} lines={meta.pseudocode} activeLine={frame ? frame.line : -1} meta={meta} className="flex-1" />
+        </>
+      }
+      playback={
+        <PlaybackControls
+          player={player}
+          speedKind="graph"
+          speedLevel={speedLevel}
+          onSpeedChange={(level) => setSpeed('graph', level)}
+          disabled={!run}
+          emphasis="soft"
+        />
+      }
       onStageKeyDown={onKeyDown}
     />
   );

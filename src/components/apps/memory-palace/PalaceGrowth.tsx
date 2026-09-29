@@ -18,6 +18,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { roomTheme, type PalaceContentType, type PalaceGroup, type PalaceItem, type RoomTheme } from './palaceData';
+import { PALACE } from './palaceTheme';
 
 // ─────────────────────────────────────────────────────────────
 // Dimensions (world units ≈ metres)
@@ -46,8 +47,8 @@ const OUTER_X = CORR_HALF + WALL_T + ROOM_SIZE; // 14.3 (inner face of the outer
 const VEST_HALF_W = 6;
 const VEST_HALF_D = 5;
 const Z0 = -(VEST_HALF_D + WALL_T); // corridor starts here (-5.3)
-const STONE = '#3b3d46';
-const CORRIDOR_FLOOR = '#24252c';
+const STONE: string = PALACE.stone;
+const CORRIDOR_FLOOR: string = PALACE.floor;
 
 // ─────────────────────────────────────────────────────────────
 // Growth tiers
@@ -418,18 +419,18 @@ export function buildPalaceLayout(
   const S = 'static';
 
   // ── Entrance hall (vestibule) ──
-  boxes.push(slab(S, 'floor', -VEST_HALF_W, VEST_HALF_W, -VEST_HALF_D, VEST_HALF_D, 0, '#2a2b33'));
-  boxes.push(slab(S, 'ceiling', -VEST_HALF_W, VEST_HALF_W, -VEST_HALF_D, VEST_HALF_D, WALL_H, '#15161b'));
+  boxes.push(slab(S, 'floor', -VEST_HALF_W, VEST_HALF_W, -VEST_HALF_D, VEST_HALF_D, 0, PALACE.floorVestibule));
+  boxes.push(slab(S, 'ceiling', -VEST_HALF_W, VEST_HALF_W, -VEST_HALF_D, VEST_HALF_D, WALL_H, PALACE.ceilingVestibule));
   boxes.push(wallX(S, -VEST_HALF_W - WALL_T, VEST_HALF_W + WALL_T, VEST_HALF_D + WALL_T / 2, STONE));
   boxes.push(wallZ(S, -VEST_HALF_D - WALL_T, VEST_HALF_D + WALL_T, -VEST_HALF_W - WALL_T / 2, STONE));
   boxes.push(wallZ(S, -VEST_HALF_D - WALL_T, VEST_HALF_D + WALL_T, VEST_HALF_W + WALL_T / 2, STONE));
   boxes.push(wallX(S, -VEST_HALF_W - WALL_T, -CORR_HALF - WALL_T, -VEST_HALF_D - WALL_T / 2, STONE));
   boxes.push(wallX(S, CORR_HALF + WALL_T, VEST_HALF_W + WALL_T, -VEST_HALF_D - WALL_T / 2, STONE));
-  boxes.push(box(S, 'glow', 0, WALL_H - 0.35, VEST_HALF_D - 0.02, VEST_HALF_W * 2 - 0.4, 0.06, 0.04, '#00f0ff'));
+  boxes.push(box(S, 'glow', 0, WALL_H - 0.35, VEST_HALF_D - 0.02, VEST_HALF_W * 2 - 0.4, 0.06, 0.04, PALACE.glow));
   // Archive table.
   const archiveTable: [number, number] = [3.4, 1.2];
-  boxes.push(box(S, 'trim', archiveTable[0], 0.45, archiveTable[1], 2.6, 0.9, 1.5, '#3e3226', true));
-  boxes.push(box(S, 'glow', archiveTable[0], 0.92, archiveTable[1], 2.62, 0.03, 1.52, '#b0bec5'));
+  boxes.push(box(S, 'trim', archiveTable[0], 0.45, archiveTable[1], 2.6, 0.9, 1.5, PALACE.trimWood, true));
+  boxes.push(box(S, 'glow', archiveTable[0], 0.92, archiveTable[1], 2.62, 0.03, 1.52, PALACE.archive));
 
   const totalRooms = allocation.rooms.length;
   const rows = Math.ceil(totalRooms / 2);
@@ -494,7 +495,7 @@ export function buildPalaceLayout(
   for (let row = 0; row < rows; row++) {
     const cz = rowCenterZ(row);
     boxes.push(slab(S, 'floor', -CORR_HALF - WALL_T, CORR_HALF + WALL_T, cz - ROW_PITCH / 2, cz + ROW_PITCH / 2, 0, CORRIDOR_FLOOR));
-    boxes.push(slab(S, 'ceiling', -CORR_HALF, CORR_HALF, cz - ROW_PITCH / 2, cz + ROW_PITCH / 2, WALL_H, '#121318'));
+    boxes.push(slab(S, 'ceiling', -CORR_HALF, CORR_HALF, cz - ROW_PITCH / 2, cz + ROW_PITCH / 2, WALL_H, PALACE.ceiling));
     // Empty slot on this row → plain corridor wall.
     for (const side of [-1, 1] as const) {
       const slot = row * 2 + (side === -1 ? 0 : 1);
@@ -505,14 +506,14 @@ export function buildPalaceLayout(
     // Corridor tier ≥1: pillars at every row boundary; ≥2: hanging lanterns; ≥3: carpet runner.
     if (growth.corridorTier >= 1) {
       for (const side of [-1, 1] as const) {
-        boxes.push(box(S, 'pillar', side * (CORR_HALF - 0.28), WALL_H / 2, cz + ROW_PITCH / 2, 0.45, WALL_H, 0.45, '#4a4c57', true));
+        boxes.push(box(S, 'pillar', side * (CORR_HALF - 0.28), WALL_H / 2, cz + ROW_PITCH / 2, 0.45, WALL_H, 0.45, PALACE.stoneLight, true));
       }
     }
     if (growth.corridorTier >= 2) {
-      boxes.push(box(S, 'glow', 0, WALL_H - 0.7, cz, 0.3, 0.4, 0.3, '#ffcc80'));
+      boxes.push(box(S, 'glow', 0, WALL_H - 0.7, cz, 0.3, 0.4, 0.3, PALACE.lamp));
     }
     if (growth.corridorTier >= 3) {
-      boxes.push(box(S, 'trim', 0, 0.012, cz, 1.4, 0.02, ROW_PITCH, '#5a1622'));
+      boxes.push(box(S, 'trim', 0, 0.012, cz, 1.4, 0.02, ROW_PITCH, PALACE.carpet));
     }
     // Wing archway before the first row of every new wing.
     if (row > 0 && row % ROWS_PER_WING === 0) {
@@ -521,22 +522,22 @@ export function buildPalaceLayout(
       const zTop = rowCenterZ(row - 1) - ROW_PITCH / 2;
       const zBottom = cz + ROW_PITCH / 2;
       units.push({ key: wu, label: `Wing ${roman(wing + 1)}` });
-      boxes.push(slab(wu, 'floor', -CORR_HALF - WALL_T, CORR_HALF + WALL_T, zBottom, zTop, 0, '#2c2233'));
-      boxes.push(slab(wu, 'ceiling', -CORR_HALF, CORR_HALF, zBottom, zTop, WALL_H, '#121318'));
-      boxes.push(wallZ(wu, zBottom, zTop, -(CORR_HALF + WALL_T / 2), '#463a52'));
-      boxes.push(wallZ(wu, zBottom, zTop, CORR_HALF + WALL_T / 2, '#463a52'));
+      boxes.push(slab(wu, 'floor', -CORR_HALF - WALL_T, CORR_HALF + WALL_T, zBottom, zTop, 0, PALACE.wingFloor));
+      boxes.push(slab(wu, 'ceiling', -CORR_HALF, CORR_HALF, zBottom, zTop, WALL_H, PALACE.ceiling));
+      boxes.push(wallZ(wu, zBottom, zTop, -(CORR_HALF + WALL_T / 2), PALACE.wingWall));
+      boxes.push(wallZ(wu, zBottom, zTop, CORR_HALF + WALL_T / 2, PALACE.wingWall));
       const zm = (zTop + zBottom) / 2;
       for (const side of [-1, 1] as const) {
-        boxes.push(box(wu, 'pillar', side * (CORR_HALF - 0.35), WALL_H / 2, zm, 0.6, WALL_H, 0.6, '#6b5a7a', true));
+        boxes.push(box(wu, 'pillar', side * (CORR_HALF - 0.35), WALL_H / 2, zm, 0.6, WALL_H, 0.6, PALACE.wingPillar, true));
       }
-      boxes.push(box(wu, 'trim', 0, WALL_H - 0.3, zm, CORR_HALF * 2, 0.6, 0.6, '#6b5a7a'));
-      boxes.push(box(wu, 'glow', 0, WALL_H - 0.62, zm + 0.31, CORR_HALF * 2 - 0.4, 0.05, 0.03, '#b388ff'));
+      boxes.push(box(wu, 'trim', 0, WALL_H - 0.3, zm, CORR_HALF * 2, 0.6, 0.6, PALACE.wingPillar));
+      boxes.push(box(wu, 'glow', 0, WALL_H - 0.62, zm + 0.31, CORR_HALF * 2 - 0.4, 0.05, 0.03, PALACE.wing));
       signs.push({
         key: `sign:${wu}`,
         unit: wu,
         title: `WING ${roman(wing + 1)}`,
         sub: `rooms ${wing * ROOMS_PER_WING + 1}–${(wing + 1) * ROOMS_PER_WING}`,
-        color: '#b388ff',
+        color: PALACE.wing,
         pos: [0, WALL_H - 1.25, zm + 0.34],
         rotY: 0,
         width: 2.6,
@@ -553,13 +554,13 @@ export function buildPalaceLayout(
     const z1 = endZ;
     const z0 = endZ - EXT_SEGMENT;
     boxes.push(slab(eu, 'floor', -CORR_HALF - WALL_T, CORR_HALF + WALL_T, z0, z1, 0, CORRIDOR_FLOOR));
-    boxes.push(slab(eu, 'ceiling', -CORR_HALF, CORR_HALF, z0, z1, WALL_H, '#121318'));
+    boxes.push(slab(eu, 'ceiling', -CORR_HALF, CORR_HALF, z0, z1, WALL_H, PALACE.ceiling));
     boxes.push(wallZ(eu, z0, z1, -(CORR_HALF + WALL_T / 2), STONE));
     boxes.push(wallZ(eu, z0, z1, CORR_HALF + WALL_T / 2, STONE));
     for (const side of [-1, 1] as const) {
-      boxes.push(box(eu, 'pillar', side * (CORR_HALF - 0.28), WALL_H / 2, z0 + 0.3, 0.45, WALL_H, 0.45, '#4a4c57', true));
+      boxes.push(box(eu, 'pillar', side * (CORR_HALF - 0.28), WALL_H / 2, z0 + 0.3, 0.45, WALL_H, 0.45, PALACE.stoneLight, true));
     }
-    boxes.push(box(eu, 'glow', 0, WALL_H - 0.7, (z0 + z1) / 2, 0.3, 0.4, 0.3, '#ffcc80'));
+    boxes.push(box(eu, 'glow', 0, WALL_H - 0.7, (z0 + z1) / 2, 0.3, 0.4, 0.3, PALACE.lamp));
     endZ = z0;
   }
 
@@ -573,23 +574,23 @@ export function buildPalaceLayout(
     const hz = (zS + zN) / 2;
     const hw = HALL_SIZE / 2;
     hall = { center: [0, hz], size: HALL_SIZE };
-    boxes.push(slab(hu, 'floor', -hw, hw, zN + WALL_T, zS - WALL_T, 0, '#2e2a24'));
-    boxes.push(slab(hu, 'ceiling', -hw, hw, zN + WALL_T, zS - WALL_T, HALL_H, '#14120f'));
+    boxes.push(slab(hu, 'floor', -hw, hw, zN + WALL_T, zS - WALL_T, 0, PALACE.hallFloor));
+    boxes.push(slab(hu, 'ceiling', -hw, hw, zN + WALL_T, zS - WALL_T, HALL_H, PALACE.hallCeiling));
     const H = { y1: HALL_H };
-    boxes.push(wallX(hu, -hw - WALL_T, -CORR_HALF - WALL_T, zS - WALL_T / 2, '#5b5246', H));
-    boxes.push(wallX(hu, CORR_HALF + WALL_T, hw + WALL_T, zS - WALL_T / 2, '#5b5246', H));
-    boxes.push(wallX(hu, -CORR_HALF - WALL_T, CORR_HALF + WALL_T, zS - WALL_T / 2, '#5b5246', { y0: WALL_H, y1: HALL_H, solid: false }));
-    boxes.push(wallX(hu, -hw - WALL_T, hw + WALL_T, zN + WALL_T / 2, '#5b5246', H));
-    boxes.push(wallZ(hu, zN, zS, -hw - WALL_T / 2, '#5b5246', H));
-    boxes.push(wallZ(hu, zN, zS, hw + WALL_T / 2, '#5b5246', H));
-    boxes.push(box(hu, 'trim', 0, 0.015, hz, 4, 0.03, HALL_SIZE - 2, '#6d1b2a'));
-    boxes.push(box(hu, 'glow', 0, HALL_H - 0.5, zN + WALL_T + 0.03, HALL_SIZE - 2, 0.08, 0.04, '#ffd740'));
+    boxes.push(wallX(hu, -hw - WALL_T, -CORR_HALF - WALL_T, zS - WALL_T / 2, PALACE.hallStone, H));
+    boxes.push(wallX(hu, CORR_HALF + WALL_T, hw + WALL_T, zS - WALL_T / 2, PALACE.hallStone, H));
+    boxes.push(wallX(hu, -CORR_HALF - WALL_T, CORR_HALF + WALL_T, zS - WALL_T / 2, PALACE.hallStone, { y0: WALL_H, y1: HALL_H, solid: false }));
+    boxes.push(wallX(hu, -hw - WALL_T, hw + WALL_T, zN + WALL_T / 2, PALACE.hallStone, H));
+    boxes.push(wallZ(hu, zN, zS, -hw - WALL_T / 2, PALACE.hallStone, H));
+    boxes.push(wallZ(hu, zN, zS, hw + WALL_T / 2, PALACE.hallStone, H));
+    boxes.push(box(hu, 'trim', 0, 0.015, hz, 4, 0.03, HALL_SIZE - 2, PALACE.hallCarpet));
+    boxes.push(box(hu, 'glow', 0, HALL_H - 0.5, zN + WALL_T + 0.03, HALL_SIZE - 2, 0.08, 0.04, PALACE.hall));
     signs.push({
       key: 'sign:hall',
       unit: hu,
       title: 'GRAND HALL',
       sub: `${growth.objectCount} objects of knowledge`,
-      color: '#ffd740',
+      color: PALACE.hall,
       pos: [0, WALL_H - 0.9, zS + 0.25],
       rotY: 0,
       width: 3,
@@ -605,7 +606,7 @@ export function buildPalaceLayout(
     unit: S,
     title: 'MEMORY PALACE',
     sub: `${objectCount} objects · ${totalRooms} room${totalRooms === 1 ? '' : 's'}`,
-    color: '#00f0ff',
+    color: PALACE.glow,
     pos: [0, WALL_H - 0.95, -VEST_HALF_D + 0.03],
     rotY: 0,
     width: 3.6,
@@ -616,7 +617,7 @@ export function buildPalaceLayout(
       unit: S,
       title: 'AWAITING A ROOM',
       sub: `${allocation.unhoused.length} object${allocation.unhoused.length === 1 ? '' : 's'} · next room at ${growth.nextRoomAt ?? '—'} objects`,
-      color: '#b0bec5',
+      color: PALACE.archive,
       pos: [archiveTable[0], 1.75, archiveTable[1] - 0.55],
       rotY: 0,
       width: 2.4,
@@ -628,7 +629,7 @@ export function buildPalaceLayout(
       unit: S,
       title: 'AN EMPTY PALACE',
       sub: 'Write a note, build a deck or start a project',
-      color: '#00f0ff',
+      color: PALACE.glow,
       pos: [0, 2.2, endZ + 0.2],
       rotY: 0,
       width: 3.4,

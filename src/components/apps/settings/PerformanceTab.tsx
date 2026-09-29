@@ -7,6 +7,19 @@
 'use client';
 
 import { memo } from 'react';
+import {
+  Accessibility,
+  ChevronRight,
+  Cpu,
+  Feather,
+  Gauge,
+  MemoryStick,
+  ShieldCheck,
+  Sparkles,
+  Wand2,
+  Zap,
+} from 'lucide-react';
+import { Badge, Card, SegmentedControl, Skeleton, renderIcon, type IconLike } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { useSettingsStore, type PerformanceMode } from '@/stores/useSettingsStore';
 import {
@@ -17,11 +30,12 @@ import {
   type LiteModeStatus,
   type LiteSignal,
 } from '@/lib/lite-mode';
+import { SettingRow, SettingsCard, SettingsPage, SettingsSection } from './parts';
 
-const MODES: { id: PerformanceMode; label: string; hint: string }[] = [
-  { id: 'auto', label: 'Auto', hint: 'Decide from this device' },
-  { id: 'on', label: 'On', hint: 'Always lite' },
-  { id: 'off', label: 'Off', hint: 'Always full effects' },
+const MODES: { id: PerformanceMode; label: string; hint: string; icon: IconLike }[] = [
+  { id: 'auto', label: 'Auto', hint: 'Auto decides from this device.', icon: Wand2 },
+  { id: 'on', label: 'On', hint: 'Always lite, on any device.', icon: Feather },
+  { id: 'off', label: 'Off', hint: 'Always full effects.', icon: Sparkles },
 ];
 
 const LITE_CHANGES = [
@@ -83,125 +97,130 @@ function PerformanceTabInner() {
   const setPerformanceMode = useSettingsStore((s) => s.setPerformanceMode);
   const { headline, note } = explain(status);
   const { device, signals } = status;
+  const mode = MODES.find((m) => m.id === status.mode) ?? MODES[0];
+  const statusIcon = !device ? Gauge : status.active ? Feather : Zap;
 
   return (
-    <div className="p-6 space-y-6">
-      <h3 className="text-lg font-bold text-white">Performance</h3>
+    <SettingsPage>
+      {/* Live status */}
+      <Card hud tone={status.active ? 'accent' : 'default'} role="status" aria-live="polite">
+        <div className="flex items-start gap-3.5">
+          <span
+            className={cn(
+              'flex size-10 shrink-0 items-center justify-center rounded-card border',
+              status.active ? 'border-accent/30 bg-accent/10 text-accent' : 'border-line-strong bg-ink-800 text-fg-muted'
+            )}
+          >
+            {renderIcon(statusIcon, 20)}
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-1 pt-0.5">
+            <p className="text-sm font-medium text-fg">{headline}</p>
+            {note && <p className="text-xs text-fg-muted">{note}</p>}
+          </div>
+        </div>
+      </Card>
 
       {/* Mode */}
-      <section className="space-y-2">
-        <label className="text-xs text-white/60 font-semibold">Lite mode</label>
-        <p className="text-[11px] text-white/40">
-          A lighter profile for everyday laptops: the same apps and features, with the
-          GPU-heavy effects switched off.
-        </p>
-        <div role="group" aria-label="Lite mode" className="grid grid-cols-3 gap-2">
-          {MODES.map((m) => {
-            const selected = status.mode === m.id;
-            return (
-              <button
-                key={m.id}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => setPerformanceMode(m.id)}
-                className={cn(
-                  'p-3 rounded-lg border text-center transition-all',
-                  selected
-                    ? 'bg-white/15 border-white/30 text-white'
-                    : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
-                )}
-              >
-                <span className="block text-sm font-semibold">{m.label}</span>
-                <span className="block text-[10px] text-white/40">{m.hint}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Live status */}
-      <div
-        role="status"
-        aria-live="polite"
-        className={cn(
-          'flex gap-3 rounded-lg border p-3',
-          status.active ? 'border-cyan-400/30 bg-cyan-400/10' : 'border-white/10 bg-white/5'
-        )}
+      <SettingsSection
+        title="Lite mode"
+        description="A lighter profile for everyday laptops: the same apps and features, with the GPU-heavy effects switched off."
       >
-        <span
-          aria-hidden
-          className={cn(
-            'mt-1.5 h-2 w-2 shrink-0 rounded-full',
-            status.active ? 'bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]' : 'bg-white/30'
-          )}
-        />
-        <div className="space-y-1">
-          <p className={cn('text-sm', status.active ? 'text-cyan-100' : 'text-white/80')}>{headline}</p>
-          {note && <p className="text-[11px] text-white/50">{note}</p>}
-        </div>
-      </div>
+        <SettingsCard>
+          <SettingRow
+            label="Mode"
+            description={mode.hint}
+            control={
+              <SegmentedControl
+                aria-label="Lite mode"
+                value={status.mode}
+                onChange={setPerformanceMode}
+                options={MODES.map((m) => ({ value: m.id, label: m.label, icon: m.icon }))}
+              />
+            }
+          />
+        </SettingsCard>
+      </SettingsSection>
 
       {/* Device */}
-      <section className="space-y-2">
-        <label className="text-xs text-white/60 font-semibold">This device</label>
-        <div className="space-y-2 text-xs">
+      <SettingsSection
+        title="This device"
+        description={`Auto switches lite mode on at ${LITE_MAX_MEMORY_GB} GB of memory or less, ${LITE_MAX_CPU_THREADS} CPU threads or fewer, or when your system asks for reduced motion.`}
+      >
+        <SettingsCard>
           <DeviceRow
+            icon={MemoryStick}
             label="Memory"
-            value={
-              device?.memoryGB != null ? formatMemory(device.memoryGB) : 'Not reported by this browser'
-            }
+            loading={!device}
+            value={device?.memoryGB != null ? formatMemory(device.memoryGB) : 'Not reported by this browser'}
             trigger={signals.includes('memory')}
           />
           <DeviceRow
+            icon={Cpu}
             label="CPU threads"
+            loading={!device}
             value={device?.cpuThreads != null ? String(device.cpuThreads) : 'Not reported by this browser'}
             trigger={signals.includes('cpu')}
           />
           <DeviceRow
+            icon={Accessibility}
             label="Reduced motion"
+            loading={!device}
             value={device?.reducedMotion ? 'Requested' : 'Not requested'}
             trigger={signals.includes('reduced-motion')}
           />
-        </div>
-        <p className="text-[11px] text-white/40">
-          Auto switches lite mode on at {LITE_MAX_MEMORY_GB} GB of memory or less,{' '}
-          {LITE_MAX_CPU_THREADS} CPU threads or fewer, or when your system asks for reduced
-          motion.
-        </p>
-      </section>
+        </SettingsCard>
+      </SettingsSection>
 
       {/* What changes */}
-      <section className="space-y-2">
-        <label className="text-xs text-white/60 font-semibold">What lite mode changes</label>
-        <ul className="space-y-1.5 text-xs text-white/60">
-          {LITE_CHANGES.map((change) => (
-            <li key={change} className="flex gap-2">
-              <span aria-hidden className="text-cyan-400/70">›</span>
-              {change}
-            </li>
-          ))}
-        </ul>
-        <p className="text-[11px] text-white/40">
-          Unchanged: every app, Reality Decay, the creature, NEXUS, music, achievements and
-          notifications.
-        </p>
-      </section>
-    </div>
+      <SettingsSection title="What lite mode changes">
+        <SettingsCard>
+          <ul className="grid gap-x-6 gap-y-2.5 p-4 @xl:grid-cols-2">
+            {LITE_CHANGES.map((change) => (
+              <li key={change} className="flex gap-2 text-ui text-fg-muted">
+                <ChevronRight size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+                {change}
+              </li>
+            ))}
+          </ul>
+          <p className="flex items-start gap-2 px-4 py-3 text-xs text-fg-subtle">
+            <ShieldCheck size={14} strokeWidth={1.75} className="mt-px shrink-0 text-success" aria-hidden />
+            Unchanged: every app, Reality Decay, the creature, NEXUS, music, achievements and notifications.
+          </p>
+        </SettingsCard>
+      </SettingsSection>
+    </SettingsPage>
   );
 }
 
-function DeviceRow({ label, value, trigger }: { label: string; value: string; trigger: boolean }) {
+function DeviceRow({
+  icon,
+  label,
+  value,
+  trigger,
+  loading,
+}: {
+  icon: IconLike;
+  label: string;
+  value: string;
+  trigger: boolean;
+  loading: boolean;
+}) {
   return (
-    <div className="flex items-center justify-between gap-4 p-2 rounded bg-white/5">
-      <span className="text-white/50">{label}</span>
-      <span className="flex items-center gap-2 text-right text-white/70">
-        {value}
-        {trigger && (
-          <span className="rounded bg-cyan-400/15 px-1.5 py-0.5 text-[10px] text-cyan-300">
-            Auto trigger
-          </span>
-        )}
-      </span>
+    <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
+      <span className="flex shrink-0 text-fg-subtle">{renderIcon(icon, 16)}</span>
+      <span className="min-w-0 flex-1 text-ui text-fg-muted">{label}</span>
+      {loading ? (
+        <Skeleton className="h-3.5 w-24" />
+      ) : (
+        <span className="tabular flex items-center gap-2 text-right text-ui text-fg">
+          {value}
+          {trigger && (
+            <Badge tone="accent" size="sm">
+              Auto trigger
+            </Badge>
+          )}
+        </span>
+      )}
     </div>
   );
 }

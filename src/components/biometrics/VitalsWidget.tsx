@@ -1,43 +1,59 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — VitalsWidget
-// Draggable glass HUD with 4 color-coded vital bars (Energy, Focus,
-// Fatigue, Stress). Values arrive every ~5 s from the biometrics
-// store; bars spring smoothly and pulse-glow on a >20-point jump.
-// Collapsible, remembers where you dragged it, and opens the
-// weekly biometric history.
+// WARRIOR OS — VitalsWidget (FORGE HUD)
+// Draggable glass-window HUD with 4 semantic vital bars (Energy,
+// Focus, Fatigue, Stress). Values arrive every ~5 s from the
+// biometrics store; bars glide smoothly and pulse-glow on a >20-point
+// jump. Collapsible, remembers where you dragged it, and opens the
+// weekly biometric history in a dialog.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { createPortal } from 'react-dom';
-import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
-import { Activity, ChevronDown, ChevronUp, History, X, GripHorizontal } from 'lucide-react';
+import { motion, AnimatePresence, useMotionValue, useReducedMotion } from 'framer-motion';
+import {
+  Activity,
+  BatteryLow,
+  ChevronDown,
+  ChevronUp,
+  Crosshair,
+  GripHorizontal,
+  HeartPulse,
+  History,
+  Keyboard,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBiometricsStore } from '@/stores/useBiometricsStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { Badge } from '@/components/ui/Badge';
+import { IconButton } from '@/components/ui/Button';
+import { Dialog } from '@/components/ui/Dialog';
+import { WorkspaceLayer } from '@/components/ghost/WorkspaceLayer';
 import { BiometricHistory } from './BiometricHistory';
 import type { BiometricChannel } from '@/types/biometrics';
 
 interface VitalConfig {
   key: BiometricChannel;
   label: string;
-  icon: string;
-  bar: string; // fill color (hex)
-  track: string; // lighter step of the same hue for the unfilled track
-  glow: string;
+  icon: LucideIcon;
+  /** Semantic fill (token var) + matching text class. */
+  color: string;
+  text: string;
 }
 
 const VITALS: VitalConfig[] = [
-  { key: 'energy', label: 'Energy', icon: '⚡', bar: '#00f0ff', track: 'rgba(0,240,255,0.12)', glow: 'rgba(0,240,255,0.75)' },
-  { key: 'focus', label: 'Focus', icon: '🎯', bar: '#00e676', track: 'rgba(0,230,118,0.12)', glow: 'rgba(0,230,118,0.75)' },
-  { key: 'fatigue', label: 'Fatigue', icon: '💤', bar: '#ffab00', track: 'rgba(255,171,0,0.12)', glow: 'rgba(255,171,0,0.75)' },
-  { key: 'stress', label: 'Stress', icon: '😤', bar: '#ff1744', track: 'rgba(255,23,68,0.12)', glow: 'rgba(255,23,68,0.75)' },
+  { key: 'energy', label: 'Energy', icon: Zap, color: 'var(--color-plasma-400)', text: 'text-plasma-400' },
+  { key: 'focus', label: 'Focus', icon: Crosshair, color: 'var(--color-success)', text: 'text-success' },
+  { key: 'fatigue', label: 'Fatigue', icon: BatteryLow, color: 'var(--color-warning)', text: 'text-warning' },
+  { key: 'stress', label: 'Stress', icon: HeartPulse, color: 'var(--color-danger)', text: 'text-danger' },
 ];
 
 /** A reading older than this is shown as "idle". */
 const LIVE_WINDOW_MS = 15_000;
-const WIDGET_WIDTH = 232;
+/** Same column width as the desktop widgets below it. */
+const WIDGET_WIDTH = 240;
 const ANCHOR_TOP = 80;
 const ANCHOR_RIGHT = 24;
 
@@ -72,19 +88,19 @@ function VitalBar({ config, value }: { config: VitalConfig; value: number }) {
     if (Math.abs(value - prevValue) > 20) setPulse((p) => p + 1);
   }
   const pct = Math.max(0, Math.min(100, value));
+  const Icon = config.icon;
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between text-[11px]">
-        <span className="flex items-center gap-1.5 text-text-secondary">
-          <span aria-hidden>{config.icon}</span>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="flex items-center gap-2 text-fg-muted">
+          <Icon size={14} strokeWidth={1.9} aria-hidden className={config.text} />
           <span>{config.label}</span>
         </span>
-        <span className="font-mono font-semibold text-text-primary">{Math.round(value)}%</span>
+        <span className="tabular font-mono font-medium text-fg">{Math.round(value)}%</span>
       </div>
       <div
-        className="relative h-2 w-full rounded-full"
-        style={{ background: config.track }}
+        className="relative h-1.5 w-full rounded-full bg-ink-600/70"
         role="meter"
         aria-label={config.label}
         aria-valuemin={0}
@@ -93,17 +109,17 @@ function VitalBar({ config, value }: { config: VitalConfig; value: number }) {
       >
         <motion.div
           className="h-full rounded-full"
-          style={{ background: config.bar }}
+          style={{ background: `linear-gradient(90deg, color-mix(in srgb, ${config.color} 65%, transparent), ${config.color})` }}
           initial={false}
           animate={{ width: `${pct}%` }}
-          transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         />
         {pulse > 0 && (
           <motion.span
             key={pulse}
             aria-hidden
             className="pointer-events-none absolute inset-0 rounded-full"
-            style={{ boxShadow: `0 0 12px 3px ${config.glow}` }}
+            style={{ boxShadow: `0 0 10px 2px color-mix(in srgb, ${config.color} 70%, transparent)` }}
             initial={{ opacity: 1 }}
             animate={{ opacity: 0 }}
             transition={{ duration: 1.2, ease: 'easeOut' }}
@@ -111,61 +127,6 @@ function VitalBar({ config, value }: { config: VitalConfig; value: number }) {
         )}
       </div>
     </div>
-  );
-}
-
-function HistoryPanel({ onClose }: { onClose: () => void }) {
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  });
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  return (
-    <motion.div
-      className="fixed inset-0 flex items-center justify-center p-6"
-      style={{ zIndex: 'var(--z-modal)' }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
-    >
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
-      <motion.div
-        role="dialog"
-        aria-label="Biometric history"
-        className="relative flex h-[min(560px,85vh)] w-[min(680px,94vw)] flex-col overflow-hidden rounded-xl border border-white/10"
-        style={{ background: 'rgba(12, 12, 20, 0.95)', backdropFilter: 'blur(20px)' }}
-        initial={{ y: 20, opacity: 0, scale: 0.98 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={{ y: 10, opacity: 0, scale: 0.98 }}
-        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      >
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
-          <span className="flex items-center gap-2 text-xs font-semibold text-text-primary">
-            <History size={14} className="text-accent-primary" />
-            Biometric History
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded p-1 text-text-muted hover:bg-white/10 hover:text-text-primary"
-            aria-label="Close biometric history"
-          >
-            <X size={14} />
-          </button>
-        </div>
-        <div className="min-h-0 flex-1">
-          <BiometricHistory />
-        </div>
-      </motion.div>
-    </motion.div>
   );
 }
 
@@ -181,6 +142,7 @@ function VitalsWidgetInner({ className }: { className?: string }) {
   const setCollapsed = useBiometricsStore((s) => s.setWidgetCollapsed);
   const setOffset = useBiometricsStore((s) => s.setWidgetOffset);
   const now = useNow(5_000);
+  const reduceMotion = useReducedMotion();
 
   const constraintsRef = useRef<HTMLDivElement>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -209,122 +171,139 @@ function VitalsWidgetInner({ className }: { className?: string }) {
         ? `Calm · ${formatMinutes(now - calmSince)}`
         : null;
 
+  // Rendered inside the workspace face (WorkspaceLayer): above the desktop
+  // icons, below every app window, like the other desktop widgets.
   return (
     <>
-      <div
-        ref={constraintsRef}
-        className="pointer-events-none fixed left-0 right-0 top-0 bottom-12"
-        style={{ zIndex: 40 }}
-      >
-        <motion.div
-          drag
-          dragConstraints={constraintsRef}
-          dragMomentum={false}
-          dragElastic={0.04}
-          onDragEnd={() => setOffset({ x: x.get(), y: y.get() })}
-          className={cn(
-            'glass glass-border pointer-events-auto absolute select-none rounded-xl shadow-lg',
-            collapsed ? 'px-3 py-2' : 'p-3',
-            className
-          )}
-          style={{ top: ANCHOR_TOP, right: ANCHOR_RIGHT, width: WIDGET_WIDTH, x, y }}
-          whileDrag={{ scale: 1.02 }}
+      <WorkspaceLayer>
+        <div
+          ref={constraintsRef}
+          className="pointer-events-none fixed left-0 right-0 top-0 bottom-12"
+          style={{ zIndex: 40 }}
         >
-          {/* Header / drag handle */}
-          <div className="flex items-center justify-between gap-2">
-            <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-text-primary">
-              <GripHorizontal size={13} className="shrink-0 cursor-grab text-text-muted" />
-              <Activity size={13} className="shrink-0 text-accent-primary" />
-              Vitals
-              <span
-                className={cn(
-                  'ml-1 inline-flex items-center gap-1 rounded-full px-1.5 py-px text-[9px] font-medium uppercase tracking-wide',
-                  isLive ? 'bg-accent-success/15 text-text-primary' : 'bg-white/5 text-text-muted'
-                )}
-              >
-                <span
-                  className={cn('h-1.5 w-1.5 rounded-full', isLive ? 'bg-accent-success' : 'bg-text-muted')}
-                  aria-hidden
-                />
-                {isLive ? 'live' : 'idle'}
+          <motion.div
+            drag
+            dragConstraints={constraintsRef}
+            dragMomentum={false}
+            dragElastic={0.04}
+            onDragEnd={() => setOffset({ x: x.get(), y: y.get() })}
+            className={cn(
+              'glass-window group pointer-events-auto absolute cursor-grab select-none rounded-window shadow-e2 active:cursor-grabbing',
+              'transition-[border-color] duration-180 ease-out-quint hover:border-fg-faint',
+              className
+            )}
+            style={{ top: ANCHOR_TOP, right: ANCHOR_RIGHT, width: WIDGET_WIDTH, x, y }}
+            whileDrag={reduceMotion ? undefined : { scale: 1.015 }}
+          >
+            {/* Header / drag handle */}
+            <div className="flex h-10 items-center justify-between gap-2 pl-4 pr-1.5">
+              <span className="flex min-w-0 items-center gap-2">
+                <Activity size={14} strokeWidth={1.9} aria-hidden className="shrink-0 text-accent" />
+                <span className="hud-label text-fg-muted">Vitals</span>
+                <Badge tone={isLive ? 'success' : 'neutral'} size="sm" dot pulse={isLive}>
+                  {isLive ? 'Live' : 'Idle'}
+                </Badge>
               </span>
-            </span>
-            <span className="flex shrink-0 items-center gap-0.5">
-              <button
-                type="button"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => setHistoryOpen(true)}
-                className="rounded p-1 text-text-muted hover:bg-white/10 hover:text-text-primary"
-                aria-label="Open biometric history"
-                title="Weekly focus pattern"
-              >
-                <History size={13} />
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => setCollapsed(!collapsed)}
-                className="rounded p-1 text-text-muted hover:bg-white/10 hover:text-text-primary"
-                aria-label={collapsed ? 'Expand vitals' : 'Collapse vitals'}
-              >
-                {collapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
-              </button>
-            </span>
-          </div>
-
-          {collapsed ? (
-            <div className="mt-1.5 flex items-center justify-between font-mono text-[11px] text-text-primary">
-              {VITALS.map((v) => (
-                <span key={v.key} className="flex items-center gap-1" title={v.label}>
-                  <span aria-hidden>{v.icon}</span>
-                  {Math.round(current[v.key])}
-                </span>
-              ))}
+              <span className="flex shrink-0 items-center">
+                <GripHorizontal
+                  size={14}
+                  strokeWidth={1.75}
+                  aria-hidden
+                  className="mr-0.5 text-fg-faint opacity-0 transition-opacity duration-120 group-hover:opacity-100"
+                />
+                <IconButton
+                  icon={History}
+                  size="xs"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => setHistoryOpen(true)}
+                  aria-label="Open biometric history"
+                  tooltip="Weekly focus pattern"
+                  tooltipSide="bottom"
+                />
+                <IconButton
+                  icon={collapsed ? ChevronDown : ChevronUp}
+                  size="xs"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => setCollapsed(!collapsed)}
+                  aria-label={collapsed ? 'Expand vitals' : 'Collapse vitals'}
+                />
+              </span>
             </div>
-          ) : (
-            <>
-              <div className="mt-2.5 flex flex-col gap-2.5">
-                {VITALS.map((v) => (
-                  <VitalBar key={v.key} config={v} value={current[v.key]} />
-                ))}
+
+            {collapsed ? (
+              <div className="grid grid-cols-4 gap-1 px-3 pb-3">
+                {VITALS.map((v) => {
+                  const Icon = v.icon;
+                  return (
+                    <span
+                      key={v.key}
+                      className="flex items-center justify-center gap-1 rounded-control bg-surface-2 py-1 font-mono text-xs"
+                      title={v.label}
+                    >
+                      <Icon size={12} strokeWidth={2} aria-hidden className={v.text} />
+                      <span className="tabular text-fg">{Math.round(current[v.key])}</span>
+                    </span>
+                  );
+                })}
               </div>
+            ) : (
+              <div className="px-4 pb-3">
+                <div className="flex flex-col gap-3">
+                  {VITALS.map((v) => (
+                    <VitalBar key={v.key} config={v} value={current[v.key]} />
+                  ))}
+                </div>
 
-              <div className="mt-2.5 flex items-center justify-between border-t border-white/5 pt-2 font-mono text-[10px] text-text-muted">
-                {lastUpdated === null ? (
-                  <span>Start typing to read your state…</span>
-                ) : (
-                  <>
-                    <span>{metrics.wpm} wpm</span>
-                    <span>{metrics.errorRate}% fixes</span>
-                    <span>{metrics.pauseAvg} ms gap</span>
-                  </>
-                )}
+                <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5 font-mono text-2xs text-fg-subtle">
+                  {lastUpdated === null ? (
+                    <span className="flex items-center gap-1.5">
+                      <Keyboard size={12} strokeWidth={2} aria-hidden />
+                      Type to read your state…
+                    </span>
+                  ) : (
+                    <>
+                      <span className="tabular">
+                        <span className="text-fg-muted">{metrics.wpm}</span> wpm
+                      </span>
+                      <span className="tabular">
+                        <span className="text-fg-muted">{metrics.errorRate}%</span> fixes
+                      </span>
+                      <span className="tabular">
+                        <span className="text-fg-muted">{metrics.pauseAvg}</span> ms gap
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                <AnimatePresence>
+                  {streak && (
+                    <motion.p
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mt-1.5 text-center text-xs font-medium text-success"
+                    >
+                      {streak}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
               </div>
+            )}
+          </motion.div>
+        </div>
+      </WorkspaceLayer>
 
-              <AnimatePresence>
-                {streak && (
-                  <motion.p
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="mt-1.5 text-center text-[10px] font-medium text-text-secondary"
-                  >
-                    {streak}
-                  </motion.p>
-                )}
-              </AnimatePresence>
-            </>
-          )}
-        </motion.div>
-      </div>
-
-      {typeof document !== 'undefined' &&
-        createPortal(
-          <AnimatePresence>
-            {historyOpen && <HistoryPanel key="bio-history" onClose={() => setHistoryOpen(false)} />}
-          </AnimatePresence>,
-          document.body
-        )}
+      <Dialog
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        title="Biometric history"
+        description="Hourly averages of your typing rhythm: when you focus best."
+        icon={History}
+        size="xl"
+        className="h-[min(680px,88vh)]"
+      >
+        <BiometricHistory />
+      </Dialog>
     </>
   );
 }

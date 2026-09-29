@@ -9,6 +9,7 @@ import { OWNER } from '@/config/owner';
 import './globals.css';
 import '@/styles/animations.css';
 import '@/styles/cursors.css';
+import '@/styles/deep-space.css';
 
 // ─── Font Loading ───
 const inter = Inter({
@@ -122,18 +123,16 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // The font variables sit on <html> so the theme tokens (--font-sans /
+  // --font-mono / --font-display in globals.css) resolve at :root. Body
+  // font, colours and sizing come from the base layer there; the inline
+  // ink-950 only covers the instant before the stylesheet applies.
   return (
-    <html lang="en" className="dark">
-      <body
-        className={`${inter.variable} ${jetbrainsMono.variable} ${orbitron.variable} antialiased`}
-        style={{
-          fontFamily: 'var(--font-inter), system-ui, sans-serif',
-          background: '#050508',
-          overflow: 'hidden',
-          width: '100vw',
-          height: '100vh',
-        }}
-      >
+    <html
+      lang="en"
+      className={`${inter.variable} ${jetbrainsMono.variable} ${orbitron.variable} dark`}
+    >
+      <body className="antialiased" style={{ backgroundColor: '#04060b' }}>
         {children}
       </body>
     </html>

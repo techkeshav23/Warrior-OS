@@ -76,23 +76,27 @@ function DreamSequence({ onComplete, scene: sceneProp, skippable = true }: Dream
 
   if (!scene) {
     // Inert black backdrop so nothing flashes while handing over.
-    return <div className="absolute inset-0 bg-black" aria-hidden="true" />;
+    return <div className="absolute inset-0 bg-ink-950" aria-hidden="true" />;
   }
 
   return (
     <div
-      className="absolute inset-0 overflow-hidden bg-black"
+      className="absolute inset-0 overflow-hidden bg-ink-950"
       onClick={skippable ? () => setEnding(true) : undefined}
       role="presentation"
     >
       <DreamRenderer scene={scene} />
       <DreamNarration lines={scene.narrationLines} durationMs={scene.duration} color={scene.primaryColor} />
-      <div className="pointer-events-none absolute left-8 top-6 z-20 font-mono text-[10px] uppercase tracking-[0.35em] text-white/30">
-        NEXUS dream · {scene.label}
+      <div className="pointer-events-none absolute left-8 top-6 z-20 flex items-center gap-2 hud-label text-fg-faint">
+        <span aria-hidden className="size-1.5 rounded-full" style={{ background: scene.primaryColor }} />
+        NEXUS dream <span aria-hidden>·</span> <span className="text-fg-subtle">{scene.label}</span>
       </div>
       {skippable && (
-        <div className="pointer-events-none absolute bottom-6 right-8 z-20 font-mono text-xs text-white/35">
-          press esc to skip
+        <div className="pointer-events-none absolute bottom-6 right-8 z-20 flex items-center gap-2 text-xs text-fg-subtle">
+          <kbd className="inline-flex h-5 items-center rounded-[5px] border border-line-strong bg-surface-2 px-1.5 font-mono text-2xs text-fg-muted">
+            Esc
+          </kbd>
+          to skip
         </div>
       )}
       <DreamTransition active={ending} onComplete={complete} />

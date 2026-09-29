@@ -1,54 +1,46 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Deck Vault: one deck
-// Mastery, study launchers (quiz, review, mock test, browse), and
-// the topic → card editor: add, edit, move and delete with confirms.
+// Mastery hero with the study launchers (quiz, review, mock test,
+// browse), then the topic → card editor: add, edit, move and delete,
+// every destructive step behind a confirm.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
-  ArrowDownToLine,
   ArrowLeft,
-  BookOpen,
-  ChevronDown,
   ChevronRight,
+  CornerDownRight,
+  Download,
   FolderPlus,
   Layers,
+  MoreHorizontal,
   Pencil,
   Play,
   Plus,
   RotateCcw,
-  Search,
-  Target,
-  Timer,
+  SearchX,
   Trash2,
-  X,
+  type LucideIcon,
 } from 'lucide-react';
+import { AppHeader, AppLayout, Badge, Button, EmptyState, IconButton, Menu, SearchField, TONE_DOT } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import {
+  MASTERED_THRESHOLD,
   cardAnswerText,
   cardStrength,
   computeTopicMastery,
   isQuizCard,
   useLearningStore,
 } from '@/stores/useLearningStore';
+import { TRANSITION } from '@/styles/tokens';
 import type { Card, CardReview, Deck, Topic } from '@/types/learning';
 import type { DeckTarget, TrainingTab } from '../deep-link';
 import type { ConfirmRequest } from './Dialog';
 import { MasteryRing } from './MasteryRing';
-import {
-  BTN_GHOST,
-  BTN_PRIMARY,
-  DIFFICULTY_META,
-  ICON_BTN,
-  INPUT,
-  KIND_META,
-  plural,
-  withAlpha,
-  type DeckSummary,
-} from './deck-ui';
+import { DIFFICULTY_META, KIND_META, TAB_ICONS, deckStyle, plural, type DeckSummary } from './deck-ui';
 
 /** Cards shown per topic before "Show all". */
 const PAGE = 40;
@@ -57,6 +49,7 @@ export interface DeckDetailActions {
   onBack: () => void;
   onEditDeck: () => void;
   onExport: () => void;
+  onDeleteDeck: () => void;
   onAddTopic: () => void;
   onEditTopic: (topicId: string) => void;
   /** topicId null = the deck's first topic. */
@@ -83,6 +76,19 @@ function matches(card: Card, query: string): boolean {
   );
 }
 
+interface StudyLauncher {
+  tab: TrainingTab;
+  label: string;
+  icon: LucideIcon;
+  disabled: boolean;
+  /** Full explanation (hover text). */
+  hint: string;
+  /** One short line under the label. */
+  short: string;
+  /** Count shown next to the label (due + new for Review). */
+  count?: number;
+}
+
 function DeckDetailInner({
   deck,
   reviews,
@@ -90,6 +96,7 @@ function DeckDetailInner({
   onBack,
   onEditDeck,
   onExport,
+  onDeleteDeck,
   onAddTopic,
   onEditTopic,
   onAddCard,
@@ -98,10 +105,10 @@ function DeckDetailInner({
   confirm,
   flash,
 }: DeckDetailProps) {
-  const deleteDeck = useLearningStore((s) => s.deleteDeck);
   const deleteTopic = useLearningStore((s) => s.deleteTopic);
   const deleteCard = useLearningStore((s) => s.deleteCard);
   const resetProgress = useLearningStore((s) => s.resetProgress);
+  const reduce = useReducedMotion();
 
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
@@ -131,26 +138,6 @@ function DeckDetailInner({
     return next;
   };
 
-  const askDeleteDeck = () =>
-    confirm({
-      title: `Delete "${deck.name}"?`,
-      message: (
-        <>
-          Its {plural(deck.topics.length, 'topic')}, {plural(summary.cards, 'card')} and all review progress will be
-          erased.{' '}
-          {deck.isSample
-            ? 'It is a sample deck, so you can restore it later.'
-            : 'Export it first if you might want it back.'}
-        </>
-      ),
-      confirmLabel: 'Delete deck',
-      onConfirm: () => {
-        deleteDeck(deck.id);
-        flash(`Deleted "${deck.name}"`);
-        onBack();
-      },
-    });
-
   const askResetProgress = () =>
     confirm({
       title: 'Reset progress?',
@@ -179,13 +166,11 @@ function DeckDetailInner({
   const askDeleteCard = (card: Card) =>
     confirm({
       title: 'Delete this card?',
-      message: (
-        <>
-          <span className="line-clamp-3 block rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 text-white/80">
-            {card.prompt}
-          </span>
-          <span className="mt-2 block">Its review progress goes with it.</span>
-        </>
+      message: 'Its review progress goes with it.',
+      detail: (
+        <p className="line-clamp-3 whitespace-pre-wrap rounded-control bg-surface-2 px-3 py-2 text-ui text-fg">
+          {card.prompt}
+        </p>
       ),
       confirmLabel: 'Delete card',
       onConfirm: () => {
@@ -194,317 +179,387 @@ function DeckDetailInner({
       },
     });
 
-  const studyButtons: {
-    tab: TrainingTab;
-    label: string;
-    icon: typeof Target;
-    disabled: boolean;
-    hint: string;
-  }[] = [
+  const reviewHint = summary.due > 0 ? `${summary.due} due, ${summary.fresh} new` : 'Spaced-repetition review';
+  const launchers: StudyLauncher[] = [
     {
       tab: 'quiz',
       label: 'Quiz',
-      icon: Target,
+      icon: TAB_ICONS.quiz,
       disabled: summary.quizCards === 0,
-      hint: summary.quizCards === 0 ? 'Needs MCQ, multi-select or numeric cards' : `${plural(summary.quizCards, 'quiz card')}`,
+      hint: summary.quizCards === 0 ? 'Needs MCQ, multi-select or numeric cards' : plural(summary.quizCards, 'quiz card'),
+      short: summary.quizCards === 0 ? 'No quiz cards' : plural(summary.quizCards, 'quiz card'),
     },
     {
       tab: 'flashcards',
-      label: toReview > 0 ? `Review · ${toReview}` : 'Review',
-      icon: Layers,
+      label: 'Review',
+      icon: TAB_ICONS.flashcards,
       disabled: summary.cards === 0,
-      hint: summary.due > 0 ? `${summary.due} due, ${summary.fresh} new` : 'Spaced-repetition review',
+      hint: reviewHint,
+      short: summary.due > 0 ? `${summary.due} due, ${summary.fresh} new` : summary.fresh > 0 ? `${summary.fresh} new` : 'Spaced repetition',
+      count: toReview > 0 ? toReview : undefined,
     },
     {
       tab: 'mock',
       label: 'Mock test',
-      icon: Timer,
+      icon: TAB_ICONS.mock,
       disabled: summary.quizCards === 0,
       hint: 'Timed test over the quiz cards',
+      short: 'Timed test',
     },
     {
       tab: 'bank',
       label: 'Browse',
-      icon: BookOpen,
+      icon: TAB_ICONS.bank,
       disabled: summary.cards === 0,
       hint: 'Every card with its answer',
+      short: 'All answers',
     },
   ];
 
+  const stats: { label: string; value: string; tone?: string }[] = [
+    { label: 'Topics', value: String(deck.topics.length) },
+    { label: 'Cards', value: String(summary.cards) },
+    { label: 'Mastered', value: `${summary.mastery.mastered}/${summary.cards}` },
+    { label: 'Due', value: String(summary.due), tone: summary.due > 0 ? 'text-warning' : undefined },
+    { label: 'New', value: String(summary.fresh) },
+  ];
+
   return (
-    <div className="space-y-4 p-5">
-      <button
-        type="button"
-        onClick={onBack}
-        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-white/50 hover:bg-white/5 hover:text-white"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        All decks
-      </button>
-
-      {/* Hero */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-xl border p-4"
-        style={{
-          borderColor: withAlpha(deck.color, 0.28),
-          background: `linear-gradient(135deg, ${withAlpha(deck.color, 0.14)}, rgba(255,255,255,0.02) 70%)`,
-        }}
-      >
-        <div className="flex flex-wrap items-start gap-4">
-          <MasteryRing value={summary.mastery.value} color={deck.color} size={76} stroke={5} title={`${pct}% mastery`}>
-            <span className="text-3xl">{deck.icon}</span>
-          </MasteryRing>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="truncate text-lg font-bold" style={{ color: deck.color }}>
-                {deck.name}
-              </h3>
-              {deck.isSample && (
-                <span className="shrink-0 rounded border border-white/15 px-1 text-[9px] uppercase tracking-wider text-white/40">
-                  Sample
-                </span>
-              )}
-            </div>
-            {deck.description && <p className="mt-0.5 text-xs leading-relaxed text-white/55">{deck.description}</p>}
-            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-white/50">
-              <span className="font-mono" style={{ color: deck.color }}>
-                {pct}% mastery
+    <AppLayout
+      header={
+        <AppHeader
+          leading={<IconButton icon={ArrowLeft} aria-label="All decks" tooltip="Back to the vault" tooltipSide="bottom" onClick={onBack} />}
+          title={<span title={deck.name}>{deck.name}</span>}
+          subtitle={
+            <>
+              Deck vault
+              <span className="text-fg-faint"> / </span>
+              {deck.isSample ? 'Sample deck' : plural(summary.cards, 'card')}
+            </>
+          }
+          actions={
+            <>
+              {/* Wide panels: every deck action as an icon button. */}
+              <div className="hidden items-center gap-0.5 @2xl:flex">
+                <IconButton icon={Pencil} aria-label="Edit deck" tooltip tooltipSide="bottom" onClick={onEditDeck} />
+                <IconButton icon={Download} aria-label="Export deck" tooltip tooltipSide="bottom" onClick={onExport} />
+                <IconButton
+                  icon={RotateCcw}
+                  aria-label="Reset progress"
+                  tooltip
+                  tooltipSide="bottom"
+                  onClick={askResetProgress}
+                  disabled={summary.mastery.seen === 0}
+                />
+                <IconButton
+                  icon={Trash2}
+                  variant="ghost-danger"
+                  aria-label="Delete deck"
+                  tooltip
+                  tooltipSide="bottom"
+                  onClick={onDeleteDeck}
+                />
+              </div>
+              {/* Narrow panels: edit stays, the rest folds into a menu. */}
+              <div className="flex items-center gap-0.5 @2xl:hidden">
+                <IconButton icon={Pencil} aria-label="Edit deck" tooltip tooltipSide="bottom" onClick={onEditDeck} />
+                <Menu
+                  align="end"
+                  aria-label="Deck actions"
+                  trigger={<IconButton icon={MoreHorizontal} aria-label="More deck actions" />}
+                  items={[
+                    { id: 'export', label: 'Export deck', icon: Download },
+                    { id: 'reset', label: 'Reset progress', icon: RotateCcw, disabled: summary.mastery.seen === 0 },
+                    { id: 'div', divider: true },
+                    { id: 'delete', label: 'Delete deck', icon: Trash2, danger: true },
+                  ]}
+                  onSelect={(id) => {
+                    if (id === 'export') onExport();
+                    else if (id === 'reset') askResetProgress();
+                    else if (id === 'delete') onDeleteDeck();
+                  }}
+                />
+              </div>
+              <span aria-hidden className="mx-1 h-5 w-px bg-line-strong" />
+              <span className="hidden @xl:contents">
+                <Button variant="primary" leadingIcon={Plus} onClick={() => onAddCard(null)}>
+                  Add card
+                </Button>
               </span>
-              <span>{plural(deck.topics.length, 'topic')}</span>
-              <span>{plural(summary.cards, 'card')}</span>
-              <span>
-                {summary.mastery.mastered}/{summary.cards} mastered
+              <span className="contents @xl:hidden">
+                <IconButton
+                  icon={Plus}
+                  variant="primary"
+                  aria-label="Add card"
+                  tooltip
+                  tooltipSide="bottom"
+                  onClick={() => onAddCard(null)}
+                />
               </span>
-              {summary.due > 0 && <span className="text-amber-200">{summary.due} due</span>}
-              {summary.fresh > 0 && <span>{summary.fresh} new</span>}
-            </div>
-          </div>
-          <div className="flex items-center gap-0.5">
-            <button type="button" onClick={onEditDeck} className={ICON_BTN} title="Edit deck" aria-label="Edit deck">
-              <Pencil className="h-4 w-4" />
-            </button>
-            <button type="button" onClick={onExport} className={ICON_BTN} title="Export deck" aria-label="Export deck">
-              <ArrowDownToLine className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={askResetProgress}
-              disabled={summary.mastery.seen === 0}
-              className={ICON_BTN}
-              title="Reset progress"
-              aria-label="Reset progress"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={askDeleteDeck}
-              className={cn(ICON_BTN, 'hover:bg-red-500/15 hover:text-red-300')}
-              title="Delete deck"
-              aria-label="Delete deck"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Study launchers */}
-        <div className="mt-4 grid grid-cols-2 gap-2 @xl:grid-cols-4">
-          {studyButtons.map((b) => (
-            <button
-              key={b.tab}
-              type="button"
-              disabled={b.disabled}
-              onClick={() => onStudy(deckTarget, b.tab)}
-              title={b.hint}
-              className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-left text-xs text-white/80 transition-colors hover:border-white/25 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-35"
-            >
-              <b.icon className="h-4 w-4 shrink-0" style={{ color: deck.color }} />
-              <span className="min-w-0">
-                <span className="block font-semibold">{b.label}</span>
-                <span className="block truncate text-[10px] text-white/40">{b.hint}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[160px] flex-1">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/30" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Search ${plural(summary.cards, 'card')}…`}
-            aria-label="Search cards"
-            className={cn(INPUT, 'py-1 pl-8 text-xs')}
+            </>
+          }
+        />
+      }
+      bodyClassName="@container"
+    >
+      <div className="flex flex-col gap-6" style={deckStyle(deck.color)}>
+        {/* Hero: mastery, numbers, study launchers */}
+        <motion.section
+          initial={reduce ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={TRANSITION.panel}
+          aria-label="Deck overview"
+          className="glass-panel relative isolate overflow-hidden rounded-card"
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(80%_140%_at_0%_0%,color-mix(in_srgb,var(--deck)_15%,transparent),transparent_60%)]"
           />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              aria-label="Clear search"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-white/40 hover:text-white"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-        <button type="button" onClick={onAddTopic} className={BTN_GHOST}>
-          <FolderPlus className="h-3.5 w-3.5" />
-          Topic
-        </button>
-        <button type="button" onClick={() => onAddCard(null)} className={BTN_PRIMARY}>
-          <Plus className="h-3.5 w-3.5" />
-          Card
-        </button>
-      </div>
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-(--deck)/70 to-transparent"
+          />
 
-      {q && (
-        <p className="text-[11px] text-white/40">
-          {matchCount === 0 ? `No cards match “${query.trim()}”.` : `${plural(matchCount, 'card')} match “${query.trim()}”.`}
-        </p>
-      )}
-
-      {/* Empty deck */}
-      {deck.topics.length === 0 && (
-        <div className="rounded-xl border border-dashed border-white/15 px-6 py-10 text-center">
-          <p className="font-mono text-[10px] tracking-[0.35em] text-cyan-300/60">EMPTY SHELL</p>
-          <p className="mt-2 text-sm text-white/70">This deck has no cards yet.</p>
-          <p className="mx-auto mt-1 max-w-xs text-xs text-white/40">
-            Drop in a first card, or add topics to organize what is coming.
-          </p>
-          <div className="mt-4 flex justify-center gap-2">
-            <button type="button" onClick={() => onAddCard(null)} className={BTN_PRIMARY}>
-              <Plus className="h-3.5 w-3.5" />
-              Add first card
-            </button>
-            <button type="button" onClick={onAddTopic} className={BTN_GHOST}>
-              <FolderPlus className="h-3.5 w-3.5" />
-              Add topic
-            </button>
+          <div className="flex flex-col gap-4 p-5 @3xl:flex-row @3xl:items-center @3xl:gap-6">
+            <div className="flex min-w-0 flex-1 items-center gap-4">
+              <MasteryRing value={summary.mastery.value} color={deck.color} size={84} stroke={5} title={`${pct}% mastery`}>
+                <span className="text-3xl leading-none">{deck.icon}</span>
+              </MasteryRing>
+              <div className="min-w-0">
+                <div className="flex items-baseline gap-2">
+                  <span className="tabular font-display text-3xl font-semibold leading-none text-fg">
+                    {pct}
+                    <span className="ml-0.5 text-lg text-fg-muted">%</span>
+                  </span>
+                  <span className="hud-label">Mastery</span>
+                </div>
+                <p className="mt-2 line-clamp-2 max-w-prose text-ui text-fg-muted">
+                  {deck.description || 'No description yet. Edit the deck to say what it covers.'}
+                </p>
+              </div>
+            </div>
+            <dl className="grid shrink-0 grid-cols-3 gap-x-5 gap-y-3 border-t border-line pt-4 @lg:grid-cols-5 @3xl:border-t-0 @3xl:border-l @3xl:pl-6 @3xl:pt-0">
+              {stats.map((s) => (
+                <div key={s.label} className="flex min-w-0 flex-col gap-1">
+                  <dt className="hud-label">{s.label}</dt>
+                  <dd className={cn('tabular font-mono text-sm font-medium', s.tone ?? 'text-fg')}>{s.value}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
-        </div>
-      )}
 
-      {/* Topics */}
-      <div className="space-y-3">
-        {topics.map(({ topic, mastery, quizCards, cards }) => {
-          if (q && cards.length === 0) return null;
-          const isCollapsed = !q && collapsed.has(topic.id);
-          const showAll = q !== '' || expanded.has(topic.id);
-          const visible = showAll ? cards : cards.slice(0, PAGE);
-          const topicPct = Math.round(mastery.value * 100);
-          return (
-            <section key={topic.id} className="rounded-xl border border-white/[0.07] bg-white/[0.02]">
-              <header className="flex items-center gap-2 px-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => setCollapsed((c) => toggleSet(c, topic.id))}
-                  aria-expanded={!isCollapsed}
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                >
-                  {isCollapsed ? (
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/40" />
-                  ) : (
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/40" />
-                  )}
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-white/85">{topic.name}</span>
-                    {topic.description && (
-                      <span className="block truncate text-[10px] text-white/40">{topic.description}</span>
+          <div className="grid grid-cols-2 gap-2 border-t border-line bg-ink-950/20 p-3 @xl:grid-cols-4">
+            {launchers.map((b) => (
+              <button
+                key={b.tab}
+                type="button"
+                disabled={b.disabled}
+                onClick={() => onStudy(deckTarget, b.tab)}
+                title={b.hint}
+                className="focus-ring group/launch flex min-w-0 items-center gap-3 rounded-control border border-line bg-surface-2 px-3 py-2.5 text-left transition-colors duration-120 ease-out-quint hover:border-line-strong hover:bg-surface-hover active:bg-surface-active disabled:pointer-events-none disabled:opacity-45"
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-control border border-line bg-ink-800 text-(--deck) transition-colors duration-120 group-hover/launch:border-line-strong">
+                  <b.icon size={16} strokeWidth={1.75} aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 text-ui font-medium text-fg">
+                    {b.label}
+                    {b.count !== undefined && (
+                      <span className="tabular rounded-full bg-warning/12 px-1.5 font-mono text-2xs leading-4 text-warning">
+                        {b.count}
+                      </span>
                     )}
                   </span>
-                  <span className="shrink-0 text-[10px] text-white/35">{topic.cards.length}</span>
-                  <span
-                    className="hidden h-1 w-16 shrink-0 overflow-hidden rounded-full bg-white/10 @md:block"
-                    title={`${topicPct}% mastery`}
-                  >
-                    <span className="block h-full rounded-full" style={{ width: `${topicPct}%`, background: deck.color }} />
-                  </span>
-                </button>
-                <div className="flex shrink-0 items-center">
-                  {quizCards > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => onStudy({ deckId: deck.id, topicId: topic.id }, 'quiz')}
-                      className={ICON_BTN}
-                      title={`Quiz on ${topic.name}`}
-                      aria-label={`Quiz on ${topic.name}`}
-                    >
-                      <Play className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => onAddCard(topic.id)}
-                    className={ICON_BTN}
-                    title="Add a card here"
-                    aria-label={`Add a card to ${topic.name}`}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onEditTopic(topic.id)}
-                    className={ICON_BTN}
-                    title="Edit topic"
-                    aria-label={`Edit ${topic.name}`}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => askDeleteTopic(topic)}
-                    className={cn(ICON_BTN, 'hover:bg-red-500/15 hover:text-red-300')}
-                    title="Delete topic"
-                    aria-label={`Delete ${topic.name}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </header>
+                  <span className="block truncate text-xs text-fg-subtle">{b.short}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </motion.section>
 
-              {!isCollapsed && (
-                <div className="space-y-1.5 border-t border-white/[0.06] p-2">
-                  {cards.length === 0 && (
+        {/* Topics */}
+        {deck.topics.length === 0 ? (
+          <div className="glass-panel rounded-card">
+            <EmptyState
+              icon={Layers}
+              title="This deck has no cards yet"
+              description="Drop in a first card, or add topics to organize what is coming."
+              actions={
+                <>
+                  <Button variant="secondary" leadingIcon={Plus} onClick={() => onAddCard(null)}>
+                    Add first card
+                  </Button>
+                  <Button variant="ghost" leadingIcon={FolderPlus} onClick={onAddTopic}>
+                    Add topic
+                  </Button>
+                </>
+              }
+            />
+          </div>
+        ) : (
+          <section aria-label="Topics" className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="flex items-baseline gap-2">
+                <h2 className="text-sm font-semibold text-fg">Topics</h2>
+                <span className="tabular font-mono text-xs text-fg-subtle">{deck.topics.length}</span>
+              </div>
+              <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2">
+                <SearchField
+                  size="sm"
+                  value={query}
+                  onValueChange={setQuery}
+                  placeholder={`Search ${plural(summary.cards, 'card')}…`}
+                  aria-label="Search cards"
+                  wrapperClassName="max-w-64"
+                />
+                <Button size="sm" variant="secondary" leadingIcon={FolderPlus} onClick={onAddTopic}>
+                  New topic
+                </Button>
+              </div>
+            </div>
+
+            {q && matchCount > 0 && (
+              <p className="text-xs text-fg-subtle" role="status">
+                {plural(matchCount, 'card')} match “{query.trim()}”.
+              </p>
+            )}
+
+            {q && matchCount === 0 && (
+              <div className="glass-panel rounded-card">
+                <EmptyState
+                  size="sm"
+                  icon={SearchX}
+                  title={`No cards match “${query.trim()}”`}
+                  description="Search looks at questions, answers, options, explanations and tags."
+                  actions={
+                    <Button size="sm" variant="ghost" onClick={() => setQuery('')}>
+                      Clear search
+                    </Button>
+                  }
+                />
+              </div>
+            )}
+
+            {topics.map(({ topic, mastery, quizCards, cards }) => {
+              if (q && cards.length === 0) return null;
+              const isCollapsed = !q && collapsed.has(topic.id);
+              const showAll = q !== '' || expanded.has(topic.id);
+              const visible = showAll ? cards : cards.slice(0, PAGE);
+              const topicPct = Math.round(mastery.value * 100);
+              return (
+                <section key={topic.id} className="glass-panel overflow-hidden rounded-card" aria-label={topic.name}>
+                  <header className="flex items-center gap-1 py-1.5 pl-1.5 pr-2">
                     <button
                       type="button"
-                      onClick={() => onAddCard(topic.id)}
-                      className="w-full rounded-lg border border-dashed border-white/10 py-3 text-xs text-white/40 hover:border-cyan-400/30 hover:text-cyan-200"
+                      onClick={() => setCollapsed((c) => toggleSet(c, topic.id))}
+                      aria-expanded={!isCollapsed}
+                      className="focus-ring-inset flex min-w-0 flex-1 items-center gap-2.5 rounded-control px-2 py-1.5 text-left transition-colors duration-120 ease-out-quint hover:bg-surface-hover"
                     >
-                      No cards yet. Add the first one.
+                      <ChevronRight
+                        size={16}
+                        strokeWidth={1.75}
+                        aria-hidden
+                        className={cn(
+                          'shrink-0 text-fg-subtle transition-transform duration-180 ease-out-quint',
+                          !isCollapsed && 'rotate-90'
+                        )}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-ui font-semibold text-fg" title={topic.name}>
+                          {topic.name}
+                        </span>
+                        {topic.description && (
+                          <span className="block truncate text-xs text-fg-subtle" title={topic.description}>
+                            {topic.description}
+                          </span>
+                        )}
+                      </span>
+                      <span className="tabular shrink-0 font-mono text-xs text-fg-subtle">{plural(topic.cards.length, 'card')}</span>
+                      <span className="hidden shrink-0 items-center gap-2 @lg:flex" title={`${topicPct}% mastery`}>
+                        <span className="block h-1 w-16 overflow-hidden rounded-full bg-ink-600/70">
+                          <span className="block h-full rounded-full bg-(--deck)" style={{ width: `${topicPct}%` }} />
+                        </span>
+                        <span className="tabular w-8 text-right font-mono text-xs text-fg-muted">{topicPct}%</span>
+                      </span>
                     </button>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      {quizCards > 0 && (
+                        <IconButton
+                          icon={Play}
+                          size="sm"
+                          onClick={() => onStudy({ deckId: deck.id, topicId: topic.id }, 'quiz')}
+                          aria-label={`Quiz on ${topic.name}`}
+                          tooltip
+                        />
+                      )}
+                      <IconButton
+                        icon={Plus}
+                        size="sm"
+                        onClick={() => onAddCard(topic.id)}
+                        aria-label={`Add a card to ${topic.name}`}
+                        tooltip="Add a card here"
+                      />
+                      <IconButton
+                        icon={Pencil}
+                        size="sm"
+                        onClick={() => onEditTopic(topic.id)}
+                        aria-label={`Edit ${topic.name}`}
+                        tooltip="Edit topic"
+                      />
+                      <IconButton
+                        icon={Trash2}
+                        size="sm"
+                        variant="ghost-danger"
+                        onClick={() => askDeleteTopic(topic)}
+                        aria-label={`Delete ${topic.name}`}
+                        tooltip="Delete topic"
+                      />
+                    </div>
+                  </header>
+
+                  {!isCollapsed && (
+                    <div className="border-t border-line">
+                      {cards.length === 0 ? (
+                        <div className="flex items-center justify-between gap-3 px-4 py-3">
+                          <span className="text-ui text-fg-subtle">No cards in this topic yet.</span>
+                          <Button size="sm" variant="ghost" leadingIcon={Plus} onClick={() => onAddCard(topic.id)}>
+                            Add the first one
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-line">
+                          {visible.map((card) => (
+                            <CardRow
+                              key={card.id}
+                              card={card}
+                              strength={reviews[card.id] ? cardStrength(reviews[card.id]) : null}
+                              onEdit={() => onEditCard(card.id)}
+                              onDelete={() => askDeleteCard(card)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {visible.length < cards.length && (
+                        <div className="border-t border-line p-1.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            fullWidth
+                            onClick={() => setExpanded((e) => toggleSet(e, topic.id))}
+                          >
+                            Show all {cards.length} cards
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   )}
-                  {visible.map((card) => (
-                    <CardRow
-                      key={card.id}
-                      card={card}
-                      color={deck.color}
-                      strength={reviews[card.id] ? cardStrength(reviews[card.id]) : null}
-                      onEdit={() => onEditCard(card.id)}
-                      onDelete={() => askDeleteCard(card)}
-                    />
-                  ))}
-                  {visible.length < cards.length && (
-                    <button
-                      type="button"
-                      onClick={() => setExpanded((e) => toggleSet(e, topic.id))}
-                      className="w-full rounded-md py-1.5 text-[11px] text-cyan-300/70 hover:bg-cyan-400/5 hover:text-cyan-200"
-                    >
-                      Show all {cards.length} cards
-                    </button>
-                  )}
-                </div>
-              )}
-            </section>
-          );
-        })}
+                </section>
+              );
+            })}
+          </section>
+        )}
       </div>
-    </div>
+    </AppLayout>
   );
 }
 
@@ -514,58 +569,68 @@ export const DeckDetail = memo(DeckDetailInner);
 
 interface CardRowProps {
   card: Card;
-  color: string;
   /** 0..1, null for a card never answered. */
   strength: number | null;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-const CardRow = memo(function CardRow({ card, color, strength, onEdit, onDelete }: CardRowProps) {
+const CardRow = memo(function CardRow({ card, strength, onEdit, onDelete }: CardRowProps) {
   const kind = KIND_META[card.kind];
   const difficulty = DIFFICULTY_META[card.difficulty];
+  const strengthPct = strength === null ? 0 : Math.round(strength * 100);
+  const mastered = strength !== null && strength >= MASTERED_THRESHOLD;
   return (
-    <div className="group flex items-start gap-2 rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2 transition-colors hover:border-white/15">
-      <span className={cn('mt-0.5 shrink-0 rounded border px-1 py-px font-mono text-[9px] tracking-wider', kind.badge)} title={kind.label}>
-        {kind.short}
+    <div className="group/card flex items-start gap-3 px-3 py-2.5 transition-colors duration-120 ease-out-quint hover:bg-surface-hover">
+      <span
+        className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-control border border-line bg-ink-800 text-fg-subtle"
+        title={kind.label}
+      >
+        <kind.icon size={14} strokeWidth={1.75} aria-hidden />
+        <span className="sr-only">{kind.label}</span>
       </span>
-      <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left" title="Edit card">
-        <span className="line-clamp-2 block whitespace-pre-wrap text-[13px] leading-snug text-white/85">{card.prompt}</span>
-        <span className="mt-0.5 line-clamp-1 block text-[11px] text-emerald-300/70">→ {cardAnswerText(card)}</span>
-        <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-white/40">
-          <span className="flex items-center gap-1">
-            <span className={cn('h-1.5 w-1.5 rounded-full', difficulty.dot)} />
+
+      <button type="button" onClick={onEdit} className="focus-ring-inset min-w-0 flex-1 rounded-control text-left" title="Edit card">
+        <span className="line-clamp-2 block whitespace-pre-wrap text-ui text-fg">{card.prompt}</span>
+        <span className="mt-0.5 flex min-w-0 items-start gap-1.5 text-xs text-fg-muted">
+          <CornerDownRight size={12} strokeWidth={2} aria-hidden className="mt-0.5 shrink-0 text-success" />
+          <span className="line-clamp-1">{cardAnswerText(card)}</span>
+        </span>
+        <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-subtle">
+          <span className="inline-flex items-center gap-1.5">
+            <span aria-hidden className={cn('size-1.5 rounded-full', TONE_DOT[difficulty.tone])} />
             {difficulty.label}
           </span>
           {card.tags.slice(0, 4).map((tag) => (
-            <span key={tag} className="text-cyan-300/50">
+            <span key={tag} className="font-mono">
               #{tag}
             </span>
           ))}
-          {strength === null ? (
-            <span className="text-white/30">new</span>
-          ) : (
-            <span className="flex items-center gap-1" title={`Strength ${Math.round(strength * 100)}%`}>
-              <span className="h-1 w-10 overflow-hidden rounded-full bg-white/10">
-                <span className="block h-full rounded-full" style={{ width: `${Math.round(strength * 100)}%`, background: color }} />
-              </span>
-            </span>
-          )}
+          {card.tags.length > 4 && <span className="font-mono">+{card.tags.length - 4}</span>}
         </span>
       </button>
-      <div className="flex shrink-0 items-center opacity-50 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-        <button type="button" onClick={onEdit} className={ICON_BTN} aria-label="Edit card" title="Edit">
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          className={cn(ICON_BTN, 'hover:bg-red-500/15 hover:text-red-300')}
-          aria-label="Delete card"
-          title="Delete"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+
+      <span className="mt-1 hidden w-20 shrink-0 flex-col items-end gap-1.5 @md:flex">
+        {strength === null ? (
+          <Badge size="sm">New</Badge>
+        ) : (
+          <>
+            <span className={cn('tabular font-mono text-xs', mastered ? 'text-success' : 'text-fg-muted')}>
+              {strengthPct}%
+            </span>
+            <span className="block h-1 w-full overflow-hidden rounded-full bg-ink-600/70" title={`Strength ${strengthPct}%`}>
+              <span
+                className={cn('block h-full rounded-full', mastered ? 'bg-success' : 'bg-(--deck)')}
+                style={{ width: `${strengthPct}%` }}
+              />
+            </span>
+          </>
+        )}
+      </span>
+
+      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-120 group-focus-within/card:opacity-100 group-hover/card:opacity-100 [@media(hover:none)]:opacity-100">
+        <IconButton icon={Pencil} size="sm" onClick={onEdit} aria-label="Edit card" tooltip="Edit" />
+        <IconButton icon={Trash2} size="sm" variant="ghost-danger" onClick={onDelete} aria-label="Delete card" tooltip="Delete" />
       </div>
     </div>
   );

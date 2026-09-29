@@ -1,71 +1,194 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Input Component
-// Styled text input with neon focus ring
+// WARRIOR OS — Input + Textarea (FORGE HUD kit)
+// Hairline field on deep ink; accent border + soft ring on focus;
+// danger border + message on error. Label/hint/error are optional.
+//   <Input label="Deck name" placeholder="e.g. Operating Systems" />
+//   <Input leadingIcon={Mail} error="Enter a valid email" />
+//   <Input wrapperClassName="w-48" … />   narrower than its container
+//   <Input fullWidth={false} … />         content width
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react';
+import {
+  forwardRef,
+  useId,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type TextareaHTMLAttributes,
+} from 'react';
 import { cn } from '@/lib/utils';
+import { renderIcon, type IconLike } from './icon';
+import {
+  FIELD_BASE,
+  FIELD_ICON_POS,
+  FIELD_PAD,
+  FIELD_SIZE,
+  FIELD_STATE,
+  FieldShell,
+  fieldDescribedBy,
+  type FieldSize,
+} from './Field';
 
-interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-  error?: string;
-  icon?: ReactNode;
+export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
+  label?: ReactNode;
+  /** Helper text under the field (hidden while `error` is shown). */
+  hint?: ReactNode;
+  /** Error message; also marks the field aria-invalid. */
+  error?: ReactNode;
+  /** Leading icon (legacy name). Prefer `leadingIcon`. */
+  icon?: IconLike;
+  leadingIcon?: IconLike;
+  /** Content inside the right edge (unit, Kbd, clear button). */
+  trailing?: ReactNode;
+  /** 'ghost' = borderless until hover/focus (inline editing). */
   variant?: 'default' | 'ghost';
+  /** sm 28 · md 32 · lg 40 */
+  size?: FieldSize;
+  /**
+   * Class for the outer wrapper (label + field + message). A width class
+   * here (w-48, w-[220px]) narrows the field.
+   */
+  wrapperClassName?: string;
+  /** false: size to the content instead of filling the container. */
+  fullWidth?: boolean;
 }
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, icon, variant = 'default', className, id, ...props }, ref) => {
-    const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
+/** Single-line text input. */
+export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  {
+    label,
+    hint,
+    error,
+    icon,
+    leadingIcon,
+    trailing,
+    variant = 'default',
+    size = 'md',
+    className,
+    wrapperClassName,
+    fullWidth = true,
+    id,
+    required,
+    ...props
+  },
+  ref
+) {
+  const autoId = useId();
+  const inputId = id ?? autoId;
+  const lead = leadingIcon ?? icon;
+  const pad = FIELD_PAD[size];
 
-    return (
-      <div className="w-full">
-        {label && (
-          <label
-            htmlFor={inputId}
-            className="block text-xs font-mono text-text-secondary mb-1.5"
-          >
-            {label}
-          </label>
-        )}
-        <div className="relative">
-          {icon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
-              {icon}
-            </div>
-          )}
-          <input
-            ref={ref}
-            id={inputId}
+  return (
+    <FieldShell
+      id={inputId}
+      label={label}
+      hint={hint}
+      error={error}
+      required={required}
+      fullWidth={fullWidth}
+      className={wrapperClassName}
+    >
+      <div className="relative flex items-center">
+        {lead != null && (
+          <span
             className={cn(
-              'w-full rounded-[var(--radius-md)] font-mono text-sm text-text-primary placeholder:text-text-muted',
-              'transition-all duration-200 outline-none',
-              variant === 'default' && [
-                'bg-bg-surface/50 border border-white/10',
-                'focus:border-accent-primary/50 focus:ring-1 focus:ring-accent-primary/20',
-                'hover:border-white/15',
-              ],
-              variant === 'ghost' && [
-                'bg-transparent border border-transparent',
-                'focus:bg-bg-surface/30 focus:border-white/10',
-              ],
-              icon ? 'pl-10 pr-3' : 'px-3',
-              'py-2',
-              error && 'border-accent-danger/50 focus:border-accent-danger focus:ring-accent-danger/20',
-              className
+              'pointer-events-none absolute top-1/2 flex -translate-y-1/2 text-fg-subtle',
+              FIELD_ICON_POS[size]
             )}
-            {...props}
-          />
-        </div>
-        {error && (
-          <p className="mt-1 text-[10px] font-mono text-accent-danger">
-            {error}
-          </p>
+          >
+            {renderIcon(lead, size === 'lg' ? 18 : size === 'sm' ? 14 : 16)}
+          </span>
+        )}
+        <input
+          ref={ref}
+          id={inputId}
+          required={required}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={fieldDescribedBy(inputId, hint, error)}
+          className={cn(
+            FIELD_BASE,
+            FIELD_SIZE[size],
+            FIELD_STATE[error ? 'error' : variant === 'ghost' ? 'ghost' : 'normal'],
+            lead != null ? pad.icon : pad.plain,
+            trailing != null && pad.trail,
+            className
+          )}
+          {...props}
+        />
+        {trailing != null && (
+          <span className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1 text-fg-subtle">
+            {trailing}
+          </span>
         )}
       </div>
-    );
-  }
-);
+    </FieldShell>
+  );
+});
 
-Input.displayName = 'Input';
+export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label?: ReactNode;
+  hint?: ReactNode;
+  error?: ReactNode;
+  /** Right side of the label row, e.g. "120 / 500". */
+  labelAside?: ReactNode;
+  variant?: 'default' | 'ghost';
+  /** Allow vertical resize (default true). */
+  resizable?: boolean;
+  /** Class for the outer wrapper; a width class here narrows the field. */
+  wrapperClassName?: string;
+  /** false: size to the content (cols) instead of filling the container. */
+  fullWidth?: boolean;
+}
+
+/** Multi-line text input. */
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
+  {
+    label,
+    hint,
+    error,
+    labelAside,
+    variant = 'default',
+    resizable = true,
+    className,
+    wrapperClassName,
+    fullWidth = true,
+    id,
+    required,
+    rows = 4,
+    ...props
+  },
+  ref
+) {
+  const autoId = useId();
+  const fieldId = id ?? autoId;
+  return (
+    <FieldShell
+      id={fieldId}
+      label={label}
+      hint={hint}
+      error={error}
+      labelAside={labelAside}
+      required={required}
+      fullWidth={fullWidth}
+      className={wrapperClassName}
+    >
+      <textarea
+        ref={ref}
+        id={fieldId}
+        rows={rows}
+        required={required}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={fieldDescribedBy(fieldId, hint, error)}
+        className={cn(
+          FIELD_BASE,
+          FIELD_STATE[error ? 'error' : variant === 'ghost' ? 'ghost' : 'normal'],
+          'scrollbar-thin min-h-16 px-3 py-2 text-ui leading-5',
+          resizable ? 'resize-y' : 'resize-none',
+          className
+        )}
+        {...props}
+      />
+    </FieldShell>
+  );
+});

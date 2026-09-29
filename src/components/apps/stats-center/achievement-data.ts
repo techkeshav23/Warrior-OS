@@ -3,11 +3,17 @@
 // Pure counts and date formatting for the Stats Center gallery
 // ═══════════════════════════════════════════════════════════
 
+import { format } from 'date-fns';
 import type { Achievement, AchievementCategory } from '@/types/achievement';
 import { RARITY_ORDER, type Rarity } from '@/components/effects/effects-utils';
 
 export type CategoryFilter = 'all' | AchievementCategory;
 export type StatusFilter = 'all' | 'unlocked' | 'locked';
+
+/** `color` mixed toward transparent: tints, rims and glows from a rarity or token colour. */
+export function tint(color: string, percent: number): string {
+  return `color-mix(in oklab, ${color} ${percent}%, transparent)`;
+}
 
 export interface Tally {
   total: number;
@@ -88,17 +94,11 @@ export function recentUnlocks(list: readonly Achievement[], count: number): Achi
 export function formatUnlockDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  return format(d, 'd MMM yyyy');
 }
 
 export function formatUnlockDateTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString('en-IN', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return format(d, "d MMMM yyyy 'at' h:mm a");
 }

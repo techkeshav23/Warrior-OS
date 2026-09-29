@@ -81,6 +81,22 @@ Most "OS in a browser" projects stop at windows. These systems make this one fee
 | Backend (optional) | Firebase Auth, Firestore, Realtime Database; Gemini API; OpenWeatherMap or keyless Open-Meteo |
 | Quality and delivery | ESLint, Playwright end-to-end smoke test, GitHub Actions CI, Vercel |
 
+## Design system — FORGE HUD
+
+Every surface, from the boot log and lock screen to the desktop and all 19 apps, is built on one design system: **FORGE HUD**, a calm sci-fi command center lit by forge-fire. It pairs two accents with fixed jobs, **Plasma × Ember**:
+
+- **Plasma** (cyan) is the machine: interaction, focus, selection, info and live status.
+- **Ember** (orange) is warrior energy: streaks, XP, fire, achievements and "forge" actions.
+
+The rest is quiet deep-ink surfaces, 1px hairlines and legible type (Inter for UI, JetBrains Mono for data and HUD labels, Orbitron only for big numbers and the logo). Glow and motion are saved for focus, live status and wins, and every screen ships designed empty, loading and error states.
+
+- **Tokens:** `src/app/globals.css` (Tailwind v4 `@theme`, the source of truth) and `src/styles/tokens.ts` (the same values for canvas, charts and motion).
+- **Kit:** `src/components/ui` (buttons, fields, tabs, menus, dialogs, stat tiles, empty states, `AppLayout`, `AppIcon` and more).
+- **Live style guide:** the `/design-system` route (run `npm run dev`, then open [localhost:3000/design-system](http://localhost:3000/design-system)) renders every token, component, app icon and a sample window from the same code.
+- **Rules and patterns:** [docs/design-system.md](docs/design-system.md).
+
+![The FORGE HUD style guide at /design-system](docs/screenshots/design-system.png)
+
 ## Architecture
 
 ```

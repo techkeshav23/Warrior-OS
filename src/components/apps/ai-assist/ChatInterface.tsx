@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — AI Assist: Chat Interface
-// Header (conversation title, Gemini status, OS-context toggle with
-// a "what NEXUS sees" preview, voice controls, pomodoro chip, new /
-// clear chat) around the NEXUS chat pane: glass bubbles, markdown +
-// code blocks, typing dots, Ctrl+Enter composer, action buttons.
+// Header (NEXUS identity + brain status, conversation title, pomodoro
+// chip, OS-context toggle with a "what NEXUS sees" preview, wake mode,
+// overflow menu for voice / nudges / new / clear chat) around the
+// NEXUS chat pane, plus the owner / guest welcome screen.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -11,29 +11,42 @@
 import { memo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  BellOff,
+  ArrowUpRight,
   BellRing,
-  Brain,
+  BrainCircuit,
+  Ear,
   Eraser,
   Eye,
   Layers,
-  MessageSquarePlus,
+  LoaderCircle,
+  MessageCircleQuestion,
+  MoreHorizontal,
   PanelLeft,
-  Sparkles,
+  SquarePen,
+  Terminal,
+  Volume2,
   WifiOff,
   X,
-  Zap,
 } from 'lucide-react';
+import { Badge, ConfirmDialog, IconButton, Menu, Tooltip, type MenuItem } from '@/components/ui';
 import { NEXUS_DEFAULT_CONVERSATION_TITLE, useNexusStore } from '@/stores/useNexusStore';
+import { useNexusVoiceStore } from '@/lib/nexus/voice-store';
 import { NexusChat, NexusOrb } from '@/components/nexus/NexusChat';
 import { sendToNexus } from '@/components/nexus/NexusCore';
-import { NexusVoiceReplyToggle, NexusWakeToggle } from '@/components/nexus/NexusVoice';
+import {
+  NexusWakeToggle,
+  toggleWakeMode,
+  useSpeechRecognitionSupported,
+  useSpeechSynthesisSupported,
+} from '@/components/nexus/NexusVoice';
 import { NexusPomodoroPill } from '@/components/nexus/NexusPomodoro';
 import { buildNexusContext } from '@/lib/nexus/context';
+import { stopSpeaking } from '@/lib/nexus/speech';
 import { NEXUS_GEMINI_MODEL } from '@/lib/nexus/protocol';
 import { getVisitorMode } from '@/lib/visitor';
 import { OWNER } from '@/config/owner';
-import { cn, getGreeting } from '@/lib/utils';
+import { EASE_OUT_QUINT } from '@/styles/tokens';
+import { getGreeting } from '@/lib/utils';
 
 export type NexusAIStatus = 'checking' | 'online' | 'offline' | 'unknown';
 
@@ -44,8 +57,16 @@ const OWNER_PROMPTS: QuickPrompt[] = [
   { label: 'Review due cards', prompt: 'review due cards', kind: 'command' },
   { label: 'My decks', prompt: 'my decks', kind: 'command' },
   { label: 'Pomodoro 25', prompt: 'pomodoro 25', kind: 'command' },
-  { label: 'What should I learn today?', prompt: 'What should I study today?', kind: 'ask' },
-  { label: 'Learn anything faster', prompt: 'How do I learn anything faster?', kind: 'ask' },
+  {
+    label: 'What should I learn today?',
+    prompt: 'What should I study today?',
+    kind: 'ask',
+  },
+  {
+    label: 'Learn anything faster',
+    prompt: 'How do I learn anything faster?',
+    kind: 'ask',
+  },
   { label: 'What can you do?', prompt: 'help', kind: 'command' },
 ];
 
@@ -58,60 +79,159 @@ const GUEST_PROMPTS: QuickPrompt[] = [
   { label: 'What can you do?', prompt: 'help', kind: 'command' },
 ];
 
+// ─── Brain status ───
+
+const STATUS_BADGE: Record<NexusAIStatus, { tone: 'success' | 'warning' | 'neutral'; label: string }> = {
+  online: { tone: 'success', label: 'Online' },
+  offline: { tone: 'warning', label: 'Offline brain' },
+  checking: { tone: 'neutral', label: 'Linking' },
+  unknown: { tone: 'neutral', label: 'Status unknown' },
+};
+
+function statusDetail(status: NexusAIStatus): string {
+  switch (status) {
+    case 'online':
+      return `Gemini linked (${NEXUS_GEMINI_MODEL})`;
+    case 'offline':
+      return 'No Gemini key: commands and the learning coach run locally';
+    case 'checking':
+      return 'Checking the AI link…';
+    default:
+      return 'Could not reach the AI status endpoint';
+  }
+}
+
+function BrainStatusBadge({ status }: { status: NexusAIStatus }) {
+  const badge = STATUS_BADGE[status];
+  return (
+    <Tooltip content={statusDetail(status)} side="bottom">
+      <Badge
+        tone={badge.tone}
+        size="sm"
+        dot={status !== 'checking'}
+        pulse={status === 'online'}
+        icon={
+          status === 'checking' ? (
+            <LoaderCircle size={10} strokeWidth={2} className="animate-spin" aria-hidden />
+          ) : undefined
+        }
+        tabIndex={0}
+        className="focus-ring cursor-default"
+      >
+        {badge.label}
+      </Badge>
+    </Tooltip>
+  );
+}
+
+// ─── Welcome screen ───
+
+function PromptButton({ item, onPick }: { item: QuickPrompt; onPick: (prompt: string) => void }) {
+  const command = item.kind === 'command';
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(item.prompt)}
+      className="focus-ring group/prompt flex h-10 min-w-0 items-center gap-2.5 rounded-control border border-line bg-surface-2 pl-2.5 pr-2 text-left text-ui text-fg-muted transition-[background-color,border-color,color] duration-120 ease-out-quint hover:border-line-strong hover:bg-surface-hover hover:text-fg active:bg-surface-active"
+    >
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-[6px] bg-ink-800 text-fg-subtle ring-1 ring-inset ring-line transition-colors duration-120 group-hover/prompt:text-accent">
+        {command ? (
+          <Terminal size={13} strokeWidth={1.75} aria-hidden />
+        ) : (
+          <MessageCircleQuestion size={13} strokeWidth={1.75} aria-hidden />
+        )}
+      </span>
+      <span className="min-w-0 flex-1 truncate" title={item.label}>
+        {item.label}
+      </span>
+      <ArrowUpRight
+        size={14}
+        strokeWidth={1.75}
+        className="shrink-0 text-fg-faint opacity-0 transition-opacity duration-120 group-hover/prompt:opacity-100 group-focus-visible/prompt:opacity-100"
+        aria-hidden
+      />
+    </button>
+  );
+}
+
 function AssistEmptyState({ aiStatus, conversationId }: { aiStatus: NexusAIStatus; conversationId: string | null }) {
   const [greeting] = useState(() => getGreeting());
   // AI Assist renders client-side only, so the stored visitor mode is read once here.
   const [visitor] = useState(getVisitorMode);
   const guest = visitor === 'guest';
   const prompts = guest ? GUEST_PROMPTS : OWNER_PROMPTS;
+  const asks = prompts.filter((p) => p.kind === 'ask');
+  const commands = prompts.filter((p) => p.kind === 'command');
   const send = (prompt: string) => {
-    void sendToNexus(prompt, { via: 'text', conversationId: conversationId ?? undefined });
+    void sendToNexus(prompt, {
+      via: 'text',
+      conversationId: conversationId ?? undefined,
+    });
   };
+
+  const groups = guest
+    ? [
+        { label: 'Ask NEXUS', items: asks },
+        { label: 'Run a command', items: commands },
+      ]
+    : [
+        { label: 'Run a command', items: commands },
+        { label: 'Ask NEXUS', items: asks },
+      ];
+
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 px-5 py-6 text-center">
-      <NexusOrb size={52} pulse />
-      <div>
-        <p className="font-display text-sm tracking-[0.2em] text-cyan-200">NEXUS</p>
-        <p className="mt-1 text-sm text-white/80">
-          {guest
-            ? `${greeting}! Welcome to ${OWNER.shortName}'s Warrior OS.`
-            : `${greeting}, ${visitor === 'owner' ? OWNER.shortName : 'warrior'}. Kya karna hai aaj?`}
-        </p>
-        <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-white/50">
-          {guest
-            ? 'I run this OS from plain language and know every app in it. Ask for a tour, or try a command.'
-            : 'Commands (apps, decks, notes, modes, pomodoro) run instantly. Everything else goes to Gemini when it is configured — concepts, code, plans.'}
-        </p>
-      </div>
-      {aiStatus === 'offline' && (
-        <div className="flex max-w-sm items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.07] px-3 py-2 text-left">
-          <WifiOff size={14} className="mt-0.5 shrink-0 text-amber-300" />
-          <p className="text-[11px] leading-relaxed text-amber-100/80">
-            Offline brain active (no GEMINI_API_KEY on the server). Every OS command, the learning coach over your
-            decks and notes, and the guide to every app still work; open-ended chat needs the key.
-          </p>
+    <div className="flex min-h-full flex-col">
+      <div className="mx-auto my-auto flex w-full max-w-xl flex-col items-center gap-6 py-2 text-center">
+        <div className="flex flex-col items-center gap-4 pt-3">
+          <NexusOrb size={52} rings />
+          <div className="flex flex-col items-center gap-1.5">
+            <p className="font-display text-sm font-semibold tracking-[0.32em] text-plasma-300">NEXUS</p>
+            <p className="text-base font-semibold text-fg">
+              {guest
+                ? `${greeting}. Welcome to ${OWNER.shortName}'s Warrior OS.`
+                : `${greeting}, ${visitor === 'owner' ? OWNER.shortName : 'warrior'}. Kya karna hai aaj?`}
+            </p>
+            <p className="max-w-md text-ui text-fg-muted">
+              {guest
+                ? 'I run this OS from plain language and know every app in it. Ask for a tour, or try a command.'
+                : 'Commands (apps, decks, notes, modes, pomodoro) run instantly. Everything else goes to Gemini when it is configured: concepts, code, plans.'}
+            </p>
+          </div>
         </div>
-      )}
-      <div className="grid w-full max-w-md grid-cols-1 gap-1.5 @min-[460px]:grid-cols-2">
-        {prompts.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            onClick={() => send(item.prompt)}
-            className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-xs text-white/75 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/[0.08] hover:text-cyan-100"
-          >
-            {item.kind === 'command' ? (
-              <Zap size={12} className="shrink-0 text-emerald-300/80" />
-            ) : (
-              <Sparkles size={12} className="shrink-0 text-violet-300/80" />
-            )}
-            <span className="truncate">{item.label}</span>
-          </button>
-        ))}
+
+        {aiStatus === 'offline' && (
+          <div className="flex w-full items-start gap-3 rounded-card border border-warning/25 bg-warning/6 px-3.5 py-3 text-left">
+            <WifiOff size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+            <div className="min-w-0">
+              <p className="text-ui font-medium text-fg">Offline brain active</p>
+              <p className="mt-0.5 text-xs text-fg-muted">
+                No GEMINI_API_KEY on the server. OS commands, the learning coach over your decks and notes, and the
+                guide to every app still work; open-ended chat needs the key.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="flex w-full flex-col gap-4 text-left">
+          {groups.map((group) =>
+            group.items.length === 0 ? null : (
+              <section key={group.label} className="flex flex-col gap-2">
+                <h3 className="hud-label px-0.5">{group.label}</h3>
+                <div className="grid grid-cols-1 gap-1.5 @min-[420px]:grid-cols-2">
+                  {group.items.map((item) => (
+                    <PromptButton key={item.label} item={item} onPick={send} />
+                  ))}
+                </div>
+              </section>
+            ),
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+// ─── Chat interface ───
 
 interface ChatInterfaceProps {
   aiStatus: NexusAIStatus;
@@ -121,23 +241,25 @@ interface ChatInterfaceProps {
 function ChatInterfaceInner({ aiStatus, onToggleSidebar }: ChatInterfaceProps) {
   const activeId = useNexusStore((s) => s.activeConversationId);
   const title = useNexusStore(
-    (s) => s.conversations.find((c) => c.id === s.activeConversationId)?.title ?? NEXUS_DEFAULT_CONVERSATION_TITLE
+    (s) => s.conversations.find((c) => c.id === s.activeConversationId)?.title ?? NEXUS_DEFAULT_CONVERSATION_TITLE,
   );
   const messageCount = useNexusStore(
-    (s) => s.conversations.find((c) => c.id === s.activeConversationId)?.messages.length ?? 0
+    (s) => s.conversations.find((c) => c.id === s.activeConversationId)?.messages.length ?? 0,
   );
+  const busy = useNexusStore((s) => (s.activeConversationId ? (s.inFlight[s.activeConversationId] ?? 0) > 0 : false));
   const contextEnabled = useNexusStore((s) => s.contextEnabled);
   const suggestionsEnabled = useNexusStore((s) => s.suggestionsEnabled);
+  const voiceReplies = useNexusStore((s) => s.voiceReplies);
+  const wakeEnabled = useNexusVoiceStore((s) => s.wakeEnabled);
+  const recognitionSupported = useSpeechRecognitionSupported();
+  const synthesisSupported = useSpeechSynthesisSupported();
 
+  // Owners get NEXUS's Hinglish voice in the composer; visitors get English.
+  const [visitor] = useState(getVisitorMode);
   const [confirmClear, setConfirmClear] = useState(false);
   const [contextPreview, setContextPreview] = useState<string | null>(null);
 
   const clearChat = () => {
-    if (!confirmClear) {
-      setConfirmClear(true);
-      window.setTimeout(() => setConfirmClear(false), 3000);
-      return;
-    }
     useNexusStore.getState().clearConversation();
     setConfirmClear(false);
   };
@@ -154,48 +276,106 @@ function ChatInterfaceInner({ aiStatus, onToggleSidebar }: ChatInterfaceProps) {
         ctx.summary ?? '',
       ]
         .filter(Boolean)
-        .join('\n')
+        .join('\n'),
     );
   };
 
-  const statusLine =
-    aiStatus === 'online'
-      ? `${NEXUS_GEMINI_MODEL} · online`
-      : aiStatus === 'offline'
-        ? 'offline brain · commands + learning coach'
-        : aiStatus === 'checking'
-          ? 'checking AI link…'
-          : 'AI status unknown';
+  const toggleVoiceReplies = () => {
+    const next = !useNexusStore.getState().voiceReplies;
+    useNexusStore.getState().setVoiceReplies(next);
+    if (!next) stopSpeaking();
+  };
+
+  const menuItems: MenuItem[] = [
+    { id: 'h-chat', heading: true, label: 'Conversation' },
+    {
+      id: 'new',
+      label: 'New chat',
+      icon: SquarePen,
+      onSelect: () => useNexusStore.getState().newConversation(),
+    },
+    {
+      id: 'clear',
+      label: 'Clear messages',
+      icon: Eraser,
+      danger: true,
+      disabled: messageCount === 0,
+      onSelect: () => setConfirmClear(true),
+    },
+    { id: 'd1', divider: true },
+    { id: 'h-nexus', heading: true, label: 'NEXUS' },
+    {
+      id: 'context',
+      label: 'Attach OS context',
+      description: 'Level, streak, open apps and quiz stats',
+      icon: Layers,
+      checked: contextEnabled,
+      onSelect: () => useNexusStore.getState().toggleContext(),
+    },
+    {
+      id: 'preview',
+      label: contextPreview !== null ? 'Hide what NEXUS sees' : 'What NEXUS sees',
+      icon: Eye,
+      disabled: !contextEnabled,
+      onSelect: showContext,
+    },
+    {
+      id: 'nudges',
+      label: 'Proactive nudges',
+      description: suggestionsEnabled ? 'On: NEXUS may suggest things' : 'Muted',
+      icon: BellRing,
+      checked: suggestionsEnabled,
+      onSelect: () => useNexusStore.getState().toggleSuggestions(),
+    },
+    { id: 'd2', divider: true },
+    { id: 'h-voice', heading: true, label: 'Voice' },
+    {
+      id: 'wake',
+      label: 'Hey Warrior wake mode',
+      description: recognitionSupported ? 'Uses the microphone while on' : 'Needs Chrome or Edge',
+      icon: Ear,
+      checked: wakeEnabled,
+      disabled: !recognitionSupported,
+      onSelect: toggleWakeMode,
+    },
+    {
+      id: 'speak',
+      label: 'Spoken replies',
+      description: synthesisSupported ? 'Read replies to voice commands aloud' : 'Not available in this browser',
+      icon: Volume2,
+      checked: voiceReplies && synthesisSupported,
+      disabled: !synthesisSupported,
+      onSelect: toggleVoiceReplies,
+    },
+  ];
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* ── Header ── */}
-      <div className="flex items-center gap-2 border-b border-white/10 bg-black/20 px-2.5 py-2">
-        <button
-          type="button"
-          onClick={onToggleSidebar}
-          className="rounded-md p-1 text-white/55 transition-colors hover:bg-white/5 hover:text-white @min-[680px]:hidden"
-          aria-label="Show conversations"
-          title="Conversations"
-        >
-          <PanelLeft size={15} />
-        </button>
-        <NexusOrb size={24} />
+      <header className="flex h-14 shrink-0 items-center gap-2.5 border-b border-line pl-3 pr-2">
+        <span className="-ml-1 @min-[680px]:hidden">
+          <IconButton
+            icon={PanelLeft}
+            size="sm"
+            onClick={onToggleSidebar}
+            aria-label="Show conversations"
+            tooltip="Conversations"
+          />
+        </span>
+        <NexusOrb size={30} pulse={busy} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-semibold text-white/85">{title}</p>
-          <p
-            className={cn(
-              'flex items-center gap-1 truncate font-mono text-[10px]',
-              aiStatus === 'online' ? 'text-emerald-300/70' : aiStatus === 'offline' ? 'text-amber-300/80' : 'text-white/40'
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="text-ui font-semibold tracking-[0.06em] text-fg">NEXUS</span>
+            <BrainStatusBadge status={aiStatus} />
+          </div>
+          <p className="truncate text-xs text-fg-subtle" title={title}>
+            {title}
+            {messageCount > 0 && (
+              <span className="font-mono tabular">
+                {' '}
+                · {messageCount} {messageCount === 1 ? 'message' : 'messages'}
+              </span>
             )}
-          >
-            <span
-              className={cn(
-                'inline-block h-1.5 w-1.5 rounded-full',
-                aiStatus === 'online' ? 'bg-emerald-400' : aiStatus === 'offline' ? 'bg-amber-400' : 'bg-white/30'
-              )}
-            />
-            {statusLine}
           </p>
         </div>
 
@@ -203,95 +383,36 @@ function ChatInterfaceInner({ aiStatus, onToggleSidebar }: ChatInterfaceProps) {
           <NexusPomodoroPill variant="inline" />
         </span>
 
-        <div className="flex items-center gap-0.5">
-          <button
-            type="button"
+        <div className="flex shrink-0 items-center gap-0.5">
+          <IconButton
+            icon={Layers}
+            size="sm"
+            active={contextEnabled}
             onClick={() => useNexusStore.getState().toggleContext()}
-            aria-pressed={contextEnabled}
-            className={cn(
-              'flex items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[10px] transition-colors',
-              contextEnabled ? 'bg-violet-500/15 text-violet-200' : 'text-white/50 hover:bg-white/5 hover:text-white/80'
-            )}
-            title={
-              contextEnabled
-                ? 'OS context ON — level, streak, quiz stats, open apps, pomodoro and biometrics are attached to AI questions'
-                : 'OS context OFF — AI questions are sent without any OS state'
-            }
-          >
-            <Layers size={13} />
-            <span className="hidden @min-[480px]:inline">Context</span>
-            <span
-              className={cn(
-                'relative ml-0.5 inline-flex h-3 w-5 rounded-full transition-colors',
-                contextEnabled ? 'bg-violet-400/70' : 'bg-white/15'
-              )}
-              aria-hidden
-            >
-              <span
-                className={cn(
-                  'absolute top-0.5 h-2 w-2 rounded-full bg-white transition-all',
-                  contextEnabled ? 'left-2.5' : 'left-0.5'
-                )}
-              />
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={showContext}
-            disabled={!contextEnabled}
-            className={cn(
-              'rounded-md p-1 transition-colors',
-              !contextEnabled && 'cursor-not-allowed text-white/20',
-              contextEnabled && contextPreview !== null && 'bg-white/10 text-white',
-              contextEnabled && contextPreview === null && 'text-white/50 hover:bg-white/5 hover:text-white/80'
-            )}
-            aria-label="Preview the OS context NEXUS sends"
-            title="What NEXUS sees"
-          >
-            <Eye size={13} />
-          </button>
-          <NexusWakeToggle />
-          <NexusVoiceReplyToggle />
-          <button
-            type="button"
-            onClick={() => useNexusStore.getState().toggleSuggestions()}
-            aria-pressed={suggestionsEnabled}
-            className={cn(
-              'rounded-md p-1 transition-colors',
-              suggestionsEnabled ? 'text-amber-200/90 hover:bg-white/5' : 'text-white/40 hover:bg-white/5 hover:text-white/75'
-            )}
-            title={suggestionsEnabled ? 'Proactive NEXUS nudges on — click to mute' : 'Proactive nudges muted — click to enable'}
-            aria-label="Toggle proactive suggestions"
-          >
-            {suggestionsEnabled ? <BellRing size={13} /> : <BellOff size={13} />}
-          </button>
-          <button
-            type="button"
-            onClick={() => useNexusStore.getState().newConversation()}
-            className="rounded-md p-1 text-white/55 transition-colors hover:bg-white/5 hover:text-cyan-200"
-            aria-label="New conversation"
-            title="New chat"
-          >
-            <MessageSquarePlus size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={clearChat}
-            disabled={messageCount === 0}
-            className={cn(
-              'flex items-center gap-1 rounded-md p-1 font-mono text-[10px] transition-colors',
-              messageCount === 0 && 'cursor-not-allowed text-white/20',
-              messageCount > 0 && confirmClear && 'bg-rose-500/20 px-1.5 text-rose-200',
-              messageCount > 0 && !confirmClear && 'text-white/55 hover:bg-white/5 hover:text-rose-200'
-            )}
-            aria-label={confirmClear ? 'Confirm clear conversation' : 'Clear conversation'}
-            title={confirmClear ? 'Click again to clear this chat' : 'Clear chat'}
-          >
-            <Eraser size={14} />
-            {confirmClear && <span>Clear?</span>}
-          </button>
+            aria-label="Attach OS context"
+            tooltip={contextEnabled ? 'OS context on' : 'OS context off'}
+          />
+          <span className="hidden @min-[400px]:inline-flex">
+            <NexusWakeToggle />
+          </span>
+          <Menu
+            align="end"
+            width={264}
+            aria-label="NEXUS options"
+            items={menuItems}
+            trigger={<IconButton icon={MoreHorizontal} size="sm" aria-label="More options" />}
+          />
+          <span className="@min-[680px]:hidden">
+            <IconButton
+              icon={SquarePen}
+              size="sm"
+              onClick={() => useNexusStore.getState().newConversation()}
+              aria-label="New conversation"
+              tooltip="New chat"
+            />
+          </span>
         </div>
-      </div>
+      </header>
 
       {/* ── Context preview ── */}
       <AnimatePresence initial={false}>
@@ -301,27 +422,26 @@ function ChatInterfaceInner({ aiStatus, onToggleSidebar }: ChatInterfaceProps) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden border-b border-white/10 bg-violet-500/[0.05]"
+            transition={{ duration: 0.2, ease: EASE_OUT_QUINT }}
+            className="shrink-0 overflow-hidden border-b border-line bg-ink-950/40"
           >
-            <div className="flex items-start gap-2 px-3 py-2">
-              <Brain size={13} className="mt-0.5 shrink-0 text-violet-300" />
+            <div className="flex items-start gap-3 px-4 py-3">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-control bg-accent/10 text-accent ring-1 ring-inset ring-accent/25">
+                <BrainCircuit size={15} strokeWidth={1.75} aria-hidden />
+              </span>
               <div className="min-w-0 flex-1">
-                <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.15em] text-violet-200/80">
-                  What NEXUS sees (sent with AI questions)
-                </p>
-                <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words font-mono text-[10.5px] leading-relaxed text-white/70">
+                <p className="hud-label text-fg-muted">What NEXUS sees</p>
+                <p className="mt-0.5 text-xs text-fg-subtle">Sent with AI questions while OS context is on.</p>
+                <pre className="scrollbar-thin mt-2 max-h-40 select-text overflow-y-auto whitespace-pre-wrap break-words rounded-control border border-line bg-ink-850 px-3 py-2 font-mono text-xs leading-5 text-fg-muted">
                   {contextPreview}
                 </pre>
               </div>
-              <button
-                type="button"
+              <IconButton
+                icon={X}
+                size="xs"
                 onClick={() => setContextPreview(null)}
-                className="shrink-0 rounded p-0.5 text-white/45 hover:text-white"
                 aria-label="Close context preview"
-              >
-                <X size={12} />
-              </button>
+              />
             </div>
           </motion.div>
         )}
@@ -331,7 +451,18 @@ function ChatInterfaceInner({ aiStatus, onToggleSidebar }: ChatInterfaceProps) {
       <NexusChat
         conversationId={activeId}
         emptyState={<AssistEmptyState aiStatus={aiStatus} conversationId={activeId} />}
+        placeholder={visitor === 'owner' ? 'Pucho NEXUS se… ya command do' : undefined}
         className="min-h-0 flex-1"
+      />
+
+      <ConfirmDialog
+        open={confirmClear}
+        onClose={() => setConfirmClear(false)}
+        onConfirm={clearChat}
+        tone="danger"
+        title="Clear this conversation?"
+        description={`Its ${messageCount} ${messageCount === 1 ? 'message goes' : 'messages go'}. This can't be undone.`}
+        confirmLabel="Clear messages"
       />
     </div>
   );

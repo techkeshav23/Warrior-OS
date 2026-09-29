@@ -9,6 +9,7 @@
 // these inside useMemo on the store's decks / reviews / projects.
 // ═══════════════════════════════════════════════════════════
 
+import { resolveAccent } from '@/styles/tokens';
 import type { Card, CardReview, Deck } from '@/types/learning';
 import type { ForgeProject } from '@/types/project-forge';
 import { cardAnswerText, computeTopicMastery } from '@/stores/useLearningStore';
@@ -182,7 +183,7 @@ function deckGroups(decks: readonly Deck[]): PalaceGroup[] {
       key,
       contentType: 'deck',
       label: deck.name,
-      accent: deck.color,
+      accent: resolveAccent(deck.color),
       items,
       words: deck.topics
         .filter((t) => t.cards.length > 0)

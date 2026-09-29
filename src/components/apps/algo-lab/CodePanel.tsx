@@ -1,25 +1,29 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Algo Lab Code Panel
-// Read-only pseudocode with light token colouring; the line the
-// current frame is executing is highlighted and kept in view.
+// WARRIOR OS — Algo Lab Code Panel (FORGE HUD)
+// Read-only pseudocode with token syntax colours; the line the
+// current frame is executing sits on an accent-soft band with a 2px
+// accent edge and is kept in view. A Guide tab holds the plain-
+// language walkthrough and exam notes.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo, useEffect, useMemo, useRef } from 'react';
-import { CodeXml } from 'lucide-react';
+import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { BookOpenText, ChevronRight, CodeXml } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tabs } from '@/components/ui';
+import type { AlgorithmMeta } from '@/types/algo';
 import { tokenizePseudocode, type PseudoTokenKind } from '@/lib/algorithms/pseudocode';
 
 const TOKEN_CLASS: Record<PseudoTokenKind, string> = {
-  keyword: 'text-fuchsia-300',
-  action: 'text-amber-200',
-  function: 'text-sky-300',
-  number: 'text-orange-300',
-  operator: 'text-cyan-300',
-  constant: 'text-emerald-300',
-  comment: 'text-white/40 italic',
-  plain: 'text-white/85',
+  keyword: 'text-viz-3',
+  action: 'text-ember-300',
+  function: 'text-info',
+  number: 'text-viz-7',
+  operator: 'text-plasma-300',
+  constant: 'text-success',
+  comment: 'text-fg-subtle italic',
+  plain: 'text-fg',
 };
 
 interface CodePanelProps {
@@ -28,16 +32,53 @@ interface CodePanelProps {
   lines: readonly string[];
   /** 0-based line to highlight; -1 for none. */
   activeLine: number;
+  /** Adds a Guide tab (description, steps, exam notes). */
+  meta?: AlgorithmMeta;
+  className?: string;
 }
 
-function CodePanelInner({ title, lines, activeLine }: CodePanelProps) {
+function Guide({ meta }: { meta: AlgorithmMeta }) {
+  return (
+    <div className="space-y-4 px-4 py-3">
+      <p className="select-text text-ui text-fg-muted">{meta.description}</p>
+      <section>
+        <h4 className="hud-label mb-2">How it works</h4>
+        <ol className="space-y-1.5">
+          {meta.steps.map((step, i) => (
+            <li key={step} className="flex gap-2.5 text-ui text-fg-muted">
+              <span className="tabular mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-active font-mono text-2xs text-fg">
+                {i + 1}
+              </span>
+              <span className="min-w-0 select-text">{step}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+      <section>
+        <h4 className="hud-label mb-2">Exam notes</h4>
+        <ul className="space-y-1.5">
+          {meta.facts.map((fact) => (
+            <li key={fact} className="flex gap-1.5 text-ui text-fg-muted">
+              <ChevronRight size={14} strokeWidth={1.75} className="mt-[3px] shrink-0 text-accent" aria-hidden />
+              <span className="min-w-0 select-text">{fact}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+function CodePanelInner({ title, lines, activeLine, meta, className }: CodePanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [tab, setTab] = useState<'code' | 'guide'>('code');
   const tokenized = useMemo(() => lines.map((line) => tokenizePseudocode(line)), [lines]);
+  const idPrefix = `algo-code-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
   // Keep the active line visible without scrolling any ancestor container.
   useEffect(() => {
     const container = scrollRef.current;
-    if (!container || activeLine < 0) return;
+    if (!container || activeLine < 0 || tab !== 'code') return;
     const row = container.querySelector<HTMLElement>(`[data-line="${activeLine}"]`);
     if (!row) return;
     const top = row.offsetTop;
@@ -47,52 +88,92 @@ function CodePanelInner({ title, lines, activeLine }: CodePanelProps) {
     } else if (bottom > container.scrollTop + container.clientHeight - 4) {
       container.scrollTop = bottom - container.clientHeight + 20;
     }
-  }, [activeLine, lines]);
+  }, [activeLine, lines, tab]);
+
+  const showGuide = meta !== undefined && tab === 'guide';
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-white/10 bg-black/40">
-      <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-1.5">
-        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/55">
-          <CodeXml className="h-3 w-3" aria-hidden />
-          Pseudocode
+    <div
+      className={cn(
+        'glass-panel flex min-h-[12rem] min-w-0 flex-col overflow-hidden rounded-card',
+        className
+      )}
+    >
+      <div className="flex shrink-0 items-center justify-between gap-2 pl-1 pr-3">
+        {meta ? (
+          <Tabs
+            size="sm"
+            value={tab}
+            onChange={(id) => setTab(id === 'guide' ? 'guide' : 'code')}
+            idPrefix={idPrefix}
+            aria-label="Code panel"
+            className="-mb-px border-b-0"
+            tabs={[
+              { id: 'code', label: 'Pseudocode', icon: CodeXml },
+              { id: 'guide', label: 'Guide', icon: BookOpenText },
+            ]}
+          />
+        ) : (
+          <span className="flex h-8 items-center gap-1.5 pl-2 text-xs font-medium text-fg">
+            <CodeXml size={14} strokeWidth={1.75} className="text-accent" aria-hidden />
+            Pseudocode
+          </span>
+        )}
+        <span className="min-w-0 truncate font-mono text-2xs text-fg-subtle" title={title}>
+          {title}
         </span>
-        <span className="truncate text-[11px] text-white/60">{title}</span>
       </div>
       <div
         ref={scrollRef}
-        className="relative min-h-0 flex-1 overflow-y-auto py-1.5 font-mono text-[11.5px] leading-[1.6]"
-        aria-label={`${title} pseudocode`}
+        role={meta ? 'tabpanel' : undefined}
+        id={meta ? `${idPrefix}-panel-${tab}` : undefined}
+        aria-labelledby={meta ? `${idPrefix}-tab-${tab}` : undefined}
+        className="scrollbar-thin relative min-h-0 flex-1 overflow-y-auto border-t border-line bg-ink-950/40"
+        aria-label={meta ? undefined : `${title} pseudocode`}
       >
-        {tokenized.map((tokens, i) => {
-          const active = i === activeLine;
-          return (
-            <div
-              key={i}
-              data-line={i}
-              aria-current={active ? 'step' : undefined}
-              className={cn(
-                'flex items-start border-l-2 pr-2 transition-colors duration-150',
-                active ? 'border-cyan-400 bg-cyan-400/15' : 'border-transparent'
-              )}
-            >
-              <span
-                className={cn(
-                  'w-7 shrink-0 select-none pr-2 text-right tabular-nums',
-                  active ? 'text-cyan-300' : 'text-white/35'
-                )}
-              >
-                {i + 1}
-              </span>
-              <span className="min-w-0 whitespace-pre-wrap break-words">
-                {tokens.map((token, j) => (
-                  <span key={j} className={TOKEN_CLASS[token.kind]}>
-                    {token.text}
+        {showGuide ? (
+          <Guide meta={meta} />
+        ) : (
+          <div className="select-text py-2 font-mono text-xs leading-[1.7]">
+            {tokenized.map((tokens, i) => {
+              const active = i === activeLine;
+              return (
+                <div
+                  key={i}
+                  data-line={i}
+                  aria-current={active ? 'step' : undefined}
+                  className={cn(
+                    'relative flex items-start pr-3 transition-colors duration-120 ease-out-quint',
+                    active ? 'bg-accent-soft' : 'hover:bg-surface-hover'
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'absolute inset-y-0 left-0 w-0.5 bg-accent transition-opacity duration-120',
+                      active ? 'opacity-100' : 'opacity-0'
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      'tabular w-9 shrink-0 select-none pr-3 text-right',
+                      active ? 'text-accent' : 'text-fg-subtle'
+                    )}
+                  >
+                    {i + 1}
                   </span>
-                ))}
-              </span>
-            </div>
-          );
-        })}
+                  <span className="min-w-0 whitespace-pre-wrap break-words">
+                    {tokens.map((token, j) => (
+                      <span key={j} className={TOKEN_CLASS[token.kind]}>
+                        {token.text}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

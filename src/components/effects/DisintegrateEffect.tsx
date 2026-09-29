@@ -78,9 +78,9 @@ function paintWindowFallback(win: WindowState, accent: string, scale: number): H
   roundRectPath(ctx, 0, 0, width, height, WINDOW_RADIUS);
   ctx.save();
   ctx.clip();
-  ctx.fillStyle = 'rgba(15, 15, 25, 0.92)';
+  ctx.fillStyle = 'rgba(9, 13, 21, 0.92)'; // surface (window glass)
   ctx.fillRect(0, 0, width, height);
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.025)'; // surface-2 title bar
   ctx.fillRect(0, 0, width, 36);
   ctx.strokeStyle = withAlpha(accent, 0.06);
   for (let y = 48; y < height; y += 24) {
@@ -89,7 +89,7 @@ function paintWindowFallback(win: WindowState, accent: string, scale: number): H
     ctx.lineTo(width, y);
     ctx.stroke();
   }
-  ctx.fillStyle = '#e4e4ef';
+  ctx.fillStyle = '#e6edf7'; // fg
   ctx.font = '12px ui-monospace, monospace';
   ctx.textBaseline = 'middle';
   ctx.fillText(win.title, 12, 18);

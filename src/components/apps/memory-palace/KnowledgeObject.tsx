@@ -18,6 +18,7 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import type { ObjectShape, PalaceItem, PalaceItemKind, PalaceReview, RecencyBucket } from './palaceData';
+import { DUE_HEX, NEW_HEX, PALACE, RECENCY_HEX, STALE_LABEL_HEX } from './palaceTheme';
 
 export type { PalaceItem, ObjectShape } from './palaceData';
 
@@ -26,9 +27,9 @@ export function isDueForRevision(review: Pick<PalaceReview, 'isDue'>): boolean {
   return review.isDue;
 }
 
-export const DUE_COLOR = '#ff1744';
+export const DUE_COLOR: string = DUE_HEX;
 /** Outline of deck cards that were never studied. */
-export const NEW_COLOR = '#ffab00';
+export const NEW_COLOR: string = NEW_HEX;
 
 export const KIND_LABELS: Record<PalaceItemKind, string> = { note: 'note', card: 'card', project: 'project' };
 
@@ -41,11 +42,16 @@ export interface RecencyStyle {
 }
 
 export const RECENCY_STYLES: Record<RecencyBucket, RecencyStyle> = {
-  today: { color: '#00f0ff', intensity: 1.6, opacity: 1, cobweb: false, label: 'Fresh today' },
-  week: { color: '#26c6da', intensity: 0.75, opacity: 1, cobweb: false, label: 'This week' },
-  month: { color: '#ff9800', intensity: 0.32, opacity: 0.95, cobweb: false, label: 'This month' },
-  stale: { color: '#4a3f33', intensity: 0.05, opacity: 0.85, cobweb: true, label: 'Gathering dust' },
+  today: { color: RECENCY_HEX.today, intensity: 1.5, opacity: 1, cobweb: false, label: 'Fresh today' },
+  week: { color: RECENCY_HEX.week, intensity: 0.75, opacity: 1, cobweb: false, label: 'This week' },
+  month: { color: RECENCY_HEX.month, intensity: 0.32, opacity: 0.95, cobweb: false, label: 'This month' },
+  stale: { color: RECENCY_HEX.stale, intensity: 0.05, opacity: 0.85, cobweb: true, label: 'Gathering dust' },
 };
+
+/** A colour that stays readable in DOM overlays (stale objects are nearly dark in 3D). */
+export function recencyLabelColor(bucket: RecencyBucket): string {
+  return bucket === 'stale' ? STALE_LABEL_HEX : RECENCY_STYLES[bucket].color;
+}
 
 // ─────────────────────────────────────────────────────────────
 // Shapes
@@ -67,7 +73,7 @@ function ScrollKnobs({ color }: { color: string }) {
       {[-1, 1].map((s) => (
         <mesh key={s} position={[0, s * 0.28, 0]}>
           <cylinderGeometry args={[0.035, 0.035, 0.1, 8]} />
-          <meshStandardMaterial color="#8d6e63" emissive={color} emissiveIntensity={0.2} />
+          <meshStandardMaterial color={PALACE.scrollKnob} emissive={color} emissiveIntensity={0.2} />
         </mesh>
       ))}
     </>
@@ -108,12 +114,12 @@ function Cobwebs({ seed }: { seed: number }) {
   return (
     <group>
       <points ref={ref} geometry={geometry}>
-        <pointsMaterial color="#b0a89a" size={0.025} transparent opacity={0.55} depthWrite={false} />
+        <pointsMaterial color={PALACE.cobwebDust} size={0.025} transparent opacity={0.5} depthWrite={false} />
       </points>
       {/* Web strands to the shelf corner */}
       <mesh position={[0.18, 0.2, 0]} rotation={[0, 0, 0.6]}>
         <planeGeometry args={[0.5, 0.5, 4, 4]} />
-        <meshBasicMaterial color="#cfc8bb" wireframe transparent opacity={0.18} side={THREE.DoubleSide} />
+        <meshBasicMaterial color={PALACE.cobwebWeb} wireframe transparent opacity={0.16} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );
@@ -228,16 +234,16 @@ function KnowledgeObjectInner({ item, review, position, lifted = false, onOpen }
 
       {hovered && (
         <Html center position={[0, 0.62, 0]} zIndexRange={[40, 0]} style={{ pointerEvents: 'none' }}>
-          <div className="whitespace-nowrap rounded-md border border-white/15 bg-black/80 px-2.5 py-1.5 text-center shadow-lg backdrop-blur-sm">
-            <div className="max-w-[220px] truncate text-[11px] font-semibold text-white">{item.title}</div>
-            <div className="mt-0.5 flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-wider">
-              <span style={{ color: style.color === '#4a3f33' ? '#a1887f' : style.color }}>{style.label}</span>
-              <span className="text-white/30">·</span>
-              <span className="text-white/50">{KIND_LABELS[item.kind]}</span>
+          <div className="glass-popover whitespace-nowrap rounded-control px-3 py-2 text-center">
+            <div className="max-w-[220px] truncate text-xs font-semibold text-fg">{item.title}</div>
+            <div className="mt-1 flex items-center justify-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em]">
+              <span style={{ color: recencyLabelColor(review.recency) }}>{style.label}</span>
+              <span className="text-fg-faint">·</span>
+              <span className="text-fg-subtle">{KIND_LABELS[item.kind]}</span>
               {dueLabel && (
                 <>
-                  <span className="text-white/30">·</span>
-                  <span className={review.isNew ? 'text-amber-300' : 'text-accent-danger'}>{dueLabel}</span>
+                  <span className="text-fg-faint">·</span>
+                  <span className={review.isNew ? 'text-warning' : 'text-danger'}>{dueLabel}</span>
                 </>
               )}
             </div>

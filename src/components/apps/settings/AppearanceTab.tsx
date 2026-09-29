@@ -1,203 +1,289 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Appearance Tab
-// Wallpaper, accent color, glass opacity, CRT, cursor trail
+// Wallpaper (painted previews), accent color (palette + custom), window
+// glass, CRT scanlines and cursor trail. Wallpaper and accent are saved
+// to the active workspace, which re-applies them whenever you return.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo } from 'react';
+import { memo, type CSSProperties } from 'react';
+import { ArrowRight, Check, Feather, Plus } from 'lucide-react';
+import { Badge, Button, Slider } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { useLiteMode } from '@/lib/lite-mode';
+import { ACCENT_PRESETS, resolveAccent } from '@/styles/tokens';
+import {
+  Callout,
+  RowValue,
+  SettingRow,
+  SettingsCard,
+  SettingsPage,
+  SettingsSection,
+  SwitchRow,
+  type OpenSettingsTab,
+} from './parts';
+import { WALLPAPERS, WallpaperThumb, resolveWallpaper, type WallpaperOption } from './wallpapers';
+import { saveLookToActiveWorkspace } from './workspace-looks';
 
-const ACCENT_COLORS = [
-  { label: 'Cyan', value: '#00f0ff' },
-  { label: 'Purple', value: '#a855f7' },
-  { label: 'Green', value: '#22c55e' },
-  { label: 'Pink', value: '#ec4899' },
-  { label: 'Orange', value: '#f97316' },
-  { label: 'Blue', value: '#3b82f6' },
-  { label: 'Red', value: '#ef4444' },
-  { label: 'Yellow', value: '#eab308' },
-];
-
-/**
- * Exactly the wallpapers WallpaperEngine can draw (its WALLPAPER_COMPONENTS
- * keys). Any other saved id renders as Void there, so it shows as Void here.
- */
-const WALLPAPERS = [
-  { id: 'nebula', label: 'Nebula', hint: 'Shader' },
-  { id: 'aurora', label: 'Aurora', hint: 'Shader' },
-  { id: 'fluid', label: 'Fluid', hint: 'Shader · interactive' },
-  { id: 'starfield', label: 'Starfield', hint: 'Canvas' },
-  { id: 'matrix', label: 'Matrix Rain', hint: 'Canvas' },
-  { id: 'neural', label: 'Neural Net', hint: 'Canvas' },
-  { id: 'void', label: 'Void', hint: 'CSS · lightest' },
-] as const;
-
-const FALLBACK_WALLPAPER = 'void';
-
-function isKnownWallpaper(id: string): boolean {
-  return WALLPAPERS.some((w) => w.id === id);
+/** '#abc' / '#aabbccdd' → '#aabbcc' for <input type="color">. */
+function toColorInputValue(hex: string): string {
+  if (hex.length === 4) return `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+  if (hex.length === 5) return `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+  return hex.slice(0, 7);
 }
 
-function AppearanceTabInner() {
-  const {
-    wallpaper, accentColor, glassOpacity, crtEffect, cursorTrail, adaptiveWallpaper,
-    ghostWarriors, phantomWindows, dreams, biometricsEnabled,
-    setWallpaper, setAccentColor, setGlassOpacity, toggleCRT, toggleCursorTrail, toggleAdaptiveWallpaper,
-    toggleGhostWarriors, togglePhantomWindows, toggleDreams, toggleBiometrics,
-  } = useSettingsStore();
+const accentVar = (value: string) => ({ '--accent': value }) as CSSProperties;
+
+function AppearanceTabInner({ onOpenTab }: { onOpenTab?: OpenSettingsTab }) {
+  const wallpaper = useSettingsStore((s) => s.wallpaper);
+  const accentColor = useSettingsStore((s) => s.accentColor);
+  const glassOpacity = useSettingsStore((s) => s.glassOpacity);
+  const crtEffect = useSettingsStore((s) => s.crtEffect);
+  const cursorTrail = useSettingsStore((s) => s.cursorTrail);
+  const adaptiveWallpaper = useSettingsStore((s) => s.adaptiveWallpaper);
+  const workspaceName = useWorkspaceStore(
+    (s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId)?.name ?? 'current'
+  );
   const lite = useLiteMode();
-  const activeWallpaper = isKnownWallpaper(wallpaper) ? wallpaper : FALLBACK_WALLPAPER;
+
+  const activeWallpaper = resolveWallpaper(wallpaper);
+  const accent = resolveAccent(accentColor);
+  const preset = ACCENT_PRESETS.find((p) => p.value === accent);
+  const glassPct = Math.round(glassOpacity * 100);
+
+  const settings = useSettingsStore.getState;
+  const pickWallpaper = (id: string) => {
+    settings().setWallpaper(id);
+    saveLookToActiveWorkspace();
+  };
+  const pickAccent = (value: string) => {
+    settings().setAccentColor(value);
+    saveLookToActiveWorkspace();
+  };
+  const liteBadge = lite ? <Badge size="sm">Off in lite mode</Badge> : undefined;
 
   return (
-    <div className="p-6 space-y-6">
-      <h3 className="text-lg font-bold text-white">Appearance</h3>
-
+    <SettingsPage>
       {/* Lite mode keeps the GPU-heavy visuals off whatever is chosen here */}
       {lite && (
-        <div
+        <Callout
           role="note"
           data-testid="appearance-lite-note"
-          className="flex gap-3 rounded-lg border border-cyan-400/30 bg-cyan-400/10 p-3"
+          icon={Feather}
+          title="Lite mode is on"
+          action={
+            onOpenTab && (
+              <Button size="sm" trailingIcon={ArrowRight} onClick={() => onOpenTab('performance')}>
+                Performance settings
+              </Button>
+            )
+          }
         >
-          <span
-            aria-hidden
-            className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
-          />
-          <div className="space-y-1">
-            <p className="text-sm text-cyan-100">Lite mode is on</p>
-            <p className="text-[11px] text-white/50">
-              The wallpaper stays a still Void background, and CRT scanlines and the cursor trail
-              stay off. Your choices below are kept for when lite mode is off (Settings → Performance).
-            </p>
-          </div>
-        </div>
+          The wallpaper stays a still Deep Space background, and CRT scanlines and the cursor trail stay off.
+          Your choices below are kept for when lite mode is off.
+        </Callout>
       )}
 
       {/* Wallpaper */}
-      <section className="space-y-2">
-        <label className="text-xs text-white/60 font-semibold">Wallpaper</label>
-        <div role="group" aria-label="Wallpaper" className="grid grid-cols-3 gap-2">
-          {WALLPAPERS.map((w) => {
-            const selected = activeWallpaper === w.id;
-            return (
-              <button
-                key={w.id}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => setWallpaper(w.id)}
-                className={cn(
-                  'p-3 rounded-lg border text-xs text-center transition-all',
-                  selected
-                    ? 'bg-white/15 border-white/30 text-white'
-                    : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
-                )}
-              >
-                <span className="block">{w.label}</span>
-                <span className="block text-[10px] text-white/40">{w.hint}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Accent Color */}
-      <section className="space-y-2">
-        <label className="text-xs text-white/60 font-semibold">Accent Color</label>
-        <div role="group" aria-label="Accent color" className="flex flex-wrap gap-2">
-          {ACCENT_COLORS.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              aria-label={c.label}
-              aria-pressed={accentColor === c.value}
-              onClick={() => setAccentColor(c.value)}
-              className={cn(
-                'w-8 h-8 rounded-full border-2 transition-all',
-                accentColor === c.value ? 'border-white scale-110' : 'border-transparent'
-              )}
-              style={{ backgroundColor: c.value }}
-              title={c.label}
+      <SettingsSection
+        title="Wallpaper"
+        description={`Live backdrops for the desktop, saved to your ${workspaceName} workspace.`}
+      >
+        <div role="group" aria-label="Wallpaper" className="grid grid-cols-2 gap-3 @sm:grid-cols-3 @3xl:grid-cols-4">
+          {WALLPAPERS.map((w) => (
+            <WallpaperTile
+              key={w.id}
+              option={w}
+              selected={activeWallpaper === w.id}
+              onSelect={() => pickWallpaper(w.id)}
             />
           ))}
         </div>
-      </section>
+        <SettingsCard>
+          <SwitchRow
+            label="Adaptive wallpaper"
+            ariaLabel="Adaptive Wallpaper"
+            description="Follows the time of day: Starfield at dawn, Nebula, Fluid and Aurora through the day, Deep Space at night and Matrix Rain after midnight."
+            checked={adaptiveWallpaper}
+            onCheckedChange={() => settings().toggleAdaptiveWallpaper()}
+          />
+        </SettingsCard>
+      </SettingsSection>
 
-      {/* Glass Opacity */}
-      <section className="space-y-2">
-        <div className="flex justify-between">
-          <label htmlFor="appearance-glass-opacity" className="text-xs text-white/60 font-semibold">
-            Glass Opacity
-          </label>
-          <span className="text-xs text-white/40">{Math.round(glassOpacity * 100)}%</span>
-        </div>
-        <input
-          id="appearance-glass-opacity"
-          type="range"
-          min={0.3}
-          max={0.9}
-          step={0.05}
-          value={glassOpacity}
-          onChange={(e) => setGlassOpacity(Number(e.target.value))}
-          className="w-full accent-cyan-500"
-        />
-      </section>
+      {/* Accent */}
+      <SettingsSection
+        title="Accent color"
+        description="Tints buttons, focus rings, selection and live status across Warrior OS. Changes apply instantly."
+      >
+        <SettingsCard>
+          <div className="flex flex-col gap-4 p-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                aria-hidden
+                className="size-9 shrink-0 rounded-control bg-accent shadow-glow ring-1 ring-inset ring-fg/20"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-ui font-medium text-fg">{preset ? preset.label : 'Custom color'}</p>
+                <p className="tabular font-mono text-xs uppercase text-fg-subtle">{accent}</p>
+              </div>
+            </div>
+            <div role="group" aria-label="Accent color" className="flex flex-wrap items-center gap-3">
+              {ACCENT_PRESETS.map((p) => {
+                const selected = p.value === accent;
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    aria-label={p.label}
+                    aria-pressed={selected}
+                    title={p.label}
+                    onClick={() => pickAccent(p.value)}
+                    style={accentVar(p.value)}
+                    className={cn(
+                      'focus-ring flex size-8 items-center justify-center rounded-full bg-accent',
+                      'ring-offset-2 ring-offset-ink-900 transition-shadow duration-180 ease-out-quint',
+                      selected ? 'ring-2 ring-accent' : 'hover:ring-2 hover:ring-line-strong'
+                    )}
+                  >
+                    {selected && <Check size={14} strokeWidth={2.75} className="text-accent-fg" aria-hidden />}
+                  </button>
+                );
+              })}
+              <span aria-hidden className="mx-0.5 h-6 w-px bg-line" />
+              <CustomSwatch value={accent} active={!preset} onChange={pickAccent} />
+            </div>
+          </div>
+        </SettingsCard>
+      </SettingsSection>
 
-      {/* Toggles */}
-      <section className="space-y-3">
-        <ToggleRow label="CRT Scanlines" enabled={crtEffect} onToggle={toggleCRT} note={lite ? 'Off in lite mode' : undefined} />
-        <ToggleRow label="Cursor Trail" enabled={cursorTrail} onToggle={toggleCursorTrail} note={lite ? 'Off in lite mode' : undefined} />
-        <ToggleRow label="Adaptive Wallpaper" enabled={adaptiveWallpaper} onToggle={toggleAdaptiveWallpaper} />
-      </section>
-
-      {/* Living OS features */}
-      <section className="space-y-3">
-        <label className="text-xs text-white/60 font-semibold">Living OS</label>
-        <ToggleRow label="Ghost Warriors" enabled={ghostWarriors} onToggle={toggleGhostWarriors} />
-        <ToggleRow label="Phantom Windows" enabled={phantomWindows} onToggle={togglePhantomWindows} />
-        <ToggleRow label="NEXUS Dreams" enabled={dreams} onToggle={toggleDreams} />
-        <ToggleRow label="Typing Biometrics" enabled={biometricsEnabled} onToggle={toggleBiometrics} />
-      </section>
-    </div>
+      {/* Glass & effects */}
+      <SettingsSection title="Glass and effects" description="How windows sit on the wallpaper, plus the retro extras.">
+        <SettingsCard>
+          <SettingRow
+            label="Glass opacity"
+            htmlFor="appearance-glass-opacity"
+            description={
+              lite ? 'Windows are solid while lite mode is on.' : 'How solid windows look over the wallpaper.'
+            }
+            control={<RowValue>{glassPct}%</RowValue>}
+          >
+            <Slider
+              id="appearance-glass-opacity"
+              min={0.3}
+              max={0.9}
+              step={0.05}
+              value={glassOpacity}
+              onValueChange={(v) => settings().setGlassOpacity(v)}
+              aria-valuetext={`${glassPct}%`}
+            />
+          </SettingRow>
+          <SwitchRow
+            label="CRT scanlines"
+            ariaLabel="CRT Scanlines"
+            description="Faint retro scanlines over the whole screen."
+            badge={liteBadge}
+            checked={crtEffect}
+            onCheckedChange={() => settings().toggleCRT()}
+          />
+          <SwitchRow
+            label="Cursor trail"
+            ariaLabel="Cursor Trail"
+            description="A short fading trail behind the pointer."
+            badge={liteBadge}
+            checked={cursorTrail}
+            onCheckedChange={() => settings().toggleCursorTrail()}
+          />
+        </SettingsCard>
+      </SettingsSection>
+    </SettingsPage>
   );
 }
 
-interface ToggleRowProps {
-  label: string;
-  enabled: boolean;
-  onToggle: () => void;
-  /** Small muted remark after the label (e.g. "Off in lite mode"). */
-  note?: string;
+function WallpaperTile({
+  option,
+  selected,
+  onSelect,
+}: {
+  option: WallpaperOption;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onSelect}
+      title={`${option.label} · ${option.hint}`}
+      className={cn(
+        'group focus-ring relative flex min-w-0 flex-col overflow-hidden rounded-card border bg-surface-2 text-left',
+        'transition-[border-color,background-color,box-shadow] duration-180 ease-out-quint',
+        selected
+          ? 'border-accent/80 shadow-glow'
+          : 'border-line hover:border-line-strong hover:bg-surface-hover active:bg-surface-active'
+      )}
+    >
+      <span className="relative block overflow-hidden">
+        <WallpaperThumb
+          id={option.id}
+          className="transition-transform duration-260 ease-out-quint group-hover:scale-[1.04]"
+        />
+        {selected && (
+          <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-accent text-accent-fg shadow-e1">
+            <Check size={12} strokeWidth={2.75} aria-hidden />
+          </span>
+        )}
+      </span>
+      <span className="flex min-w-0 flex-col border-t border-line px-3 py-2">
+        <span className="truncate text-ui font-medium text-fg">{option.label}</span>
+        <span className="truncate text-xs text-fg-subtle">{option.hint}</span>
+      </span>
+    </button>
+  );
 }
 
-function ToggleRow({ label, enabled, onToggle, note }: ToggleRowProps) {
+/** Any color: a native color input dressed as the last swatch. */
+function CustomSwatch({ value, active, onChange }: { value: string; active: boolean; onChange: (hex: string) => void }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-white/70">
-        {label}
-        {note && <span className="ml-2 text-[10px] text-cyan-300/70">{note}</span>}
-      </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        aria-label={label}
-        onClick={onToggle}
+    <label
+      title="Custom color"
+      style={active ? accentVar(value) : undefined}
+      className={cn(
+        'relative flex size-8 cursor-pointer items-center justify-center rounded-full ring-offset-2 ring-offset-ink-900',
+        'transition-shadow duration-180 ease-out-quint',
+        'has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-accent',
+        active ? 'bg-accent ring-2 ring-accent' : 'hover:ring-2 hover:ring-line-strong'
+      )}
+    >
+      {!active && (
+        <span
+          aria-hidden
+          className="absolute inset-0 rounded-full"
+          style={{
+            backgroundImage:
+              'conic-gradient(var(--color-viz-1), var(--color-viz-6), var(--color-viz-3), var(--color-viz-5), var(--color-viz-2), var(--color-viz-7), var(--color-viz-8), var(--color-viz-4), var(--color-viz-1))',
+          }}
+        />
+      )}
+      <span
+        aria-hidden
         className={cn(
-          'w-10 h-5 rounded-full transition-all relative',
-          enabled ? 'bg-cyan-500' : 'bg-white/20'
+          'relative flex items-center justify-center rounded-full',
+          active ? 'text-accent-fg' : 'size-6 bg-ink-900 text-fg-muted'
         )}
       >
-        <span
-          className={cn(
-            'w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all',
-            enabled ? 'left-5.5' : 'left-0.5'
-          )}
-        />
-      </button>
-    </div>
+        {active ? <Check size={14} strokeWidth={2.75} /> : <Plus size={14} strokeWidth={2} />}
+      </span>
+      <input
+        type="color"
+        aria-label="Custom accent color"
+        value={toColorInputValue(value)}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 size-full cursor-pointer rounded-full opacity-0"
+      />
+    </label>
   );
 }
 

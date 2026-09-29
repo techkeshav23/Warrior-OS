@@ -1,12 +1,18 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — ContextMenu Component
-// Right-click context menu with animations
+// Right-click menu opened at a point (for anchored menus use the kit
+// <Menu>). Same look as the kit menu: glass popover, 32px rows, lucide
+// icon slot, right-aligned shortcut, hairline dividers, danger and
+// disabled rows. Portalled so no window or layer clips it; flips to
+// stay on screen. Keyboard: ↑/↓/Home/End, Enter/Space, Esc, Tab.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { EASE_OUT_QUINT } from '@/styles/tokens';
 import { cn } from '@/lib/utils';
 
 export interface ContextMenuItem {
@@ -26,8 +32,14 @@ interface ContextMenuProps {
   onClose: () => void;
 }
 
+const MENU_MIN_WIDTH = 200;
+const ITEM_H = 32;
+const DIVIDER_H = 9;
+const MARGIN = 8;
+
 export function ContextMenu({ items, position, onSelect, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion() ?? false;
 
   useEffect(() => {
     if (!position) return;
@@ -36,7 +48,7 @@ export function ContextMenu({ items, position, onSelect, onClose }: ContextMenuP
         onClose();
       }
     };
-    const handleEsc = (e: KeyboardEvent) => {
+    const handleEsc = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('mousedown', handleClick);
@@ -47,41 +59,82 @@ export function ContextMenu({ items, position, onSelect, onClose }: ContextMenuP
     };
   }, [position, onClose]);
 
-  // Adjust position to stay within viewport
-  const adjustedPos = position
-    ? {
-        x: Math.min(position.x, window.innerWidth - 200),
-        y: Math.min(position.y, window.innerHeight - items.length * 32 - 20),
-      }
-    : null;
+  // Focus the menu on open so the arrow keys work straight away.
+  const open = position !== null;
+  useEffect(() => {
+    if (open) menuRef.current?.focus({ preventScroll: true });
+  }, [open]);
 
-  return (
+  // Keep the menu on screen: flip left / up at the edges.
+  const estHeight =
+    8 + items.reduce((sum, item) => sum + (item.divider ? DIVIDER_H : ITEM_H), 0);
+  const placement =
+    position && typeof window !== 'undefined'
+      ? (() => {
+          const flipX = position.x + MENU_MIN_WIDTH + MARGIN > window.innerWidth;
+          const flipY = position.y + estHeight + MARGIN > window.innerHeight;
+          return {
+            x: Math.max(MARGIN, flipX ? position.x - MENU_MIN_WIDTH : position.x),
+            y: Math.max(MARGIN, flipY ? position.y - estHeight : position.y),
+            origin: `${flipX ? 'right' : 'left'} ${flipY ? 'bottom' : 'top'}`,
+          };
+        })()
+      : null;
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const rows = Array.from(
+      e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')
+    );
+    if (!rows.length) return;
+    const at = rows.indexOf(document.activeElement as HTMLButtonElement);
+    let next: HTMLButtonElement | undefined;
+    if (e.key === 'ArrowDown') next = rows[(at + 1) % rows.length];
+    else if (e.key === 'ArrowUp') next = rows[at <= 0 ? rows.length - 1 : at - 1];
+    else if (e.key === 'Home') next = rows[0];
+    else if (e.key === 'End') next = rows[rows.length - 1];
+    else if (e.key === 'Tab') {
+      onClose();
+      return;
+    }
+    if (!next) return;
+    e.preventDefault();
+    next.focus();
+  };
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
-      {adjustedPos && (
+      {placement && (
         <motion.div
           ref={menuRef}
-          initial={{ opacity: 0, scale: 0.95 }}
+          role="menu"
+          tabIndex={-1}
+          onKeyDown={onKeyDown}
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.1 }}
-          className="fixed min-w-[180px] py-1 rounded-[var(--radius-md)] overflow-hidden"
+          exit={{ opacity: 0, transition: { duration: 0.12 } }}
+          transition={{ duration: 0.18, ease: EASE_OUT_QUINT }}
+          className="glass-popover fixed rounded-card p-1 outline-none"
           style={{
-            left: adjustedPos.x,
-            top: adjustedPos.y,
+            left: placement.x,
+            top: placement.y,
+            minWidth: MENU_MIN_WIDTH,
             zIndex: 'var(--z-context-menu)',
-            background: 'rgba(12, 12, 20, 0.95)',
-            backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+            transformOrigin: placement.origin,
           }}
+          onContextMenu={(e) => e.preventDefault()}
         >
           {items.map((item) =>
             item.divider ? (
-              <div key={item.id} className="my-1 border-t border-white/5" />
+              <div key={item.id} role="separator" className="-mx-1 my-1 h-px bg-line" />
             ) : (
               <button
                 key={item.id}
+                type="button"
+                role="menuitem"
                 disabled={item.disabled}
+                aria-disabled={item.disabled || undefined}
                 onClick={() => {
                   if (!item.disabled) {
                     onSelect(item.id);
@@ -89,25 +142,38 @@ export function ContextMenu({ items, position, onSelect, onClose }: ContextMenuP
                   }
                 }}
                 className={cn(
-                  'w-full flex items-center gap-2.5 px-3 py-1.5',
-                  'text-xs font-mono transition-colors text-left',
+                  'group/item flex h-8 w-full select-none items-center gap-2.5 rounded-[6px] px-2.5 text-left text-ui',
+                  'outline-none transition-colors duration-120 ease-out-quint',
                   item.disabled
-                    ? 'text-text-muted cursor-not-allowed opacity-40'
+                    ? 'cursor-not-allowed text-fg opacity-40'
                     : item.danger
-                      ? 'text-accent-danger hover:bg-accent-danger/10'
-                      : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
+                      ? 'text-danger hover:bg-danger/12 focus-visible:bg-danger/12'
+                      : 'text-fg hover:bg-surface-active focus-visible:bg-surface-active'
                 )}
               >
-                {item.icon && <span className="w-4 flex-shrink-0">{item.icon}</span>}
-                <span className="flex-1">{item.label}</span>
+                {item.icon != null && (
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'flex size-4 shrink-0 items-center justify-center transition-colors duration-120',
+                      item.danger
+                        ? 'text-danger'
+                        : 'text-fg-subtle group-hover/item:text-fg group-focus-visible/item:text-fg'
+                    )}
+                  >
+                    {item.icon}
+                  </span>
+                )}
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 {item.shortcut && (
-                  <span className="text-[9px] text-text-muted ml-4">{item.shortcut}</span>
+                  <span className="ml-4 shrink-0 font-mono text-2xs text-fg-subtle">{item.shortcut}</span>
                 )}
               </button>
             )
           )}
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

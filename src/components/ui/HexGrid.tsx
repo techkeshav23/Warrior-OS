@@ -24,7 +24,7 @@ export function HexGrid({
   cols = 12,
   size = 30,
   gap = 4,
-  color = 'var(--accent-primary)',
+  color = 'var(--accent, var(--accent-primary))',
   animated = true,
   className,
 }: HexGridProps) {
@@ -58,7 +58,7 @@ export function HexGrid({
       <svg
         width="100%"
         height="100%"
-        className="opacity-20"
+        className="opacity-[0.14]"
       >
         {hexagons.map((hex, i) => (
           <motion.polygon

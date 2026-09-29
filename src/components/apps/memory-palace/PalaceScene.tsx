@@ -28,8 +28,10 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { AnimatePresence, motion } from 'framer-motion';
 import * as THREE from 'three';
 import { PointerLockControls as PointerLockControlsImpl } from 'three-stdlib';
-import { Compass, Eye, Hammer, MousePointer2 } from 'lucide-react';
+import { CircleCheck, Compass, Footprints, Hammer, Info, MousePointer2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AppIcon, Button, Kbd } from '@/components/ui';
+import { PALACE } from './palaceTheme';
 import { useAppStore } from '@/stores/useAppStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { useLearningStore } from '@/stores/useLearningStore';
@@ -897,7 +899,7 @@ function PalaceSceneInner() {
 
   return (
     <div
-      className="relative h-full w-full overflow-hidden bg-[#04040a]"
+      className="relative h-full w-full overflow-hidden bg-ink-950"
       onPointerEnter={() => {
         hoverRef.current = true;
       }}
@@ -916,11 +918,11 @@ function PalaceSceneInner() {
           if (started && !locked && !overviewOpen) requestLock();
         }}
       >
-        <color attach="background" args={['#04040a']} />
-        <fog attach="fog" args={['#04040a', 14, 70]} />
-        <hemisphereLight args={['#b8c4ff', '#1a1208', 0.55]} />
+        <color attach="background" args={[PALACE.void]} />
+        <fog attach="fog" args={[PALACE.void, PALACE.fogNear, PALACE.fogFar]} />
+        <hemisphereLight args={[PALACE.sky, PALACE.ground, 0.55]} />
         <ambientLight intensity={0.22} />
-        <pointLight position={[0, 4, 0]} color="#00f0ff" intensity={10} distance={14} decay={1.5} />
+        <pointLight position={[0, 4, 0]} color={PALACE.keyLight} intensity={10} distance={14} decay={1.5} />
 
         <PalaceStructure layout={layout} hidden={hidden} />
         <PalaceSigns signs={layout.signs} hidden={hidden} />
@@ -991,27 +993,40 @@ function PalaceSceneInner() {
       </Canvas>
 
       {/* ── HUD: overview chip (top-left) ── */}
-      <div className="pointer-events-auto absolute left-3 top-3 z-20 flex flex-col gap-1.5">
+      <div className="pointer-events-auto absolute left-3 top-3 z-20 flex max-w-[45%] flex-col gap-2">
         <button
+          type="button"
           onClick={() => {
             releaseLock();
             setOverviewOpen(true);
           }}
-          className="rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-left backdrop-blur-md transition-colors hover:border-white/20"
+          title="Open the palace overview (O)"
+          className="glass-popover focus-ring group flex items-center gap-2.5 rounded-card py-2 pl-2 pr-3 text-left transition-[border-color] duration-120 ease-out-quint hover:border-fg-faint"
         >
-          <div className="font-display text-[11px] font-bold tracking-widest text-accent-primary">🏛️ MEMORY PALACE</div>
-          <div className="mt-1 flex gap-3 text-[10px] text-white/60">
-            <span>{summary.objects} objects</span>
-            <span>{summary.rooms} rooms</span>
-            <span className={cn(summary.due > 0 ? 'text-accent-danger' : 'text-accent-success')}>{summary.due} due</span>
-          </div>
+          <AppIcon appId="memory-palace" size={28} />
+          <span className="min-w-0">
+            <span className="block truncate text-ui font-semibold text-fg">Memory Palace</span>
+            <span className="tabular mt-0.5 flex gap-2.5 font-mono text-2xs text-fg-muted">
+              <span>{summary.objects} objects</span>
+              <span>{summary.rooms} rooms</span>
+              <span className={summary.due > 0 ? 'text-danger' : 'text-success'}>{summary.due} due</span>
+            </span>
+          </span>
         </button>
         {currentRoom && (
-          <div className="rounded-lg border border-white/10 bg-black/50 px-3 py-1.5 backdrop-blur-md">
-            <div className="text-[11px] font-semibold" style={{ color: currentRoom.theme.accent }}>
-              {currentRoom.label}
-            </div>
-            <div className="text-[9.5px] text-white/45">{currentRoom.theme.vibe}</div>
+          <div
+            className="glass-popover flex min-w-0 items-center gap-2.5 rounded-control px-3 py-2 animate-fade-in"
+            style={{ '--room': currentRoom.theme.accent } as React.CSSProperties}
+          >
+            <span className="h-7 w-0.5 shrink-0 rounded-full bg-[var(--room)] shadow-[0_0_8px_var(--room)]" aria-hidden />
+            <span className="min-w-0">
+              <span className="block truncate text-xs font-semibold text-fg" title={currentRoom.label}>
+                {currentRoom.label}
+              </span>
+              <span className="block truncate text-2xs text-fg-subtle" title={currentRoom.theme.vibe}>
+                {currentRoom.theme.vibe}
+              </span>
+            </span>
           </div>
         )}
       </div>
@@ -1031,30 +1046,54 @@ function PalaceSceneInner() {
 
       {/* Crosshair */}
       {locked && (
-        <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2">
-          <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/60" />
-          <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-white/60" />
+        <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 z-10 size-6 -translate-x-1/2 -translate-y-1/2">
+          <span className="absolute inset-0 rounded-full border border-fg/35" />
+          <span className="absolute left-1/2 top-1/2 size-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_6px_var(--accent)]" />
+          <span className="absolute left-1/2 top-0 h-1.5 w-px -translate-x-1/2 bg-fg/55" />
+          <span className="absolute bottom-0 left-1/2 h-1.5 w-px -translate-x-1/2 bg-fg/55" />
+          <span className="absolute left-0 top-1/2 h-px w-1.5 -translate-y-1/2 bg-fg/55" />
+          <span className="absolute right-0 top-1/2 h-px w-1.5 -translate-y-1/2 bg-fg/55" />
         </div>
       )}
 
       {/* Walk / inspect hint */}
-      {started && !locked && !overviewOpen && (
-        <div className="pointer-events-auto absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-black/65 px-3 py-1.5 text-[11px] text-white/70 backdrop-blur-md">
-          <MousePointer2 className="h-3.5 w-3.5 text-accent-primary" />
-          <span>Inspect mode — click objects or holograms</span>
-          <button onClick={requestLock} className="flex items-center gap-1 rounded-full bg-accent-primary/20 px-2 py-0.5 font-semibold text-accent-primary hover:bg-accent-primary/30">
-            <Eye className="h-3 w-3" /> Walk
-          </button>
+      {started && !locked && !overviewOpen && flight === null && (
+        <div className="glass-popover pointer-events-auto absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-card py-1.5 pl-3 pr-1.5 text-xs text-fg-muted animate-fade-in">
+          <MousePointer2 size={14} strokeWidth={1.75} className="shrink-0 text-accent" aria-hidden />
+          <span className="whitespace-nowrap">Inspect mode: click objects or holograms</span>
+          <Button size="sm" variant="primary" leadingIcon={Footprints} onClick={requestLock}>
+            Walk
+          </Button>
         </div>
       )}
       {locked && flight === null && (
-        <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 text-[10px] text-white/35">
-          WASD move · Shift sprint · Space jump · click an object · O overview · Esc cursor
+        <div className="glass-popover pointer-events-none absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap rounded-full px-3 py-1.5 text-2xs text-fg-subtle">
+          <span className="flex items-center gap-1">
+            <Kbd size="sm">W</Kbd>
+            <Kbd size="sm">A</Kbd>
+            <Kbd size="sm">S</Kbd>
+            <Kbd size="sm">D</Kbd> move
+          </span>
+          <span className="flex items-center gap-1">
+            <Kbd size="sm">Shift</Kbd> sprint
+          </span>
+          <span className="flex items-center gap-1">
+            <Kbd size="sm">Space</Kbd> jump
+          </span>
+          <span className="flex items-center gap-1">
+            <Kbd size="sm">O</Kbd> overview
+          </span>
+          <span className="flex items-center gap-1">
+            <Kbd size="sm">Esc</Kbd> cursor
+          </span>
         </div>
       )}
       {flight !== null && (
-        <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-[11px] text-accent-primary">
-          <Compass className="h-3.5 w-3.5 animate-spin" /> Travelling…
+        <div
+          role="status"
+          className="glass-popover pointer-events-none absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full px-3 py-1.5 text-xs text-accent"
+        >
+          <Compass size={14} strokeWidth={1.75} className="animate-spin" aria-hidden /> Travelling
         </div>
       )}
 
@@ -1063,18 +1102,22 @@ function PalaceSceneInner() {
         {banner && (
           <motion.div
             key={banner.id}
-            initial={{ opacity: 0, y: -10 }}
+            role="status"
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
-              'pointer-events-none absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] backdrop-blur-md',
-              banner.tone === 'build' && 'border-amber-300/30 bg-amber-500/10 text-amber-200',
-              banner.tone === 'success' && 'border-accent-success/30 bg-accent-success/10 text-accent-success',
-              banner.tone === 'info' && 'border-white/15 bg-black/60 text-white/70'
+              'glass-popover pointer-events-none absolute left-1/2 top-3 z-20 flex max-w-[50%] -translate-x-1/2 items-center gap-2 rounded-full px-3 py-1.5 text-xs',
+              banner.tone === 'build' && 'text-ember-300',
+              banner.tone === 'success' && 'text-success',
+              banner.tone === 'info' && 'text-fg-muted'
             )}
           >
-            {banner.tone === 'build' && <Hammer className="h-3.5 w-3.5" />}
-            {banner.text}
+            {banner.tone === 'build' && <Hammer size={14} strokeWidth={1.75} className="shrink-0" aria-hidden />}
+            {banner.tone === 'success' && <CircleCheck size={14} strokeWidth={1.75} className="shrink-0" aria-hidden />}
+            {banner.tone === 'info' && <Info size={14} strokeWidth={1.75} className="shrink-0" aria-hidden />}
+            <span className="truncate">{banner.text}</span>
           </motion.div>
         )}
       </AnimatePresence>

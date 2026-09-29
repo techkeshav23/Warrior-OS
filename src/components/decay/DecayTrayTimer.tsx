@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — DecayTrayTimer
+// WARRIOR OS — DecayTrayTimer (FORGE HUD)
 // System-tray readout of the current continuous study time (spec
-// 6.45). Colour dot tracks the decay stage; click for details, the
-// minutes until the next stage, today's totals and a "Take a break
-// now" button that starts a voluntary BreakMode.
+// 6.45). The status LED tracks the decay stage; click for details: a
+// stage meter, the minutes until the next stage, today's totals and a
+// "Take a break" button that starts a voluntary BreakMode.
 // Mount inside the Taskbar's system tray.
 // ═══════════════════════════════════════════════════════════
 
@@ -14,16 +14,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Timer, Coffee } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDecayStore, DECAY_BASE_THRESHOLDS, dayKey } from '@/stores/useDecayStore';
+import { Badge, type Tone } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 
 export const DECAY_STAGE_NAMES = ['Stable', 'Warming', 'Slowing', 'Burning', 'Heartbeat', 'Fractured'] as const;
-const STAGE_DOT = [
-  'bg-accent-success',
-  'bg-accent-warning/60',
-  'bg-accent-warning/80',
-  'bg-accent-warning',
-  'bg-accent-danger/80',
-  'bg-accent-danger',
+
+/** LED / meter fill per stage (0 = stable … 5 = fractured). */
+const STAGE_FILL = [
+  'bg-success',
+  'bg-warning/60',
+  'bg-warning/80',
+  'bg-warning',
+  'bg-danger/80',
+  'bg-danger',
 ] as const;
+const STAGE_TONE: readonly Tone[] = ['success', 'warning', 'warning', 'warning', 'danger', 'danger'];
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 export function formatStudyMinutes(min: number): string {
   const h = Math.floor(min / 60);
@@ -65,8 +71,15 @@ export function DecayTrayTimer({ className }: { className?: string }) {
         setOpen(false);
       }
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
     window.addEventListener('pointerdown', onDown, true);
-    return () => window.removeEventListener('pointerdown', onDown, true);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onDown, true);
+      window.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
   if (!enabled) return null;
@@ -86,70 +99,100 @@ export function DecayTrayTimer({ className }: { className?: string }) {
   const canBreak = !isOnBreak && !isRepairing;
   const todayMinutes = daily.day === today ? daily.studyMinutes : 0;
   const todayBreaks = daily.day === today ? daily.breaks : 0;
+  const live = isTracking && !pausedForIdle && !isOnBreak;
 
   return (
     <div ref={rootRef} className={cn('relative', className)}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-8 items-center gap-1.5 rounded-[var(--radius-sm)] px-2 font-mono text-[11px] text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
+        className={cn(
+          'flex h-8 items-center gap-1.5 rounded-control px-2 transition-colors duration-120 ease-out-quint focus-ring',
+          open ? 'bg-surface-active text-fg' : 'text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active'
+        )}
         title={`Continuous study ${formatStudyMinutes(minutes)} · ${DECAY_STAGE_NAMES[safeStage]}`}
         aria-label={`Continuous study time ${formatStudyMinutes(minutes)}, decay stage ${safeStage}`}
         aria-expanded={open}
       >
-        <span className={cn('h-1.5 w-1.5 rounded-full', STAGE_DOT[safeStage])} aria-hidden />
-        <Timer className="h-3.5 w-3.5" aria-hidden />
-        <span className={cn(pausedForIdle && 'opacity-60')}>{formatStudyMinutes(minutes)}</span>
+        <span
+          aria-hidden
+          className={cn('size-1.5 shrink-0 rounded-full', STAGE_FILL[safeStage], live && 'motion-safe:animate-pulse-soft')}
+        />
+        <Timer size={16} strokeWidth={1.75} aria-hidden className="shrink-0" />
+        <span className={cn('tabular font-mono text-xs', pausedForIdle && 'opacity-60')}>{formatStudyMinutes(minutes)}</span>
       </button>
 
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ y: 8, opacity: 0, scale: 0.98 }}
+            initial={{ y: 6, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 6, opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute bottom-11 right-0 w-64 rounded-[var(--radius-md)] border border-white/10 p-3 text-left"
-            style={{ background: 'rgba(12, 12, 20, 0.95)', backdropFilter: 'blur(20px)' }}
+            exit={{ y: 4, opacity: 0, scale: 0.98, transition: { duration: 0.12, ease: EASE } }}
+            transition={{ duration: 0.18, ease: EASE }}
+            className="glass-popover absolute bottom-11 right-0 w-72 rounded-card p-4 text-left"
+            style={{ transformOrigin: 'bottom right' }}
             role="dialog"
             aria-label="Reality Decay timer"
           >
-            <p className="text-[10px] uppercase tracking-widest text-text-muted">Continuous study</p>
-            <p className="mt-0.5 text-2xl font-semibold text-text-primary">{formatStudyMinutes(minutes)}</p>
-            <p className="mt-0.5 text-[11px] text-text-secondary">{status}</p>
-
-            <div className="mt-3 flex items-center gap-2 text-[11px] text-text-secondary">
-              <span className={cn('h-2 w-2 rounded-full', STAGE_DOT[safeStage])} aria-hidden />
-              <span className="text-text-primary">
-                Stage {safeStage} · {DECAY_STAGE_NAMES[safeStage]}
-              </span>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="hud-label">Continuous study</p>
+                <p className="tabular mt-1.5 font-display text-2xl font-semibold leading-none text-fg">
+                  {formatStudyMinutes(minutes)}
+                </p>
+              </div>
+              <Badge tone={STAGE_TONE[safeStage]} dot pulse={live}>
+                {DECAY_STAGE_NAMES[safeStage]}
+              </Badge>
             </div>
-            <p className="mt-1 text-[11px] text-text-muted">
-              {next !== undefined
-                ? `Next stage in ${formatStudyMinutes(next - minutes)}`
-                : `Forced ${breakDuration}-minute break is due`}
-            </p>
+            <p className="mt-2 text-xs text-fg-muted">{status}</p>
 
-            <div className="mt-3 border-t border-white/5 pt-2 text-[11px] text-text-secondary">
-              Today: {formatStudyMinutes(todayMinutes)} studied · {todayBreaks} break
-              {todayBreaks === 1 ? '' : 's'}
+            {/* Stage meter: five decay stages */}
+            <div className="mt-4">
+              <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs">
+                <span className="text-fg-muted">
+                  Stage <span className="tabular text-fg">{safeStage}</span> of 5
+                </span>
+                <span className="tabular font-mono text-2xs text-fg-subtle">
+                  {next !== undefined ? `next in ${formatStudyMinutes(next - minutes)}` : `${breakDuration}-min break due`}
+                </span>
+              </div>
+              <div className="flex gap-1" aria-hidden>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <span
+                    key={s}
+                    className={cn('h-1.5 flex-1 rounded-full', s <= safeStage ? STAGE_FILL[s] : 'bg-ink-600/70')}
+                  />
+                ))}
+              </div>
             </div>
 
-            <button
-              type="button"
+            {/* Today */}
+            <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3">
+              <div>
+                <dt className="hud-label">Studied today</dt>
+                <dd className="tabular mt-1 text-sm font-medium text-fg">{formatStudyMinutes(todayMinutes)}</dd>
+              </div>
+              <div>
+                <dt className="hud-label">Breaks</dt>
+                <dd className="tabular mt-1 text-sm font-medium text-fg">{todayBreaks}</dd>
+              </div>
+            </dl>
+
+            <Button
+              variant="primary"
+              fullWidth
+              leadingIcon={Coffee}
               disabled={!canBreak}
+              className="mt-4"
               onClick={() => {
                 startBreak('voluntary');
                 setOpen(false);
               }}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-accent-primary/30 bg-accent-primary/10 px-3 py-1.5 text-xs text-text-primary transition-colors hover:bg-accent-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <Coffee className="h-3.5 w-3.5" aria-hidden />
               Take a {breakDuration}-minute break now
-            </button>
-            <p className="mt-1.5 text-center text-[10px] text-text-muted">
-              Breaks after 30+ minutes of study earn +50 XP.
-            </p>
+            </Button>
+            <p className="mt-2 text-center text-2xs text-fg-subtle">Breaks after 30+ minutes of study earn +50 XP.</p>
           </motion.div>
         )}
       </AnimatePresence>

@@ -11,14 +11,15 @@
 'use client';
 
 import { memo, useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ChevronRight, Layers, Play, RotateCcw, Shuffle, Trophy } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { ArrowLeft, Check, ChevronRight, Clock, Layers, Play, RotateCcw, Shuffle, Sparkles, Trophy, X } from 'lucide-react';
+import { Button, Card, Chip, EmptyState, ProgressBar, SegmentedControl, StatTile, Switch } from '@/components/ui';
+import { TRANSITION } from '@/styles/tokens';
 import { computeDeckMastery, isQuizCard, listCardLocations, useLearningStore } from '@/stores/useLearningStore';
 import { recordStudyAction } from '@/components/achievements/study-streak';
 import type { CardLocation, ReviewGrade } from '@/types/learning';
-import { FlipCard, GradeBar, GradeSummary, Kbd, RevealButton, countGrades } from './practice/StudyCard';
-import { masteryColor, toPercent } from './practice/mastery';
+import { DeckPickCard, KeyHints, TabHeader } from './QuizControls';
+import { FlipCard, GradeBar, GradeSummary, RevealButton, countGrades } from './practice/StudyCard';
 import { formatDuration, shuffled } from './practice/schedule';
 import { useStudyKeys } from './practice/use-study-keys';
 
@@ -30,8 +31,6 @@ const KIND_FILTERS: readonly { id: KindFilter; label: string }[] = [
   { id: 'quiz', label: 'Quiz cards' },
 ];
 
-const DEFAULT_ACCENT = '#22d3ee';
-
 interface FlashResult {
   cardId: string;
   grade: ReviewGrade;
@@ -39,6 +38,7 @@ interface FlashResult {
 
 interface FlashSession {
   label: string;
+  /** Deck colour for the card edge ('' = the live accent). */
   accent: string;
   cards: CardLocation[];
   index: number;
@@ -50,9 +50,6 @@ interface FlashSession {
   skipped: number;
   finishedAt: number | null;
 }
-
-const CHIP = 'px-3 py-1 rounded-md text-xs border transition-all';
-const CHIP_OFF = 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10';
 
 function matchesKind(location: CardLocation, kinds: KindFilter): boolean {
   if (kinds === 'all') return true;
@@ -68,6 +65,7 @@ function FlashcardsAppInner() {
   const [kinds, setKinds] = useState<KindFilter>('all');
   const [shuffleOn, setShuffleOn] = useState(true);
   const [session, setSession] = useState<FlashSession | null>(null);
+  const reduceMotion = useReducedMotion();
 
   const deck = deckId ? decks.find((d) => d.id === deckId) : undefined;
   const topic = topicId ? deck?.topics.find((t) => t.id === topicId) : undefined;
@@ -109,7 +107,7 @@ function FlashcardsAppInner() {
 
   const start = useCallback(() => {
     const label = deck ? `${deck.icon} ${deck.name}${topic ? ` · ${topic.name}` : ''}` : 'All decks';
-    begin(pool, label, deck?.color ?? DEFAULT_ACCENT, shuffleOn);
+    begin(pool, label, deck?.color ?? '', shuffleOn);
   }, [begin, pool, deck, topic, shuffleOn]);
 
   const flip = useCallback(() => {
@@ -181,72 +179,90 @@ function FlashcardsAppInner() {
 
   // ─── Views ───
 
+  const kindOptions = (
+    <>
+      <SegmentedControl
+        size="sm"
+        aria-label="Card kinds"
+        value={kinds}
+        onChange={setKinds}
+        options={KIND_FILTERS.map((k) => ({ value: k.id, label: k.label }))}
+      />
+      <Switch size="sm" checked={shuffleOn} onCheckedChange={setShuffleOn} label="Shuffle" />
+    </>
+  );
+
   let body: ReactNode;
+  let footer: ReactNode = null;
   if (session && current) {
-    const progress = session.index / session.cards.length;
     const againCount = session.results.filter((r) => r.grade === 'again').length;
     body = (
-      <div className="flex min-h-full flex-col gap-4 p-5">
-        <div className="flex items-center gap-3 text-xs text-white/50">
-          <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
-            <motion.div
-              className="h-full rounded-full"
-              style={{ backgroundColor: session.accent }}
-              initial={false}
-              animate={{ width: `${progress * 100}%` }}
-            />
-          </div>
-          <span className="tabular-nums">
-            {session.index + 1} / {session.cards.length}
+      <div className="@container flex flex-col gap-4 px-5 py-4">
+        <div className="mx-auto flex w-full max-w-2xl items-center gap-3">
+          <ProgressBar
+            value={session.index}
+            max={session.cards.length}
+            size="sm"
+            animated={false}
+            className="flex-1"
+            aria-label="Round progress"
+          />
+          <span className="shrink-0 font-mono text-xs text-fg-muted tabular">
+            <span className="text-fg">{session.index + 1}</span> / {session.cards.length}
           </span>
-          <span className="tabular-nums text-green-300/80" title="Remembered">
-            ✓ {session.results.length - againCount}
+          <span className="inline-flex shrink-0 items-center gap-1 font-mono text-xs text-success tabular" title="Remembered">
+            <Check size={14} strokeWidth={2} aria-label="Remembered" />
+            {session.results.length - againCount}
           </span>
-          <span className="tabular-nums text-red-300/80" title="Again">
-            ✗ {againCount}
+          <span className="inline-flex shrink-0 items-center gap-1 font-mono text-xs text-danger tabular" title="Again">
+            <X size={14} strokeWidth={2} aria-label="Again" />
+            {againCount}
           </span>
         </div>
 
         <AnimatePresence mode="wait">
           <motion.div
             key={`${session.index}:${current.card.id}`}
-            initial={{ opacity: 0, x: 28, rotate: 1.5 }}
-            animate={{ opacity: 1, x: 0, rotate: 0 }}
-            exit={{ opacity: 0, x: -28, rotate: -1.5 }}
-            transition={{ duration: 0.18 }}
-            className="mx-auto w-full max-w-xl"
+            initial={{ opacity: 0, x: reduceMotion ? 0 : 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: reduceMotion ? 0 : -24 }}
+            transition={TRANSITION.small}
+            className="mx-auto w-full max-w-2xl"
           >
             <FlipCard
               card={current.card}
               flipped={session.flipped}
               onFlip={flip}
               caption={`${current.deckName} · ${current.topicName}`}
-              accent={session.accent}
+              accent={session.accent || undefined}
             />
           </motion.div>
         </AnimatePresence>
-
-        <div className="mx-auto flex w-full max-w-xl items-center gap-2">
+      </div>
+    );
+    footer = (
+      <div className="shrink-0 space-y-2.5 border-t border-line px-5 py-3">
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-center gap-2">
           {session.flipped ? (
             <GradeBar onGrade={grade} />
           ) : (
             <>
               <RevealButton onReveal={flip} />
-              <button
-                type="button"
-                onClick={skip}
-                className="flex items-center gap-1 rounded-lg px-3 py-2.5 text-xs text-white/45 hover:bg-white/5 hover:text-white/75"
-                title="Skip (→)"
-              >
+              <Button variant="ghost" size="lg" trailingIcon={ChevronRight} onClick={skip} title="Skip (→)">
                 Skip
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
+              </Button>
             </>
           )}
         </div>
-        <p className="text-center text-[10px] text-white/30">
-          <Kbd>Space</Kbd> flip · <Kbd>1</Kbd>–<Kbd>4</Kbd> rate · <Kbd>S</Kbd> shuffle · <Kbd>→</Kbd> skip
-        </p>
+        <KeyHints
+          className="hidden @md:flex"
+          items={[
+            { keys: ['Space'], label: 'flip' },
+            { keys: ['1', '4'], label: 'rate', range: true },
+            { keys: ['S'], label: 'shuffle' },
+            { keys: ['→'], label: 'skip' },
+          ]}
+        />
       </div>
     );
   } else if (session && session.finishedAt !== null) {
@@ -255,199 +271,160 @@ function FlashcardsAppInner() {
     const remembered = answered - counts.again;
     const missedIds = new Set(session.results.filter((r) => r.grade === 'again' || r.grade === 'hard').map((r) => r.cardId));
     const missed = session.cards.filter((c) => missedIds.has(c.card.id));
-    const tiles = [
-      { label: 'Remembered', value: answered > 0 ? `${Math.round((remembered / answered) * 100)}%` : '—' },
-      { label: 'Rated', value: String(answered) },
-      { label: 'Time', value: formatDuration(session.finishedAt - session.startedAt) },
-    ];
     body = (
-      <div className="mx-auto max-w-xl space-y-5 p-5">
+      <div className="@container mx-auto max-w-2xl space-y-5 p-5">
         <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 p-5 text-center"
+          initial={{ opacity: 0, y: reduceMotion ? 0 : 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={TRANSITION.panel}
         >
-          <Trophy className="mx-auto h-8 w-8 text-yellow-300" />
-          <h3 className="mt-2 text-lg font-bold text-white">Round complete</h3>
-          <p className="mt-1 text-xs text-white/50">
-            {session.label}
-            {session.skipped > 0 ? ` · ${session.skipped} skipped` : ''}
-          </p>
-        </motion.div>
-        <div className="grid grid-cols-3 gap-3">
-          {tiles.map((tile) => (
-            <div key={tile.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-center">
-              <p className="text-xl font-semibold text-white">{tile.value}</p>
-              <p className="mt-0.5 text-[11px] text-white/45">{tile.label}</p>
+          <Card hud tone="ember" padding="lg">
+            <div className="flex flex-col items-center gap-4 text-center @lg:flex-row @lg:text-left">
+              <span className="flex size-14 shrink-0 items-center justify-center rounded-card border border-gold/35 bg-gold/10 text-gold shadow-[0_0_28px_-6px_var(--color-gold)]">
+                <Trophy size={26} strokeWidth={1.75} aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="hud-label">Flashcards · done</div>
+                <h3 className="mt-1 text-xl font-semibold text-fg">Round complete</h3>
+                <p className="mt-1 truncate text-ui text-fg-muted" title={session.label}>
+                  {session.label}
+                  {session.skipped > 0 ? ` · ${session.skipped} skipped` : ''}
+                </p>
+              </div>
             </div>
-          ))}
+          </Card>
+        </motion.div>
+
+        <div className="grid grid-cols-1 gap-3 @md:grid-cols-3">
+          <StatTile
+            size="sm"
+            label="Remembered"
+            icon={Sparkles}
+            value={answered > 0 ? `${Math.round((remembered / answered) * 100)}%` : '—'}
+          />
+          <StatTile size="sm" label="Rated" icon={Layers} value={answered} />
+          <StatTile size="sm" label="Time" icon={Clock} value={formatDuration(session.finishedAt - session.startedAt)} />
         </div>
+
         {answered > 0 && (
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <Card eyebrow="Recall" title="How it went">
             <GradeSummary counts={counts} />
-          </div>
+          </Card>
         )}
-        <div className="flex flex-wrap gap-2">
-          {missed.length > 0 && (
-            <button
-              type="button"
-              onClick={() => begin(missed, `${session.label.replace(/ · missed$/, '')} · missed`, session.accent, shuffleOn)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-orange-400/30 bg-orange-500/15 p-3 text-sm font-semibold text-orange-200 hover:bg-orange-500/25"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Study missed · {missed.length}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => begin(session.cards, session.label, session.accent, true)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-500/20 p-3 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/30"
-          >
-            <Shuffle className="h-4 w-4" />
-            Shuffle & restart
-          </button>
-          <button
-            type="button"
-            onClick={() => setSession(null)}
-            className="flex-1 rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-white/70 hover:bg-white/10"
-          >
+
+        <div className="flex flex-wrap justify-end gap-3">
+          <Button variant="ghost" size="lg" leadingIcon={Layers} onClick={() => setSession(null)}>
             Change deck
-          </button>
+          </Button>
+          <Button
+            variant={missed.length > 0 ? 'secondary' : 'primary'}
+            size="lg"
+            leadingIcon={Shuffle}
+            onClick={() => begin(session.cards, session.label, session.accent, true)}
+          >
+            Shuffle &amp; restart
+          </Button>
+          {missed.length > 0 && (
+            <Button
+              variant="primary"
+              size="lg"
+              leadingIcon={RotateCcw}
+              onClick={() => begin(missed, `${session.label.replace(/ · missed$/, '')} · missed`, session.accent, shuffleOn)}
+            >
+              Study missed · {missed.length}
+            </Button>
+          )}
         </div>
       </div>
     );
   } else {
     body = (
-      <div className="space-y-5 p-5">
-        <p className="text-xs text-white/50">
-          Flip through your own decks. Quiz cards show their answer on the back. Rate each card and your mastery
-          updates as you go.
-        </p>
+      <div className="@container space-y-6 p-5">
+        <TabHeader
+          icon={Layers}
+          title="Flashcards"
+          description="Flip through your own decks. Quiz cards show their answer on the back; rate each card and your mastery updates as you go."
+        />
 
-        {/* Decks */}
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setDeckId(null);
-              setTopicId(null);
-            }}
-            className={cn(
-              'rounded-xl border p-3 text-left transition-all',
-              !deck ? 'border-cyan-400/50 bg-cyan-500/15' : 'border-white/10 bg-white/5 hover:bg-white/10'
-            )}
-          >
-            <span className="flex items-center gap-2 text-sm font-semibold text-white/90">
-              <Layers className="h-4 w-4 text-cyan-300" />
-              All decks
-            </span>
-            <span className="mt-1 block text-[11px] text-white/40">{totalCards} cards</span>
-          </button>
-          {deckStats.map(({ deck: d, cards, mastery }) => (
-            <button
-              key={d.id}
-              type="button"
-              onClick={() => {
-                setDeckId(d.id);
-                setTopicId(null);
-              }}
-              className={cn(
-                'rounded-xl border p-3 text-left transition-all',
-                deck?.id === d.id ? 'bg-white/10' : 'border-white/10 bg-white/5 hover:bg-white/10'
-              )}
-              style={deck?.id === d.id ? { borderColor: d.color } : undefined}
-            >
-              <span className="flex items-center gap-2 text-sm font-semibold text-white/90">
-                <span>{d.icon}</span>
-                <span className="truncate">{d.name}</span>
-              </span>
-              <span className="mt-1 flex items-center justify-between text-[11px] text-white/40">
-                <span>{cards} cards</span>
-                <span className="tabular-nums">{toPercent(mastery)}% mastery</span>
-              </span>
-              <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-white/10">
-                <span
-                  className="block h-full rounded-full"
-                  style={{ width: `${Math.max(2, toPercent(mastery))}%`, backgroundColor: masteryColor(mastery) }}
+        {totalCards === 0 ? (
+          <EmptyState icon={Layers} title="No cards yet" description="Add a deck in Training Grounds, then flip through it here." />
+        ) : (
+          <>
+            {/* Decks */}
+            <section className="space-y-3" aria-label="Deck">
+              <span className="hud-label">Deck</span>
+              <div className="grid gap-3 @md:grid-cols-2 @3xl:grid-cols-3">
+                <DeckPickCard
+                  icon={<Layers size={18} strokeWidth={1.75} />}
+                  name="All decks"
+                  meta={`${totalCards} cards`}
+                  selected={!deck}
+                  onClick={() => {
+                    setDeckId(null);
+                    setTopicId(null);
+                  }}
                 />
-              </span>
-            </button>
-          ))}
-        </div>
+                {deckStats.map(({ deck: d, cards, mastery }) => (
+                  <DeckPickCard
+                    key={d.id}
+                    icon={d.icon}
+                    name={d.name}
+                    meta={`${cards} card${cards === 1 ? '' : 's'}`}
+                    mastery={mastery}
+                    selected={deck?.id === d.id}
+                    onClick={() => {
+                      setDeckId(d.id);
+                      setTopicId(null);
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
 
-        {/* Topics */}
-        {deck && deck.topics.length > 1 && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setTopicId(null)}
-              className={cn(CHIP, !topic ? 'bg-purple-500/20 border-purple-500/40 text-purple-200' : CHIP_OFF)}
-            >
-              All topics
-            </button>
-            {deck.topics.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTopicId(t.id)}
-                className={cn(
-                  CHIP,
-                  topic?.id === t.id ? 'bg-purple-500/20 border-purple-500/40 text-purple-200' : CHIP_OFF
-                )}
-              >
-                {t.name}
-                <span className="ml-1.5 text-white/35 tabular-nums">{t.cards.length}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Options */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex overflow-hidden rounded-md border border-white/10 text-xs">
-            {KIND_FILTERS.map((k) => (
-              <button
-                key={k.id}
-                type="button"
-                onClick={() => setKinds(k.id)}
-                aria-pressed={kinds === k.id}
-                className={cn(
-                  'px-3 py-1 transition-colors',
-                  kinds === k.id ? 'bg-cyan-500/25 text-cyan-100' : 'text-white/50 hover:bg-white/10'
-                )}
-              >
-                {k.label}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() => setShuffleOn((on) => !on)}
-            aria-pressed={shuffleOn}
-            className={cn(
-              CHIP,
-              'flex items-center gap-1.5',
-              shuffleOn ? 'bg-purple-500/20 border-purple-500/40 text-purple-200' : CHIP_OFF
+            {/* Topics */}
+            {deck && deck.topics.length > 1 && (
+              <section className="space-y-3" aria-label="Topic">
+                <span className="hud-label">Topic</span>
+                <div className="flex flex-wrap gap-2">
+                  <Chip selected={!topic} onClick={() => setTopicId(null)}>
+                    All topics
+                  </Chip>
+                  {deck.topics.map((t) => (
+                    <Chip key={t.id} selected={topic?.id === t.id} onClick={() => setTopicId(t.id)}>
+                      {t.name}
+                      <span className="ml-1.5 font-mono tabular opacity-60">{t.cards.length}</span>
+                    </Chip>
+                  ))}
+                </div>
+              </section>
             )}
-          >
-            <Shuffle className="h-3.5 w-3.5" />
-            {shuffleOn ? 'Shuffled' : 'In order'}
-          </button>
-        </div>
 
-        <button
-          type="button"
-          onClick={start}
-          disabled={pool.length === 0}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/20 p-3 text-sm font-semibold text-cyan-100 shadow-[0_0_24px_-10px_rgba(34,211,238,0.8)] transition-all hover:bg-cyan-500/30 disabled:opacity-30 disabled:shadow-none"
-        >
-          <Play className="h-4 w-4" />
-          {pool.length > 0
-            ? `Start · ${pool.length} card${pool.length === 1 ? '' : 's'}`
-            : totalCards === 0
-              ? 'No cards yet: add a deck in Training Grounds'
-              : 'No cards match these filters'}
-        </button>
+            <section className="flex flex-wrap items-center gap-4 @lg:hidden" aria-label="Options">
+              {kindOptions}
+            </section>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  if (!session && totalCards > 0) {
+    footer = (
+      <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line px-5 py-3">
+        <div className="hidden flex-wrap items-center gap-4 @lg:flex">{kindOptions}</div>
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+          {pool.length === 0 && <span className="truncate text-xs text-warning">No cards match these filters</span>}
+          <Button
+            variant="primary"
+            size="lg"
+            leadingIcon={Play}
+            onClick={start}
+            disabled={pool.length === 0}
+            className="w-full @lg:w-auto"
+          >
+            Start · {pool.length} card{pool.length === 1 ? '' : 's'}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -458,35 +435,32 @@ function FlashcardsAppInner() {
       tabIndex={-1}
       onKeyDown={current ? onKeyDown : undefined}
       onKeyUp={current ? onKeyUp : undefined}
-      className="flex h-full flex-col bg-black/30 outline-none"
+      className="@container flex h-full flex-col outline-none"
     >
-      <header className="flex items-center gap-3 border-b border-white/10 bg-black/20 px-4 py-2.5">
-        {session && (
-          <button
-            type="button"
+      {session && (
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            leadingIcon={ArrowLeft}
             onClick={current ? finishEarly : () => setSession(null)}
-            className="flex items-center gap-1 text-xs text-white/50 hover:text-white/85"
             title={current ? 'End this round' : 'Back to decks'}
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
             {current ? 'End' : 'Decks'}
-          </button>
-        )}
-        <h2 className="text-sm font-bold tracking-wider text-cyan-400">🃏 FLASHCARDS</h2>
-        {session && <span className="truncate text-xs text-white/50">{session.label}</span>}
-        {current && (
-          <button
-            type="button"
-            onClick={shuffleRest}
-            className="ml-auto flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/60 hover:bg-white/10"
-            title="Shuffle the remaining cards (S)"
-          >
-            <Shuffle className="h-3.5 w-3.5" />
-            Shuffle
-          </button>
-        )}
-      </header>
-      <div className="flex-1 overflow-y-auto">{body}</div>
+          </Button>
+          <span aria-hidden className="h-5 w-px bg-line-strong" />
+          <span className="min-w-0 flex-1 truncate text-ui text-fg-muted" title={session.label}>
+            {session.label}
+          </span>
+          {current && (
+            <Button variant="ghost" size="sm" leadingIcon={Shuffle} onClick={shuffleRest} title="Shuffle the remaining cards (S)">
+              Shuffle
+            </Button>
+          )}
+        </header>
+      )}
+      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">{body}</div>
+      {footer}
     </div>
   );
 }

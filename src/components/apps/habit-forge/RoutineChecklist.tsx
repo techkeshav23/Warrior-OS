@@ -1,15 +1,20 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Routine Checklist
-// Daily set of tasks organized by time-of-day categories
+// Daily set of tasks organized by time-of-day categories: a progress
+// strip (one ember cell per task) over Morning / Study / Night
+// columns of check rows.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { useState, useCallback, memo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
+import { BookOpen, Check, Moon, Sunrise, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Card, ProgressBar } from '@/components/ui';
 import { checkStudyStreak } from '@/components/achievements/study-streak';
 import type { RoutineItem } from './HabitForgeApp';
+import { ROUTINE_KEY, loadRoutineDone } from './habit-utils';
 
 interface Props {
   routines: RoutineItem[];
@@ -17,16 +22,23 @@ interface Props {
   onProgress?: () => void;
 }
 
+
+const CATEGORIES: { key: RoutineItem['category']; label: string; icon: LucideIcon }[] = [
+  { key: 'morning', label: 'Morning', icon: Sunrise },
+  { key: 'study', label: 'Study', icon: BookOpen },
+  { key: 'night', label: 'Night', icon: Moon },
+];
+
+/** '6:00' → '06:00' so the time column lines up. */
+function padTime(time: string): string {
+  return /^\d:\d\d$/.test(time) ? `0${time}` : time;
+}
+
 function RoutineChecklistInner({ routines, onProgress }: Props) {
   const today = new Date().toISOString().split('T')[0];
+  const reduceMotion = useReducedMotion();
 
-  const [completed, setCompleted] = useState<Set<string>>(() => {
-    if (typeof window === 'undefined') return new Set();
-    try {
-      const data = JSON.parse(localStorage.getItem('warrior-routine-done') || '{}');
-      return new Set(data[today] || []);
-    } catch { return new Set(); }
-  });
+  const [completed, setCompleted] = useState<Set<string>>(() => loadRoutineDone(today));
 
   const toggle = useCallback((id: string) => {
     const next = new Set(completed);
@@ -36,9 +48,9 @@ function RoutineChecklistInner({ routines, onProgress }: Props) {
     setCompleted(next);
     // Save (outside the state updater, so it runs exactly once)
     try {
-      const allData = JSON.parse(localStorage.getItem('warrior-routine-done') || '{}') as Record<string, string[]>;
+      const allData = JSON.parse(localStorage.getItem(ROUTINE_KEY) || '{}') as Record<string, string[]>;
       allData[today] = [...next];
-      localStorage.setItem('warrior-routine-done', JSON.stringify(allData));
+      localStorage.setItem(ROUTINE_KEY, JSON.stringify(allData));
     } catch {
       /* storage blocked or corrupt — the checklist still works for this session */
     }
@@ -47,78 +59,110 @@ function RoutineChecklistInner({ routines, onProgress }: Props) {
     onProgress?.();
   }, [completed, today, onProgress]);
 
-  const categories: { key: RoutineItem['category']; label: string; icon: string }[] = [
-    { key: 'morning', label: 'Morning', icon: '🌅' },
-    { key: 'study', label: 'Study', icon: '📚' },
-    { key: 'night', label: 'Night', icon: '🌙' },
-  ];
-
-  const doneCount = completed.size;
+  const doneCount = routines.filter((r) => completed.has(r.id)).length;
   const totalCount = routines.length;
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+  const allDone = totalCount > 0 && doneCount === totalCount;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Progress */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-white">Today&apos;s Routine</h3>
-          <span className="text-xs text-white/50">{doneCount}/{totalCount} ({pct}%)</span>
+      <Card padding="md">
+        <div className="flex items-end justify-between gap-4">
+          <div className="min-w-0">
+            <p className="hud-label">Today&apos;s routine</p>
+            <p className="mt-1.5 flex items-baseline gap-2 leading-none">
+              <span className={cn('tabular font-display text-3xl font-semibold', allDone ? 'text-ember-400' : 'text-fg')}>
+                {doneCount}
+              </span>
+              <span className="tabular font-mono text-sm text-fg-subtle">/ {totalCount}</span>
+            </p>
+          </div>
+          <p className={cn('text-right text-xs', allDone ? 'text-ember-300' : 'text-fg-muted')}>
+            {allDone ? 'Routine complete. The forge is hot.' : doneCount === 0 ? 'Check off a block to light the day.' : `${pct}% of the day forged`}
+          </p>
         </div>
-        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-          <motion.div
-            className="h-full bg-orange-400 rounded-full"
-            animate={{ width: `${pct}%` }}
-            transition={{ duration: 0.3 }}
-          />
-        </div>
-      </div>
+        <ProgressBar
+          className="mt-4"
+          value={doneCount}
+          max={Math.max(totalCount, 1)}
+          segments={Math.max(totalCount, 1)}
+          size="lg"
+          tone="ember"
+          glow={allDone}
+          aria-label="Routine progress"
+        />
+      </Card>
 
-      {categories.map((cat) => {
-        const items = routines.filter((r) => r.category === cat.key);
-        if (items.length === 0) return null;
-        return (
-          <div key={cat.key} className="space-y-2">
-            <h4 className="text-xs font-semibold text-white/60">
-              {cat.icon} {cat.label}
-            </h4>
-            {items.map((item, i) => {
-              const done = completed.has(item.id);
-              return (
-                <motion.button
-                  key={item.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.03 }}
-                  onClick={() => toggle(item.id)}
+      <div className="grid grid-cols-1 gap-4 @2xl:grid-cols-3">
+        {CATEGORIES.map((cat) => {
+          const items = routines.filter((r) => r.category === cat.key);
+          if (items.length === 0) return null;
+          const catDone = items.filter((r) => completed.has(r.id)).length;
+          const Icon = cat.icon;
+          return (
+            <section key={cat.key} aria-label={cat.label} className="min-w-0">
+              <header className="mb-2 flex items-center gap-2 px-1">
+                <Icon size={16} strokeWidth={1.75} className="text-fg-subtle" aria-hidden />
+                <h4 className="text-ui font-semibold text-fg">{cat.label}</h4>
+                <span
                   className={cn(
-                    'w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-all',
-                    done
-                      ? 'bg-green-500/10 border-green-500/20'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10'
+                    'tabular ml-auto font-mono text-xs',
+                    catDone === items.length ? 'text-ember-400' : 'text-fg-subtle'
                   )}
                 >
-                  <span className={cn(
-                    'w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] flex-shrink-0',
-                    done ? 'border-green-400 bg-green-400 text-black' : 'border-white/30'
-                  )}>
-                    {done ? '✓' : ''}
-                  </span>
-                  <div className="flex-1">
-                    <p className={cn(
-                      'text-sm',
-                      done ? 'text-green-300 line-through' : 'text-white/80'
-                    )}>
-                      {item.text}
-                    </p>
-                  </div>
-                  <span className="text-[10px] text-white/30">{item.time}</span>
-                </motion.button>
-              );
-            })}
-          </div>
-        );
-      })}
+                  {catDone}/{items.length}
+                </span>
+              </header>
+              <div className="overflow-hidden rounded-card border border-line bg-surface-2">
+                <ul className="divide-y divide-line">
+                  {items.map((item, i) => {
+                    const done = completed.has(item.id);
+                    return (
+                      <li key={item.id}>
+                        <motion.button
+                          type="button"
+                          initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.03, duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                          onClick={() => toggle(item.id)}
+                          aria-pressed={done}
+                          className={cn(
+                            'focus-ring-inset group/row flex min-h-11 w-full items-center gap-3 px-3 py-2 text-left',
+                            'transition-colors duration-120 ease-out-quint hover:bg-surface-hover active:bg-surface-active'
+                          )}
+                        >
+                          <span
+                            aria-hidden
+                            className={cn(
+                              'flex size-[18px] shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color] duration-180 ease-out-quint',
+                              done
+                                ? 'border-ember-500 bg-linear-to-b from-ember-400 to-ember-500 text-ink-950'
+                                : 'border-fg-faint group-hover/row:border-ember-400/70'
+                            )}
+                          >
+                            {done && <Check size={11} strokeWidth={3} />}
+                          </span>
+                          <span
+                            className={cn(
+                              'min-w-0 flex-1 truncate text-ui transition-colors duration-120',
+                              done ? 'text-fg-subtle line-through decoration-fg-faint' : 'text-fg'
+                            )}
+                            title={item.text}
+                          >
+                            {item.text}
+                          </span>
+                          <span className="tabular shrink-0 font-mono text-xs text-fg-subtle">{padTime(item.time)}</span>
+                        </motion.button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -1,15 +1,17 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Budget Overview
-// Month summary for Expense Vault: spent, budget (editable for the
-// month in progress), remaining, days left and a pace-aware bar
+// Month summary for Expense Vault: stat tiles for spent, budget
+// (editable for the month in progress), remaining and days left,
+// plus a pace bar: actual spending against an even pace to today.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, useId, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { Check, Lock, Pencil, X } from 'lucide-react';
+import { CalendarClock, Check, Coins, IndianRupee, Lock, Pencil, PiggyBank, ReceiptIndianRupee, X } from 'lucide-react';
 import { getDaysInMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Badge, IconButton, Input, StatTile } from '@/components/ui';
 import { MAX_MONTHLY_BUDGET } from '@/stores/useExpenseStore';
 import type { ExpenseMonthBudget } from '@/types/expense';
 import { formatINR, monthStart, parseAmountInput, shortMonthLabel } from './expense-utils';
@@ -25,11 +27,25 @@ interface BudgetOverviewProps {
   onSaveBudget: (amount: number) => void;
 }
 
-function usageTone(pct: number): { bar: string; text: string } {
-  if (pct > 100) return { bar: 'bg-red-500', text: 'text-red-300' };
-  if (pct >= 80) return { bar: 'bg-amber-400', text: 'text-amber-300' };
-  return { bar: 'bg-emerald-400', text: 'text-emerald-300' };
+type UsageTone = 'success' | 'warning' | 'danger';
+
+function usageTone(pct: number): UsageTone {
+  if (pct > 100) return 'danger';
+  if (pct >= 80) return 'warning';
+  return 'success';
 }
+
+const TONE_TEXT: Record<UsageTone, string> = {
+  success: 'text-success',
+  warning: 'text-warning',
+  danger: 'text-danger',
+};
+
+const TONE_FILL: Record<UsageTone, string> = {
+  success: 'from-success/60 to-success',
+  warning: 'from-warning/60 to-warning',
+  danger: 'from-danger/60 to-danger',
+};
 
 function budgetSourceText(budget: ExpenseMonthBudget): string {
   if (budget.source === 'explicit') return 'Set for this month';
@@ -109,178 +125,177 @@ function BudgetOverviewInner({
   return (
     <section aria-label="Month overview" className="space-y-3">
       <div className="grid grid-cols-2 gap-3 @2xl:grid-cols-4">
-        {/* Spent */}
-        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-          <p className="text-[11px] uppercase tracking-wider text-white/50">Spent</p>
-          <p className="mt-1 truncate font-mono text-lg font-semibold text-white">{formatINR(spent)}</p>
-          <p className="text-[11px] text-white/50">
-            {transactionCount} {transactionCount === 1 ? 'transaction' : 'transactions'}
-          </p>
-        </div>
+        <StatTile
+          label="Spent"
+          icon={ReceiptIndianRupee}
+          value={formatINR(spent)}
+          deltaLabel={`${transactionCount} ${transactionCount === 1 ? 'transaction' : 'transactions'}`}
+        />
 
-        {/* Budget */}
-        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-          <div className="flex items-center justify-between gap-2">
-            <label htmlFor={inputId} className="text-[11px] uppercase tracking-wider text-white/50">
+        {/* Budget: same anatomy as StatTile, with an inline editor */}
+        <div className="glass-panel relative flex min-w-0 flex-col gap-3 rounded-card p-4">
+          <div className="flex h-4 items-center justify-between gap-2">
+            <label htmlFor={inputId} className="hud-label truncate">
               Budget
             </label>
             {canEditBudget && !editing && (
-              <button
-                type="button"
-                onClick={startEditing}
-                className="rounded p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-cyan-300"
+              <IconButton
+                icon={Pencil}
+                size="xs"
                 aria-label="Edit this month's budget"
-                title="Edit budget"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
+                tooltip="Edit budget"
+                onClick={startEditing}
+                className="-my-1 -mr-1"
+              />
             )}
             {!canEditBudget && (
-              <span className="flex items-center gap-1 text-[10px] text-white/40" title="Closed months keep the budget they ran on">
-                <Lock className="h-3 w-3" /> Closed
+              <span title="Closed months keep the budget they ran on">
+                <Badge size="sm" icon={Lock}>
+                  Closed
+                </Badge>
               </span>
             )}
+            {canEditBudget && editing && <PiggyBank size={16} strokeWidth={1.75} aria-hidden className="shrink-0 text-fg-subtle" />}
           </div>
           {editing && canEditBudget ? (
-            <form onSubmit={commit} className="mt-1">
-              <div className="flex items-center gap-1">
-                <span className="font-mono text-sm text-white/50">₹</span>
-                <input
-                  id={inputId}
-                  value={draft}
-                  onChange={(e) => {
-                    setDraft(e.target.value);
-                    setError(null);
-                  }}
-                  onKeyDown={onDraftKeyDown}
-                  inputMode="decimal"
-                  autoComplete="off"
-                  autoFocus
-                  aria-invalid={error ? true : undefined}
-                  aria-describedby={error ? `${inputId}-error` : undefined}
-                  className="w-full min-w-0 rounded border border-white/15 bg-black/40 px-1.5 py-0.5 font-mono text-sm text-white outline-none focus:border-cyan-400/60"
-                />
-                <button
-                  type="submit"
-                  className="rounded p-1 text-emerald-300 hover:bg-emerald-500/15"
-                  aria-label="Save budget"
-                >
-                  <Check className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={cancelEditing}
-                  className="rounded p-1 text-white/50 hover:bg-white/10"
-                  aria-label="Cancel editing budget"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+            <form onSubmit={commit} className="animate-fade-in">
+              <div className="flex items-start gap-1">
+                <div className="min-w-0 flex-1">
+                  <Input
+                    id={inputId}
+                    size="sm"
+                    leadingIcon={IndianRupee}
+                    value={draft}
+                    onChange={(e) => {
+                      setDraft(e.target.value);
+                      setError(null);
+                    }}
+                    onKeyDown={onDraftKeyDown}
+                    inputMode="decimal"
+                    autoComplete="off"
+                    autoFocus
+                    error={error}
+                    className="tabular font-mono"
+                  />
+                </div>
+                <IconButton icon={Check} type="submit" size="sm" variant="primary" aria-label="Save budget" />
+                <IconButton icon={X} size="sm" aria-label="Cancel editing budget" onClick={cancelEditing} />
               </div>
-              {error && (
-                <p id={`${inputId}-error`} className="mt-1 text-[10px] text-red-300">
-                  {error}
-                </p>
-              )}
             </form>
           ) : (
-            <>
-              <p className="mt-1 truncate font-mono text-lg font-semibold text-white">{formatINR(budget.amount)}</p>
-              <p className="truncate text-[11px] text-white/50">
+            <div className="min-w-0">
+              <p className="tabular truncate font-display text-2xl font-semibold leading-none text-fg">
+                {formatINR(budget.amount)}
+              </p>
+              <p className="mt-2 truncate text-xs text-fg-subtle">
                 {budgetSourceText(budget)}
                 {budget.source === 'default' && canEditBudget && ' · edit to set your own'}
               </p>
-            </>
+            </div>
           )}
         </div>
 
-        {/* Remaining */}
-        <div
-          className={cn(
-            'rounded-xl border p-3',
-            remaining < 0 ? 'border-red-500/30 bg-red-500/10' : 'border-white/10 bg-white/[0.04]'
-          )}
-        >
-          <p className="text-[11px] uppercase tracking-wider text-white/50">
-            {remaining < 0 ? 'Over budget' : 'Remaining'}
-          </p>
-          <p
-            className={cn(
-              'mt-1 truncate font-mono text-lg font-semibold',
-              remaining < 0 ? 'text-red-300' : 'text-white'
-            )}
-          >
-            {formatINR(Math.abs(remaining))}
-          </p>
-          <p className={cn('text-[11px]', tone.text)}>{Math.round(usedPct)}% of budget used</p>
-        </div>
+        <StatTile
+          label={remaining < 0 ? 'Over budget' : 'Remaining'}
+          icon={Coins}
+          value={<span className={remaining < 0 ? 'text-danger' : undefined}>{formatINR(Math.abs(remaining))}</span>}
+          delta={`${Math.round(usedPct)}% used`}
+          deltaTone={tone === 'danger' ? 'negative' : tone === 'success' ? 'positive' : 'neutral'}
+          className={cn(remaining < 0 && 'border-danger/30 bg-danger/[0.06]')}
+        />
 
-        {/* Days left */}
-        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-          <p className="text-[11px] uppercase tracking-wider text-white/50">Days left</p>
-          {isCurrentMonth ? (
-            <>
-              <p className="mt-1 font-mono text-lg font-semibold text-white">
-                {daysLeft}
-                <span className="ml-1 text-xs font-normal text-white/50">incl. today</span>
-              </p>
-              <p className="truncate text-[11px] text-white/50">
-                {remaining > 0 ? `${formatINR(perDayLeft, 'never')}/day to stay on budget` : 'No budget left this month'}
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="mt-1 font-mono text-lg font-semibold text-white/70">0</p>
-              <p className="truncate text-[11px] text-white/50">Month closed · avg {formatINR(averagePerDay, 'never')}/day</p>
-            </>
-          )}
-        </div>
+        {isCurrentMonth ? (
+          <StatTile
+            label="Days left"
+            icon={CalendarClock}
+            value={daysLeft}
+            unit="incl. today"
+            deltaLabel={
+              remaining > 0 ? `${formatINR(perDayLeft, 'never')}/day to stay on budget` : 'No budget left this month'
+            }
+          />
+        ) : (
+          <StatTile
+            label="Days left"
+            icon={CalendarClock}
+            value={<span className="text-fg-muted">0</span>}
+            unit="month closed"
+            deltaLabel={`Averaged ${formatINR(averagePerDay, 'never')}/day`}
+          />
+        )}
       </div>
 
-      {/* Usage bar; the white tick marks where an even pace would be by today */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
-        <div className="relative">
+      {/* Pace: hatched zone = where an even pace would be by today; tick = today */}
+      <div className="glass-panel rounded-card px-4 pb-3.5 pt-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="hud-label">Budget pace</span>
+          <span className="tabular font-mono text-xs text-fg-muted">
+            <span className={TONE_TEXT[tone]}>{Math.round(usedPct)}%</span> used
+            {isCurrentMonth && ` · day ${dayOfMonth} of ${daysInMonth}`}
+          </span>
+        </div>
+        <div className="relative mt-3">
           <div
-            className="h-2 overflow-hidden rounded-full bg-white/10"
+            className="relative h-2 overflow-hidden rounded-full bg-ink-600/70"
             role="progressbar"
             aria-label="Budget used"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.min(Math.round(usedPct), 100)}
           >
+            {isCurrentMonth && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-y-0 left-0 bg-[repeating-linear-gradient(135deg,var(--color-line-strong)_0_3px,transparent_3px_7px)]"
+                style={{ width: `${pacePct}%` }}
+              />
+            )}
             <div
-              className={cn('h-full rounded-full transition-[width] duration-500', tone.bar)}
+              className={cn(
+                'relative h-full rounded-full bg-linear-to-r transition-[width] duration-260 ease-out-quint',
+                TONE_FILL[tone]
+              )}
               style={{ width: `${Math.min(usedPct, 100)}%` }}
             />
           </div>
           {isCurrentMonth && (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -top-1 h-4 w-0.5 -translate-x-1/2 rounded bg-white/80"
+              className="pointer-events-none absolute -top-1 h-4 w-0.5 -translate-x-1/2 rounded-full bg-fg shadow-[0_0_0_2px_var(--color-ink-900)]"
               style={{ left: `${pacePct}%` }}
             />
           )}
         </div>
-        <p className="mt-2 text-[11px] text-white/55">
-          {isCurrentMonth ? (
-            paceGap >= 0 ? (
-              <>
-                <span className="text-emerald-300">{formatINR(paceGap, 'never')} under pace</span> · an even pace
-                would have spent {formatINR(expectedByToday, 'never')} by today
-              </>
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-fg-muted">
+          <p className="min-w-0">
+            {isCurrentMonth ? (
+              paceGap >= 0 ? (
+                <>
+                  <span className="font-medium text-success">{formatINR(paceGap, 'never')} under pace</span> · an even
+                  pace would have spent <span className="tabular font-mono">{formatINR(expectedByToday, 'never')}</span> by
+                  today
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-warning">{formatINR(-paceGap, 'never')} ahead of pace</span> · an even
+                  pace would have spent <span className="tabular font-mono">{formatINR(expectedByToday, 'never')}</span> by
+                  today
+                </>
+              )
+            ) : transactionCount === 0 ? (
+              <span>No expenses were logged this month.</span>
+            ) : remaining >= 0 ? (
+              <span className="font-medium text-success">Closed under budget with {formatINR(remaining)} to spare</span>
             ) : (
-              <>
-                <span className="text-amber-300">{formatINR(-paceGap, 'never')} ahead of pace</span> · an even
-                pace would have spent {formatINR(expectedByToday, 'never')} by today
-              </>
-            )
-          ) : transactionCount === 0 ? (
-            <span>No expenses were logged this month.</span>
-          ) : remaining >= 0 ? (
-            <span className="text-emerald-300">Closed under budget with {formatINR(remaining)} to spare</span>
-          ) : (
-            <span className="text-red-300">Closed over budget by {formatINR(-remaining)}</span>
+              <span className="font-medium text-danger">Closed over budget by {formatINR(-remaining)}</span>
+            )}
+          </p>
+          {isCurrentMonth && (
+            <span className="flex shrink-0 items-center gap-1.5 text-fg-subtle">
+              <span aria-hidden className="h-3 w-0.5 rounded-full bg-fg" /> Even pace today
+            </span>
           )}
-        </p>
+        </div>
       </div>
     </section>
   );

@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { persist } from 'zustand/middleware';
+import { DEFAULT_ACCENT } from '@/styles/tokens';
 
 /**
  * Lite mode (Settings → Performance): 'auto' decides from the device
@@ -79,7 +80,7 @@ export const useSettingsStore = create<SettingsState>()(
     immer((set) => ({
       // Defaults
       wallpaper: 'nebula',
-      accentColor: '#00f0ff',
+      accentColor: DEFAULT_ACCENT,
       glassOpacity: 0.6,
       crtEffect: true,
       cursorTrail: true,

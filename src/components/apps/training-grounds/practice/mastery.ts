@@ -1,21 +1,26 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Mastery Colour Scale
-// Red → amber → green, with lightness rising along the scale so
+// Ember → gold → mint (FORGE HUD): cold iron still in the forge,
+// then tempered, then mastered. Lightness rises along the scale so
 // it still reads as "more" without hue. Always pair it with a
 // second cue (a % label, an arc, a bar length): never colour alone.
 // ═══════════════════════════════════════════════════════════
 
+import { EMBER, STATUS } from '@/styles/tokens';
+
 type Rgb = readonly [number, number, number];
 
-/** Stops at 0, 0.5 and 1 mastery. */
-const STOPS: readonly Rgb[] = [
-  [0xd9, 0x42, 0x3f],
-  [0xe3, 0x9a, 0x2d],
-  [0x9a, 0xf0, 0xb8],
-];
+function hexToRgb(hex: string): Rgb {
+  const n = Number.parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** Stops at 0, 0.5 and 1 mastery: ember-500, gold, success. */
+const STOPS: readonly Rgb[] = [hexToRgb(EMBER[500]), hexToRgb(STATUS.gold), hexToRgb(STATUS.success)];
 
 /** CSS gradient of the whole scale, for legends. */
-export const MASTERY_GRADIENT = 'linear-gradient(90deg, #d9423f 0%, #e39a2d 50%, #9af0b8 100%)';
+export const MASTERY_GRADIENT =
+  'linear-gradient(90deg, var(--color-ember-500) 0%, var(--color-gold) 50%, var(--color-success) 100%)';
 
 function clamp01(value: number): number {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;

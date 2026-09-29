@@ -18,6 +18,7 @@ import { useXPStore } from '@/stores/useXPStore';
 import { formatClock, pomodoroRemainingMs } from '@/lib/nexus/context';
 import { playNexusChime } from '@/lib/nexus/chime';
 import { NEXUS_ACHIEVEMENTS, unlockNexusAchievement } from './NexusCore';
+import { IconButton } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import type { NexusPomodoroTransition } from '@/types/nexus';
 
@@ -136,14 +137,23 @@ function NexusPomodoroPillInner({ variant = 'hud', className }: NexusPomodoroPil
     return (
       <span
         className={cn(
-          'flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] tabular-nums',
-          isBreak ? 'border-emerald-400/30 text-emerald-300' : 'border-cyan-400/30 text-cyan-300',
-          paused && 'opacity-70',
+          'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2 font-mono text-2xs font-medium tabular ring-1 ring-inset',
+          paused
+            ? 'bg-surface-active text-fg-muted ring-line-strong'
+            : isBreak
+              ? 'bg-success/10 text-success ring-success/25'
+              : 'bg-accent/10 text-accent ring-accent/25',
           className
         )}
         title={`Pomodoro ${label.toLowerCase()}`}
       >
-        {isBreak ? <Coffee size={11} /> : <Timer size={11} />}
+        {paused ? (
+          <Pause size={12} strokeWidth={2} aria-hidden />
+        ) : isBreak ? (
+          <Coffee size={12} strokeWidth={2} aria-hidden />
+        ) : (
+          <Timer size={12} strokeWidth={2} aria-hidden />
+        )}
         {formatClock(remaining)}
       </span>
     );
@@ -154,55 +164,63 @@ function NexusPomodoroPillInner({ variant = 'hud', className }: NexusPomodoroPil
       {active && (
         <motion.div
           key="nexus-pomodoro"
-          initial={{ opacity: 0, y: 10, scale: 0.96 }}
+          initial={{ opacity: 0, y: 8, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 10, scale: 0.96 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          exit={{ opacity: 0, y: 6, scale: 0.98 }}
+          transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
           className={cn(
-            'pointer-events-auto relative flex items-center gap-2 overflow-hidden rounded-full border bg-black/85 py-1.5 pl-3 pr-1.5 shadow-lg backdrop-blur-xl',
-            isBreak ? 'border-emerald-400/30' : 'border-cyan-400/30',
+            'glass-popover pointer-events-auto relative flex h-10 items-center gap-2.5 overflow-hidden rounded-full pl-3.5 pr-1',
             className
           )}
           role="timer"
           aria-label={`Pomodoro ${label}: ${formatClock(remaining)} remaining`}
         >
-          {isBreak ? (
-            <Coffee size={13} className="text-emerald-300" />
-          ) : (
-            <Timer size={13} className="text-cyan-300" />
-          )}
           <span
             className={cn(
-              'font-mono text-[10px] uppercase tracking-[0.15em]',
-              paused ? 'text-amber-300' : isBreak ? 'text-emerald-300/80' : 'text-cyan-300/80'
+              'flex size-5 shrink-0 items-center justify-center rounded-full',
+              paused ? 'text-fg-subtle' : isBreak ? 'text-success' : 'text-accent'
+            )}
+            aria-hidden
+          >
+            {isBreak ? <Coffee size={15} strokeWidth={1.75} /> : <Timer size={15} strokeWidth={1.75} />}
+          </span>
+          <span
+            className={cn(
+              'hud-label',
+              paused ? 'text-warning' : isBreak ? 'text-success' : 'text-accent'
             )}
           >
             {label}
           </span>
-          <span className="font-mono text-sm tabular-nums text-white">{formatClock(remaining)}</span>
-          <button
-            type="button"
-            onClick={toggle}
-            className="rounded-full p-1 text-white/65 transition-colors hover:bg-white/10 hover:text-white"
-            aria-label={paused ? 'Resume pomodoro' : 'Pause pomodoro'}
-            title={paused ? 'Resume' : 'Pause'}
-          >
-            {paused ? <Play size={12} /> : <Pause size={12} />}
-          </button>
-          <button
-            type="button"
-            onClick={stop}
-            className="rounded-full p-1 text-white/65 transition-colors hover:bg-white/10 hover:text-rose-300"
-            aria-label="Stop pomodoro"
-            title="Stop"
-          >
-            <Square size={11} />
-          </button>
-          <span
-            className={cn('absolute bottom-0 left-0 h-[2px]', isBreak ? 'bg-emerald-400/70' : 'bg-cyan-400/70')}
-            style={{ width: `${progress * 100}%` }}
-            aria-hidden
-          />
+          <span className="font-mono text-sm font-medium text-fg tabular">{formatClock(remaining)}</span>
+          <span className="flex items-center">
+            <IconButton
+              icon={paused ? Play : Pause}
+              iconSize={13}
+              size="sm"
+              onClick={toggle}
+              aria-label={paused ? 'Resume pomodoro' : 'Pause pomodoro'}
+              tooltip={paused ? 'Resume' : 'Pause'}
+            />
+            <IconButton
+              icon={Square}
+              iconSize={12}
+              size="sm"
+              variant="ghost-danger"
+              onClick={stop}
+              aria-label="Stop pomodoro"
+              tooltip="Stop"
+            />
+          </span>
+          <span className="absolute inset-x-0 bottom-0 h-0.5 bg-line" aria-hidden>
+            <span
+              className={cn(
+                'block h-full transition-[width] duration-1000 ease-linear',
+                paused ? 'bg-fg-subtle' : isBreak ? 'bg-success' : 'bg-accent'
+              )}
+              style={{ width: `${progress * 100}%` }}
+            />
+          </span>
         </motion.div>
       )}
     </AnimatePresence>

@@ -10,17 +10,19 @@
 
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Flag, Lightbulb, Pause, Play, RotateCcw, Timer, Trophy } from 'lucide-react';
+import { ChevronRight, Flag, Lightbulb, Pause, Play, RotateCcw, Timer, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge, Button, Select, Toolbar, ToolbarSeparator } from '@/components/ui';
+import { TRANSITION } from '@/styles/tokens';
 import type { AlgoSortFrame, SortAlgorithmId } from '@/types/algo';
 import { SORTING_ALGORITHMS } from '@/data/algorithms';
 import { SORT_ALGORITHM_IDS, buildSortFrames, frameOps } from '@/lib/algorithms/sorting';
 import { DEFAULT_SPEED, RACE_SPEED_LEVELS } from '@/lib/algorithms/constants';
 import { useAlgoLabStore } from './useAlgoLabStore';
-import { DatasetControls } from './DatasetControls';
+import { useDatasetControls } from './DatasetControls';
 import { SortBars } from './SortBars';
 import { ComplexityCard } from './ComplexityCard';
-import { LabLayout, StepMessage } from './LabLayout';
+import { LabLayout, Stat, StepMessage } from './LabLayout';
 import { SpeedSlider } from './PlaybackControls';
 
 type RaceStatus = 'ready' | 'running' | 'paused' | 'finished';
@@ -80,6 +82,8 @@ interface LaneProps {
   onAlgorithmChange: (side: Side, algorithm: SortAlgorithmId) => void;
 }
 
+const ALGORITHM_OPTIONS = SORT_ALGORITHM_IDS.map((id) => ({ value: id, label: SORTING_ALGORITHMS[id].name }));
+
 function RaceLaneInner({
   side,
   algorithm,
@@ -93,52 +97,51 @@ function RaceLaneInner({
   onAlgorithmChange,
 }: LaneProps) {
   const meta = SORTING_ALGORITHMS[algorithm];
+  const laneName = side === 'left' ? 'Lane A' : 'Lane B';
   return (
     <div
       className={cn(
-        'flex min-h-0 min-w-0 flex-col rounded-lg border bg-black/25 transition-colors duration-300',
+        'relative isolate flex min-h-0 min-w-0 flex-col overflow-hidden rounded-card border bg-ink-950/45 transition-[border-color,box-shadow] duration-260 ease-out-quint',
         outcome === 'winner'
-          ? 'border-emerald-400/50 shadow-[0_0_24px_rgba(52,211,153,0.15)]'
+          ? 'border-success/45 shadow-[0_0_28px_-10px_var(--color-success)]'
           : outcome === 'tie'
-            ? 'border-cyan-400/40'
-            : 'border-white/10'
+            ? 'border-accent/35'
+            : 'border-line'
       )}
     >
-      <div className="flex items-center gap-2 border-b border-white/10 px-2.5 py-1.5">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-white/45">
-          {side === 'left' ? 'Lane A' : 'Lane B'}
-        </span>
-        <select
-          value={algorithm}
-          onChange={(event) => {
-            const chosen = SORT_ALGORITHM_IDS.find((id) => id === event.target.value);
-            if (chosen) onAlgorithmChange(side, chosen);
-          }}
-          disabled={locked}
-          aria-label={`${side === 'left' ? 'Lane A' : 'Lane B'} algorithm`}
-          className="min-w-0 flex-1 rounded-md border border-white/15 bg-black/40 px-1.5 py-0.5 text-[12px] text-white outline-none focus:border-cyan-400/60 disabled:opacity-60"
-        >
-          {SORT_ALGORITHM_IDS.map((id) => (
-            <option key={id} value={id} className="bg-[#0f1220]">
-              {SORTING_ALGORITHMS[id].name}
-            </option>
-          ))}
-        </select>
+      {outcome === 'winner' && (
+        <span aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-b from-success/[0.07] to-transparent to-50%" />
+      )}
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
+        <span className="hud-label shrink-0">{laneName}</span>
+        <div className="min-w-0 flex-1">
+          <Select
+            size="sm"
+            value={algorithm}
+            onValueChange={(value) => {
+              const chosen = SORT_ALGORITHM_IDS.find((id) => id === value);
+              if (chosen) onAlgorithmChange(side, chosen);
+            }}
+            disabled={locked}
+            aria-label={`${laneName} algorithm`}
+            options={ALGORITHM_OPTIONS}
+          />
+        </div>
         <AnimatePresence>
           {finished && (
             <motion.span
-              initial={{ opacity: 0, scale: 0.6 }}
+              initial={{ opacity: 0, scale: 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
-              className={cn(
-                'flex shrink-0 items-center gap-1 rounded-full border px-2 py-px text-[10px] font-semibold',
-                outcome === 'winner'
-                  ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-200'
-                  : 'border-white/15 bg-white/5 text-white/70'
-              )}
+              transition={TRANSITION.small}
+              className="flex shrink-0"
             >
-              {outcome === 'winner' ? <Trophy className="h-3 w-3" aria-hidden /> : <Flag className="h-3 w-3" aria-hidden />}
-              {outcome === 'winner' ? 'Winner' : outcome === 'tie' ? 'Tie' : 'Finished'}
+              <Badge
+                tone={outcome === 'winner' ? 'success' : outcome === 'tie' ? 'accent' : 'neutral'}
+                icon={outcome === 'winner' ? Trophy : Flag}
+              >
+                {outcome === 'winner' ? 'Winner' : outcome === 'tie' ? 'Tie' : 'Finished'}
+              </Badge>
             </motion.span>
           )}
         </AnimatePresence>
@@ -148,20 +151,16 @@ function RaceLaneInner({
         <SortBars frame={frame} maxValue={maxValue} animate={animate} />
       </div>
 
-      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 border-t border-white/10 px-2.5 py-1.5 font-mono text-[11px] text-white/60 @md/stage:grid-cols-4">
-        <span className="flex items-center gap-1">
-          <Timer className="h-3 w-3" aria-hidden />
-          <span className={cn('tabular-nums', finished ? 'text-emerald-300' : 'text-white/90')}>{formatClock(timeMs)}</span>
+      <div className="grid shrink-0 grid-cols-2 gap-x-4 gap-y-1 border-t border-line px-3 py-2 @2xl/stage:grid-cols-4">
+        <span className="flex items-center gap-1.5">
+          <Timer size={14} strokeWidth={1.75} className="shrink-0 text-fg-subtle" aria-hidden />
+          <span className={cn('tabular font-mono text-ui font-medium', finished ? 'text-success' : 'text-fg')}>
+            {formatClock(timeMs)}
+          </span>
         </span>
-        <span>
-          steps <span className="tabular-nums text-white/90">{frame.comparisons + frame.moves}</span>
-        </span>
-        <span>
-          cmp <span className="tabular-nums text-yellow-200">{frame.comparisons}</span>
-        </span>
-        <span>
-          {meta.moveLabel === 'writes' ? 'writes' : 'swaps'} <span className="tabular-nums text-rose-300">{frame.moves}</span>
-        </span>
+        <Stat label="steps" value={frame.comparisons + frame.moves} />
+        <Stat label="cmp" value={frame.comparisons} tone="warning" />
+        <Stat label={meta.moveLabel === 'writes' ? 'writes' : 'swaps'} value={frame.moves} tone="danger" />
       </div>
     </div>
   );
@@ -177,6 +176,7 @@ function CompareModeInner() {
   const speedLevel = useAlgoLabStore((s) => s.speeds.race);
   const setSpeed = useAlgoLabStore((s) => s.setSpeed);
   const recordRace = useAlgoLabStore((s) => s.recordRace);
+  const datasetControls = useDatasetControls();
 
   const leftFrames = useMemo(() => buildSortFrames(left, dataset), [left, dataset]);
   const rightFrames = useMemo(() => buildSortFrames(right, dataset), [right, dataset]);
@@ -284,67 +284,57 @@ function CompareModeInner() {
     message = `${leftMeta.name} vs ${rightMeta.name} on the same ${dataset.length} values. Press Start race.`;
   }
 
-  const footer = (
-    <>
-      <StepMessage message={message}>
-        {finished && winner && (
-          <span className="flex items-center gap-1 text-emerald-300">
-            <Trophy className="h-3.5 w-3.5" aria-hidden />
-            {formatClock(race.finish[winner] ?? 0)}
-          </span>
-        )}
-      </StepMessage>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-white/10 bg-black/30 px-2 py-1.5">
-        <div className="flex items-center gap-1">
-          {race.status === 'running' ? (
-            <button
-              type="button"
-              onClick={pause}
-              className="flex items-center gap-1.5 rounded-md border border-amber-400/40 bg-amber-400/15 px-3 py-1.5 text-[12px] text-amber-100 hover:bg-amber-400/25"
-            >
-              <Pause className="h-3.5 w-3.5" aria-hidden />
-              Pause
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={start}
-              className="flex items-center gap-1.5 rounded-md border border-cyan-400/40 bg-cyan-400/15 px-3 py-1.5 text-[12px] text-cyan-100 hover:bg-cyan-400/25"
-            >
-              <Play className="h-3.5 w-3.5" aria-hidden />
-              {race.status === 'paused' ? 'Resume' : finished ? 'Race again' : 'Start race'}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={reset}
-            disabled={race.status === 'ready'}
-            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30"
-          >
-            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-            Reset
-          </button>
-        </div>
-        <span className="font-mono text-[11px] text-white/55">
-          race clock <span className="tabular-nums text-white/85">{formatClock(race.elapsed)}</span>
+  const narration = (
+    <StepMessage message={message}>
+      {finished && winner && (
+        <span className="flex items-center gap-1.5 text-success">
+          <Trophy size={14} strokeWidth={1.75} aria-hidden />
+          <span className="tabular font-mono text-ui font-medium">{formatClock(race.finish[winner] ?? 0)}</span>
         </span>
-        <div className="ml-auto">
+      )}
+    </StepMessage>
+  );
+
+  const transport = (
+    <Toolbar border="top" aria-label="Race controls" className="bg-ink-950/30">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        {race.status === 'running' ? (
+          <Button size="sm" variant="secondary" leadingIcon={Pause} onClick={pause}>
+            Pause
+          </Button>
+        ) : (
+          <Button size="sm" variant="primary" leadingIcon={Play} onClick={start}>
+            {race.status === 'paused' ? 'Resume' : finished ? 'Race again' : 'Start race'}
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" leadingIcon={RotateCcw} onClick={reset} disabled={race.status === 'ready'}>
+          Reset
+        </Button>
+        <ToolbarSeparator />
+        <span className="flex items-baseline gap-1.5">
+          <span className="hud-label">Race clock</span>
+          <span className="tabular font-mono text-ui font-medium text-fg">{formatClock(race.elapsed)}</span>
+        </span>
+        <div className="ml-auto hidden items-center @xl/lab:flex">
           <SpeedSlider kind="race" level={speedLevel} onChange={(level) => setSpeed('race', level)} />
         </div>
       </div>
-    </>
+    </Toolbar>
   );
 
   return (
     <LabLayout
+      view="compare"
       title="Compare Race"
-      subtitle="Two sorts race on the same data at the same pace: every comparison, swap or write costs one tick. Fewer operations finish first."
       category="sorting"
       badgeLabel="Race"
-      toolbar={<DatasetControls />}
+      keyHints={false}
+      toolbar={datasetControls.toolbar}
+      subbar={datasetControls.subbar}
       stageLabel="Race lanes"
+      bareStage
       stage={
-        <div className="grid h-full min-h-0 grid-cols-1 grid-rows-2 gap-2 p-2 @xl/stage:grid-cols-2 @xl/stage:grid-rows-1">
+        <div className="grid h-full min-h-0 grid-cols-1 grid-rows-2 gap-3 @xl/stage:grid-cols-2 @xl/stage:grid-rows-1">
           <RaceLane
             side="left"
             algorithm={left}
@@ -371,31 +361,28 @@ function CompareModeInner() {
           />
         </div>
       }
-      footer={footer}
-      code={
-        <div className="flex h-full min-h-0 flex-col gap-2 overflow-y-auto">
+      narration={narration}
+      aside={
+        <>
           <ComplexityCard meta={leftMeta} compact />
           <ComplexityCard meta={rightMeta} compact />
-        </div>
+          <section className="glass-panel rounded-card p-3" aria-label="Races worth trying">
+            <h4 className="hud-label mb-2 flex items-center gap-1.5 px-1">
+              <Lightbulb size={14} strokeWidth={1.75} aria-hidden />
+              Races worth trying
+            </h4>
+            <ul className="space-y-1.5 px-1">
+              {RACE_TIPS.map((tip) => (
+                <li key={tip} className="flex gap-1.5 text-ui text-fg-muted">
+                  <ChevronRight size={14} strokeWidth={1.75} className="mt-[3px] shrink-0 text-accent" aria-hidden />
+                  <span className="min-w-0 select-text">{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </>
       }
-      details={
-        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-          <h4 className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/55">
-            <Lightbulb className="h-3 w-3" aria-hidden />
-            Races worth trying
-          </h4>
-          <ul className="space-y-1 text-[11.5px] leading-snug text-white/70">
-            {RACE_TIPS.map((tip) => (
-              <li key={tip} className="flex gap-1.5">
-                <span className="text-cyan-400" aria-hidden>
-                  ▸
-                </span>
-                <span>{tip}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      }
+      playback={transport}
     />
   );
 }

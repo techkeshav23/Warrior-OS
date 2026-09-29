@@ -1,62 +1,258 @@
 @import "tailwindcss";
+/* The docs quote class names in prose and tables: keep them out of the scan. */
+@source not "../../docs";
 
 /* ═══════════════════════════════════════════════════════════
-   WARRIOR OS v4.0 — Design System
-   THE LIVING WORLD — Design Tokens & Base Styles
+   WARRIOR OS: FORGE HUD design system
+   Tokens, custom utilities and base styles (Tailwind v4, CSS-first).
+
+   Deep-ink surfaces, Plasma for the machine (interaction, focus,
+   info), Ember for warrior energy (streaks, XP, fire). Glow is
+   reserved for focus, live status and primary moments.
+
+   Guide:       docs/design-system.md
+   JS mirrors:  src/styles/tokens.ts (canvas, charts, framer-motion)
+   Live accent: src/components/os/ThemeSync.tsx
    ═══════════════════════════════════════════════════════════ */
 
-/* ─── Design Tokens ─── */
-:root {
-  /* Core Palette */
-  --bg-void: #000000;
-  --bg-desktop: #0a0a0f;
-  --bg-surface: #111118;
-  --bg-elevated: #1a1a24;
-  --bg-overlay: rgba(10, 10, 15, 0.85);
+/* ─── Variants ─── */
+/* lite:  styles that apply while lite mode is on (<html data-lite-mode>) */
+@custom-variant lite (&:where([data-lite-mode], [data-lite-mode] *));
 
-  /* Accent Colors */
-  --accent-primary: #00f0ff;
-  --accent-secondary: #7b61ff;
-  --accent-tertiary: #ff3d71;
-  --accent-success: #00e676;
-  --accent-warning: #ffab00;
-  --accent-danger: #ff1744;
+/* ─── Tokens: static palette and scales ─── */
+/* `static` keeps every variable on :root, so var(--color-viz-3),
+   var(--radius-card) and friends also work in inline styles and SVG. */
+@theme static {
+  /* Ink: the canvas and solid surfaces, darkest → lightest */
+  --color-ink-950: #04060b;
+  --color-ink-900: #070a12;
+  --color-ink-850: #0b1019;
+  --color-ink-800: #0f1520;
+  --color-ink-750: #141b28;
+  --color-ink-700: #1a2332;
+  --color-ink-600: #243044;
+  --color-ink-500: #33415a;
 
-  /* Text */
-  --text-primary: #e4e4ef;
-  --text-secondary: #8888a0;
-  --text-muted: #555566;
-  --text-accent: var(--accent-primary);
+  /* Foreground: text and icons, strongest → faintest */
+  --color-fg: #e6edf7;
+  --color-fg-muted: #a0adc2;
+  --color-fg-subtle: #6f7d94;
+  --color-fg-faint: #4a566b;
 
-  /* Glass */
-  --glass-bg: rgba(17, 17, 24, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.06);
-  --glass-highlight: rgba(255, 255, 255, 0.03);
-  --glass-blur: 12px;
+  /* Hairlines: borders, dividers, gridlines */
+  --color-line: rgb(148 170 205 / 0.1);
+  --color-line-strong: rgb(148 170 205 / 0.18);
 
-  /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(0, 240, 255, 0.15);
-  --shadow-glow-strong: 0 0 40px rgba(0, 240, 255, 0.3);
+  /* Surfaces (surface, the window glass, lives in the runtime block below) */
+  --color-surface-2: rgb(255 255 255 / 0.025);
+  --color-surface-3: rgb(13 18 28 / 0.94);
+  --color-surface-hover: rgb(255 255 255 / 0.045);
+  --color-surface-active: rgb(255 255 255 / 0.07);
 
-  /* Spacing Scale */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
-  --space-2xl: 48px;
+  /* Text/icons on an accent fill */
+  --color-accent-fg: #03131a;
 
-  /* Border Radius */
+  /* Plasma: the machine */
+  --color-plasma-300: #7ce7fb;
+  --color-plasma-400: #2fd6f5;
+  --color-plasma-500: #10b8d8;
+  --color-plasma-600: #0b8fad;
+
+  /* Ember: warrior energy */
+  --color-ember-300: #ffb27a;
+  --color-ember-400: #ff8a3d;
+  --color-ember-500: #f76b15;
+  --color-ember-600: #d4520b;
+
+  /* Status */
+  --color-success: #3ddc97;
+  --color-warning: #f5c04a;
+  --color-danger: #ff5470;
+  --color-info: #6aa8ff;
+  --color-gold: #f5c04a;
+
+  /* Data viz: eight named chart hues. The slot number is the hue's name
+     (viz-4 is always mint, viz-5 always rose), so a single-meaning mark
+     picks its slot directly. */
+  --color-viz-1: #2fd6f5; /* plasma */
+  --color-viz-2: #ff8a3d; /* ember */
+  --color-viz-3: #a78bfa; /* violet */
+  --color-viz-4: #3ddc97; /* mint */
+  --color-viz-5: #ff6b8a; /* rose */
+  --color-viz-6: #6aa8ff; /* azure */
+  --color-viz-7: #f5c04a; /* amber */
+  --color-viz-8: #b8e068; /* lime */
+  /* Multi-series charts take the hues in this color-blind-safe order
+     (validated on ink-900/850/800: adjacent CVD ΔE ≥ 8.2, normal ≥ 19.3;
+     rose never sits next to mint). Mirrors VIZ_SERIES / vizColor(i). */
+  --color-series-1: var(--color-viz-1); /* plasma */
+  --color-series-2: var(--color-viz-2); /* ember */
+  --color-series-3: var(--color-viz-3); /* violet */
+  --color-series-4: var(--color-viz-7); /* amber */
+  --color-series-5: var(--color-viz-4); /* mint */
+  --color-series-6: var(--color-viz-6); /* azure */
+  --color-series-7: var(--color-viz-5); /* rose */
+  --color-series-8: var(--color-viz-8); /* lime */
+
+  /* Type scale: size / line-height (rem, 16px root) */
+  --text-2xs: 0.6875rem; /* 11 / 16: HUD labels, axis ticks */
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem; /* 12 / 16: meta, badges, captions */
+  --text-xs--line-height: 1rem;
+  --text-ui: 0.8125rem; /* 13 / 20: default dense text inside windows */
+  --text-ui--line-height: 1.25rem;
+  --text-sm: 0.875rem; /* 14 / 22: comfortable body, inputs */
+  --text-sm--line-height: 1.375rem;
+  --text-base: 1rem; /* 16 / 24: reading text */
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem; /* 18 / 26: window / section titles */
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.375rem; /* 22 / 28: page titles */
+  --text-xl--line-height: 1.75rem;
+  --text-xl--letter-spacing: -0.01em;
+  --text-2xl: 1.75rem; /* 28 / 34: stat values, hero titles */
+  --text-2xl--line-height: 2.125rem;
+  --text-2xl--letter-spacing: -0.015em;
+  --text-3xl: 2.5rem; /* 40 / 44: display numbers */
+  --text-3xl--line-height: 2.75rem;
+  --text-3xl--letter-spacing: -0.02em;
+  /* Display only (font-display: clocks, level-ups, hero numbers) */
+  --text-4xl: 3rem; /* 48 / 52 */
+  --text-4xl--line-height: 3.25rem;
+  --text-4xl--letter-spacing: -0.02em;
+  --text-5xl: 3.5rem; /* 56 / 60 */
+  --text-5xl--line-height: 3.75rem;
+  --text-5xl--letter-spacing: -0.02em;
+  --text-6xl: 4rem; /* 64 / 68 */
+  --text-6xl--line-height: 4.25rem;
+  --text-6xl--letter-spacing: -0.02em;
+  --text-7xl: 4.75rem; /* 76 / 80 */
+  --text-7xl--line-height: 5rem;
+  --text-7xl--letter-spacing: -0.02em;
+
+  /* Radii: semantic names first; the t-shirt sizes follow the same ramp */
+  --radius-control: 8px; /* buttons, inputs, chips, menu items */
+  --radius-card: 12px; /* cards, panels, popovers, menus */
+  --radius-window: 16px; /* windows, desktop widgets */
+  --radius-sheet: 20px; /* dialogs, sheets, start menu, palette */
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-full: 9999px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
 
-  /* Z-Index Scale */
+  /* Elevation (outer shadows; the glass-* materials add the top highlight) */
+  --shadow-e1: 0 1px 2px 0 rgb(0 0 0 / 0.28), 0 2px 8px -2px rgb(0 0 0 / 0.3);
+  --shadow-e2:
+    0 0 0 1px rgb(0 0 0 / 0.28), 0 4px 12px -2px rgb(0 0 0 / 0.4),
+    0 16px 40px -8px rgb(0 0 0 / 0.55);
+  --shadow-e3:
+    0 0 0 1px rgb(0 0 0 / 0.36), 0 8px 24px -6px rgb(0 0 0 / 0.45),
+    0 32px 80px -16px rgb(0 0 0 / 0.7);
+
+  /* Motion: 120ms hover · 180ms small · 260ms panels/windows */
+  --ease-out-quint: cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-fade-in: wos-fade-in 180ms var(--ease-out-quint) both;
+  --animate-rise-in: wos-rise-in 260ms var(--ease-out-quint) both;
+  --animate-scale-in: wos-scale-in 180ms var(--ease-out-quint) both;
+  --animate-shimmer: wos-shimmer 1.6s ease-in-out infinite;
+  --animate-pulse-soft: wos-pulse-soft 2.4s ease-in-out infinite;
+
+  @keyframes wos-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes wos-rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+  @keyframes wos-scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+  @keyframes wos-shimmer {
+    from {
+      background-position: 150% 0;
+    }
+    to {
+      background-position: -50% 0;
+    }
+  }
+  @keyframes wos-pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+}
+
+/* ─── Tokens: runtime (resolved per element, at paint time) ─── */
+/* `inline` writes the var() reference into each utility, so bg-accent,
+   bg-accent/15, ring-accent… follow the live accent, and a subtree can
+   re-tint itself with style={{ '--accent': '#ff8a3d' }}. */
+@theme inline static {
+  --color-accent: var(--accent);
+  --color-accent-soft: color-mix(in oklab, var(--accent) 14%, transparent);
+  /* Window glass: follows Settings → Glass Opacity (ThemeSync) */
+  --color-surface: rgb(9 13 21 / calc(var(--glass-alpha, 0.86) + var(--glass-boost, 0)));
+
+  /* next/font puts --font-inter / --font-jetbrains / --font-orbitron on <html> */
+  --font-sans:
+    var(--font-inter, "Inter"), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+  --font-mono:
+    var(--font-jetbrains, "JetBrains Mono"), ui-monospace, "SFMono-Regular", "Cascadia Code",
+    Menlo, monospace;
+  --font-display: var(--font-orbitron, "Orbitron"), var(--font-inter, "Inter"), ui-sans-serif, sans-serif;
+
+  --shadow-glow:
+    0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent),
+    0 0 20px -2px color-mix(in oklab, var(--accent) 38%, transparent);
+
+  /* DEPRECATED color utilities: keep old markup working, don't use in new code.
+     bg-accent-primary → bg-accent · text-text-primary → text-fg ·
+     text-text-secondary → text-fg-muted · text-text-muted → text-fg-subtle */
+  --color-void: var(--bg-void);
+  --color-desktop: var(--bg-desktop);
+  --color-elevated: var(--bg-elevated);
+  --color-overlay: var(--bg-overlay);
+  --color-accent-primary: var(--accent);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-accent-tertiary: var(--accent-tertiary);
+  --color-accent-success: var(--accent-success);
+  --color-accent-warning: var(--accent-warning);
+  --color-accent-danger: var(--accent-danger);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+}
+
+/* ─── Runtime variables + legacy aliases ─── */
+:root {
+  /* Accent: ThemeSync writes the Settings / workspace accent into
+     --accent-primary (inline on <html>); decay stage 3 may override it
+     with !important. Components read --accent (or the accent utilities). */
+  --accent-primary: #2fd6f5;
+  --accent: var(--accent-primary);
+  /* Window glass opacity: ThemeSync maps Settings → Glass Opacity onto
+     0.74–0.98 (default 0.86); decay stage 2 adds a boost */
+  --glass-alpha: 0.86;
+  --glass-boost: 0;
+
+  /* Motion durations for inline styles (utilities: duration-120 / 180 / 260) */
+  --duration-hover: 120ms;
+  --duration-small: 180ms;
+  --duration-panel: 260ms;
+
+  /* Z-index scale */
   --z-wallpaper: 0;
   --z-desktop: 10;
   --z-window: 100;
@@ -64,50 +260,207 @@
   --z-dynamic-island: 600;
   --z-start-menu: 700;
   --z-command-palette: 800;
+  --z-context-menu: 850;
   --z-notification: 900;
   --z-modal: 950;
   --z-boot: 1000;
-  --z-context-menu: 850;
   --z-cursor: 9999;
 
-  /* Transitions */
+  /* ── DEPRECATED aliases: old variable → FORGE HUD token. Migrate, don't add. ── */
+  --bg-void: var(--color-ink-950);
+  --bg-desktop: var(--color-ink-950);
+  --bg-surface: var(--color-ink-900);
+  --bg-elevated: var(--color-ink-800);
+  --bg-overlay: rgb(4 6 11 / 0.85);
+  --accent-secondary: var(--color-viz-3);
+  --accent-tertiary: var(--color-viz-5);
+  --accent-success: var(--color-success);
+  --accent-warning: var(--color-warning);
+  --accent-danger: var(--color-danger);
+  --text-primary: var(--color-fg);
+  --text-secondary: var(--color-fg-muted);
+  --text-muted: var(--color-fg-subtle);
+  --text-accent: var(--accent);
+  --glass-bg: var(--color-surface);
+  --glass-border: var(--color-line);
+  --glass-highlight: rgb(255 255 255 / 0.04);
+  --glass-blur: 20px;
+  --shadow-glow-strong: 0 0 32px -4px color-mix(in oklab, var(--accent) 40%, transparent);
+  --radius-full: 9999px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out-circ: cubic-bezier(0.85, 0, 0.15, 1);
-  --transition-fast: 150ms var(--ease-out-expo);
-  --transition-normal: 250ms var(--ease-out-expo);
-  --transition-slow: 500ms var(--ease-out-expo);
-
-  /* Fonts */
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", monospace;
-  --font-display: "Orbitron", var(--font-sans);
+  --transition-fast: 120ms var(--ease-out-quint);
+  --transition-normal: 180ms var(--ease-out-quint);
+  --transition-slow: 260ms var(--ease-out-quint);
 }
 
-/* ─── Tailwind v4 Theme Extension ─── */
-@theme inline {
-  --color-void: var(--bg-void);
-  --color-desktop: var(--bg-desktop);
-  --color-surface: var(--bg-surface);
-  --color-elevated: var(--bg-elevated);
-  --color-overlay: var(--bg-overlay);
+/* ═══ Custom utilities ═══ */
 
-  --color-accent-primary: var(--accent-primary);
-  --color-accent-secondary: var(--accent-secondary);
-  --color-accent-tertiary: var(--accent-tertiary);
-  --color-accent-success: var(--accent-success);
-  --color-accent-warning: var(--accent-warning);
-  --color-accent-danger: var(--accent-danger);
+/* Materials. Each carries its elevation; add shadow-* only to change it.
+   glass-window:  windows, taskbar, desktop widgets: anything on the wallpaper
+   glass-popover: menus, popovers, tooltips, palette, toasts
+   glass-panel:   cards inside a window (no blur: it sits on glass already) */
+@utility glass-window {
+  background-color: var(--color-surface);
+  /* 16px: cheaper on window-sized surfaces, and headless Chromium
+     (README screenshots) skips larger blur radii on big layers. */
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--color-line-strong);
+  --tw-inset-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.06);
+  --tw-shadow: var(--shadow-e3);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 
-  --color-text-primary: var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-muted: var(--text-muted);
-
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
-  --font-display: var(--font-display);
+  &:where([data-lite-mode] *) {
+    background-color: #090d15;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: #090d15;
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background-color: #090d15;
+  }
 }
 
-/* ─── Base Styles ─── */
+@utility glass-popover {
+  background-color: var(--color-surface-3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--color-line-strong);
+  --tw-inset-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.05);
+  --tw-shadow: var(--shadow-e2);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+
+  &:where([data-lite-mode] *) {
+    background-color: #0d121c;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: #0d121c;
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background-color: #0d121c;
+  }
+}
+
+@utility glass-panel {
+  background-color: var(--color-surface-2);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--color-line);
+  --tw-inset-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.03);
+  --tw-shadow: var(--shadow-e1);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+
+/* HUD label: 11px mono, uppercase, tracked; fg-subtle unless recolored */
+@utility hud-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--text-2xs--line-height);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-fg-subtle);
+}
+
+/* HUD corners: four 10px accent L-brackets just inside the border.
+   Paints background layers (so it composes with glass-* and bg-*
+   colors, not with bg-linear-* images). Tune per element with
+   --hud-corner-color / --hud-corner-size / --hud-corner-inset. */
+@utility hud-corners {
+  --_c: var(--hud-corner-color, color-mix(in oklab, var(--accent) 40%, transparent));
+  --_s: var(--hud-corner-size, 10px);
+  --_i: var(--hud-corner-inset, 5px);
+  background-image:
+    linear-gradient(var(--_c), var(--_c)), linear-gradient(var(--_c), var(--_c)),
+    linear-gradient(var(--_c), var(--_c)), linear-gradient(var(--_c), var(--_c)),
+    linear-gradient(var(--_c), var(--_c)), linear-gradient(var(--_c), var(--_c)),
+    linear-gradient(var(--_c), var(--_c)), linear-gradient(var(--_c), var(--_c));
+  background-size:
+    var(--_s) 1px, 1px var(--_s), var(--_s) 1px, 1px var(--_s),
+    var(--_s) 1px, 1px var(--_s), var(--_s) 1px, 1px var(--_s);
+  background-position:
+    left var(--_i) top var(--_i), left var(--_i) top var(--_i),
+    right var(--_i) top var(--_i), right var(--_i) top var(--_i),
+    left var(--_i) bottom var(--_i), left var(--_i) bottom var(--_i),
+    right var(--_i) bottom var(--_i), right var(--_i) bottom var(--_i);
+  background-repeat: no-repeat;
+}
+
+/* Keyboard focus: 2px accent ring, 2px offset (only on :focus-visible) */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Same ring drawn inside the box: rows/tabs in clipping (overflow) containers */
+@utility focus-ring-inset {
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+}
+
+/* Numbers that update in place: clocks, timers, counters, table columns */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thin, quiet scrollbar for scroll areas */
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(148 170 205 / 0.22) transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: rgb(148 170 205 / 0.22);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+    border-radius: 9999px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(148 170 205 / 0.36);
+  }
+}
+
+/* Scrollable but no visible bar: tab strips, chip rows */
+@utility scrollbar-none {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ═══ Base ═══ */
 /* In the base layer, like Tailwind's preflight: an unlayered reset would
    outrank every (layered) utility and zero p-*, m-*, mx-auto, space-y-*… */
 @layer base {
@@ -118,122 +471,173 @@
     padding: 0;
     box-sizing: border-box;
   }
+
+  * {
+    scrollbar-width: thin;
+  }
+
+  html {
+    color-scheme: dark;
+    background-color: var(--color-ink-950);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
+    /* inherited by every scroll container */
+    scrollbar-color: rgb(148 170 205 / 0.2) transparent;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-ink-950);
+    color: var(--color-fg);
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    user-select: none;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--accent) 30%, transparent);
+    color: var(--color-fg);
+  }
+
+  ::placeholder {
+    color: var(--color-fg-subtle);
+    opacity: 1;
+  }
+
+  /* WebKit scrollbars (Safari; Chromium uses scrollbar-color above) */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: rgb(148 170 205 / 0.2);
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(148 170 205 / 0.34);
+  }
+
+  /* Default keyboard focus ring. Components may restyle it, never remove it. */
+  :where(:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  /* Text fields: ring hugs the field */
+  :where(
+      input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="button"], [type="submit"], [type="reset"], [type="file"]),
+      textarea,
+      select,
+      [contenteditable]
+    ):focus-visible {
+    outline-color: color-mix(in oklab, var(--accent) 65%, transparent);
+    outline-offset: 0;
+  }
+  /* Containers focused by script (dialogs, quiz panes): no ring */
+  :where([tabindex="-1"]):focus-visible {
+    outline: none;
+  }
+
+  /* Reduced motion: transitions become instant and animations settle on
+     their end state. Spinners (and [data-motion="essential"]) keep turning. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    .animate-spin,
+    [data-motion="essential"] {
+      animation-duration: 1s !important;
+      animation-iteration-count: infinite !important;
+    }
+  }
 }
 
-html {
-  color-scheme: dark;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
+/* ═══ DEPRECATED component classes ═══
+   Kept so unmigrated markup still renders on-palette. New code uses the
+   glass-* / focus-ring / shadow-glow utilities instead. Layered, so any
+   utility on the same element wins. */
+@layer components {
+  /* → glass-window / glass-popover */
+  .glass {
+    background-color: var(--glass-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+    border: 1px solid var(--glass-border);
+  }
 
-body {
-  font-family: var(--font-sans);
-  background: var(--bg-void);
-  color: var(--text-primary);
-  overflow: hidden;
-  width: 100vw;
-  height: 100vh;
-  user-select: none;
-}
+  .glass-dark {
+    background-color: rgb(4 6 11 / 0.72);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--color-line);
+  }
 
-/* ─── Selection ─── */
-::selection {
-  background: rgba(0, 240, 255, 0.2);
-  color: var(--accent-primary);
-}
+  .glass-border {
+    border: 1px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+  }
 
-/* ─── Scrollbar ─── */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+  /* → glass-popover + shadow-glow */
+  .glass-glow {
+    background-color: var(--glass-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid color-mix(in oklab, var(--accent) 22%, transparent);
+    box-shadow:
+      0 0 24px -6px color-mix(in oklab, var(--accent) 30%, transparent),
+      inset 0 1px 0 var(--glass-highlight);
+  }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+  .scanlines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgb(0 0 0 / 0.03) 2px,
+      rgb(0 0 0 / 0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
 
-::-webkit-scrollbar-thumb {
-  background: var(--text-muted);
-  border-radius: var(--radius-full);
-}
+  .vignette::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 50%, rgb(2 3 6 / 0.45) 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
-}
+  /* Restrained: a soft halo, not neon */
+  .text-glow {
+    text-shadow: 0 0 14px color-mix(in oklab, currentColor 45%, transparent);
+  }
 
-/* ─── Glass Utilities ─── */
-.glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-}
+  .text-glow-sm {
+    text-shadow: 0 0 8px color-mix(in oklab, currentColor 35%, transparent);
+  }
 
-.glass-dark {
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.glass-border {
-  border: 1px solid var(--glass-border);
-  box-shadow: inset 0 1px 0 var(--glass-highlight);
-}
-
-.glass-glow {
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid rgba(0, 240, 255, 0.1);
-  box-shadow: var(--shadow-glow), inset 0 1px 0 var(--glass-highlight);
-}
-
-/* ─── Scanlines ─── */
-.scanlines::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.03) 2px,
-    rgba(0, 0, 0, 0.03) 4px
-  );
-  pointer-events: none;
-  z-index: 1;
-}
-
-.vignette::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* ─── Glow Text ─── */
-.text-glow {
-  text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
-}
-
-.text-glow-sm {
-  text-shadow: 0 0 6px currentColor;
-}
-
-/* ─── Neon Border ─── */
-.neon-border {
-  box-shadow:
-    0 0 5px var(--accent-primary),
-    0 0 10px var(--accent-primary),
-    inset 0 0 5px rgba(0, 240, 255, 0.05);
-}
-
-/* ─── Focus Ring ─── */
-.focus-ring:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
+  /* → shadow-glow */
+  .neon-border {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--accent) 50%, transparent),
+      0 0 16px -2px color-mix(in oklab, var(--accent) 35%, transparent);
+  }
 }

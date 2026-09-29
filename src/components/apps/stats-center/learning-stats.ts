@@ -16,11 +16,12 @@ import {
 import type { QuizAttempt } from '@/stores/useQuizHistoryStore';
 import type { CardAttempt, CardReview, Deck, Mastery } from '@/types/learning';
 import { DAY_MS, utcDayKey, type HabitSnapshot } from '@/components/widgets/widget-data';
+import { VIZ } from '@/styles/tokens';
 
-/** Mastery marks (radar, trend). Validated with the accuracy colour for the dark surface. */
-export const MASTERY_COLOR = '#00a3bf';
-/** Accuracy marks (trend). */
-export const ACCURACY_COLOR = '#8b5cf6';
+/** Mastery marks (radar, trend): chart series 1 (viz-1, plasma). */
+export const MASTERY_COLOR = VIZ[0];
+/** Accuracy marks (trend): chart series 2 (viz-2, ember). */
+export const ACCURACY_COLOR = VIZ[1];
 
 /** Most decks the radar shows (the most studied ones). */
 export const RADAR_MAX_DECKS = 6;

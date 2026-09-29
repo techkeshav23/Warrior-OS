@@ -10,11 +10,27 @@
 'use client';
 
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Check, Crosshair, Flag, Pencil, Play, Repeat, Sparkles, Swords, Trophy, X, type LucideIcon } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import {
+  Check,
+  ChevronDown,
+  Crosshair,
+  Flag,
+  Pencil,
+  Play,
+  Repeat,
+  Sparkles,
+  Swords,
+  Trophy,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge, Button, Card, ConfirmDialog, EmptyState, IconButton, ProgressBar, StatTile } from '@/components/ui';
+import { EASE_OUT_QUINT, TRANSITION } from '@/styles/tokens';
 import { useLearningStore } from '@/stores/useLearningStore';
 import { recordStudyAction } from '@/components/achievements/study-streak';
+import { TabHeader } from './QuizControls';
 import { launchTraining, type TrainingLauncher } from './practice/launch';
 import { masteryColor, toPercent } from './practice/mastery';
 import { buildPlanView, PLAN_DAYS_SHOWN, type PlanDay, type Quest, type QuestKind } from './practice/quest-plan';
@@ -31,9 +47,9 @@ interface StudyPlannerProps {
 const DAYS_PREVIEW = 14;
 const NO_TICKS: readonly string[] = [];
 
-/** Schedule series colours (validated on dark surfaces). */
-const NEW_COLOR = '#a855f7';
-const REVIEW_COLOR = '#0891b2';
+/** Schedule series colours: the viz palette, in order. */
+const NEW_COLOR = 'var(--color-viz-1)';
+const REVIEW_COLOR = 'var(--color-viz-2)';
 
 const QUEST_ICONS: Readonly<Record<QuestKind, LucideIcon>> = {
   boss: Swords,
@@ -60,75 +76,96 @@ interface QuestRowProps {
 }
 
 function QuestRow({ quest, index, done, onToggle, onStart }: QuestRowProps) {
+  const reduceMotion = useReducedMotion();
   const Icon = QUEST_ICONS[quest.kind];
   const shown = Math.min(quest.progress, quest.target);
+  const boss = quest.kind === 'boss';
   return (
     <motion.li
-      layout
-      initial={{ opacity: 0, y: 8 }}
+      layout={!reduceMotion}
+      initial={reduceMotion ? false : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
+      transition={{ duration: 0.26, delay: index * 0.04, ease: EASE_OUT_QUINT }}
       className={cn(
-        'flex items-center gap-3 rounded-xl border p-3 transition-colors',
-        done ? 'border-emerald-400/25 bg-emerald-500/[0.07]' : 'border-white/10 bg-white/[0.03]',
-        quest.kind === 'boss' && !done && 'border-purple-400/30 bg-purple-500/10'
+        'relative flex items-center gap-3 px-4 py-3 transition-colors duration-120 ease-out-quint',
+        boss && !done && 'bg-ember-500/6'
       )}
     >
+      {boss && !done && <span aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-ember-400" />}
       <button
         type="button"
         role="checkbox"
         aria-checked={done}
         aria-label={quest.achieved ? `${quest.title}: done from your study activity` : `Mark "${quest.title}" done`}
+        title={quest.achieved ? 'Done from your study activity' : undefined}
         disabled={quest.achieved}
         onClick={() => onToggle(quest)}
         className={cn(
-          'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border transition-all',
-          done ? 'border-emerald-400/60 bg-emerald-500/25 text-emerald-200' : 'border-white/20 hover:border-white/40',
+          'focus-ring flex size-5 shrink-0 items-center justify-center rounded-[5px] border transition-colors duration-120 ease-out-quint',
+          done ? 'border-success bg-success text-ink-950' : 'border-fg-faint bg-ink-950/60 hover:border-fg-subtle',
           quest.achieved && 'cursor-default'
         )}
       >
-        <AnimatePresence>
+        <AnimatePresence initial={false}>
           {done && (
-            <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
-              <Check className="h-4 w-4" />
+            <motion.span
+              initial={reduceMotion ? false : { scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.5, opacity: 0 }}
+              transition={TRANSITION.small}
+              className="flex"
+            >
+              <Check size={14} strokeWidth={3} aria-hidden />
             </motion.span>
           )}
         </AnimatePresence>
       </button>
 
+      <span
+        aria-hidden
+        className={cn(
+          'flex size-8 shrink-0 items-center justify-center rounded-control border bg-ink-800',
+          done ? 'border-line text-fg-subtle' : boss ? 'border-ember-500/35 text-ember-400' : 'border-line text-accent'
+        )}
+      >
+        <Icon size={16} strokeWidth={1.75} />
+      </span>
+
       <div className="min-w-0 flex-1">
-        <p className={cn('flex items-center gap-1.5 text-sm font-medium', done ? 'text-white/50 line-through' : 'text-white/90')}>
-          <Icon className={cn('h-3.5 w-3.5 flex-shrink-0', done ? 'text-white/40' : 'text-cyan-300')} />
-          <span className="truncate">{quest.title}</span>
+        <p
+          className={cn('truncate text-ui font-medium', done ? 'text-fg-subtle line-through decoration-fg-faint' : 'text-fg')}
+          title={quest.title}
+        >
+          {quest.title}
         </p>
-        <p className="mt-0.5 truncate text-[11px] text-white/45">
-          <span className="mr-1">{quest.deckIcon}</span>
+        <p className="mt-0.5 truncate text-xs text-fg-subtle" title={`${quest.deckName} · ${quest.detail}`}>
+          <span aria-hidden className="mr-1">
+            {quest.deckIcon}
+          </span>
           {quest.deckName} · {quest.detail}
         </p>
         {quest.target > 1 && (
-          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
-            <motion.div
-              className="h-full rounded-full"
-              style={{ backgroundColor: done ? '#34d399' : quest.deckColor }}
-              initial={false}
-              animate={{ width: `${(shown / quest.target) * 100}%` }}
-            />
-          </div>
+          <ProgressBar
+            value={shown}
+            max={quest.target}
+            size="sm"
+            tone={done ? 'success' : boss ? 'ember' : 'accent'}
+            animated={false}
+            className="mt-2 max-w-64"
+            aria-label={`${quest.title}: ${shown} of ${quest.target}`}
+          />
         )}
       </div>
 
-      <span className="flex-shrink-0 text-xs text-white/50 tabular-nums">
+      <span className="shrink-0 font-mono text-xs text-fg-muted tabular">
         {shown}/{quest.target}
       </span>
-      {!done && (
-        <button
-          type="button"
-          onClick={() => onStart(quest)}
-          className="flex flex-shrink-0 items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-[11px] text-cyan-200 hover:bg-cyan-500/20"
-        >
-          <Play className="h-3 w-3" />
+      {done ? (
+        <span className="hidden min-w-24 shrink-0 text-right text-xs text-success @md:inline">Done</span>
+      ) : (
+        <Button variant={boss ? 'ember' : 'secondary'} size="sm" leadingIcon={Play} onClick={() => onStart(quest)} className="min-w-24">
           {START_LABELS[quest.kind]}
-        </button>
+        </Button>
       )}
     </motion.li>
   );
@@ -143,33 +180,36 @@ function DayRow({ day, todayStart, maxLoad }: { day: PlanDay; todayStart: number
   return (
     <li
       className={cn(
-        'grid grid-cols-[6.5rem_1fr_auto] items-center gap-3 rounded-lg px-2 py-1.5 text-xs',
-        isToday && 'bg-cyan-500/10',
-        day.isTarget && 'bg-purple-500/10'
+        'grid grid-cols-[6.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-control px-2.5 py-1.5 @md:grid-cols-[8rem_minmax(0,1fr)_auto]',
+        isToday && 'bg-accent/8',
+        day.isTarget && 'bg-ember-500/8'
       )}
     >
-      <span className={cn('truncate', isToday ? 'font-semibold text-cyan-200' : 'text-white/60')}>
-        {day.isTarget && <Flag className="mr-1 inline h-3 w-3 text-purple-300" aria-label="Target day" />}
-        {relativeDayLabel(day.dayStart, todayStart)}{' '}
-        <span className="text-white/35">{shortDateLabel(day.dayStart)}</span>
+      <span className={cn('flex min-w-0 items-center gap-1.5 text-xs', isToday ? 'font-semibold text-fg' : 'text-fg-muted')}>
+        {day.isTarget && <Flag size={12} strokeWidth={2} className="shrink-0 text-ember-400" aria-label="Target day" />}
+        <span className="truncate">{relativeDayLabel(day.dayStart, todayStart)}</span>
+        <span className="shrink-0 font-mono text-2xs font-normal text-fg-subtle">{shortDateLabel(day.dayStart)}</span>
       </span>
       <span
-        className="flex h-2 items-center gap-[2px]"
+        className="flex h-2 items-center gap-0.5"
         role="img"
         aria-label={`${day.learn} new, ${day.estimated ? 'about ' : ''}${day.review} reviews`}
       >
         {day.learn > 0 && (
-          <span className="h-full rounded-l-sm" style={{ width: `${learnPct}%`, backgroundColor: NEW_COLOR, minWidth: 3 }} />
+          <span
+            className={cn('h-full', day.review > 0 ? 'rounded-l-full' : 'rounded-full')}
+            style={{ width: `${learnPct}%`, backgroundColor: NEW_COLOR, minWidth: 4 }}
+          />
         )}
         {day.review > 0 && (
           <span
-            className={cn('h-full', day.learn > 0 ? 'rounded-r-sm' : 'rounded-sm')}
-            style={{ width: `${reviewPct}%`, backgroundColor: REVIEW_COLOR, minWidth: 3 }}
+            className={cn('h-full', day.learn > 0 ? 'rounded-r-full' : 'rounded-full', day.estimated && 'opacity-70')}
+            style={{ width: `${reviewPct}%`, backgroundColor: REVIEW_COLOR, minWidth: 4 }}
           />
         )}
-        {day.learn === 0 && day.review === 0 && <span className="text-[10px] text-white/25">rest</span>}
+        {day.learn === 0 && day.review === 0 && <span className="font-mono text-2xs text-fg-subtle">rest</span>}
       </span>
-      <span className="text-right text-white/55 tabular-nums">
+      <span className="text-right font-mono text-2xs text-fg-muted tabular">
         {day.learn} new · {day.estimated ? '≈' : ''}
         {day.review} rev
       </span>
@@ -191,6 +231,7 @@ function StudyPlannerInner({ onStart }: StudyPlannerProps) {
   const [editing, setEditing] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [showAllDays, setShowAllDays] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   // `now` ticks once a minute: due cards and the day roll over without impure renders.
   const [now, setNow] = useState(() => Date.now());
@@ -234,17 +275,13 @@ function StudyPlannerInner({ onStart }: StudyPlannerProps) {
   // ─── No plan yet / editing ───
   if (!plan || !view || editing) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="@container space-y-5 p-5">
         {!plan && (
-          <header>
-            <h3 className="flex items-center gap-2 text-lg font-bold text-white">
-              <Flag className="h-5 w-5 text-cyan-300" />
-              Quest Planner
-            </h3>
-            <p className="mt-1 text-xs text-white/50">
-              A deadline turned into daily quests: learn a slice of new cards, clear your reviews, win one quiz a day.
-            </p>
-          </header>
+          <TabHeader
+            icon={Flag}
+            title="Quest planner"
+            description="A deadline turned into daily quests: learn a slice of new cards, clear your reviews, win one quiz a day."
+          />
         )}
         <QuestPlanForm
           decks={decks}
@@ -258,46 +295,20 @@ function StudyPlannerInner({ onStart }: StudyPlannerProps) {
     );
   }
 
-  const endControls = confirmEnd ? (
-    <span className="flex items-center gap-1.5 text-[11px]">
-      <span className="text-white/50">End this quest?</span>
-      <button
-        type="button"
-        onClick={() => {
-          clearPlan();
-          setConfirmEnd(false);
-        }}
-        className="rounded-md border border-red-400/30 bg-red-500/15 px-2 py-1 text-red-200 hover:bg-red-500/25"
-      >
-        End
-      </button>
-      <button
-        type="button"
-        onClick={() => setConfirmEnd(false)}
-        className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-white/60 hover:bg-white/10"
-      >
-        Keep
-      </button>
-    </span>
-  ) : (
-    <span className="flex gap-1.5">
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/60 hover:bg-white/10"
-      >
-        <Pencil className="h-3 w-3" />
-        Edit
-      </button>
-      <button
-        type="button"
-        onClick={() => setConfirmEnd(true)}
-        className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/60 hover:bg-white/10"
-        aria-label="End this quest"
-      >
-        <X className="h-3 w-3" />
-      </button>
-    </span>
+  const endDialog = (
+    <ConfirmDialog
+      open={confirmEnd}
+      onClose={() => setConfirmEnd(false)}
+      onConfirm={() => {
+        clearPlan();
+        setConfirmEnd(false);
+      }}
+      title="End this quest?"
+      description="The plan and today's ticks are cleared. Your study progress and mastery stay."
+      confirmLabel="End quest"
+      cancelLabel="Keep"
+      tone="danger"
+    />
   );
 
   const goal = plan.goal || 'Untitled quest';
@@ -307,43 +318,47 @@ function StudyPlannerInner({ onStart }: StudyPlannerProps) {
   if (view.status !== 'active') {
     const ended = view.status === 'ended';
     return (
-      <div className="p-6">
-        <motion.section
-          initial={{ opacity: 0, scale: 0.97 }}
+      <div className="@container p-5">
+        <motion.div
+          initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="space-y-4 rounded-2xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6 text-center"
+          transition={TRANSITION.panel}
         >
-          {ended ? <Trophy className="mx-auto h-9 w-9 text-yellow-300" /> : <Flag className="mx-auto h-9 w-9 text-white/40" />}
-          <div>
-            <h3 className="text-lg font-bold text-white">{ended ? 'Quest complete' : 'This quest lost its decks'}</h3>
-            <p className="mt-1 text-xs text-white/50">
-              {goal} · {ended ? `target was ${targetLabel}` : 'the decks it covered were deleted'}
-            </p>
-          </div>
-          {ended && (
-            <p className="text-sm text-white/70">
-              Final mastery <span className="font-semibold text-white">{toPercent(view.mastery.value)}%</span> ·{' '}
-              {view.mastery.mastered} of {view.mastery.total} cards mastered
-            </p>
-          )}
-          <div className="flex justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="flex items-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/30"
-            >
-              <Swords className="h-4 w-4" />
-              {ended ? 'Forge the next quest' : 'Pick decks'}
-            </button>
-            <button
-              type="button"
-              onClick={clearPlan}
-              className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/60 hover:bg-white/10"
-            >
-              Clear
-            </button>
-          </div>
-        </motion.section>
+          <Card hud tone={ended ? 'ember' : 'default'} padding="lg">
+            <div className="flex flex-col items-center gap-4 py-4 text-center">
+              {ended ? (
+                <span className="flex size-14 items-center justify-center rounded-card border border-gold/35 bg-gold/10 text-gold shadow-[0_0_28px_-6px_var(--color-gold)]">
+                  <Trophy size={26} strokeWidth={1.75} aria-hidden />
+                </span>
+              ) : (
+                <span className="flex size-14 items-center justify-center rounded-card border border-line-strong bg-ink-800 text-fg-muted">
+                  <Flag size={24} strokeWidth={1.75} aria-hidden />
+                </span>
+              )}
+              <div>
+                <div className="hud-label">{ended ? 'Quest over' : 'Quest'}</div>
+                <h3 className="mt-1 text-xl font-semibold text-fg">{ended ? 'Quest complete' : 'This quest lost its decks'}</h3>
+                <p className="mt-1 text-ui text-fg-muted">
+                  {goal} · {ended ? `target was ${targetLabel}` : 'the decks it covered were deleted'}
+                </p>
+              </div>
+              {ended && (
+                <p className="text-ui text-fg-muted tabular">
+                  Final mastery <span className="font-semibold text-fg">{toPercent(view.mastery.value)}%</span> ·{' '}
+                  {view.mastery.mastered} of {view.mastery.total} cards mastered
+                </p>
+              )}
+              <div className="flex flex-wrap justify-center gap-3">
+                <Button variant="secondary" size="lg" onClick={clearPlan}>
+                  Clear
+                </Button>
+                <Button variant={ended ? 'ember' : 'primary'} size="lg" leadingIcon={Swords} onClick={() => setEditing(true)}>
+                  {ended ? 'Forge the next quest' : 'Pick decks'}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
       </div>
     );
   }
@@ -356,84 +371,88 @@ function StudyPlannerInner({ onStart }: StudyPlannerProps) {
   const days = showAllDays ? view.days : view.days.slice(0, DAYS_PREVIEW);
   const maxLoad = Math.max(1, ...view.days.map((d) => d.learn + d.review));
   const seenPct = view.mastery.total > 0 ? view.mastery.seen / view.mastery.total : 0;
-  const stats = [
-    { label: 'Mastery', value: `${toPercent(view.mastery.value)}%` },
-    { label: 'Cards seen', value: `${view.mastery.seen} / ${view.mastery.total}` },
-    { label: 'Mastered', value: String(view.mastery.mastered) },
-  ];
 
   return (
-    <div className="space-y-5 p-6">
+    <div className="@container space-y-6 p-5">
+      {endDialog}
+
       {/* Quest header */}
-      <section className="relative overflow-hidden rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 via-slate-950/40 to-purple-500/10 p-5">
+      <Card hud tone="ember" padding="lg">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-300/70">Quest Planner · active quest</p>
-            <h3 className="mt-1 break-words text-lg font-bold text-white">{goal}</h3>
-            <p className="mt-1 flex items-center gap-1.5 text-xs text-white/55">
-              <Flag className="h-3.5 w-3.5 text-purple-300" />
-              {targetLabel} ·{' '}
+            <div className="hud-label text-ember-400">Quest planner · active quest</div>
+            <h3 className="mt-1.5 break-words text-xl font-semibold text-fg">{goal}</h3>
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-ui text-fg-muted">
+              <Flag size={14} strokeWidth={1.75} className="text-ember-400" aria-hidden />
+              {targetLabel}
+              <span aria-hidden className="text-fg-faint">
+                ·
+              </span>
               {view.daysLeft === 0 ? (
-                <span className="font-semibold text-purple-200">target day</span>
+                <Badge tone="ember" size="sm">
+                  Target day
+                </Badge>
               ) : (
-                `${view.daysLeft} day${view.daysLeft === 1 ? '' : 's'} left`
+                <span className="tabular">
+                  {view.daysLeft} day{view.daysLeft === 1 ? '' : 's'} left
+                </span>
               )}
             </p>
           </div>
-          {endControls}
+          <div className="flex shrink-0 items-center gap-1">
+            <IconButton icon={Pencil} aria-label="Edit plan" tooltip onClick={() => setEditing(true)} />
+            <IconButton icon={X} variant="ghost-danger" aria-label="End this quest" tooltip onClick={() => setConfirmEnd(true)} />
+          </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-3">
-          {stats.map((s) => (
-            <div key={s.label}>
-              <p className="text-lg font-semibold text-white">{s.value}</p>
-              <p className="text-[11px] text-white/45">{s.label}</p>
-            </div>
-          ))}
+        <div className="mt-5 grid grid-cols-3 gap-4">
+          <StatTile bare size="sm" label="Mastery" value={toPercent(view.mastery.value)} unit="%" />
+          <StatTile bare size="sm" label="Cards seen" value={view.mastery.seen} unit={`/ ${view.mastery.total}`} />
+          <StatTile bare size="sm" label="Mastered" value={view.mastery.mastered} />
         </div>
-        <div className="mt-3 space-y-1">
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/10" title="Mastery of the plan's cards">
-            <motion.div
-              className="h-full rounded-full"
-              style={{ backgroundColor: masteryColor(view.mastery.value) }}
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.max(1, toPercent(view.mastery.value))}%` }}
-              transition={{ duration: 0.7, ease: 'easeOut' }}
-            />
-          </div>
-          <p className="text-[10px] text-white/35">
+        <div className="mt-4 space-y-2">
+          <ProgressBar
+            value={toPercent(view.mastery.value)}
+            color={masteryColor(view.mastery.value)}
+            aria-label="Mastery of the plan's cards"
+          />
+          <p className="truncate text-xs text-fg-subtle" title={view.decks.map((d) => d.name).join(' · ')}>
             {toPercent(seenPct)}% of cards seen · {view.decks.map((d) => `${d.icon} ${d.name}`).join('  ·  ')}
           </p>
         </div>
-      </section>
+      </Card>
 
       {/* Today */}
-      <section className="space-y-2">
-        <div className="flex items-baseline justify-between">
-          <h4 className="text-sm font-semibold text-white/85">Today&apos;s quests</h4>
-          <span className="text-xs text-white/45 tabular-nums">
+      <section className="space-y-3" aria-label="Today's quests">
+        <div className="flex items-center justify-between gap-3">
+          <h4 className="text-sm font-semibold text-fg">Today&apos;s quests</h4>
+          <Badge tone={allDone ? 'success' : 'neutral'} icon={allDone ? Check : undefined}>
             {doneCount}/{quests.length} done
-          </span>
+          </Badge>
         </div>
         <AnimatePresence>
           {allDone && (
             <motion.div
-              initial={{ opacity: 0, y: -6 }}
+              initial={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="flex items-center gap-2 rounded-xl border border-yellow-400/25 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-100"
+              transition={TRANSITION.small}
+              className="flex items-center gap-3 rounded-card bg-gold/10 px-4 py-3 ring-1 ring-inset ring-gold/25"
             >
-              <Trophy className="h-4 w-4 text-yellow-300" />
-              Day cleared. Every quest done: the streak holds.
+              <Trophy size={18} strokeWidth={1.75} className="shrink-0 text-gold" aria-hidden />
+              <p className="text-ui text-fg">Day cleared. Every quest done: the streak holds.</p>
             </motion.div>
           )}
         </AnimatePresence>
         {quests.length === 0 ? (
-          <p className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-center text-xs text-white/45">
-            Nothing due and nothing new left today. Rest, or run a quiz for fun.
-          </p>
+          <EmptyState
+            size="sm"
+            icon={Swords}
+            title="Nothing to do today"
+            description="Nothing due and nothing new left today. Rest, or run a quiz for fun."
+          />
         ) : (
-          <ul className="space-y-2">
+          <ul className="glass-panel divide-y divide-line overflow-hidden rounded-card">
             {quests.map((quest, i) => (
               <QuestRow key={quest.id} quest={quest} index={i} done={isDone(quest)} onToggle={toggle} onStart={start} />
             ))}
@@ -442,39 +461,46 @@ function StudyPlannerInner({ onStart }: StudyPlannerProps) {
       </section>
 
       {/* Schedule */}
-      <section className="space-y-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h4 className="text-sm font-semibold text-white/85">Schedule</h4>
-          <span className="flex items-center gap-3 text-[11px] text-white/50">
+      <section className="space-y-3" aria-label="Schedule">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-sm font-semibold text-fg">Schedule</h4>
+          <span className="flex items-center gap-4 text-xs text-fg-muted">
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: NEW_COLOR }} />
+              <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: NEW_COLOR }} />
               New cards
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: REVIEW_COLOR }} />
+              <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: REVIEW_COLOR }} />
               Reviews (≈ estimated)
             </span>
           </span>
         </div>
-        <ol className="space-y-0.5 rounded-xl border border-white/10 bg-white/[0.02] p-1.5">
-          {days.map((day) => (
-            <DayRow key={day.dayStart} day={day} todayStart={todayStart} maxLoad={maxLoad} />
-          ))}
-        </ol>
-        {view.days.length > DAYS_PREVIEW && (
-          <button
-            type="button"
-            onClick={() => setShowAllDays((v) => !v)}
-            className="text-xs text-cyan-300/80 hover:text-cyan-200"
-          >
-            {showAllDays ? 'Show fewer days' : `Show all ${view.days.length} days`}
-          </button>
-        )}
-        {view.daysLeft >= PLAN_DAYS_SHOWN && (
-          <p className="text-[11px] text-white/35">
-            Showing the next {PLAN_DAYS_SHOWN} days; the pace already accounts for the whole stretch.
-          </p>
-        )}
+        <Card padding="sm">
+          <ol className="space-y-0.5">
+            {days.map((day) => (
+              <DayRow key={day.dayStart} day={day} todayStart={todayStart} maxLoad={maxLoad} />
+            ))}
+          </ol>
+        </Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {view.daysLeft >= PLAN_DAYS_SHOWN ? (
+            <p className="text-xs text-fg-subtle">
+              Showing the next {PLAN_DAYS_SHOWN} days; the pace already accounts for the whole stretch.
+            </p>
+          ) : (
+            <span />
+          )}
+          {view.days.length > DAYS_PREVIEW && (
+            <Button
+              variant="ghost"
+              size="sm"
+              trailingIcon={<ChevronDown size={14} strokeWidth={1.75} className={cn(showAllDays && 'rotate-180')} />}
+              onClick={() => setShowAllDays((v) => !v)}
+            >
+              {showAllDays ? 'Show fewer days' : `Show all ${view.days.length} days`}
+            </Button>
+          )}
+        </div>
       </section>
     </div>
   );

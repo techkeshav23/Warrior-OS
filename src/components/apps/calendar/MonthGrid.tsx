@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Month Grid
 // Calendar month view with leading/trailing days, today highlight,
-// events as coloured bars (wide) or dots (narrow), and keyboard
+// events as category-tinted chips (wide) or dots (narrow), and keyboard
 // navigation (arrows move a day/week, PageUp/PageDown a month,
 // Enter adds an event on the focused day)
 // ═══════════════════════════════════════════════════════════
@@ -13,17 +13,17 @@ import { Plus, Repeat } from 'lucide-react';
 import { addMonths, format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { CalendarOccurrence } from '@/types/calendar';
-import { formatTime12, formatTimeCompact, shiftDateKey, toDateKey } from './calendar-utils';
+import { eventColor, formatTime12, formatTimeCompact, shiftDateKey, tintColor, toDateKey } from './calendar-utils';
 
 const MAX_BARS = 3;
 const MAX_DOTS = 6;
 const NO_OCCURRENCES: readonly CalendarOccurrence[] = [];
 
-// Static class strings so Tailwind can see them: short rows for dots, taller for bars.
+// Static class strings so Tailwind can see them: short rows for dots, taller for chips.
 const ROW_TEMPLATES: Record<number, string> = {
-  4: 'grid-rows-[repeat(4,minmax(3.25rem,1fr))] @xl:grid-rows-[repeat(4,minmax(5.5rem,1fr))]',
-  5: 'grid-rows-[repeat(5,minmax(3.25rem,1fr))] @xl:grid-rows-[repeat(5,minmax(5.5rem,1fr))]',
-  6: 'grid-rows-[repeat(6,minmax(3.25rem,1fr))] @xl:grid-rows-[repeat(6,minmax(5.5rem,1fr))]',
+  4: 'grid-rows-[repeat(4,minmax(3.25rem,1fr))] @xl:grid-rows-[repeat(4,minmax(4.5rem,1fr))]',
+  5: 'grid-rows-[repeat(5,minmax(3.25rem,1fr))] @xl:grid-rows-[repeat(5,minmax(4.5rem,1fr))]',
+  6: 'grid-rows-[repeat(6,minmax(3.25rem,1fr))] @xl:grid-rows-[repeat(6,minmax(4.5rem,1fr))]',
 };
 
 // ─── One day cell ───
@@ -55,6 +55,8 @@ const DayCell = memo(function DayCell({
   const count = occurrences.length;
   const bars = occurrences.slice(0, MAX_BARS);
   const hiddenBars = count - bars.length;
+  const weekend = date.getDay() === 0 || date.getDay() === 6;
+  const firstOfMonth = date.getDate() === 1;
   const label =
     `${format(date, 'EEEE d MMMM yyyy')}${isToday ? ', today' : ''}` +
     (count > 0 ? `, ${count} ${count === 1 ? 'event' : 'events'}` : '');
@@ -69,25 +71,32 @@ const DayCell = memo(function DayCell({
       onClick={() => onSelect(dateKey)}
       onDoubleClick={() => onCreate(dateKey)}
       className={cn(
-        'group relative flex min-w-0 cursor-default flex-col gap-0.5 overflow-hidden border-b border-r border-white/[0.06] p-1 outline-none transition-colors',
-        'focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-cyan-400/70',
-        inMonth ? 'hover:bg-white/[0.04]' : 'bg-black/25 hover:bg-white/[0.03]',
-        isSelected && 'bg-cyan-500/[0.08] hover:bg-cyan-500/[0.1]'
+        'group relative flex min-w-0 cursor-default flex-col gap-1 overflow-hidden border-b border-r border-line p-1 outline-none last:border-r-0',
+        'transition-colors duration-120 ease-out-quint',
+        'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
+        isSelected
+          ? 'bg-accent/[0.07] hover:bg-accent/10'
+          : inMonth
+            ? cn(weekend && 'bg-ink-950/20', 'hover:bg-surface-hover')
+            : 'bg-ink-950/40 hover:bg-surface-2'
       )}
     >
-      <div className="flex items-center justify-between">
+      {/* Today: accent edge along the top */}
+      {isToday && <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-accent shadow-[0_0_10px_var(--accent)]" />}
+      {isSelected && <span aria-hidden className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-accent/35" />}
+
+      <div className="flex items-center justify-between gap-1">
         <span
           className={cn(
-            'flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs',
+            'tabular flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs',
             isToday
-              ? 'bg-cyan-400 font-bold text-black shadow-[0_0_12px_rgba(0,240,255,0.5)]'
+              ? 'bg-accent font-semibold text-accent-fg'
               : inMonth
-                ? 'text-white/85'
-                : 'text-white/30',
-            isSelected && !isToday && 'ring-1 ring-cyan-400/60'
+                ? cn('font-medium', isSelected ? 'text-fg' : 'text-fg-muted')
+                : 'text-fg-faint'
           )}
         >
-          {date.getDate()}
+          {firstOfMonth && !isToday ? format(date, 'd MMM') : date.getDate()}
         </span>
         <button
           type="button"
@@ -99,38 +108,46 @@ const DayCell = memo(function DayCell({
             onCreate(dateKey);
           }}
           onDoubleClick={(e) => e.stopPropagation()}
-          className="rounded p-0.5 text-white/40 opacity-0 transition-opacity hover:bg-white/10 hover:text-cyan-300 focus-visible:opacity-100 group-hover:opacity-100"
+          className="flex size-5 items-center justify-center rounded-[5px] text-fg-subtle opacity-0 transition-[opacity,background-color,color] duration-120 hover:bg-surface-active hover:text-accent focus-visible:opacity-100 group-hover:opacity-100"
         >
-          <Plus className="h-3 w-3" />
+          <Plus size={13} strokeWidth={2} />
         </button>
       </div>
 
-      {/* Bars when the grid is wide enough */}
+      {/* Chips when the grid is wide enough */}
       <div className="hidden min-w-0 flex-col gap-0.5 @xl:flex">
-        {bars.map((occ) => (
-          <button
-            key={occ.key}
-            type="button"
-            tabIndex={-1}
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpen(occ);
-            }}
-            onDoubleClick={(e) => e.stopPropagation()}
-            title={`${occ.event.time ? formatTime12(occ.event.time) : 'All day'} · ${occ.event.title}`}
-            className={cn(
-              'flex min-w-0 items-center gap-1 rounded-[3px] border-l-2 px-1 text-left text-[10px] leading-4 text-white/90 transition-[filter] hover:brightness-125',
-              !inMonth && 'opacity-60'
-            )}
-            style={{ borderLeftColor: occ.event.color, background: `${occ.event.color}29` }}
-          >
-            {occ.event.time && (
-              <span className="shrink-0 font-mono text-white/60">{formatTimeCompact(occ.event.time)}</span>
-            )}
-            <span className="min-w-0 truncate">{occ.event.title}</span>
-            {occ.event.recurrence !== 'none' && <Repeat className="h-2.5 w-2.5 shrink-0 text-white/45" />}
-          </button>
-        ))}
+        {bars.map((occ) => {
+          const color = eventColor(occ.event.color);
+          return (
+            <button
+              key={occ.key}
+              type="button"
+              tabIndex={-1}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpen(occ);
+              }}
+              onDoubleClick={(e) => e.stopPropagation()}
+              title={`${occ.event.time ? formatTime12(occ.event.time) : 'All day'} · ${occ.event.title}`}
+              className={cn(
+                'flex h-4 min-w-0 shrink-0 items-center gap-1 rounded-[3px] border-l-2 pl-1 pr-1 text-left text-[11px] leading-none text-fg',
+                'transition-[filter,background-color] duration-120 hover:brightness-125',
+                !inMonth && 'opacity-55'
+              )}
+              style={{ borderLeftColor: color, background: tintColor(color, occ.event.time ? 14 : 22) }}
+            >
+              {occ.event.time && (
+                <span className="tabular shrink-0 font-mono text-[10px] text-fg-muted">
+                  {formatTimeCompact(occ.event.time)}
+                </span>
+              )}
+              <span className="min-w-0 truncate font-medium">{occ.event.title}</span>
+              {occ.event.recurrence !== 'none' && (
+                <Repeat size={10} strokeWidth={2} className="ml-auto shrink-0 text-fg-subtle" aria-hidden />
+              )}
+            </button>
+          );
+        })}
         {hiddenBars > 0 && (
           <button
             type="button"
@@ -140,7 +157,7 @@ const DayCell = memo(function DayCell({
               onSelect(dateKey);
             }}
             onDoubleClick={(e) => e.stopPropagation()}
-            className="px-1 text-left text-[10px] text-white/50 hover:text-white"
+            className="tabular self-start rounded-[4px] px-1 font-mono text-[10px] leading-4 text-fg-subtle transition-colors duration-120 hover:bg-surface-active hover:text-fg"
           >
             +{hiddenBars} more
           </button>
@@ -149,11 +166,13 @@ const DayCell = memo(function DayCell({
 
       {/* Dots when narrow */}
       {count > 0 && (
-        <div className="flex flex-wrap items-center gap-0.5 px-0.5 @xl:hidden" aria-hidden="true">
+        <div className="flex flex-wrap items-center gap-[3px] px-1 @xl:hidden" aria-hidden="true">
           {occurrences.slice(0, MAX_DOTS).map((occ) => (
-            <span key={occ.key} className="h-1.5 w-1.5 rounded-full" style={{ background: occ.event.color }} />
+            <span key={occ.key} className="size-1.5 rounded-full" style={{ background: eventColor(occ.event.color) }} />
           ))}
-          {count > MAX_DOTS && <span className="text-[9px] leading-none text-white/50">+{count - MAX_DOTS}</span>}
+          {count > MAX_DOTS && (
+            <span className="tabular font-mono text-[9px] leading-none text-fg-subtle">+{count - MAX_DOTS}</span>
+          )}
         </div>
       )}
     </div>
@@ -239,19 +258,19 @@ function MonthGridInner({
   };
 
   return (
-    <div className={cn('@container flex min-h-0 flex-col overflow-y-auto', className)}>
+    <div className={cn('@container scrollbar-thin flex min-h-0 flex-col overflow-y-auto', className)}>
       <div
         role="grid"
         aria-label={format(parseISO(`${viewMonth}-01`), 'MMMM yyyy')}
         onKeyDown={handleKeyDown}
         className="flex min-h-full flex-1 flex-col"
       >
-        <div role="row" className="grid shrink-0 grid-cols-7 border-b border-white/10 bg-black/10">
+        <div role="row" className="grid h-8 shrink-0 grid-cols-7 border-b border-line">
           {weekdayLabels.map((label) => (
             <div
               key={label}
               role="columnheader"
-              className="py-1.5 text-center text-[10px] font-semibold uppercase tracking-wider text-white/45"
+              className="flex items-center px-3 font-mono text-2xs font-medium uppercase tracking-[0.14em] text-fg-subtle"
             >
               {label}
             </div>

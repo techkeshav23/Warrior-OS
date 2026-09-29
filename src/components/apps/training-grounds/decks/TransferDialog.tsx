@@ -8,12 +8,23 @@
 'use client';
 
 import { useState, type ChangeEvent, type DragEvent } from 'react';
-import { ArrowDownToLine, ArrowUpFromLine, Check, CircleCheck, Copy, FileJson, TriangleAlert, Upload } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Check,
+  ChevronRight,
+  CircleCheck,
+  Copy,
+  Download,
+  FileJson,
+  TriangleAlert,
+  Upload,
+} from 'lucide-react';
+import { Button, Checkbox, RadioGroup, Tabs, Textarea } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { deckCards, useLearningStore } from '@/stores/useLearningStore';
 import type { ImportResult } from '@/types/learning';
-import { DialogShell } from './Dialog';
-import { BTN_GHOST, BTN_PRIMARY, INPUT, LABEL, downloadTextFile, fileSlug, plural } from './deck-ui';
+import { DialogShell, SubmitButton } from './Dialog';
+import { downloadTextFile, fileSlug, plural } from './deck-ui';
 
 export type TransferMode = 'export' | 'import';
 
@@ -21,6 +32,7 @@ interface TransferDialogProps {
   initialMode: TransferMode;
   /** Decks preselected for export (null = all). */
   initialDeckIds: readonly string[] | null;
+  open?: boolean;
   onClose: () => void;
   /** Called after an import ran, with its result. */
   onImported: (result: ImportResult) => void;
@@ -47,7 +59,17 @@ const EXAMPLE = `{
   ]
 }`;
 
-export function TransferDialog({ initialMode, initialDeckIds, onClose, onImported }: TransferDialogProps) {
+const MODE_TABS = [
+  { id: 'export', label: 'Export', icon: Download },
+  { id: 'import', label: 'Import', icon: Upload },
+];
+
+const CONFLICT_OPTIONS = [
+  { value: 'copy', label: 'Keep both', description: 'Import it as a separate copy.' },
+  { value: 'replace', label: 'Replace it', description: 'Overwrite the deck with the same id.' },
+];
+
+export function TransferDialog({ initialMode, initialDeckIds, open = true, onClose, onImported }: TransferDialogProps) {
   const decks = useLearningStore((s) => s.decks);
   const exportDecks = useLearningStore((s) => s.exportDecks);
   const importDecks = useLearningStore((s) => s.importDecks);
@@ -69,6 +91,7 @@ export function TransferDialog({ initialMode, initialDeckIds, onClose, onImporte
 
   const chosen = decks.filter((d) => selected.has(d.id));
   const chosenCards = chosen.reduce((n, d) => n + deckCards(d).length, 0);
+  const allSelected = decks.length > 0 && chosen.length === decks.length;
 
   const toggleDeck = (deckId: string) =>
     setSelected((prev) => {
@@ -140,132 +163,125 @@ export function TransferDialog({ initialMode, initialDeckIds, onClose, onImporte
 
   return (
     <DialogShell
+      open={open}
       title="Import / Export"
       subtitle="Decks travel as plain JSON: back them up, move them between browsers, share them."
-      icon={<FileJson className="h-4 w-4 text-cyan-300" />}
-      size="lg"
+      icon={ArrowLeftRight}
+      size="xl"
+      dirty={mode === 'import' && text.trim() !== '' && !result?.ok}
       onClose={onClose}
       onSubmit={submit}
       footer={
         <>
-          {error && (
-            <span className="mr-auto text-[11px] text-red-300" role="alert">
-              {error}
-            </span>
-          )}
-          <button type="button" onClick={onClose} className={BTN_GHOST}>
+          <span className="mr-auto min-w-0 text-xs text-danger" role={error ? 'alert' : undefined}>
+            {error && <span className="line-clamp-2">{error}</span>}
+          </span>
+          <Button variant="ghost" onClick={onClose}>
             {result?.ok ? 'Done' : 'Close'}
-          </button>
+          </Button>
           {mode === 'export' ? (
             <>
-              <button type="button" onClick={() => void copy()} disabled={chosen.length === 0} className={BTN_GHOST}>
-                {copied ? <Check className="h-3.5 w-3.5 text-green-300" /> : <Copy className="h-3.5 w-3.5" />}
+              <Button
+                variant="secondary"
+                leadingIcon={copied ? <Check size={16} strokeWidth={2} aria-hidden className="text-success" /> : Copy}
+                onClick={() => void copy()}
+                disabled={chosen.length === 0}
+              >
                 {copied ? 'Copied' : 'Copy JSON'}
-              </button>
-              <button type="submit" disabled={chosen.length === 0} className={BTN_PRIMARY}>
-                <ArrowDownToLine className="h-3.5 w-3.5" />
+              </Button>
+              <SubmitButton leadingIcon={Download} disabled={chosen.length === 0}>
                 Download .json
-              </button>
+              </SubmitButton>
             </>
           ) : (
-            <button type="submit" disabled={!text.trim()} className={BTN_PRIMARY}>
-              <ArrowUpFromLine className="h-3.5 w-3.5" />
+            <SubmitButton leadingIcon={Upload} disabled={!text.trim()}>
               Import
-            </button>
+            </SubmitButton>
           )}
         </>
       }
     >
-      <div className="space-y-4">
-        {/* Mode switch */}
-        <div className="grid grid-cols-2 gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-1" role="tablist">
-          {(['export', 'import'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              role="tab"
-              aria-selected={mode === m}
-              onClick={() => {
-                setMode(m);
-                setError(null);
-              }}
-              className={cn(
-                'flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs transition-colors',
-                mode === m ? 'bg-cyan-500/20 text-cyan-100' : 'text-white/50 hover:text-white/80'
-              )}
-            >
-              {m === 'export' ? <ArrowDownToLine className="h-3.5 w-3.5" /> : <ArrowUpFromLine className="h-3.5 w-3.5" />}
-              {m === 'export' ? 'Export' : 'Import'}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-col gap-5">
+        <Tabs
+          variant="pill"
+          fullWidth
+          aria-label="Import or export"
+          value={mode}
+          onChange={(id) => {
+            setMode(id as TransferMode);
+            setError(null);
+          }}
+          tabs={MODE_TABS}
+          className="rounded-full border border-line bg-ink-950/40 p-0.5"
+        />
 
         {mode === 'export' ? (
           <>
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <p className={LABEL}>Decks</p>
-                <span className="flex gap-1 text-[11px] text-white/45">
-                  <button
-                    type="button"
-                    onClick={() => setSelected(new Set(decks.map((d) => d.id)))}
-                    className="rounded px-1.5 py-0.5 hover:bg-white/10 hover:text-white"
-                  >
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium text-fg-muted">
+                  Decks
+                  <span className="tabular ml-2 font-mono text-fg-subtle">
+                    {chosen.length}/{decks.length}
+                  </span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => setSelected(new Set(decks.map((d) => d.id)))} disabled={allSelected}>
                     All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelected(new Set())}
-                    className="rounded px-1.5 py-0.5 hover:bg-white/10 hover:text-white"
-                  >
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())} disabled={chosen.length === 0}>
                     None
-                  </button>
+                  </Button>
                 </span>
               </div>
-              {decks.length === 0 && <p className="text-xs text-white/40">No decks to export yet.</p>}
-              <div className="grid grid-cols-1 gap-1.5 @lg:grid-cols-2">
-                {decks.map((deck) => {
-                  const on = selected.has(deck.id);
-                  return (
-                    <label
-                      key={deck.id}
-                      className={cn(
-                        'flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-sm transition-colors',
-                        on ? 'border-cyan-400/25 bg-cyan-400/[0.05] text-white/85' : 'border-white/[0.07] text-white/45'
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        onChange={() => toggleDeck(deck.id)}
-                        className="h-3.5 w-3.5 accent-cyan-400"
-                      />
-                      <span>{deck.icon}</span>
-                      <span className="min-w-0 flex-1 truncate">{deck.name}</span>
-                      <span className="shrink-0 text-[10px] text-white/35">{deckCards(deck).length}</span>
-                    </label>
-                  );
-                })}
-              </div>
+              {decks.length === 0 ? (
+                <p className="rounded-control bg-surface-2 px-3 py-4 text-center text-ui text-fg-subtle">No decks to export yet.</p>
+              ) : (
+                <div className="scrollbar-thin max-h-64 divide-y divide-line overflow-y-auto rounded-card border border-line">
+                  {decks.map((deck) => {
+                    const on = selected.has(deck.id);
+                    return (
+                      <label
+                        key={deck.id}
+                        className={cn(
+                          'flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors duration-120 ease-out-quint hover:bg-surface-hover',
+                          on && 'bg-accent/[0.04]'
+                        )}
+                      >
+                        <Checkbox checked={on} onChange={() => toggleDeck(deck.id)} />
+                        <span className="text-base leading-none" aria-hidden>
+                          {deck.icon}
+                        </span>
+                        <span className={cn('min-w-0 flex-1 truncate text-ui', on ? 'text-fg' : 'text-fg-muted')} title={deck.name}>
+                          {deck.name}
+                        </span>
+                        <span className="tabular shrink-0 font-mono text-xs text-fg-subtle">{plural(deckCards(deck).length, 'card')}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2">
-              <input
-                type="checkbox"
-                checked={includeProgress}
-                onChange={(e) => setIncludeProgress(e.target.checked)}
-                className="mt-0.5 h-3.5 w-3.5 accent-cyan-400"
-              />
-              <span>
-                <span className="block text-xs text-white/80">Include my progress</span>
-                <span className="block text-[11px] text-white/40">
-                  Review schedule and mastery of these cards, so another browser picks up where you left off.
-                </span>
-              </span>
-            </label>
-            <p className="text-[11px] text-white/40">
-              {chosen.length === 0
-                ? 'Pick at least one deck.'
-                : `${plural(chosen.length, 'deck')} · ${plural(chosenCards, 'card')} ready to export.`}
+
+            <Checkbox
+              checked={includeProgress}
+              onCheckedChange={setIncludeProgress}
+              label="Include my progress"
+              description="Review schedule and mastery of these cards, so another browser picks up where you left off."
+            />
+
+            <p className={cn('flex items-center gap-2 text-xs', chosen.length === 0 ? 'text-warning' : 'text-fg-subtle')}>
+              {chosen.length === 0 ? (
+                <>
+                  <TriangleAlert size={14} strokeWidth={1.75} aria-hidden />
+                  Pick at least one deck.
+                </>
+              ) : (
+                <>
+                  <FileJson size={14} strokeWidth={1.75} aria-hidden />
+                  {plural(chosen.length, 'deck')} · {plural(chosenCards, 'card')} ready to export.
+                </>
+              )}
             </p>
           </>
         ) : (
@@ -278,86 +294,87 @@ export function TransferDialog({ initialMode, initialDeckIds, onClose, onImporte
               onDragLeave={() => setDragging(false)}
               onDrop={onDrop}
               className={cn(
-                'flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-4 py-5 text-center transition-colors',
-                dragging ? 'border-cyan-300/70 bg-cyan-400/10' : 'border-white/15 bg-white/[0.02] hover:border-cyan-400/40'
+                'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-card border border-dashed px-4 py-6 text-center transition-colors duration-120 ease-out-quint',
+                'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent',
+                dragging
+                  ? 'border-accent/70 bg-accent/10'
+                  : fileName
+                    ? 'border-success/40 bg-success/[0.05]'
+                    : 'border-line-strong bg-surface-2 hover:border-fg-faint hover:bg-surface-hover'
               )}
             >
-              <Upload className="h-5 w-5 text-cyan-300/70" />
-              <span className="text-xs text-white/75">
+              <span
+                className={cn(
+                  'flex size-10 items-center justify-center rounded-card border bg-ink-800',
+                  fileName ? 'border-success/35 text-success' : 'border-line-strong text-fg-muted'
+                )}
+              >
+                {fileName ? <CircleCheck size={20} strokeWidth={1.75} aria-hidden /> : <Upload size={20} strokeWidth={1.75} aria-hidden />}
+              </span>
+              <span className="text-ui text-fg">
                 {fileName ? (
                   <>
-                    Loaded <span className="font-mono text-cyan-200">{fileName}</span>
+                    Loaded <span className="font-mono text-success">{fileName}</span>
                   </>
+                ) : dragging ? (
+                  'Drop it'
                 ) : (
                   'Drop a .json file here, or click to choose one'
                 )}
               </span>
-              <span className="text-[10px] text-white/35">Warrior OS exports, a list of decks, or a single deck</span>
+              <span className="text-xs text-fg-subtle">Warrior OS exports, a list of decks, or a single deck · up to 5 MB</span>
               <input type="file" accept=".json,application/json" onChange={onFileInput} className="sr-only" />
             </label>
 
-            <div className="space-y-1">
-              <label htmlFor="deck-import-json" className={LABEL}>
-                Or paste JSON
-              </label>
-              <textarea
-                id="deck-import-json"
-                value={text}
-                onChange={(e) => {
-                  setText(e.target.value);
-                  setFileName(null);
-                  setResult(null);
-                }}
-                rows={6}
-                spellCheck={false}
-                placeholder='{ "name": "My deck", "cards": [ { "kind": "flashcard", "prompt": "…", "back": "…" } ] }'
-                className={cn(INPUT, 'resize-y font-mono text-[11px] leading-snug')}
-              />
-            </div>
+            <Textarea
+              id="deck-import-json"
+              label="Or paste JSON"
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                setFileName(null);
+                setResult(null);
+              }}
+              rows={6}
+              spellCheck={false}
+              placeholder='{ "name": "My deck", "cards": [ { "kind": "flashcard", "prompt": "…", "back": "…" } ] }'
+              className="select-text font-mono text-xs"
+            />
 
-            <div className="space-y-1.5">
-              <p className={LABEL}>If a deck already exists</p>
-              <div className="grid grid-cols-1 gap-1.5 @lg:grid-cols-2">
-                {[
-                  { value: false, title: 'Keep both', hint: 'Import it as a separate copy.' },
-                  { value: true, title: 'Replace it', hint: 'Overwrite the deck with the same id.' },
-                ].map((option) => (
-                  <label
-                    key={option.title}
-                    className={cn(
-                      'flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 transition-colors',
-                      replace === option.value ? 'border-cyan-400/30 bg-cyan-400/[0.06]' : 'border-white/[0.07]'
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      name="deck-import-conflict"
-                      checked={replace === option.value}
-                      onChange={() => setReplace(option.value)}
-                      className="mt-0.5 h-3.5 w-3.5 accent-cyan-400"
-                    />
-                    <span>
-                      <span className="block text-xs text-white/80">{option.title}</span>
-                      <span className="block text-[11px] text-white/40">{option.hint}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
+            <RadioGroup
+              name="deck-import-conflict"
+              label="If a deck already exists"
+              orientation="horizontal"
+              value={replace ? 'replace' : 'copy'}
+              onValueChange={(v) => setReplace(v === 'replace')}
+              options={CONFLICT_OPTIONS}
+            />
 
             {result && <ImportSummary result={result} />}
 
-            <details className="rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2 text-xs text-white/55">
-              <summary className="cursor-pointer select-none text-white/65">File format</summary>
-              <p className="mt-2 text-[11px] text-white/45">
-                Card kinds: <code>flashcard</code> (prompt, back), <code>mcq</code> (options, answer index),{' '}
-                <code>multi-select</code> (options, answers) and <code>numeric</code> (answer, tolerance, unit). Optional
-                on every card: explanation, difficulty (easy / medium / hard) and tags. A deck may also list{' '}
-                <code>cards</code> directly instead of topics.
-              </p>
-              <pre className="mt-2 max-h-48 overflow-auto rounded bg-black/40 p-2 font-mono text-[10px] leading-snug text-cyan-100/80">
-                {EXAMPLE}
-              </pre>
+            <details className="group/format rounded-card border border-line">
+              <summary className="focus-ring-inset flex cursor-pointer select-none list-none items-center gap-2 rounded-card px-3 py-2.5 text-ui text-fg-muted transition-colors duration-120 ease-out-quint hover:bg-surface-hover hover:text-fg [&::-webkit-details-marker]:hidden">
+                <ChevronRight
+                  size={16}
+                  strokeWidth={1.75}
+                  aria-hidden
+                  className="text-fg-subtle transition-transform duration-180 ease-out-quint group-open/format:rotate-90"
+                />
+                File format
+              </summary>
+              <div className="flex flex-col gap-3 border-t border-line px-3 py-3">
+                <p className="text-xs text-fg-muted">
+                  Card kinds: <code className="font-mono text-fg">flashcard</code> (prompt, back),{' '}
+                  <code className="font-mono text-fg">mcq</code> (options, answer index),{' '}
+                  <code className="font-mono text-fg">multi-select</code> (options, answers) and{' '}
+                  <code className="font-mono text-fg">numeric</code> (answer, tolerance, unit). Optional on every card:
+                  explanation, difficulty (easy / medium / hard) and tags. A deck may also list{' '}
+                  <code className="font-mono text-fg">cards</code> directly instead of topics.
+                </p>
+                <pre className="scrollbar-thin max-h-48 select-text overflow-auto rounded-control bg-ink-850 p-3 font-mono text-2xs text-fg-muted">
+                  {EXAMPLE}
+                </pre>
+              </div>
             </details>
           </>
         )}
@@ -371,13 +388,17 @@ function ImportSummary({ result }: { result: ImportResult }) {
   return (
     <div
       className={cn(
-        'space-y-1.5 rounded-lg border px-3 py-2.5',
-        result.ok ? 'border-green-400/30 bg-green-500/[0.07]' : 'border-red-400/30 bg-red-500/[0.07]'
+        'flex flex-col gap-2 rounded-card border px-3.5 py-3',
+        result.ok ? 'border-success/30 bg-success/[0.06]' : 'border-danger/30 bg-danger/[0.06]'
       )}
       role="status"
     >
-      <p className={cn('flex items-center gap-1.5 text-xs font-semibold', result.ok ? 'text-green-200' : 'text-red-200')}>
-        {result.ok ? <CircleCheck className="h-3.5 w-3.5" /> : <TriangleAlert className="h-3.5 w-3.5" />}
+      <p className={cn('flex items-center gap-2 text-ui font-medium', result.ok ? 'text-success' : 'text-danger')}>
+        {result.ok ? (
+          <CircleCheck size={16} strokeWidth={1.75} aria-hidden />
+        ) : (
+          <TriangleAlert size={16} strokeWidth={1.75} aria-hidden />
+        )}
         {result.ok
           ? [
               result.decksAdded > 0 ? `${plural(result.decksAdded, 'deck')} added` : null,
@@ -389,12 +410,14 @@ function ImportSummary({ result }: { result: ImportResult }) {
           : 'Nothing was imported'}
       </p>
       {shown.length > 0 && (
-        <ul className="space-y-0.5 text-[11px] text-amber-200/80">
+        <ul className={cn('flex flex-col gap-1 pl-6 text-xs', result.ok ? 'text-warning' : 'text-fg-muted')}>
           {shown.map((message, i) => (
-            <li key={i}>• {message}</li>
+            <li key={i} className="list-disc">
+              {message}
+            </li>
           ))}
           {result.errors.length > shown.length && (
-            <li className="text-white/40">…and {result.errors.length - shown.length} more</li>
+            <li className="list-none text-fg-subtle">…and {result.errors.length - shown.length} more</li>
           )}
         </ul>
       )}

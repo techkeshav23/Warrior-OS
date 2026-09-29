@@ -11,18 +11,20 @@
 
 import { ImageResponse } from 'next/og';
 import { OWNER } from '@/config/owner';
+import { EMBER, FG, INK, PLASMA, STATUS } from '@/styles/tokens';
 
 export const alt = `Warrior OS: ${OWNER.name}'s sci-fi command center in the browser`;
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-const BG = '#050508';
-const CYAN = '#00f0ff';
-const VIOLET = '#7b61ff';
-const GREEN = '#00e676';
-const TEXT = '#e4e4ef';
-const TEXT_SECONDARY = '#a0a0b8';
-const MUTED = '#6a6a80';
+// FORGE HUD palette (src/styles/tokens.ts): Plasma × Ember on deep ink.
+const BG = INK[950];
+const PLASMA_HUE = PLASMA[400];
+const EMBER_HUE = EMBER[400];
+const GREEN = STATUS.success;
+const TEXT = FG.base;
+const TEXT_SECONDARY = FG.muted;
+const MUTED = FG.subtle;
 
 const FEATURES = ['Real windows', 'Terminal', '3D worlds', 'Works offline'];
 
@@ -80,7 +82,7 @@ function gridLayer() {
     >
       <defs>
         <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-          <path d="M40 0H0V40" fill="none" stroke="rgba(0,240,255,0.09)" strokeWidth="1" />
+          <path d="M40 0H0V40" fill="none" stroke="rgba(47,214,245,0.09)" strokeWidth="1" />
         </pattern>
         <radialGradient id="grid-fade" cx="0.62" cy="0.45" r="0.7">
           <stop offset="0" stopColor="#fff" stopOpacity="1" />
@@ -107,34 +109,34 @@ function emblem() {
     >
       <defs>
         <radialGradient id="core" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stopColor={CYAN} stopOpacity="0.22" />
-          <stop offset="1" stopColor={CYAN} stopOpacity="0" />
+          <stop offset="0" stopColor={PLASMA_HUE} stopOpacity="0.22" />
+          <stop offset="1" stopColor={PLASMA_HUE} stopOpacity="0" />
         </radialGradient>
         <linearGradient id="shield" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor={CYAN} />
-          <stop offset="1" stopColor={VIOLET} />
+          <stop offset="0" stopColor={PLASMA_HUE} />
+          <stop offset="1" stopColor={EMBER_HUE} />
         </linearGradient>
       </defs>
       <circle cx={C} cy={C} r={C - 4} fill="url(#core)" />
-      <circle cx={C} cy={C} r={C - 4} fill="none" stroke="rgba(0,240,255,0.16)" strokeWidth="1" />
-      <path d={ticksPath(C - 14)} stroke="rgba(0,240,255,0.45)" strokeWidth="2" />
-      <path d={arcPath(C - 40, -62, 28)} fill="none" stroke={CYAN} strokeWidth="4" strokeLinecap="round" />
-      <path d={arcPath(C - 40, 118, 208)} fill="none" stroke={CYAN} strokeWidth="4" strokeLinecap="round" />
-      <path d={arcPath(C - 56, 40, 104)} fill="none" stroke={VIOLET} strokeWidth="3" strokeLinecap="round" />
-      <path d={arcPath(C - 56, 220, 284)} fill="none" stroke={VIOLET} strokeWidth="3" strokeLinecap="round" />
-      <circle cx={C} cy={C} r={C - 74} fill="none" stroke="rgba(123,97,255,0.4)" strokeWidth="2" strokeDasharray="2 9" />
-      <path d={hexPath(C - 92)} fill="rgba(0,240,255,0.05)" stroke="rgba(0,240,255,0.55)" strokeWidth="2" />
+      <circle cx={C} cy={C} r={C - 4} fill="none" stroke="rgba(47,214,245,0.16)" strokeWidth="1" />
+      <path d={ticksPath(C - 14)} stroke="rgba(47,214,245,0.45)" strokeWidth="2" />
+      <path d={arcPath(C - 40, -62, 28)} fill="none" stroke={PLASMA_HUE} strokeWidth="4" strokeLinecap="round" />
+      <path d={arcPath(C - 40, 118, 208)} fill="none" stroke={PLASMA_HUE} strokeWidth="4" strokeLinecap="round" />
+      <path d={arcPath(C - 56, 40, 104)} fill="none" stroke={EMBER_HUE} strokeWidth="3" strokeLinecap="round" />
+      <path d={arcPath(C - 56, 220, 284)} fill="none" stroke={EMBER_HUE} strokeWidth="3" strokeLinecap="round" />
+      <circle cx={C} cy={C} r={C - 74} fill="none" stroke="rgba(255,138,61,0.4)" strokeWidth="2" strokeDasharray="2 9" />
+      <path d={hexPath(C - 92)} fill="rgba(47,214,245,0.05)" stroke="rgba(47,214,245,0.55)" strokeWidth="2" />
       <path
         d={SHIELD_PATH}
         transform={`translate(${shieldOffset} ${shieldOffset}) scale(${shieldScale})`}
-        fill="rgba(0,240,255,0.10)"
+        fill="rgba(47,214,245,0.10)"
         stroke="url(#shield)"
         strokeWidth={2 / shieldScale + 0.12}
         strokeLinejoin="round"
       />
       <path
         d={`M${C} 2V26M${C} ${EMBLEM - 26}V${EMBLEM - 2}M2 ${C}H26M${EMBLEM - 26} ${C}H${EMBLEM - 2}`}
-        stroke={CYAN}
+        stroke={PLASMA_HUE}
         strokeWidth="2"
       />
     </svg>
@@ -143,7 +145,7 @@ function emblem() {
 
 /** L-shaped HUD bracket in one corner of the frame. */
 function bracket(corner: 'tl' | 'tr' | 'bl' | 'br') {
-  const edge = `3px solid ${CYAN}`;
+  const edge = `3px solid ${PLASMA_HUE}`;
   const top = corner === 'tl' || corner === 'tr';
   const left = corner === 'tl' || corner === 'bl';
   return (
@@ -187,7 +189,7 @@ export default function OpengraphImage() {
             width: 900,
             height: 900,
             display: 'flex',
-            backgroundImage: 'radial-gradient(circle, rgba(0,240,255,0.16) 0%, rgba(0,240,255,0) 62%)',
+            backgroundImage: 'radial-gradient(circle, rgba(47,214,245,0.16) 0%, rgba(47,214,245,0) 62%)',
           }}
         />
         <div
@@ -198,7 +200,7 @@ export default function OpengraphImage() {
             width: 1000,
             height: 1000,
             display: 'flex',
-            backgroundImage: 'radial-gradient(circle, rgba(123,97,255,0.22) 0%, rgba(123,97,255,0) 58%)',
+            backgroundImage: 'radial-gradient(circle, rgba(255,138,61,0.22) 0%, rgba(255,138,61,0) 58%)',
           }}
         />
 
@@ -214,7 +216,7 @@ export default function OpengraphImage() {
             right: 24,
             bottom: 24,
             display: 'flex',
-            border: '1px solid rgba(0,240,255,0.16)',
+            border: '1px solid rgba(47,214,245,0.16)',
           }}
         />
         {bracket('tl')}
@@ -234,7 +236,7 @@ export default function OpengraphImage() {
             padding: '8px 18px',
             borderRadius: 999,
             border: '1px solid rgba(255,255,255,0.14)',
-            background: 'rgba(5,5,8,0.6)',
+            background: 'rgba(4,6,11,0.6)',
             fontSize: 16,
             letterSpacing: 4,
             color: TEXT_SECONDARY,
@@ -286,7 +288,7 @@ export default function OpengraphImage() {
           {/* Brand row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <svg width={30} height={30} viewBox="0 0 24 24">
-              <path d={SHIELD_PATH} fill="none" stroke={CYAN} strokeWidth="2" strokeLinejoin="round" />
+              <path d={SHIELD_PATH} fill="none" stroke={PLASMA_HUE} strokeWidth="2" strokeLinejoin="round" />
             </svg>
             <div style={{ display: 'flex', fontSize: 18, letterSpacing: 6, color: TEXT }}>
               {`${OWNER.shortName.toUpperCase()}'S SYSTEM`}
@@ -297,7 +299,7 @@ export default function OpengraphImage() {
 
           {/* Title block */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', fontSize: 20, letterSpacing: 7, color: CYAN }}>
+            <div style={{ display: 'flex', fontSize: 20, letterSpacing: 7, color: PLASMA_HUE }}>
               PERSONAL OS / PORTFOLIO
             </div>
             <div
@@ -309,7 +311,7 @@ export default function OpengraphImage() {
                 letterSpacing: 4,
                 whiteSpace: 'nowrap',
                 color: '#f4f6ff',
-                textShadow: '0 0 34px rgba(0,240,255,0.55)',
+                textShadow: '0 0 34px rgba(47,214,245,0.55)',
               }}
             >
               WARRIOR OS
@@ -325,10 +327,10 @@ export default function OpengraphImage() {
                     display: 'flex',
                     padding: '7px 16px',
                     borderRadius: 999,
-                    border: '1px solid rgba(0,240,255,0.3)',
-                    background: 'rgba(0,240,255,0.07)',
+                    border: '1px solid rgba(47,214,245,0.3)',
+                    background: 'rgba(47,214,245,0.07)',
                     fontSize: 18,
-                    color: '#bff9ff',
+                    color: PLASMA[300],
                   }}
                 >
                   {feature}
@@ -346,8 +348,8 @@ export default function OpengraphImage() {
                 height: 84,
                 padding: 3,
                 borderRadius: 999,
-                backgroundImage: `linear-gradient(135deg, ${CYAN}, ${VIOLET})`,
-                boxShadow: '0 0 28px rgba(0,240,255,0.35)',
+                backgroundImage: `linear-gradient(135deg, ${PLASMA_HUE}, ${EMBER_HUE})`,
+                boxShadow: '0 0 28px rgba(47,214,245,0.35)',
               }}
             >
               <div
@@ -358,10 +360,10 @@ export default function OpengraphImage() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderRadius: 999,
-                  background: '#0b0b16',
+                  background: INK[900],
                   fontSize: 32,
                   letterSpacing: 2,
-                  color: CYAN,
+                  color: PLASMA_HUE,
                 }}
               >
                 {initials}

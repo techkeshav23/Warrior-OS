@@ -1,21 +1,24 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Skill Tree (Constellation Map)
 // Every deck is a hub and its topics orbit it as nodes: colour =
-// mastery (red → amber → green, with a matching arc), size = card
-// count, a dashed ring = not started, a pulsing dot = reviews due.
-// Click a topic to start a quiz on it (flashcard-only topics open
-// Review). The list view carries the same numbers without the map.
+// mastery (ember → gold → mint, with a matching arc), size = card
+// count, a dashed ring = not started, a pulsing accent dot = reviews
+// due. Click a topic to start a quiz on it (flashcard-only topics
+// open Review). The list view carries the same numbers as a table.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, useCallback, useEffect, useId, useMemo, useState, type KeyboardEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { List, Orbit, Play, Repeat } from 'lucide-react';
+import { CalendarClock, Layers, List, Orbit, Play, Repeat, Target, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button, Card, EmptyState, SegmentedControl, StatTile } from '@/components/ui';
+import { EASE_OUT_QUINT, FG, INK, LINE, resolveAccent } from '@/styles/tokens';
 import { computeMastery, deckCards, isQuizCard, MASTERED_THRESHOLD, useLearningStore } from '@/stores/useLearningStore';
 import type { CardReview, Deck, Mastery, Topic } from '@/types/learning';
 import type { DeckTarget, TrainingLinkMode } from './deep-link';
+import { TabHeader } from './QuizControls';
 import { launchTraining, type TrainingLauncher } from './practice/launch';
 import { MASTERY_GRADIENT, masteryColor, toPercent } from './practice/mastery';
 
@@ -60,8 +63,10 @@ const HUB_R = 30;
 /** Up to this many topics sit on one labelled orbit; more use two rings (labels on hover). */
 const SINGLE_RING_MAX = 12;
 const LABEL_MAX = 14;
-const SPACE = '#0b1020';
-const DUE_COLOR = '#22d3ee';
+/** Deep space behind the marks (SVG attributes need a literal colour). */
+const SPACE = INK[900];
+/** Due dots follow the live accent (a CSS property, so var() works). */
+const DUE_STYLE = { fill: 'var(--accent)' } as const;
 
 function countDue(cards: Topic['cards'], reviews: Readonly<Record<string, CardReview>>, now: number): number {
   let n = 0;
@@ -185,6 +190,7 @@ function DeckConstellation({ map, active, setActive, onOpen }: DeckConstellation
   // Unique per instance: two open Training Grounds windows must not share gradient ids.
   const glowId = `hub-glow-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const { deck, width, height, nodes } = map;
+  const deckHue = resolveAccent(deck.color);
   const cx = width / 2;
   const cy = height / 2;
   const hubArc = 2 * Math.PI * (HUB_R + 6);
@@ -197,22 +203,46 @@ function DeckConstellation({ map, active, setActive, onOpen }: DeckConstellation
   const tipBelow = tip ? tip.y < height / 2 + 1 : true;
   const tipX = tip ? (tip.x / width) * 100 : 0;
   const tipShift = tipX < 22 ? '-12%' : tipX > 78 ? '-88%' : '-50%';
+  const tipStats = activeNode
+    ? {
+        title: activeNode.topic.name,
+        mastery: activeNode.mastery,
+        meta: `${activeNode.cards} cards · ${activeNode.quizCards} quiz · ${activeNode.mastery.mastered} mastered`,
+        due: activeNode.due,
+        action: describeAction(activeNode),
+      }
+    : {
+        title: deck.name,
+        mastery: map.mastery,
+        meta: `${map.mastery.total} cards · ${map.mastery.mastered} mastered`,
+        due: map.due,
+        action: describeAction(hubStats, 'deck'),
+      };
 
   return (
     <div className="relative">
       <svg viewBox={`0 0 ${width} ${height}`} className="block h-auto w-full" role="group" aria-label={`${deck.name} topics`}>
         <defs>
           <radialGradient id={glowId}>
-            <stop offset="0%" stopColor={deck.color} stopOpacity={0.35} />
-            <stop offset="100%" stopColor={deck.color} stopOpacity={0} />
+            <stop offset="0%" stopColor={deckHue} stopOpacity={0.28} />
+            <stop offset="100%" stopColor={deckHue} stopOpacity={0} />
           </radialGradient>
         </defs>
 
         {map.stars.map((star, i) => (
-          <circle key={i} cx={star.x} cy={star.y} r={star.r} fill="#fff" opacity={star.o} />
+          <circle key={i} cx={star.x} cy={star.y} r={star.r} fill={FG.base} opacity={star.o * 0.8} />
         ))}
         {map.rings.map((ring, i) => (
-          <ellipse key={i} cx={cx} cy={cy} rx={ring.rx} ry={ring.ry} fill="none" stroke="rgba(255,255,255,0.07)" />
+          <ellipse
+            key={i}
+            cx={cx}
+            cy={cy}
+            rx={ring.rx}
+            ry={ring.ry}
+            fill="none"
+            stroke={LINE.strong}
+            strokeDasharray="2 5"
+          />
         ))}
 
         {/* Links */}
@@ -223,16 +253,16 @@ function DeckConstellation({ map, active, setActive, onOpen }: DeckConstellation
             y1={cy}
             x2={node.x}
             y2={node.y}
-            stroke={masteryColor(node.mastery.value, node.mastery.seen > 0 ? 0.45 : 0.18)}
+            stroke={masteryColor(node.mastery.value, node.mastery.seen > 0 ? 0.4 : 0.14)}
             strokeWidth={activeNode?.topic.id === node.topic.id ? 2 : 1.2}
-            initial={{ pathLength: 0 }}
+            initial={reduceMotion ? false : { pathLength: 0 }}
             animate={{ pathLength: 1 }}
-            transition={{ duration: 0.5, delay: 0.05 * i }}
+            transition={{ duration: 0.5, delay: 0.04 * i, ease: EASE_OUT_QUINT }}
           />
         ))}
 
         {/* Hub */}
-        <circle cx={cx} cy={cy} r={HUB_R + 26} fill={`url(#${glowId})`} />
+        <circle cx={cx} cy={cy} r={HUB_R + 28} fill={`url(#${glowId})`} />
         <g
           role="button"
           tabIndex={0}
@@ -245,8 +275,8 @@ function DeckConstellation({ map, active, setActive, onOpen }: DeckConstellation
           onFocus={() => setActive({ deckId: deck.id, topicId: null })}
           onBlur={() => setActive(null)}
         >
-          <circle cx={cx} cy={cy} r={HUB_R} fill={SPACE} stroke={deck.color} strokeWidth={hubActive ? 2.5 : 1.5} />
-          <circle cx={cx} cy={cy} r={HUB_R + 6} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={3} />
+          <circle cx={cx} cy={cy} r={HUB_R} fill={SPACE} stroke={deckHue} strokeOpacity={hubActive ? 1 : 0.7} strokeWidth={hubActive ? 2 : 1.25} />
+          <circle cx={cx} cy={cy} r={HUB_R + 6} fill="none" stroke={LINE.strong} strokeWidth={3} />
           <circle
             cx={cx}
             cy={cy}
@@ -258,6 +288,9 @@ function DeckConstellation({ map, active, setActive, onOpen }: DeckConstellation
             strokeDasharray={`${Math.max(0.001, map.mastery.value) * hubArc} ${hubArc}`}
             transform={`rotate(-90 ${cx} ${cy})`}
           />
+          {hubActive && (
+            <circle cx={cx} cy={cy} r={HUB_R + 11} fill="none" strokeWidth={1.25} style={{ stroke: 'var(--accent)' }} />
+          )}
           <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={24}>
             {deck.icon}
           </text>
@@ -278,9 +311,9 @@ function DeckConstellation({ map, active, setActive, onOpen }: DeckConstellation
                 tabIndex={0}
                 aria-label={`${node.topic.name}: ${toPercent(value)}% mastery, ${node.cards} cards, ${node.due} due. ${describeAction(node)}`}
                 className={cn('outline-none', node.cards > 0 ? 'cursor-pointer' : 'cursor-default')}
-                initial={{ scale: 0, opacity: 0 }}
+                initial={reduceMotion ? false : { scale: 0.6, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 280, damping: 20, delay: 0.1 + 0.04 * i }}
+                transition={{ duration: 0.42, ease: EASE_OUT_QUINT, delay: reduceMotion ? 0 : 0.08 + 0.035 * i }}
                 onClick={() => onOpen(deck.id, node)}
                 onKeyDown={(e) => activateOnKey(e, () => onOpen(deck.id, node))}
                 onMouseEnter={select}
@@ -290,20 +323,21 @@ function DeckConstellation({ map, active, setActive, onOpen }: DeckConstellation
               >
                 <motion.g
                   initial={false}
-                  animate={{ scale: isActive ? 1.15 : 1 }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                  animate={{ scale: isActive && !reduceMotion ? 1.12 : 1 }}
+                  transition={{ duration: 0.18, ease: EASE_OUT_QUINT }}
                 >
                   {/* Hit area larger than the mark */}
                   <circle r={Math.max(node.r + 9, 16)} fill="transparent" />
                   <circle r={node.r} fill={SPACE} />
                   <circle
                     r={node.r}
-                    fill={masteryColor(value, untouched ? 0.06 : 0.22)}
+                    fill={masteryColor(value, untouched ? 0.05 : 0.2)}
                     stroke={color}
+                    strokeOpacity={untouched ? 0.6 : 1}
                     strokeWidth={1.5}
                     strokeDasharray={untouched ? '3 3' : undefined}
                   />
-                  <circle r={node.r + 4} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={2.5} />
+                  <circle r={node.r + 4} fill="none" stroke={LINE.strong} strokeWidth={2.5} />
                   {value > 0 && (
                     <circle
                       r={node.r + 4}
@@ -315,24 +349,30 @@ function DeckConstellation({ map, active, setActive, onOpen }: DeckConstellation
                       transform="rotate(-90)"
                     />
                   )}
-                  {isActive && <circle r={node.r + 8} fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth={1} />}
+                  {isActive && <circle r={node.r + 8.5} fill="none" strokeWidth={1.25} style={{ stroke: 'var(--accent)' }} />}
                   {node.r >= 12 && (
-                    <text textAnchor="middle" dominantBaseline="central" fontSize={9} fill="rgba(255,255,255,0.85)">
+                    <text
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize={9.5}
+                      fontWeight={600}
+                      fill={FG.base}
+                      className="font-mono"
+                    >
                       {node.cards}
                     </text>
                   )}
                 </motion.g>
               </motion.g>
               {node.due > 0 && (
-                <motion.circle
+                <circle
                   cx={node.r * 0.75}
                   cy={-node.r * 0.75}
                   r={3.5}
-                  fill={DUE_COLOR}
                   stroke={SPACE}
                   strokeWidth={1.5}
-                  animate={reduceMotion ? undefined : { opacity: [1, 0.35, 1] }}
-                  transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                  style={DUE_STYLE}
+                  className="motion-safe:animate-pulse-soft"
                   pointerEvents="none"
                 />
               )}
@@ -341,8 +381,9 @@ function DeckConstellation({ map, active, setActive, onOpen }: DeckConstellation
                   x={node.labelX - node.x}
                   y={node.labelY - node.y}
                   textAnchor={node.anchor}
-                  fontSize={10.5}
-                  fill={isActive ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.62)'}
+                  fontSize={11}
+                  fontWeight={isActive ? 600 : 500}
+                  fill={isActive ? FG.base : FG.muted}
                   pointerEvents="none"
                 >
                   {truncate(node.topic.name)}
@@ -355,7 +396,8 @@ function DeckConstellation({ map, active, setActive, onOpen }: DeckConstellation
 
       {tip && (
         <div
-          className="pointer-events-none absolute z-10 w-52 rounded-lg border border-white/10 bg-slate-950/95 px-3 py-2 shadow-xl"
+          role="tooltip"
+          className="glass-popover pointer-events-none absolute z-10 w-60 animate-scale-in rounded-control px-3 py-2.5 text-xs"
           style={{
             left: `${tipX}%`,
             top: tipBelow ? `${((tip.y + tip.r + 12) / height) * 100}%` : undefined,
@@ -363,26 +405,22 @@ function DeckConstellation({ map, active, setActive, onOpen }: DeckConstellation
             transform: `translateX(${tipShift})`,
           }}
         >
-          {activeNode ? (
-            <>
-              <p className="truncate text-[11px] text-white/55">{activeNode.topic.name}</p>
-              <p className="text-sm font-semibold text-white">{toPercent(activeNode.mastery.value)}% mastery</p>
-              <p className="mt-0.5 text-[11px] text-white/55">
-                {activeNode.cards} cards · {activeNode.quizCards} quiz · {activeNode.mastery.mastered} mastered
-                {activeNode.due > 0 ? ` · ${activeNode.due} due` : ''}
-              </p>
-              <p className="mt-1 text-[11px] text-cyan-300/80">{describeAction(activeNode)}</p>
-            </>
-          ) : (
-            <>
-              <p className="truncate text-[11px] text-white/55">{deck.name}</p>
-              <p className="text-sm font-semibold text-white">{toPercent(map.mastery.value)}% mastery</p>
-              <p className="mt-0.5 text-[11px] text-white/55">
-                {map.mastery.total} cards · {map.mastery.mastered} mastered{map.due > 0 ? ` · ${map.due} due` : ''}
-              </p>
-              <p className="mt-1 text-[11px] text-cyan-300/80">{describeAction(hubStats, 'deck')}</p>
-            </>
-          )}
+          <p className="hud-label truncate">{tipStats.title}</p>
+          <p className="mt-1.5 flex items-baseline gap-2">
+            <span className="font-mono text-base font-semibold text-fg tabular">{toPercent(tipStats.mastery.value)}%</span>
+            <span className="text-fg-muted">mastery</span>
+          </p>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-ink-600/70">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${Math.max(2, toPercent(tipStats.mastery.value))}%`, background: masteryColor(tipStats.mastery.value) }}
+            />
+          </div>
+          <p className="mt-2 text-fg-muted tabular">
+            {tipStats.meta}
+            {tipStats.due > 0 && <span className="whitespace-nowrap text-accent"> · {tipStats.due} due</span>}
+          </p>
+          <p className="mt-1.5 border-t border-line pt-1.5 text-accent">{tipStats.action}</p>
         </div>
       )}
     </div>
@@ -396,6 +434,7 @@ function SkillTreeInner({ onStart }: SkillTreeProps) {
   const reviews = useLearningStore((s) => s.reviews);
   const [view, setView] = useState<View>('map');
   const [active, setActive] = useState<ActiveNode | null>(null);
+  const reduceMotion = useReducedMotion();
 
   // `now` ticks once a minute (due dots), keeping render pure.
   const [now, setNow] = useState(() => Date.now());
@@ -459,142 +498,119 @@ function SkillTreeInner({ onStart }: SkillTreeProps) {
     [maps, launch]
   );
 
-  const tiles = [
-    { label: 'Overall mastery', value: `${toPercent(totals.mastery.value)}%` },
-    { label: 'Topics mastered', value: `${totals.topicsMastered} / ${totals.topics}` },
-    { label: 'Cards mastered', value: `${totals.mastery.mastered} / ${totals.mastery.total}` },
-    { label: 'Due now', value: String(totals.due) },
-  ];
+  const deckMeta = (map: DeckMap) =>
+    `${toPercent(map.mastery.value)}% mastery · ${map.nodes.length} topic${map.nodes.length === 1 ? '' : 's'} · ${map.mastery.total} cards`;
+
+  const deckActions = (map: DeckMap) => (
+    <>
+      {map.due > 0 && (
+        <Button variant="ghost" size="sm" leadingIcon={Repeat} onClick={() => launch('flashcards', { deckId: map.deck.id, topicId: null })}>
+          Review {map.due}
+        </Button>
+      )}
+      {map.quizCards > 0 && (
+        <Button variant="secondary" size="sm" leadingIcon={Play} onClick={() => launch('quiz', { deckId: map.deck.id, topicId: null })}>
+          Quiz deck
+        </Button>
+      )}
+    </>
+  );
 
   return (
-    <div className="@container space-y-5 p-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="flex items-center gap-2 text-lg font-bold text-white">
-            <Orbit className="h-5 w-5 text-cyan-300" />
-            Skill Tree
-          </h3>
-          <p className="mt-1 text-xs text-white/50">
-            Your decks as constellations. Click a topic to start a quiz on it; quizzes, reviews and flashcards light it
-            up.
-          </p>
-        </div>
-        <div className="flex overflow-hidden rounded-md border border-white/10 text-xs" role="group" aria-label="View">
-          {(
-            [
-              { id: 'map', label: 'Map', Icon: Orbit },
-              { id: 'list', label: 'List', Icon: List },
-            ] as const
-          ).map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setView(id)}
-              aria-pressed={view === id}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 transition-colors',
-                view === id ? 'bg-cyan-500/25 text-cyan-100' : 'text-white/50 hover:bg-white/10'
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
-        </div>
-      </header>
+    <div className="@container space-y-6 p-5">
+      <TabHeader
+        icon={Orbit}
+        title="Skill tree"
+        description="Your decks as constellations. Click a topic to quiz it; quizzes, reviews and flashcards light it up."
+        actions={
+          <SegmentedControl
+            size="sm"
+            aria-label="View"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: 'map', label: 'Map', icon: Orbit },
+              { value: 'list', label: 'List', icon: List },
+            ]}
+          />
+        }
+      />
 
       <div className="grid grid-cols-2 gap-3 @xl:grid-cols-4">
-        {tiles.map((tile) => (
-          <div key={tile.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-            <p className="text-xl font-semibold text-white">{tile.value}</p>
-            <p className="text-[11px] text-white/45">{tile.label}</p>
-          </div>
-        ))}
+        <StatTile size="sm" label="Mastery" icon={Target} value={toPercent(totals.mastery.value)} unit="%" />
+        <StatTile size="sm" label="Topics" icon={Trophy} value={totals.topicsMastered} unit={`of ${totals.topics} mastered`} />
+        <StatTile size="sm" label="Cards" icon={Layers} value={totals.mastery.mastered} unit={`of ${totals.mastery.total} mastered`} />
+        <StatTile
+          size="sm"
+          label="Due now"
+          icon={CalendarClock}
+          value={<span className={totals.due > 0 ? 'text-accent' : undefined}>{totals.due}</span>}
+        />
       </div>
 
       {maps.length === 0 && (
-        <p className="mt-12 text-center text-sm text-white/40">No decks yet. Create one to grow your skill tree.</p>
+        <EmptyState icon={Orbit} title="No decks yet" description="Create a deck to grow your skill tree." />
       )}
 
       {maps.length > 0 && view === 'map' && (
         <>
           {/* Legend */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-white/55">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-fg-muted">
             <span className="flex items-center gap-2">
-              Mastery
-              <span className="text-white/35">0%</span>
-              <span className="h-1.5 w-24 rounded-full" style={{ background: MASTERY_GRADIENT }} />
-              <span className="text-white/35">100%</span>
+              <span className="hud-label">Mastery</span>
+              <span className="font-mono text-2xs text-fg-subtle">0%</span>
+              <span aria-hidden className="h-1.5 w-24 rounded-full" style={{ background: MASTERY_GRADIENT }} />
+              <span className="font-mono text-2xs text-fg-subtle">100%</span>
             </span>
             <span className="flex items-center gap-1.5">
               <svg width="22" height="12" aria-hidden="true">
-                <circle cx="4" cy="6" r="3" fill="none" stroke="rgba(255,255,255,0.5)" />
-                <circle cx="15" cy="6" r="5.5" fill="none" stroke="rgba(255,255,255,0.5)" />
+                <circle cx="4" cy="6" r="3" fill="none" stroke={FG.subtle} />
+                <circle cx="15" cy="6" r="5.5" fill="none" stroke={FG.subtle} />
               </svg>
               Size = cards
             </span>
             <span className="flex items-center gap-1.5">
               <svg width="12" height="12" aria-hidden="true">
-                <circle cx="6" cy="6" r="5" fill="none" stroke="rgba(255,255,255,0.5)" strokeDasharray="2 2" />
+                <circle cx="6" cy="6" r="5" fill="none" stroke={FG.subtle} strokeDasharray="2 2" />
               </svg>
               Not started
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: DUE_COLOR }} />
+              <span aria-hidden className="size-2 rounded-full bg-accent motion-safe:animate-pulse-soft" />
               Reviews due
             </span>
           </div>
 
           <div className="grid grid-cols-1 gap-4 @5xl:grid-cols-2">
             {maps.map((map, i) => (
-              <motion.section
+              <motion.div
                 key={map.deck.id}
-                initial={{ opacity: 0, y: 12 }}
+                initial={reduceMotion ? false : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06 }}
-                className="rounded-2xl border border-white/10 bg-gradient-to-b from-slate-950/80 to-slate-900/40"
+                transition={{ duration: 0.26, delay: i * 0.05, ease: EASE_OUT_QUINT }}
               >
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 px-4 py-2.5">
-                  <div className="min-w-0">
-                    <h4 className="truncate text-sm font-semibold text-white">
-                      <span className="mr-1.5">{map.deck.icon}</span>
+                <Card
+                  padding="none"
+                  eyebrow={map.due > 0 ? `${map.due} due` : 'Constellation'}
+                  title={
+                    <>
+                      <span aria-hidden className="mr-1.5">
+                        {map.deck.icon}
+                      </span>
                       {map.deck.name}
-                    </h4>
-                    <p className="text-[11px] text-white/45">
-                      {toPercent(map.mastery.value)}% mastery · {map.nodes.length} topic
-                      {map.nodes.length === 1 ? '' : 's'} · {map.mastery.total} cards
-                      {map.due > 0 ? ` · ${map.due} due` : ''}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    {map.quizCards > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => launch('quiz', { deckId: map.deck.id, topicId: null })}
-                        className="flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-[11px] text-cyan-200 hover:bg-cyan-500/20"
-                      >
-                        <Play className="h-3 w-3" />
-                        Quiz deck
-                      </button>
-                    )}
-                    {map.due > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => launch('flashcards', { deckId: map.deck.id, topicId: null })}
-                        className="flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-200 hover:bg-amber-500/20"
-                      >
-                        <Repeat className="h-3 w-3" />
-                        Review {map.due}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {map.nodes.length === 0 ? (
-                  <p className="px-4 py-10 text-center text-xs text-white/40">No topics yet.</p>
-                ) : (
-                  <DeckConstellation map={map} active={active} setActive={setActive} onOpen={openNode} />
-                )}
-              </motion.section>
+                    </>
+                  }
+                  description={deckMeta(map)}
+                  actions={deckActions(map)}
+                  bodyClassName="overflow-hidden rounded-b-card border-t border-line bg-ink-950/40"
+                >
+                  {map.nodes.length === 0 ? (
+                    <EmptyState size="sm" icon={Orbit} title="No topics yet" description="Add a topic to this deck to chart it." />
+                  ) : (
+                    <DeckConstellation map={map} active={active} setActive={setActive} onOpen={openNode} />
+                  )}
+                </Card>
+              </motion.div>
             ))}
           </div>
         </>
@@ -603,62 +619,84 @@ function SkillTreeInner({ onStart }: SkillTreeProps) {
       {maps.length > 0 && view === 'list' && (
         <div className="space-y-4">
           {maps.map((map) => (
-            <section key={map.deck.id} className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
-              <div className="flex items-center justify-between gap-2 border-b border-white/5 px-4 py-2">
-                <h4 className="truncate text-sm font-semibold text-white">
-                  <span className="mr-1.5">{map.deck.icon}</span>
+            <Card
+              key={map.deck.id}
+              padding="none"
+              title={
+                <>
+                  <span aria-hidden className="mr-1.5">
+                    {map.deck.icon}
+                  </span>
                   {map.deck.name}
-                </h4>
-                <span className="text-xs text-white/50 tabular-nums">{toPercent(map.mastery.value)}%</span>
-              </div>
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-left text-[10px] uppercase tracking-wider text-white/35">
-                    <th className="px-4 py-1.5 font-medium">Topic</th>
-                    <th className="px-2 py-1.5 font-medium">Mastery</th>
-                    <th className="px-2 py-1.5 text-right font-medium">Cards</th>
-                    <th className="px-2 py-1.5 text-right font-medium">Mastered</th>
-                    <th className="px-2 py-1.5 text-right font-medium">Due</th>
-                    <th className="px-4 py-1.5" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {map.nodes.map((node) => (
-                    <tr key={node.topic.id} className="border-t border-white/5 text-white/70">
-                      <td className="max-w-[12rem] truncate px-4 py-2">{node.topic.name}</td>
-                      <td className="px-2 py-2">
-                        <span className="flex items-center gap-2">
-                          <span className="h-1.5 w-20 overflow-hidden rounded-full bg-white/10">
-                            <span
-                              className="block h-full rounded-full"
-                              style={{
-                                width: `${Math.max(2, toPercent(node.mastery.value))}%`,
-                                backgroundColor: masteryColor(node.mastery.value),
-                              }}
-                            />
-                          </span>
-                          <span className="w-9 text-right tabular-nums">{toPercent(node.mastery.value)}%</span>
-                        </span>
-                      </td>
-                      <td className="px-2 py-2 text-right tabular-nums">{node.cards}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{node.mastery.mastered}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{node.due}</td>
-                      <td className="px-4 py-2 text-right">
-                        {node.cards > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => openNode(map.deck.id, node)}
-                            className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-white/70 hover:bg-white/10"
-                          >
-                            {node.quizCards > 0 ? 'Quiz' : 'Review'}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
+                </>
+              }
+              description={deckMeta(map)}
+              actions={deckActions(map)}
+              bodyClassName="border-t border-line"
+            >
+              {map.nodes.length === 0 ? (
+                <EmptyState size="sm" icon={Orbit} title="No topics yet" description="Add a topic to this deck to chart it." />
+              ) : (
+                <div className="scrollbar-thin overflow-x-auto">
+                  <table className="w-full min-w-[30rem] text-ui">
+                    <thead>
+                      <tr className="border-b border-line text-left">
+                        <th className="hud-label px-4 py-2 font-medium">Topic</th>
+                        <th className="hud-label px-2 py-2 font-medium">Mastery</th>
+                        <th className="hud-label px-2 py-2 text-right font-medium">Cards</th>
+                        <th className="hud-label px-2 py-2 text-right font-medium">Mastered</th>
+                        <th className="hud-label px-2 py-2 text-right font-medium">Due</th>
+                        <th className="px-4 py-2">
+                          <span className="sr-only">Actions</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {map.nodes.map((node) => (
+                        <tr key={node.topic.id} className="h-11 text-fg-muted transition-colors duration-120 hover:bg-surface-hover">
+                          <td className="max-w-[14rem] truncate px-4 text-fg" title={node.topic.name}>
+                            {node.topic.name}
+                          </td>
+                          <td className="px-2">
+                            <span className="flex items-center gap-2.5">
+                              <span className="h-1.5 w-20 overflow-hidden rounded-full bg-ink-600/70">
+                                <span
+                                  className="block h-full rounded-full"
+                                  style={{
+                                    width: `${Math.max(2, toPercent(node.mastery.value))}%`,
+                                    backgroundColor: masteryColor(node.mastery.value),
+                                  }}
+                                />
+                              </span>
+                              <span className="w-9 text-right font-mono text-xs text-fg tabular">
+                                {toPercent(node.mastery.value)}%
+                              </span>
+                            </span>
+                          </td>
+                          <td className="px-2 text-right font-mono text-xs tabular">{node.cards}</td>
+                          <td className="px-2 text-right font-mono text-xs tabular">{node.mastery.mastered}</td>
+                          <td className={cn('px-2 text-right font-mono text-xs tabular', node.due > 0 && 'text-accent')}>
+                            {node.due}
+                          </td>
+                          <td className="px-4 text-right">
+                            {node.cards > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                leadingIcon={node.quizCards > 0 ? Play : Repeat}
+                                onClick={() => openNode(map.deck.id, node)}
+                              >
+                                {node.quizCards > 0 ? 'Quiz' : 'Review'}
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
           ))}
         </div>
       )}

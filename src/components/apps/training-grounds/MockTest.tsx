@@ -9,16 +9,60 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo, useRef, memo, type KeyboardEvent } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import {
+  Bookmark,
+  BookmarkCheck,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  CircleMinus,
+  CircleX,
+  Eraser,
+  Flag,
+  Play,
+  RotateCcw,
+  SlidersHorizontal,
+  Sparkles,
+  Target,
+  Timer,
+  Trophy,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Badge,
+  Button,
+  Card,
+  Chip,
+  EmptyState,
+  SegmentedControl,
+  Select,
+  StatTile,
+  Switch,
+} from '@/components/ui';
+import { TRANSITION } from '@/styles/tokens';
 import { useXPStore } from '@/stores/useXPStore';
 import { isQuizCard, listCardLocations, useLearningStore } from '@/stores/useLearningStore';
 import { dispatchCreatureEvent } from '@/components/creature';
 import { recordQuizCompletion } from '@/components/achievements/quiz-achievements';
 import type { QuizCard, RecordAttemptInput } from '@/types/learning';
 import { QuestionView } from './QuestionView';
-import { AccuracyBar, Chip, Field, StatTile } from './QuizControls';
 import {
-  DIFFICULTY_STYLES,
+  AccuracyBar,
+  ConfirmBar,
+  DifficultyBadge,
+  KeyHints,
+  PaletteButton,
+  PaletteLegend,
+  ReviewRow,
+  ScoreHero,
+  SettingRow,
+  TabHeader,
+  accuracyTone,
+  type PaletteState,
+} from './QuizControls';
+import {
+  KIND_LABELS,
   answerFromKey,
   answerStatus,
   createStopwatch,
@@ -224,41 +268,58 @@ function formatMinutes(minutes: number): string {
   return minutes % 60 ? `${h} h ${minutes % 60} min` : `${h} h`;
 }
 
-const STATUS_MARKS: Record<AnswerStatus, { icon: string; className: string }> = {
-  correct: { icon: '✓', className: 'text-green-400' },
-  wrong: { icon: '✗', className: 'text-red-400' },
-  skipped: { icon: '—', className: 'text-white/40' },
-};
+/** Deck / topic analysis table: name + meter, ✓ ✗ —, marks, average time. */
+const TABLE_COLS = 'grid grid-cols-[minmax(0,1fr)_2.25rem_2.25rem_2.25rem_4.75rem_3.75rem] items-center gap-x-2';
 
-const REVIEW_STYLES: Record<AnswerStatus, string> = {
-  correct: 'bg-green-500/10 border-green-500/20',
-  wrong: 'bg-red-500/10 border-red-500/20',
-  skipped: 'bg-white/5 border-white/10',
-};
-
-const SELECT_CLASS = 'bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none';
+function BreakdownHeader() {
+  const icon = 'ml-auto block';
+  return (
+    <div className={cn(TABLE_COLS, 'border-b border-line px-4 py-2')}>
+      <span className="hud-label">Deck / topic</span>
+      <span title="Correct">
+        <CircleCheck size={14} strokeWidth={1.75} className={cn(icon, 'text-success')} aria-label="Correct" />
+      </span>
+      <span title="Wrong">
+        <CircleX size={14} strokeWidth={1.75} className={cn(icon, 'text-danger')} aria-label="Wrong" />
+      </span>
+      <span title="Unattempted">
+        <CircleMinus size={14} strokeWidth={1.75} className={cn(icon, 'text-fg-subtle')} aria-label="Unattempted" />
+      </span>
+      <span className="hud-label text-right">Marks</span>
+      <span className="hud-label text-right">Avg</span>
+    </div>
+  );
+}
 
 /** One row of the deck / topic analysis table. */
 function BreakdownRow({ row, topic = false }: { row: Breakdown; topic?: boolean }) {
   const answered = row.correct + row.wrong;
+  const pct = scorePct(row);
   return (
     <div
       className={cn(
-        'grid grid-cols-[minmax(0,1fr)_2rem_2rem_2rem_4.5rem_3.5rem] items-center gap-x-2 px-3 py-2 text-xs',
-        topic ? 'text-white/55' : 'bg-white/[0.04] text-white/85 font-semibold'
+        TABLE_COLS,
+        'min-h-11 px-4 py-2 font-mono text-xs tabular transition-colors duration-120 hover:bg-surface-hover',
+        topic ? 'text-fg-muted' : 'text-fg'
       )}
     >
-      <div className={cn('min-w-0', topic && 'pl-4')}>
-        <p className="truncate">{row.label}</p>
-        <AccuracyBar pct={scorePct(row)} className="mt-1" />
+      <div className={cn('min-w-0 font-sans', topic && 'border-l border-line pl-3')}>
+        <div className="flex items-baseline justify-between gap-2">
+          <p className={cn('truncate text-ui', topic ? 'text-fg-muted' : 'font-medium text-fg')} title={row.label}>
+            {row.label}
+          </p>
+          <span className="shrink-0 font-mono text-2xs text-fg-subtle tabular">{Math.round(pct)}%</span>
+        </div>
+        <AccuracyBar pct={pct} className="mt-1.5" label={`${row.label}: ${Math.round(pct)}% of the marks`} />
       </div>
-      <span className="text-right text-green-300/90">{row.correct}</span>
-      <span className="text-right text-red-300/90">{row.wrong}</span>
-      <span className="text-right text-white/40">{row.skipped}</span>
+      <span className="text-right text-success">{row.correct}</span>
+      <span className="text-right text-danger">{row.wrong}</span>
+      <span className="text-right text-fg-subtle">{row.skipped}</span>
       <span className="text-right">
-        {formatMarks(row.marks)}/{formatMarks(row.maxMarks)}
+        {formatMarks(row.marks)}
+        <span className="text-fg-subtle">/{formatMarks(row.maxMarks)}</span>
       </span>
-      <span className="text-right text-white/40">{answered > 0 ? formatDuration(row.answeredMs / answered) : '—'}</span>
+      <span className="text-right text-fg-subtle">{answered > 0 ? formatDuration(row.answeredMs / answered) : '—'}</span>
     </div>
   );
 }
@@ -286,6 +347,7 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
   const [stopwatch] = useState(createStopwatch);
   const finishedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
 
   // Decks with gradable questions (count per deck), and the chosen ones in deck order.
   const { usableDecks, deckCounts, chosen } = useMemo(() => {
@@ -489,132 +551,133 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
     const allChosen = usableDecks.length > 0 && chosen.length === usableDecks.length;
     const secondsEach = plannedCount > 0 ? (settings.durationMinutes * 60) / plannedCount : 0;
     return (
-      <div className="p-6 space-y-6">
-        <div>
-          <h3 className="text-lg font-bold text-white">⏱️ Mock Test</h3>
-          <p className="text-xs text-white/40 mt-1">
-            A timed exam over your decks. No feedback until you submit; it submits itself when time runs out.
-          </p>
-        </div>
+      <div className="@container space-y-6 p-5">
+        <TabHeader
+          icon={Timer}
+          title="Mock test"
+          description="A timed exam over your decks. No feedback until you submit; it submits itself when time runs out."
+        />
 
         {usableDecks.length === 0 ? (
-          <p className="text-sm text-white/40">
-            No quiz questions yet. Decks need multiple-choice, multi-select or numeric cards for a mock test.
-          </p>
+          <EmptyState
+            icon={Timer}
+            title="No quiz questions yet"
+            description="Decks need multiple-choice, multi-select or numeric cards for a mock test."
+          />
         ) : (
           <>
-            <Field label="Decks" hint={chosen.length === 0 ? 'Pick at least one deck.' : `${poolSize} questions available`}>
-              {usableDecks.map((deck) => (
-                <Chip
-                  key={deck.id}
-                  active={chosen.some((d) => d.id === deck.id)}
-                  onClick={() =>
-                    setChosenIds((ids) => (ids.includes(deck.id) ? ids.filter((id) => id !== deck.id) : [...ids, deck.id]))
-                  }
-                >
-                  {deck.icon} {deck.name} <span className="opacity-50">{deckCounts.get(deck.id)}</span>
-                </Chip>
-              ))}
-              {usableDecks.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setChosenIds(allChosen ? [] : usableDecks.map((d) => d.id))}
-                  className="text-[11px] text-white/40 hover:text-white/70"
-                >
-                  {allChosen ? 'Clear' : 'Select all'}
-                </button>
-              )}
-            </Field>
-
-            <Field label="Questions">
-              {COUNT_OPTIONS.map((n) => (
-                <Chip
-                  key={n}
-                  active={countChoice === n}
-                  disabled={n > poolSize}
-                  onClick={() => setSettings((s) => ({ ...s, questionCount: n }))}
-                >
-                  {n === 0 ? `All (${poolSize})` : n}
-                </Chip>
-              ))}
-            </Field>
-
-            <Field
-              label="Duration"
-              hint={secondsEach > 0 ? `About ${formatDuration(secondsEach * 1000)} per question.` : undefined}
-            >
-              <select
-                value={settings.durationMinutes}
-                onChange={(e) => setSettings((s) => ({ ...s, durationMinutes: Number(e.target.value) }))}
-                aria-label="Duration"
-                className={SELECT_CLASS}
-              >
-                {DURATION_OPTIONS.map((m) => (
-                  <option key={m} value={m} className="bg-neutral-900">
-                    {formatMinutes(m)}
-                  </option>
+            <section className="space-y-3" aria-label="Decks">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="hud-label">Decks</span>
+                <span className="flex items-center gap-2">
+                  <span className={cn('text-xs tabular', chosen.length === 0 ? 'text-warning' : 'text-fg-subtle')}>
+                    {chosen.length === 0 ? 'Pick at least one deck.' : `${poolSize} questions available`}
+                  </span>
+                  {usableDecks.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setChosenIds(allChosen ? [] : usableDecks.map((d) => d.id))}
+                    >
+                      {allChosen ? 'Clear' : 'Select all'}
+                    </Button>
+                  )}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {usableDecks.map((deck) => (
+                  <Chip
+                    key={deck.id}
+                    selected={chosen.some((d) => d.id === deck.id)}
+                    onClick={() =>
+                      setChosenIds((ids) => (ids.includes(deck.id) ? ids.filter((id) => id !== deck.id) : [...ids, deck.id]))
+                    }
+                  >
+                    <span aria-hidden className="mr-1.5">
+                      {deck.icon}
+                    </span>
+                    {deck.name}
+                    <span className="ml-1.5 font-mono tabular opacity-60">{deckCounts.get(deck.id)}</span>
+                  </Chip>
                 ))}
-              </select>
-            </Field>
+              </div>
+            </section>
 
-            <Field
-              label="Marking"
-              hint={
-                settings.negativeMarking
-                  ? `+${formatMarks(settings.marksCorrect)} per correct, −${formatMarks(settings.marksWrong)} per wrong, 0 for unanswered: guess with care.`
-                  : `+${formatMarks(settings.marksCorrect)} per correct, nothing lost for wrong or unanswered.`
-              }
-            >
-              <span className="text-xs text-white/50">Correct</span>
-              <select
-                value={settings.marksCorrect}
-                onChange={(e) => setSettings((s) => ({ ...s, marksCorrect: Number(e.target.value) }))}
-                aria-label="Marks per correct answer"
-                className={SELECT_CLASS}
-              >
-                {CORRECT_MARK_OPTIONS.map((v) => (
-                  <option key={v} value={v} className="bg-neutral-900">
-                    +{v}
-                  </option>
-                ))}
-              </select>
-              <label className="ml-2 flex items-center gap-2 text-xs text-white/60 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.negativeMarking}
-                  onChange={(e) => setSettings((s) => ({ ...s, negativeMarking: e.target.checked }))}
-                  className="accent-red-400"
+            <Card eyebrow="Exam" title="Rules" bodyClassName="divide-y divide-line">
+              <SettingRow label="Questions" hint={`${poolSize} in the chosen decks`}>
+                <SegmentedControl
+                  size="sm"
+                  aria-label="Questions"
+                  value={String(countChoice)}
+                  onChange={(v) => setSettings((s) => ({ ...s, questionCount: Number(v) }))}
+                  options={COUNT_OPTIONS.map((n) => ({
+                    value: String(n),
+                    label: n === 0 ? `All ${poolSize}` : String(n),
+                    disabled: n > poolSize,
+                  }))}
                 />
-                Negative marking
-              </label>
-              {settings.negativeMarking && (
-                <select
-                  value={settings.marksWrong}
-                  onChange={(e) => setSettings((s) => ({ ...s, marksWrong: Number(e.target.value) }))}
-                  aria-label="Marks lost per wrong answer"
-                  className={SELECT_CLASS}
-                >
-                  {WRONG_MARK_OPTIONS.map((v) => (
-                    <option key={v} value={v} className="bg-neutral-900">
-                      −{formatMarks(v)} per wrong
-                    </option>
-                  ))}
-                </select>
-              )}
-            </Field>
+              </SettingRow>
+              <SettingRow
+                label="Duration"
+                hint={secondsEach > 0 ? `About ${formatDuration(secondsEach * 1000)} per question.` : undefined}
+              >
+                <div className="w-36">
+                  <Select
+                    size="sm"
+                    aria-label="Duration"
+                    value={String(settings.durationMinutes)}
+                    onValueChange={(v) => setSettings((s) => ({ ...s, durationMinutes: Number(v) }))}
+                    options={DURATION_OPTIONS.map((m) => ({ value: String(m), label: formatMinutes(m) }))}
+                  />
+                </div>
+              </SettingRow>
+              <SettingRow label="Marks per correct answer">
+                <div className="w-24">
+                  <Select
+                    size="sm"
+                    aria-label="Marks per correct answer"
+                    value={String(settings.marksCorrect)}
+                    onValueChange={(v) => setSettings((s) => ({ ...s, marksCorrect: Number(v) }))}
+                    options={CORRECT_MARK_OPTIONS.map((v) => ({ value: String(v), label: `+${v}` }))}
+                  />
+                </div>
+              </SettingRow>
+              <SettingRow
+                label="Negative marking"
+                hint={
+                  settings.negativeMarking
+                    ? `+${formatMarks(settings.marksCorrect)} per correct, −${formatMarks(settings.marksWrong)} per wrong, 0 for unanswered: guess with care.`
+                    : `+${formatMarks(settings.marksCorrect)} per correct, nothing lost for wrong or unanswered.`
+                }
+              >
+                {settings.negativeMarking && (
+                  <div className="w-36">
+                    <Select
+                      size="sm"
+                      aria-label="Marks lost per wrong answer"
+                      value={String(settings.marksWrong)}
+                      onValueChange={(v) => setSettings((s) => ({ ...s, marksWrong: Number(v) }))}
+                      options={WRONG_MARK_OPTIONS.map((v) => ({ value: String(v), label: `−${formatMarks(v)} per wrong` }))}
+                    />
+                  </div>
+                )}
+                <Switch
+                  checked={settings.negativeMarking}
+                  onCheckedChange={(on) => setSettings((s) => ({ ...s, negativeMarking: on }))}
+                  aria-label="Negative marking"
+                />
+              </SettingRow>
+            </Card>
 
-            <button
-              type="button"
-              onClick={startMock}
-              disabled={plannedCount === 0}
-              className="w-full p-3 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30 text-sm font-bold disabled:opacity-30"
-            >
-              🚀 Start Mock Test{' '}
-              <span className="font-normal text-red-300/60">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
+              <p className="text-ui text-fg-muted tabular">
                 {plannedCount} question{plannedCount === 1 ? '' : 's'} · {formatMinutes(settings.durationMinutes)} · max{' '}
                 {formatMarks(plannedCount * settings.marksCorrect)} marks
-              </span>
-            </button>
+              </p>
+              <Button variant="primary" size="lg" leadingIcon={Play} onClick={startMock} disabled={plannedCount === 0}>
+                Start mock test
+              </Button>
+            </div>
           </>
         )}
       </div>
@@ -632,162 +695,157 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
     const timeLeft = Math.max(0, Math.ceil((run.endsAt - now) / 1000));
     const danger = timeLeft * 1000 <= Math.max(60_000, budget * 0.1);
     const { marksCorrect, marksWrong, negativeMarking } = run.settings;
+    const marked = Boolean(run.marked[card.id]);
+    const paletteState = (cardId: string, i: number): PaletteState =>
+      i === run.index ? 'current' : run.marked[cardId] ? 'marked' : isAnswered(run.answers[cardId]) ? 'answered' : 'empty';
 
     return (
-      <div ref={containerRef} tabIndex={-1} onKeyDown={onKeyDown} className="flex flex-col h-full outline-none">
+      <div ref={containerRef} tabIndex={-1} onKeyDown={onKeyDown} className="@container flex h-full flex-col outline-none">
         {/* Top bar */}
-        <div className="flex items-center justify-between gap-3 p-3 border-b border-white/10 bg-black/20">
-          <span className="text-xs text-white/50">
-            Q{run.index + 1}/{run.items.length} · {answeredCount} answered
+        <div className="flex h-12 shrink-0 items-center gap-3 border-b border-line px-5">
+          <span className="font-mono text-xs text-fg-muted tabular">
+            <span className="text-fg">Q{run.index + 1}</span>/{run.items.length}
           </span>
+          <span className="hidden min-w-0 flex-1 truncate text-xs text-fg-subtle tabular @md:block">
+            {answeredCount} answered{markedCount > 0 ? ` · ${markedCount} marked` : ''}
+          </span>
+          <span className="flex-1 @md:hidden" />
           <span
             title="Time left"
-            className={cn('text-sm font-mono font-bold', danger ? 'text-red-400 animate-pulse' : 'text-cyan-300')}
+            className={cn(
+              'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-control px-2.5 font-mono text-sm font-semibold tabular',
+              danger ? 'bg-danger/12 text-danger motion-safe:animate-pulse-soft' : 'bg-accent/10 text-accent'
+            )}
           >
+            <Timer size={14} strokeWidth={1.75} aria-hidden />
             {formatClock(timeLeft)}
           </span>
-          <button
-            type="button"
-            onClick={requestSubmit}
-            className="px-3 py-1 rounded text-xs bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30"
-          >
+          <span aria-hidden className="h-5 w-px bg-line-strong" />
+          <Button variant="secondary" size="sm" leadingIcon={Flag} onClick={requestSubmit}>
             Submit
-          </button>
+          </Button>
         </div>
-        <div className="h-0.5 bg-white/5">
+        <div className="h-0.5 shrink-0 bg-ink-700" aria-hidden>
           <div
-            className={cn('h-full transition-all', danger ? 'bg-red-400/70' : 'bg-cyan-500/60')}
+            className={cn('h-full transition-[width] duration-1000 ease-linear', danger ? 'bg-danger' : 'bg-accent/70')}
             style={{ width: `${Math.min(100, ((timeLeft * 1000) / budget) * 100)}%` }}
           />
         </div>
 
-        {confirmSubmit && (
-          <div className="m-3 mb-0 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 text-xs text-yellow-200 flex flex-wrap items-center justify-between gap-2">
-            <span>
-              {unanswered > 0 ? `${unanswered} unanswered` : 'All answered'}
-              {markedCount > 0 ? ` · ${markedCount} marked for review` : ''}. Submit now?
-            </span>
-            <span className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmSubmit(false)}
-                className="px-3 py-1 rounded border border-white/10 text-white/60 hover:text-white"
-              >
-                Keep going
-              </button>
-              <button
-                type="button"
-                onClick={() => finishMock(false)}
-                className="px-3 py-1 rounded bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30"
-              >
-                Submit test
-              </button>
-            </span>
-          </div>
-        )}
-
         {/* Question */}
-        <div className="flex-1 p-4 overflow-y-auto space-y-3">
-          <div className="flex items-center gap-2 text-xs text-white/40">
-            <span className="truncate">
-              {deckName} • {topicName}
-            </span>
-            <span className={cn('px-2 py-0.5 rounded shrink-0', DIFFICULTY_STYLES[card.difficulty])}>
-              {card.difficulty}
-            </span>
-            <span className="shrink-0 text-white/30">
-              +{formatMarks(marksCorrect)}
-              {negativeMarking ? ` / −${formatMarks(marksWrong)}` : ''}
-            </span>
-            <button
-              type="button"
-              onClick={() => toggleMarked(card.id)}
-              className={cn(
-                'ml-auto shrink-0 px-2 py-0.5 rounded text-[10px] border',
-                run.marked[card.id]
-                  ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-300'
-                  : 'border-white/10 text-white/40 hover:text-white/70'
-              )}
-            >
-              {run.marked[card.id] ? '🔖 Marked' : 'Mark for review'}
-            </button>
+        <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          <div className="mx-auto w-full max-w-3xl space-y-4">
+            {confirmSubmit && (
+              <ConfirmBar
+                actions={
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setConfirmSubmit(false)}>
+                      Keep going
+                    </Button>
+                    <Button variant="primary" size="sm" onClick={() => finishMock(false)}>
+                      Submit test
+                    </Button>
+                  </>
+                }
+              >
+                {unanswered > 0 ? `${unanswered} unanswered` : 'All answered'}
+                {markedCount > 0 ? ` · ${markedCount} marked for review` : ''}. Submit now?
+              </ConfirmBar>
+            )}
+
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={card.id}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
+                transition={TRANSITION.small}
+                className="glass-panel rounded-card p-5"
+              >
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  <span className="hud-label text-accent">Q{run.index + 1}</span>
+                  <span aria-hidden className="text-fg-faint">
+                    ·
+                  </span>
+                  <span className="hud-label">{KIND_LABELS[card.kind]}</span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-fg-subtle" title={`${deckName} › ${topicName}`}>
+                    {deckName} › {topicName}
+                  </span>
+                  <DifficultyBadge difficulty={card.difficulty} />
+                  <Badge size="sm" title="Marks for a correct / wrong answer">
+                    +{formatMarks(marksCorrect)}
+                    {negativeMarking ? ` / −${formatMarks(marksWrong)}` : ''}
+                  </Badge>
+                  <button
+                    type="button"
+                    onClick={() => toggleMarked(card.id)}
+                    aria-pressed={marked}
+                    className={cn(
+                      'focus-ring inline-flex h-7 items-center gap-1.5 rounded-control px-2.5 text-xs font-medium',
+                      'transition-colors duration-120 ease-out-quint',
+                      marked
+                        ? 'bg-warning/12 text-warning ring-1 ring-inset ring-warning/30 hover:bg-warning/18'
+                        : 'text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active'
+                    )}
+                  >
+                    {marked ? (
+                      <BookmarkCheck size={14} strokeWidth={1.75} aria-hidden />
+                    ) : (
+                      <Bookmark size={14} strokeWidth={1.75} aria-hidden />
+                    )}
+                    {marked ? 'Marked' : 'Mark for review'}
+                  </button>
+                </div>
+                <QuestionView
+                  key={card.id}
+                  card={card}
+                  answer={answer}
+                  onAnswer={(a) => setAnswer(card.id, a)}
+                  autoFocus
+                  size="lg"
+                  keyHints
+                />
+              </motion.div>
+            </AnimatePresence>
+
+            <KeyHints
+              items={[
+                { keys: ['1', '9'], label: 'pick', range: true },
+                { keys: ['Enter'], label: 'next' },
+                { keys: ['←', '→'], label: 'move' },
+              ]}
+            />
           </div>
-          <QuestionView key={card.id} card={card} answer={answer} onAnswer={(a) => setAnswer(card.id, a)} autoFocus />
         </div>
 
         {/* Question palette */}
-        <div className="p-3 border-t border-white/10 bg-black/20 space-y-2">
-          <div className="flex flex-wrap gap-1">
+        <div className="shrink-0 space-y-3 border-t border-line bg-ink-950/30 px-5 py-3">
+          <div className="scrollbar-thin flex max-h-[4.25rem] flex-wrap gap-1 overflow-y-auto p-0.5" aria-label="Question palette">
             {run.items.map((item, i) => (
-              <button
-                key={item.card.id}
-                type="button"
-                onClick={() => goTo(i)}
-                aria-label={`Question ${i + 1}`}
-                className={cn(
-                  'w-7 h-7 rounded text-[10px] transition-all',
-                  i === run.index
-                    ? 'bg-cyan-500 text-black font-bold'
-                    : run.marked[item.card.id]
-                    ? 'bg-yellow-500/30 text-yellow-300'
-                    : isAnswered(run.answers[item.card.id])
-                    ? 'bg-green-500/30 text-green-300'
-                    : 'bg-white/10 text-white/40'
-                )}
-              >
-                {i + 1}
-              </button>
+              <PaletteButton key={item.card.id} index={i} state={paletteState(item.card.id, i)} onClick={() => goTo(i)} />
             ))}
           </div>
-          <div className="flex gap-3 text-[10px] text-white/35">
-            <span>
-              <span className="inline-block w-2 h-2 rounded-sm bg-green-500/50 mr-1" />
-              Answered
-            </span>
-            <span>
-              <span className="inline-block w-2 h-2 rounded-sm bg-yellow-500/50 mr-1" />
-              Marked
-            </span>
-            <span>
-              <span className="inline-block w-2 h-2 rounded-sm bg-white/20 mr-1" />
-              Not answered
-            </span>
-            <span className="ml-auto">Keys: 1–9 pick · Enter next · ← →</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => goTo(run.index - 1)}
-              disabled={run.index === 0}
-              className="px-4 py-1 text-xs text-white/50 hover:text-white disabled:opacity-30"
-            >
-              ← Prev
-            </button>
-            <button
-              type="button"
-              onClick={() => clearAnswer(card.id)}
-              disabled={!isAnswered(answer)}
-              className="px-3 py-1 text-xs text-white/40 hover:text-white/70 disabled:opacity-30"
-            >
-              Clear answer
-            </button>
-            {run.index === run.items.length - 1 ? (
-              <button
-                type="button"
-                onClick={requestSubmit}
-                className="px-4 py-1 rounded text-xs bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30"
-              >
-                Submit ✓
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => goTo(run.index + 1)}
-                className="px-4 py-1 text-xs text-white/50 hover:text-white"
-              >
-                Next →
-              </button>
-            )}
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <div className="hidden @xl:block">
+              <PaletteLegend items={['answered', 'marked', 'empty']} />
+            </div>
+            <div className="flex flex-1 items-center justify-end gap-2">
+              <Button variant="ghost" size="sm" leadingIcon={ChevronLeft} onClick={() => goTo(run.index - 1)} disabled={run.index === 0}>
+                Prev
+              </Button>
+              <Button variant="ghost" size="sm" leadingIcon={Eraser} onClick={() => clearAnswer(card.id)} disabled={!isAnswered(answer)}>
+                Clear answer
+              </Button>
+              {run.index === run.items.length - 1 ? (
+                <Button variant="primary" size="sm" leadingIcon={Flag} onClick={requestSubmit}>
+                  Submit
+                </Button>
+              ) : (
+                <Button variant="primary" size="sm" trailingIcon={ChevronRight} onClick={() => goTo(run.index + 1)}>
+                  Next
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -796,7 +854,7 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
 
   // ─── Results ───
   if (phase === 'results' && run && result) {
-    const { grade, color } = letterGrade(result.pct);
+    const { grade, color, tone } = letterGrade(result.pct);
     const { marksWrong, negativeMarking } = run.settings;
     const topics = result.decks.flatMap((d) =>
       d.topics.map((t) => ({ ...t, label: result.decks.length > 1 ? `${d.label} › ${t.label}` : t.label }))
@@ -818,141 +876,193 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
           : status === 'skipped'
       );
     const markedCount = run.items.filter((item) => run.marked[item.card.id]).length;
+    const insight = (kind: 'weak' | 'strong', row: Breakdown & { label: string }) => {
+      const pct = scorePct(row);
+      const weak = kind === 'weak';
+      return (
+        <div className="glass-panel flex min-w-0 items-center gap-3 rounded-card p-3.5">
+          <span
+            aria-hidden
+            className={cn(
+              'flex size-9 shrink-0 items-center justify-center rounded-control ring-1 ring-inset',
+              weak ? 'bg-danger/10 text-danger ring-danger/25' : 'bg-success/10 text-success ring-success/25'
+            )}
+          >
+            {weak ? <Target size={16} strokeWidth={1.75} /> : <Trophy size={16} strokeWidth={1.75} />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="hud-label">{weak ? 'Focus next' : 'Strongest'}</p>
+            <p className="mt-0.5 truncate text-ui font-medium text-fg" title={row.label}>
+              {row.label}
+            </p>
+          </div>
+          <span className={cn('shrink-0 font-mono text-sm font-semibold tabular', weak ? 'text-danger' : 'text-success')}>
+            {Math.round(pct)}%
+          </span>
+        </div>
+      );
+    };
 
     return (
-      <div className="p-6 space-y-6">
-        {/* Score */}
-        <div className="text-center space-y-2">
-          <h3 className="text-lg font-bold text-white">Mock Test Results</h3>
-          <div className={cn('text-5xl font-black', color)}>{grade}</div>
-          <p className="text-white text-xl font-bold">
-            {formatMarks(result.score)} / {formatMarks(result.maxScore)} marks
-          </p>
-          <p className="text-white/50 text-sm">
-            {deckLabel} • {Math.round(result.pct)}% • {formatDuration(result.durationMs)} of{' '}
-            {formatMinutes(run.settings.durationMinutes)}
-          </p>
-          <p className="text-xs font-semibold text-cyan-300">+{result.xp} XP earned</p>
-          {result.timedOut && <p className="text-xs text-red-300">⏱ Time&apos;s up: the test was submitted automatically.</p>}
-        </div>
+      <div className="@container space-y-6 p-5">
+        <ScoreHero
+          grade={grade}
+          gradeColor={color}
+          tone={tone}
+          pct={result.pct}
+          eyebrow="Mock test results"
+          title={
+            <>
+              {formatMarks(result.score)} / {formatMarks(result.maxScore)} marks
+            </>
+          }
+          meta={
+            <>
+              {deckLabel} · {Math.round(result.pct)}% · {formatDuration(result.durationMs)} of{' '}
+              {formatMinutes(run.settings.durationMinutes)}
+            </>
+          }
+          badges={
+            <>
+              <Badge tone="gold" icon={Sparkles}>
+                +{result.xp} XP earned
+              </Badge>
+              {result.timedOut && (
+                <Badge tone="danger" icon={Timer}>
+                  Time&apos;s up
+                </Badge>
+              )}
+            </>
+          }
+          footnote={result.timedOut ? "Time's up: the test was submitted automatically." : undefined}
+        />
 
-        <div className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(96px,1fr))]">
-          <StatTile value={result.correct} label="Correct" tone="green" />
-          <StatTile value={result.wrong} label="Wrong" tone="red" />
-          <StatTile value={result.skipped} label="Unattempted" />
+        <div className={cn('grid grid-cols-2 gap-3', negativeMarking ? '@xl:grid-cols-5' : '@xl:grid-cols-4')}>
+          <StatTile size="sm" label="Correct" icon={CircleCheck} value={<span className="text-success">{result.correct}</span>} />
+          <StatTile size="sm" label="Wrong" icon={CircleX} value={<span className="text-danger">{result.wrong}</span>} />
+          <StatTile size="sm" label="Unattempted" icon={CircleMinus} value={result.skipped} />
           <StatTile
-            value={result.correct + result.wrong > 0 ? `${Math.round(result.accuracy)}%` : '—'}
+            size="sm"
             label="Accuracy"
-            tone="cyan"
+            icon={Target}
+            value={
+              result.correct + result.wrong > 0 ? (
+                <span className={cn(accuracyTone(result.accuracy) === 'danger' ? 'text-danger' : accuracyTone(result.accuracy) === 'warning' ? 'text-warning' : 'text-success')}>
+                  {Math.round(result.accuracy)}%
+                </span>
+              ) : (
+                '—'
+              )
+            }
           />
           {negativeMarking && (
-            <StatTile value={`−${formatMarks(result.wrong * marksWrong)}`} label="Lost to penalties" tone="purple" />
+            <StatTile
+              size="sm"
+              label="Lost to penalties"
+              icon={CircleX}
+              value={<span className="text-danger">−{formatMarks(result.wrong * marksWrong)}</span>}
+            />
           )}
         </div>
 
         {/* Analysis */}
-        <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-white/80">Analysis by deck &amp; topic</h4>
-          {weakest && strongest && weakest.key !== strongest.key && (
-            <div className="grid gap-2 sm:grid-cols-2 text-xs">
-              <p className="p-2 rounded-lg border border-red-500/20 bg-red-500/10 text-red-200">
-                Focus next: <span className="font-semibold">{weakest.label}</span> ({Math.round(scorePct(weakest))}%)
-              </p>
-              <p className="p-2 rounded-lg border border-green-500/20 bg-green-500/10 text-green-200">
-                Strongest: <span className="font-semibold">{strongest.label}</span> ({Math.round(scorePct(strongest))}%)
-              </p>
+        <section className="space-y-3" aria-label="Analysis by deck and topic">
+          {weakest && strongest && weakest.key !== strongest.key && scorePct(strongest) > scorePct(weakest) && (
+            <div className="grid gap-3 @xl:grid-cols-2">
+              {insight('weak', weakest)}
+              {insight('strong', strongest)}
             </div>
           )}
-          <div className="rounded-lg border border-white/10 overflow-hidden divide-y divide-white/5">
-            <div className="grid grid-cols-[minmax(0,1fr)_2rem_2rem_2rem_4.5rem_3.5rem] gap-x-2 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/35">
-              <span>Deck / topic</span>
-              <span className="text-right">✓</span>
-              <span className="text-right">✗</span>
-              <span className="text-right">—</span>
-              <span className="text-right">Marks</span>
-              <span className="text-right">Avg</span>
+          <Card eyebrow="Analysis" title="By deck & topic" padding="none">
+            <BreakdownHeader />
+            <div className="divide-y divide-line">
+              {result.decks.map((deck) => (
+                <div key={deck.key} className="divide-y divide-line">
+                  <BreakdownRow row={deck} />
+                  {deck.topics.length > 1 && deck.topics.map((topic) => <BreakdownRow key={topic.key} row={topic} topic />)}
+                </div>
+              ))}
             </div>
-            {result.decks.map((deck) => (
-              <div key={deck.key} className="divide-y divide-white/5">
-                <BreakdownRow row={deck} />
-                {deck.topics.length > 1 && deck.topics.map((topic) => <BreakdownRow key={topic.key} row={topic} topic />)}
-              </div>
-            ))}
-          </div>
-        </div>
+          </Card>
+        </section>
 
         <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={startMock}
-            disabled={plannedCount === 0}
-            className="flex-1 p-3 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30 text-sm font-semibold disabled:opacity-30"
-          >
-            ↻ Retake (new questions)
-          </button>
-          <button
-            type="button"
-            onClick={backToSetup}
-            className="flex-1 p-3 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/30 text-sm font-semibold"
-          >
-            Back to Setup
-          </button>
+          <Button variant="primary" size="lg" leadingIcon={RotateCcw} onClick={startMock} disabled={plannedCount === 0}>
+            Retake (new questions)
+          </Button>
+          <Button variant="secondary" size="lg" leadingIcon={SlidersHorizontal} onClick={backToSetup}>
+            Back to setup
+          </Button>
         </div>
 
         {/* Per-question review */}
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 className="text-sm font-semibold text-white/80">Review</h4>
-            <div className="flex flex-wrap gap-1">
-              <Chip active={reviewFilter === 'all'} onClick={() => setReviewFilter('all')}>
-                All
+        <section className="space-y-3" aria-label="Review">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h4 className="text-sm font-semibold text-fg">Review</h4>
+            <div className="flex flex-wrap gap-2">
+              <Chip selected={reviewFilter === 'all'} onClick={() => setReviewFilter('all')}>
+                All ({run.items.length})
               </Chip>
-              <Chip active={reviewFilter === 'wrong'} onClick={() => setReviewFilter('wrong')}>
+              <Chip tone="danger" selected={reviewFilter === 'wrong'} onClick={() => setReviewFilter('wrong')}>
                 Wrong ({result.wrong})
               </Chip>
-              <Chip active={reviewFilter === 'skipped'} onClick={() => setReviewFilter('skipped')}>
+              <Chip selected={reviewFilter === 'skipped'} onClick={() => setReviewFilter('skipped')}>
                 Unattempted ({result.skipped})
               </Chip>
               {markedCount > 0 && (
-                <Chip active={reviewFilter === 'marked'} onClick={() => setReviewFilter('marked')}>
+                <Chip tone="warning" selected={reviewFilter === 'marked'} onClick={() => setReviewFilter('marked')}>
                   Marked ({markedCount})
                 </Chip>
               )}
             </div>
           </div>
-          {reviewed.length === 0 && <p className="text-xs text-white/40">Nothing here.</p>}
-          {reviewed.map(({ item, i, status }) => {
-            const marks = marksFor(status, run.settings);
-            return (
-              <details key={item.card.id} className={cn('p-3 rounded-lg border text-sm', REVIEW_STYLES[status])}>
-                <summary className="cursor-pointer text-white/80">
-                  <span className="text-white/40 mr-2">Q{i + 1}.</span>
-                  {item.card.prompt.length > PROMPT_PREVIEW
-                    ? `${item.card.prompt.slice(0, PROMPT_PREVIEW)}…`
-                    : item.card.prompt}
-                  <span className={cn('ml-2', STATUS_MARKS[status].className)}>{STATUS_MARKS[status].icon}</span>
-                  <span className="ml-2 text-[10px] text-white/40">
-                    {marks > 0 ? '+' : ''}
-                    {formatMarks(marks)}
-                  </span>
-                  {run.marked[item.card.id] && <span className="ml-1 text-[10px]">🔖</span>}
-                </summary>
-                <div className="mt-3 space-y-2">
-                  <QuestionView
-                    card={item.card}
-                    answer={run.answers[item.card.id]}
-                    reveal
-                    hidePrompt={item.card.prompt.length <= PROMPT_PREVIEW}
-                  />
-                  <p className="text-[10px] text-white/30">
-                    {item.deckName} › {item.topicName}
-                    {result.spentMs[item.card.id] ? ` · ${formatDuration(result.spentMs[item.card.id])} on this question` : ''}
-                  </p>
-                </div>
-              </details>
-            );
-          })}
-        </div>
+          {reviewed.length === 0 ? (
+            <EmptyState
+              size="sm"
+              icon={CircleCheck}
+              title="Nothing here"
+              description={reviewFilter === 'wrong' ? 'No wrong answers in this test.' : 'Every question was attempted.'}
+            />
+          ) : (
+            <div className="glass-panel divide-y divide-line overflow-hidden rounded-card">
+              {reviewed.map(({ item, i, status }) => {
+                const marks = marksFor(status, run.settings);
+                const spent = result.spentMs[item.card.id];
+                return (
+                  <ReviewRow
+                    key={item.card.id}
+                    index={i}
+                    status={status}
+                    prompt={item.card.prompt}
+                    preview={PROMPT_PREVIEW}
+                    flags={
+                      run.marked[item.card.id] ? (
+                        <BookmarkCheck size={14} strokeWidth={1.75} className="shrink-0 text-warning" aria-label="Marked for review" />
+                      ) : undefined
+                    }
+                    meta={
+                      <span className={cn(marks > 0 ? 'text-success' : marks < 0 ? 'text-danger' : 'text-fg-subtle')}>
+                        {marks > 0 ? '+' : ''}
+                        {formatMarks(marks)}
+                      </span>
+                    }
+                  >
+                    <QuestionView
+                      card={item.card}
+                      answer={run.answers[item.card.id]}
+                      reveal
+                      hidePrompt={item.card.prompt.length <= PROMPT_PREVIEW}
+                    />
+                    <p className="text-xs text-fg-subtle">
+                      {item.deckName} › {item.topicName}
+                      {spent ? ` · ${formatDuration(spent)} on this question` : ''}
+                    </p>
+                  </ReviewRow>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
     );
   }

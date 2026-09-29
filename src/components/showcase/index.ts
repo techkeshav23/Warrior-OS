@@ -12,11 +12,10 @@ export {
   type OwnerLinkId,
 } from './OwnerCard';
 export {
-  SmallScreenGate,
+  SmallScreenGuard,
   isSmallScreen,
   SMALL_SCREEN_MIN_WIDTH,
   SMALL_SCREEN_STORAGE_KEY,
-  type SmallScreenGateProps,
-} from './SmallScreenGate';
+  type SmallScreenGuardProps,
+} from './SmallScreenGuard';
 export { GuidedTour, type GuidedTourProps } from './GuidedTour';
-export { ReplayTourButton } from './tour/ReplayTourButton';

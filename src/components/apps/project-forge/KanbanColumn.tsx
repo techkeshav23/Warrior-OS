@@ -1,6 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Kanban Column
-// One droppable stage column with its sortable project cards
+// One droppable stage lane: stage header (icon, label, count,
+// add), a recessed lane with a stage-coloured heat line, the
+// sortable cards and designed empty / drop states.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -8,8 +10,9 @@
 import { memo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Plus } from 'lucide-react';
+import { Anvil, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { IconButton } from '@/components/ui';
 import type { ForgeActiveTimer, ForgeProject, ForgeStage } from '@/types/project-forge';
 import { SortableProjectCard } from './ProjectCard';
 import { STAGE_META, columnId } from './forge-utils';
@@ -45,33 +48,44 @@ function KanbanColumnInner({
   onToggleTimer,
 }: KanbanColumnProps) {
   const meta = STAGE_META[stage];
+  const StageIcon = meta.Icon;
   const { setNodeRef } = useDroppable({ id: columnId(stage) });
 
   return (
-    <section
-      aria-label={`${meta.label} column`}
-      className={cn(
-        'flex min-h-0 min-w-[220px] max-w-[360px] flex-1 shrink-0 flex-col rounded-xl border bg-white/[0.02] transition-colors',
-        isDropTarget ? 'border-cyan-400/40 bg-cyan-400/[0.03]' : meta.border
-      )}
-    >
-      <header className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
-        <span className={cn('h-2 w-2 rounded-full', meta.dot)} />
-        <h3 className="text-xs font-semibold tracking-wide text-white/85">{meta.label}</h3>
-        <span className="rounded-full bg-white/[0.06] px-1.5 text-[10px] tabular-nums text-white/50">{ids.length}</span>
-        <span className="hidden truncate text-[10px] text-white/35 @4xl:inline">{meta.hint}</span>
-        <button
-          type="button"
-          onClick={() => onAdd(stage)}
+    <section aria-label={`${meta.label} column`} className="flex min-h-0 min-w-[228px] max-w-[360px] flex-1 shrink-0 flex-col">
+      {/* Stage header */}
+      <header className="flex h-10 shrink-0 items-center gap-2 pl-1 pr-0.5">
+        <StageIcon size={16} strokeWidth={1.75} aria-hidden className={cn('shrink-0', meta.text)} />
+        <h3 className="text-ui font-semibold text-fg">{meta.label}</h3>
+        <span className="tabular rounded-full bg-surface-active px-1.5 font-mono text-2xs leading-4 text-fg-muted">
+          {ids.length}
+        </span>
+        <span className="hidden min-w-0 flex-1 truncate text-xs text-fg-subtle @5xl:inline" title={meta.hint}>
+          {meta.hint}
+        </span>
+        <span className="flex-1 @5xl:hidden" />
+        <IconButton
+          icon={Plus}
+          size="sm"
           aria-label={`Add project to ${meta.label}`}
-          title={`Add to ${meta.label}`}
-          className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-white/45 transition-colors hover:bg-white/10 hover:text-cyan-300"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
+          tooltip={`Add to ${meta.label}`}
+          onClick={() => onAdd(stage)}
+        />
       </header>
 
-      <div ref={setNodeRef} className="min-h-[96px] flex-1 space-y-2 overflow-y-auto p-2">
+      {/* Lane */}
+      <div
+        ref={setNodeRef}
+        className={cn(
+          'scrollbar-thin relative min-h-24 flex-1 space-y-2 overflow-y-auto rounded-card p-2',
+          'transition-[background-color,box-shadow] duration-180 ease-out-quint',
+          isDropTarget ? 'bg-accent/[0.06] ring-1 ring-inset ring-accent/30' : 'bg-ink-950/45'
+        )}
+      >
+        <span
+          aria-hidden
+          className={cn('pointer-events-none absolute inset-x-3 top-0 h-px bg-linear-to-r to-transparent', meta.line)}
+        />
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
           {ids.map((id) => {
             const project = projectsById[id];
@@ -96,16 +110,23 @@ function KanbanColumnInner({
             <button
               type="button"
               onClick={() => onAdd(stage)}
-              className="flex w-full flex-col items-center gap-1 rounded-lg border border-dashed border-amber-400/30 px-3 py-5 text-center transition-colors hover:border-amber-400/60 hover:bg-amber-400/[0.04]"
+              className={cn(
+                'focus-ring group/cta flex w-full flex-col items-center gap-2 rounded-card border border-dashed border-ember-500/35 px-3 py-6 text-center',
+                'transition-[background-color,border-color] duration-120 ease-out-quint hover:border-ember-500/60 hover:bg-ember-500/[0.05]'
+              )}
             >
-              <Plus className="h-4 w-4 text-amber-300" />
-              <span className="text-xs font-medium text-white/75">Forge your first project</span>
-              <span className="text-[10px] text-white/40">Ideas, side projects, hackathon builds</span>
+              <span className="mb-1 flex size-10 items-center justify-center rounded-card border border-ember-500/35 bg-linear-to-b from-ink-750 to-ink-850 text-ember-400 shadow-[0_0_24px_-6px_var(--color-ember-500)] inset-shadow-[0_1px_0_var(--color-surface-active)]">
+                <Anvil size={18} strokeWidth={1.75} aria-hidden />
+              </span>
+              <span className="text-ui font-medium text-fg">Forge your first project</span>
+              <span className="text-xs text-fg-subtle">Ideas, side projects, hackathon builds</span>
             </button>
           ) : (
-            <p className="rounded-lg border border-dashed border-white/10 px-3 py-5 text-center text-[11px] text-white/35">
-              Drop a card here
-            </p>
+            <div className="flex flex-col items-center gap-1.5 rounded-card border border-dashed border-line px-3 py-6 text-center">
+              <StageIcon size={16} strokeWidth={1.75} aria-hidden className="text-fg-faint" />
+              <p className="text-xs text-fg-muted">{meta.empty}</p>
+              <p className="text-2xs text-fg-subtle">Drag a card here</p>
+            </div>
           ))}
       </div>
     </section>

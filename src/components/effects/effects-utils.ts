@@ -4,6 +4,7 @@
 // motion / lite mode, easing, rarity palette and pure XP / level maths
 // ═══════════════════════════════════════════════════════════
 
+import { Compass, Flame, GraduationCap, Hammer, Sparkles, type LucideIcon } from 'lucide-react';
 import type { Achievement, AchievementCategory } from '@/types/achievement';
 import { LEVEL_THRESHOLDS } from '@/lib/constants';
 import { isLiteModeActive } from '@/lib/lite-mode';
@@ -11,16 +12,26 @@ import { isLiteModeActive } from '@/lib/lite-mode';
 export type Rarity = Achievement['rarity'];
 
 /**
- * Stacking plan. Root-level layers sit above the boot and lock screens
- * (--z-boot 1000) and below the custom cursor (--z-cursor 9999). The
- * disintegrate canvas lives in the desktop phase: above windows, below
- * the taskbar (--z-taskbar 500).
+ * Stacking plan (numbers because canvas-confetti needs one; they follow
+ * the CSS --z-* scale in globals.css).
+ * - The achievement cinematic, its confetti and the level-up card sit
+ *   above windows, the taskbar (--z-taskbar 500) and the Dynamic Island
+ *   they fly into (--z-dynamic-island 600), but BELOW everything the
+ *   user opens on purpose: start menu (700), command palette (800),
+ *   context menus (850), notifications and toasts (900) and dialogs
+ *   (--z-modal 950). They never take clicks outside their own card or
+ *   medallion, and the lock screen (--z-boot 1000) covers them. The
+ *   compact achievement toast lives in the toast layer (--z-notification).
+ * - Phase transitions (unlock shatter, glitch) sit above the boot and
+ *   lock screens and below the custom cursor (--z-cursor 9999).
+ * - The disintegrate canvas lives in the desktop phase: above windows,
+ *   below the taskbar.
  */
 export const FX_Z = {
   disintegrate: 150,
-  levelUp: 1080,
-  cinematic: 1090,
-  confetti: 1095,
+  cinematic: 650,
+  confetti: 660,
+  levelUp: 670,
   shatter: 1100,
   glitch: 1110,
 } as const;
@@ -85,40 +96,50 @@ export interface RarityStyle {
   gradient: string;
 }
 
+// FORGE HUD palette: steel → mint → azure → violet → gold (tokens.ts).
 export const RARITY_STYLE: Record<Rarity, RarityStyle> = {
   common: {
     label: 'Common',
-    color: '#b0bec5',
-    glow: 'rgba(176, 190, 197, 0.45)',
-    gradient: 'linear-gradient(135deg, #eceff1 0%, #90a4ae 100%)',
+    color: '#a0adc2', // fg-muted
+    glow: 'rgba(160, 173, 194, 0.4)',
+    gradient: 'linear-gradient(135deg, #e6edf7 0%, #6f7d94 100%)',
   },
   uncommon: {
     label: 'Uncommon',
-    color: '#00e676',
-    glow: 'rgba(0, 230, 118, 0.45)',
-    gradient: 'linear-gradient(135deg, #b9f6ca 0%, #00c853 100%)',
+    color: '#3ddc97', // success / mint
+    glow: 'rgba(61, 220, 151, 0.42)',
+    gradient: 'linear-gradient(135deg, #b5f5d8 0%, #1fa874 100%)',
   },
   rare: {
     label: 'Rare',
-    color: '#40c4ff',
-    glow: 'rgba(64, 196, 255, 0.5)',
-    gradient: 'linear-gradient(135deg, #80d8ff 0%, #0091ea 100%)',
+    color: '#6aa8ff', // info / azure
+    glow: 'rgba(106, 168, 255, 0.45)',
+    gradient: 'linear-gradient(135deg, #c3dcff 0%, #3b7fe0 100%)',
   },
   epic: {
     label: 'Epic',
-    color: '#b388ff',
-    glow: 'rgba(179, 136, 255, 0.5)',
-    gradient: 'linear-gradient(135deg, #e1bee7 0%, #7c4dff 100%)',
+    color: '#a78bfa', // viz-3 / violet
+    glow: 'rgba(167, 139, 250, 0.45)',
+    gradient: 'linear-gradient(135deg, #ddd2fe 0%, #7c5ce6 100%)',
   },
   legendary: {
     label: 'Legendary',
-    color: '#ffc400',
-    glow: 'rgba(255, 196, 0, 0.55)',
-    gradient: 'linear-gradient(135deg, #fff59d 0%, #ff8f00 100%)',
+    color: '#f5c04a', // gold
+    glow: 'rgba(245, 192, 74, 0.5)',
+    gradient: 'linear-gradient(135deg, #ffe9a8 0%, #f76b15 100%)',
   },
 };
 
 export const RARITY_ORDER: readonly Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+
+/** Lucide glyph per achievement category (medallions, galleries, toasts). */
+export const CATEGORY_ICON: Record<AchievementCategory, LucideIcon> = {
+  study: GraduationCap,
+  build: Hammer,
+  streak: Flame,
+  exploration: Compass,
+  special: Sparkles,
+};
 
 export const CATEGORY_LABEL: Record<AchievementCategory, string> = {
   study: 'Study',

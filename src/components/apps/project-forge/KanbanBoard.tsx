@@ -254,7 +254,7 @@ function KanbanBoardInner({ onOpen, onAdd }: KanbanBoardProps) {
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex h-full min-h-0 gap-3 overflow-x-auto p-3">
+      <div className="scrollbar-thin flex h-full min-h-0 gap-3 overflow-x-auto px-4 pb-4 pt-2">
         {FORGE_STAGES.map((stage) => (
           <KanbanColumn
             key={stage}
