@@ -9,14 +9,15 @@
 //
 // Visited tabs stay mounted (inactive ones are hidden), so a quiz or
 // mock test in progress survives a trip to another tab. A tab only
-// remounts when a deep link or launcher points it at a new deck/topic.
+// remounts when a deep link or launcher points it at a deck/topic other
+// than the one it shows now (or Review is asked for every deck).
 // Every tab reads keys from its own root element, so hidden tabs never
 // react to the keyboard.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { LocateFixed, TriangleAlert, X } from 'lucide-react';
 import { AppIcon, AppLayout, Badge, IconButton, SidebarNav, type NavSection } from '@/components/ui';
@@ -73,6 +74,16 @@ function sameTarget(a: DeckTarget | null, b: DeckTarget | null): boolean {
   return a.deckId === b.deckId && (a.topicId ?? null) === (b.topicId ?? null);
 }
 
+/** Tabs that pick a whole deck only (a topic in a launch target doesn't apply). */
+const DECK_ONLY_TABS: readonly TrainingGroundsTab[] = ['bank', 'mock'];
+
+/** Tabs where a launch without a deck means "every deck" rather than "just show it". */
+const ALL_DECKS_TABS: readonly TrainingGroundsTab[] = ['flashcards'];
+
+function scopeFor(tab: TrainingGroundsTab, target: DeckTarget | null): DeckTarget | null {
+  return target && DECK_ONLY_TABS.includes(tab) ? { deckId: target.deckId, topicId: null } : target;
+}
+
 function withMount(mounts: TabMounts, tab: TrainingGroundsTab, mount: TabMount): TabMounts {
   const next: TabMounts = { ...mounts };
   next[tab] = mount;
@@ -111,6 +122,14 @@ function TrainingGroundsAppInner({ initialTab = 'decks' }: TrainingGroundsAppPro
   // Deck open in the vault's detail view (kept here so it survives tab switches).
   const [openDeckId, setOpenDeckId] = useState<string | null>(null);
   const decks = useLearningStore((s) => s.decks);
+  // Deck/topic each mounted tab shows right now (the user can switch it in-tab).
+  const scopes = useRef<Partial<Record<TrainingGroundsTab, DeckTarget | null>>>({});
+  const scopeReporters = useMemo(() => {
+    const report = (tab: TrainingGroundsTab) => (target: DeckTarget | null) => {
+      scopes.current[tab] = target;
+    };
+    return { quiz: report('quiz'), flashcards: report('flashcards'), bank: report('bank'), mock: report('mock') };
+  }, [scopes]);
 
   /** Sidebar: show a tab; its first visit mounts it on the current focus. */
   const showTab = (tab: TrainingGroundsTab) => {
@@ -121,18 +140,25 @@ function TrainingGroundsAppInner({ initialTab = 'decks' }: TrainingGroundsAppPro
   };
 
   /**
-   * Open `tab` on `target`. A mounted tab keeps its state unless the target
-   * is a new deck/topic (a link without a deck just switches to it).
+   * Open `tab` on `target`. A mounted tab keeps its state (and any run in
+   * progress) when it already shows that deck/topic; otherwise it remounts
+   * on it. A link without a deck just switches to the tab, except Review,
+   * where it means every deck.
    */
   const openOn = useCallback((tab: TrainingGroundsTab, target: DeckTarget | null) => {
     setFocus(target);
     setMounts((m) => {
       const current = m[tab];
-      if (current && (target === null || sameTarget(current.target, target))) return m;
+      if (current) {
+        const shown = tab in scopes.current ? (scopes.current[tab] ?? null) : current.target;
+        if (target === null ? !ALL_DECKS_TABS.includes(tab) || shown === null : sameTarget(scopeFor(tab, shown), scopeFor(tab, target))) {
+          return m;
+        }
+      }
       return withMount(m, tab, { nonce: (current?.nonce ?? 0) + 1, target });
     });
     setActiveTab(tab);
-  }, []);
+  }, [scopes]);
 
   /** Launcher for tabs that start a mode on a deck/topic (Skill Tree, Quest Planner quests). */
   const launch = useCallback(
@@ -214,15 +240,17 @@ function TrainingGroundsAppInner({ initialTab = 'decks' }: TrainingGroundsAppPro
       case 'decks':
         return <DecksPanel openDeckId={openDeckId} onOpenDeck={setOpenDeckId} onStudy={studyFromDecks} />;
       case 'quiz':
-        return <QuizEngine initialTarget={deckId ? { deckId, topicId } : null} />;
+        return <QuizEngine initialTarget={deckId ? { deckId, topicId } : null} onScopeChange={scopeReporters.quiz} />;
       case 'flashcards':
-        return <SpacedRepetition initialDeckId={deckId} initialTopicId={topicId} />;
+        return (
+          <SpacedRepetition initialDeckId={deckId} initialTopicId={topicId} onScopeChange={scopeReporters.flashcards} />
+        );
       case 'skill-tree':
         return <SkillTree onStart={launch} />;
       case 'bank':
-        return <QuestionBank initialDeckId={deckId} />;
+        return <QuestionBank initialDeckId={deckId} onScopeChange={scopeReporters.bank} />;
       case 'mock':
-        return <MockTest initialDeckId={deckId} />;
+        return <MockTest initialDeckId={deckId} onScopeChange={scopeReporters.mock} />;
       case 'planner':
         return <StudyPlanner onStart={launch} />;
     }

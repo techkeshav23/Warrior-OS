@@ -29,8 +29,15 @@ function getTimeBracket(hours: number): string {
   return 'lateNight'; // 0-5
 }
 
+/** The adaptive wallpaper for a given hour (defaults to now). */
+export function adaptiveWallpaperId(hours: number = new Date().getHours()): string {
+  return TIME_WALLPAPER_MAP[getTimeBracket(hours)];
+}
+
 /**
  * Automatically switches wallpaper when time bracket changes.
+ * (WorkspaceManager also paints the adaptive wallpaper on unlock and on
+ * workspace switch, so a workspace's saved wallpaper never wins over it.)
  * Only active when adaptiveWallpaper setting is enabled.
  */
 export function useAdaptiveWallpaper() {
@@ -40,7 +47,11 @@ export function useAdaptiveWallpaper() {
   const prevBracketRef = useRef<string>('');
 
   useEffect(() => {
-    if (!adaptiveEnabled) return;
+    if (!adaptiveEnabled) {
+      // Turning adaptive back on later must repaint even in the same bracket.
+      prevBracketRef.current = '';
+      return;
+    }
 
     const bracket = getTimeBracket(hours);
 

@@ -3,12 +3,14 @@
 // Compact forged plates (cut top-left + bottom-right) above the taskbar (bottom-right): a tone bar,
 // the notification's lucide icon, title, body and a close button.
 // A hairline countdown runs along the bottom and pauses while the
-// pointer rests on the toast.
+// pointer rests on the toast. Running out only hides the toast (the
+// notification stays unread in the Notification Center); the close
+// button marks it read.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { Notification } from '@/types';
@@ -19,14 +21,17 @@ import { notificationMeta } from './NotificationCenter';
 
 interface ToastNotificationProps {
   notification: Notification;
+  /** Explicit dismiss (close button). */
   onDismiss: (id: string) => void;
+  /** Countdown ran out; defaults to onDismiss. */
+  onExpire?: (id: string) => void;
   duration?: number;
 }
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 const TICK_MS = 50;
 
-export function ToastNotification({ notification, onDismiss, duration = 5000 }: ToastNotificationProps) {
+export function ToastNotification({ notification, onDismiss, onExpire, duration = 5000 }: ToastNotificationProps) {
   const [progress, setProgress] = useState(100);
   const pausedRef = useRef(false);
   const reduceMotion = useReducedMotion();
@@ -45,12 +50,12 @@ export function ToastNotification({ notification, onDismiss, duration = 5000 }: 
       setProgress(remaining);
       if (remaining <= 0) {
         clearInterval(interval);
-        onDismiss(notification.id);
+        (onExpire ?? onDismiss)(notification.id);
       }
     }, TICK_MS);
 
     return () => clearInterval(interval);
-  }, [duration, notification.id, onDismiss]);
+  }, [duration, notification.id, onDismiss, onExpire]);
 
   return (
     <motion.div
@@ -107,9 +112,20 @@ interface ToastContainerProps {
   onDismiss: (id: string) => void;
 }
 
+// Toasts whose countdown ran out: hidden, but still unread in the store.
+// Module scope so a lock → unlock (which remounts the desktop) does not
+// replay them.
+const expiredToastIds = new Set<string>();
+
 export function ToastContainer({ notifications, onDismiss }: ToastContainerProps) {
+  const [, setExpiredCount] = useState(0);
+  const handleExpire = useCallback((id: string) => {
+    expiredToastIds.add(id);
+    setExpiredCount(expiredToastIds.size);
+  }, []);
+
   // Show only latest 5
-  const visible = notifications.filter((n) => !n.read).slice(0, 5);
+  const visible = notifications.filter((n) => !n.read && !expiredToastIds.has(n.id)).slice(0, 5);
 
   return (
     <div
@@ -118,7 +134,13 @@ export function ToastContainer({ notifications, onDismiss }: ToastContainerProps
     >
       <AnimatePresence mode="popLayout">
         {visible.map((notif) => (
-          <ToastNotification key={notif.id} notification={notif} onDismiss={onDismiss} />
+          <ToastNotification
+            key={notif.id}
+            notification={notif}
+            onDismiss={onDismiss}
+            onExpire={handleExpire}
+            duration={notif.autoDismiss ?? 5000}
+          />
         ))}
       </AnimatePresence>
     </div>

@@ -19,6 +19,7 @@ import {
   useState,
   useSyncExternalStore,
   type CSSProperties,
+  type FocusEvent as ReactFocusEvent,
 } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronRight, Lock, SearchX, Settings, Sparkles } from 'lucide-react';
@@ -174,6 +175,25 @@ export function StartMenu({ isOpen, onClose }: StartMenuProps) {
     };
   }, [isOpen, onClose]);
 
+  // Focus returns to whatever opened the menu (the Start button) when it
+  // closes, unless the close moved focus somewhere on purpose (a launched
+  // app's field, a click elsewhere). The search field autofocuses, so the
+  // opener is the element that focus came from.
+  const openerRef = useRef<HTMLElement | null>(null);
+  const rememberOpener = useCallback((e: ReactFocusEvent) => {
+    if (openerRef.current) return;
+    const from = e.relatedTarget;
+    if (from instanceof HTMLElement && !menuRef.current?.contains(from)) openerRef.current = from;
+  }, []);
+  useEffect(() => {
+    if (isOpen) return;
+    const opener = openerRef.current;
+    openerRef.current = null;
+    const now = document.activeElement;
+    const focusLost = !now || now === document.body || Boolean(menuRef.current?.contains(now));
+    if (opener?.isConnected && focusLost) opener.focus({ preventScroll: true });
+  }, [isOpen]);
+
   // Close on Escape
   useEffect(() => {
     if (!isOpen) return;
@@ -225,6 +245,7 @@ export function StartMenu({ isOpen, onClose }: StartMenuProps) {
           ref={menuRef}
           role="dialog"
           aria-label="Start menu"
+          onFocus={rememberOpener}
           initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.985 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.99, transition: { duration: 0.14, ease: EASE } }}

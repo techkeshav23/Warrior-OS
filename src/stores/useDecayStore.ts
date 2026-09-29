@@ -151,6 +151,17 @@ interface DecayStore extends PersistedDecay {
   getCurrentThresholds: () => number[];
 }
 
+/** Move to `nextStage`, counting stage-1 / full-decay crossings in stats.
+ *  Every path that recomputes the stage from minutes goes through here. */
+function applyStage(s: { decayStage: number; stats: DecayStats }, nextStage: number): void {
+  const prevStage = s.decayStage;
+  s.decayStage = nextStage;
+  if (nextStage > prevStage) {
+    if (prevStage < 1 && nextStage >= 1) s.stats.stage1Reached += 1;
+    if (prevStage < 5 && nextStage >= 5) s.stats.fullDecays += 1;
+  }
+}
+
 const EMPTY_STATS: DecayStats = {
   stage1Reached: 0,
   fullDecays: 0,
@@ -208,6 +219,7 @@ export const useDecayStore = create<DecayStore>()(
           // Clamp to +/- 30 min per spec (slider)
           const clamped = Math.max(-DECAY_OFFSET_LIMIT, Math.min(DECAY_OFFSET_LIMIT, Math.round(offset)));
           s.thresholdOffset = Number.isFinite(clamped) ? clamped : 0;
+          // Moves the stage without counting it: flipping the slider must not farm decay stats.
           s.decayStage = stageForMinutes(s.continuousStudyMinutes, s.thresholdOffset);
         }),
 
@@ -280,13 +292,7 @@ export const useDecayStore = create<DecayStore>()(
           if (s.daily.day !== today) s.daily = { day: today, studyMinutes: 0, breaks: 0 };
           s.daily.studyMinutes += gained;
 
-          const prevStage = s.decayStage;
-          const nextStage = stageForMinutes(minutes, s.thresholdOffset);
-          s.decayStage = nextStage;
-          if (nextStage > prevStage) {
-            if (prevStage < 1 && nextStage >= 1) s.stats.stage1Reached += 1;
-            if (prevStage < 5 && nextStage >= 5) s.stats.fullDecays += 1;
-          }
+          applyStage(s, stageForMinutes(minutes, s.thresholdOffset));
         }),
 
       pauseTracking: () =>
@@ -387,14 +393,9 @@ export const useDecayStore = create<DecayStore>()(
           if (!s.enabled || s.isOnBreak || s.isRepairing) return;
           const m = Math.max(0, Math.min(24 * 60, Math.floor(Number.isFinite(minutes) ? minutes : 0)));
           const now = Date.now();
-          const prevStage = s.decayStage;
           s.activeMs = m * 60_000;
           s.continuousStudyMinutes = m;
-          s.decayStage = stageForMinutes(m, s.thresholdOffset);
-          if (s.decayStage > prevStage) {
-            if (prevStage < 1 && s.decayStage >= 1) s.stats.stage1Reached += 1;
-            if (prevStage < 5 && s.decayStage >= 5) s.stats.fullDecays += 1;
-          }
+          applyStage(s, stageForMinutes(m, s.thresholdOffset));
           s.isTracking = true;
           s.pausedForIdle = false;
           s.lastInteractionAt = now;

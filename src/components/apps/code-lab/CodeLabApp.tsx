@@ -156,20 +156,43 @@ function loadLayout(): Layout {
   }
 }
 
-/** Runs first inside the preview: forwards console.* and errors to Code Lab. */
-function consoleShim(token: string): string {
-  return `(function(){var T=${JSON.stringify(token)};
-function fmt(v){try{if(typeof v==='string')return v;if(v instanceof Error)return v.name+': '+v.message;if(typeof v==='function')return 'function '+(v.name||'anonymous')+'()';if(v===undefined)return 'undefined';if(v&&v.nodeType===1)return '<'+v.tagName.toLowerCase()+(v.id?'#'+v.id:'')+'>';var s=JSON.stringify(v);return s===undefined?String(v):s}catch(e){return String(v)}}
+/**
+ * Runs first inside the preview: forwards console.* and errors to Code Lab.
+ * `offset` = document lines before script.js line 1, `lines` = its length,
+ * so reported line numbers are relative to script.js (other lines dropped).
+ * The preview is sandboxed without allow-same-origin, so reading
+ * localStorage / sessionStorage throws a SecurityError; the shim swaps in
+ * a per-run in-memory Storage so snippets that save state still work.
+ */
+function consoleShim(token: string, offset: number, lines: number): string {
+  return `(function(){var T=${JSON.stringify(token)},O=${offset},N=${lines};
+function ln(n){n=+n-O;return n>=1&&n<=N?' (script.js line '+n+')':''}
+function stackLine(v){var m=/about:srcdoc:(\\d+)/.exec(String(v&&v.stack||''));return m?ln(m[1]):''}
+function fmt(v){try{if(typeof v==='string')return v;if(v instanceof Error)return v.name+': '+v.message+stackLine(v);if(typeof v==='function')return 'function '+(v.name||'anonymous')+'()';if(v===undefined)return 'undefined';if(v&&v.nodeType===1)return '<'+v.tagName.toLowerCase()+(v.id?'#'+v.id:'')+'>';var s=JSON.stringify(v);return s===undefined?String(v):s}catch(e){return String(v)}}
 function send(level,args){try{parent.postMessage({source:'warrior-codelab',token:T,level:level,text:Array.prototype.map.call(args,fmt).join(' ').slice(0,4000)},'*')}catch(e){}}
 ['log','info','warn','error','debug'].forEach(function(k){var o=console[k];console[k]=function(){send(k,arguments);if(o){try{o.apply(console,arguments)}catch(e){}}}});
-addEventListener('error',function(e){send('error',[(e.message||'Error')+(e.lineno?' (line '+e.lineno+')':'')])});
-addEventListener('unhandledrejection',function(e){send('error',['Uncaught (in promise) '+fmt(e.reason)])});})();`;
+addEventListener('error',function(e){send('error',[(e.message||'Error')+(e.lineno?ln(e.lineno):'')])});
+addEventListener('unhandledrejection',function(e){send('error',['Uncaught (in promise) '+fmt(e.reason)])});
+['localStorage','sessionStorage'].forEach(function(k){try{if(window[k])return}catch(e){}var m=Object.create(null),s={getItem:function(x){x=String(x);return x in m?m[x]:null},setItem:function(x,v){m[String(x)]=String(v)},removeItem:function(x){delete m[String(x)]},clear:function(){m=Object.create(null)},key:function(i){return Object.keys(m)[i]||null}};Object.defineProperty(s,'length',{get:function(){return Object.keys(m).length}});try{Object.defineProperty(window,k,{value:s,configurable:true})}catch(e){}});})();`;
 }
 
+/** Keep user code from closing its own <script>/<style> element early. */
+function escapeEnd(code: string, tag: 'script' | 'style'): string {
+  return code.replace(new RegExp(`</(${tag})`, 'gi'), '<\\/$1');
+}
+
+/**
+ * User JS runs as a plain top-level <script> (no try wrapper) so its
+ * const/let/class bindings stay visible to inline handlers like
+ * onclick="go()"; uncaught errors reach the shim's 'error' listener.
+ */
 function buildDoc(s: Snippet, token: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><script>${consoleShim(token)}<\/script><style>${s.css}</style></head><body>${s.html}<script>
-    try { ${s.js} } catch(e) { console.error(e); }
-  <\/script></body></html>`;
+  const js = escapeEnd(s.js, 'script');
+  const head = (shim: string) =>
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><script>${shim}<\/script><style>${escapeEnd(s.css, 'style')}</style></head><body>${s.html}<script>\n`;
+  // The shim's own newline count doesn't depend on the numbers, so measure with a stand-in.
+  const offset = head(consoleShim(token, 0, 0)).split('\n').length - 1;
+  return `${head(consoleShim(token, offset, js.split('\n').length))}${js}\n<\/script></body></html>`;
 }
 
 function makeToken(): string {

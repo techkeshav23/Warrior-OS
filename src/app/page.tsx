@@ -63,6 +63,7 @@ import { LayerBoundary, SystemErrorBoundary } from '@/components/showcase/AppErr
 import { SmallScreenGuard } from '@/components/showcase/SmallScreenGuard';
 // Settings accent / glass opacity → CSS variables on <html>
 import { ThemeSync } from '@/components/os/ThemeSync';
+import { AuthSync } from '@/components/os/AuthSync';
 
 // Notification store for toasts
 import { useNotificationStore } from '@/stores/useNotificationStore';
@@ -285,7 +286,10 @@ function WarriorOS() {
     'ctrl+1': () => switchWorkspace('study'),
     'ctrl+2': () => switchWorkspace('build'),
     'ctrl+3': () => switchWorkspace('chill'),
+    // Only claims Escape when it closed something, so window-level Esc
+    // listeners (calculator clear, cinematic skip, …) still get it.
     escape: () => {
+      if (!startMenuOpen && !commandPaletteOpen && !notificationCenterOpen) return false;
       setStartMenuOpen(false);
       setCommandPaletteOpen(false);
       setNotificationCenterOpen(false);
@@ -364,8 +368,10 @@ function WarriorOS() {
                 <DynamicIsland />
               </LayerBoundary>
 
-              {/* Desktop area with workspace management */}
-              <div className="flex-1 relative overflow-hidden">
+              {/* Desktop area with workspace management (overflow-clip, not
+                  hidden: a focused control at a screen-wide window's edge
+                  must not scroll the whole desktop sideways) */}
+              <div className="flex-1 relative overflow-clip">
                 <WorkspaceManager>
                   {() => (
                     <>
@@ -425,6 +431,8 @@ function WarriorOS() {
               <LayerBoundary name="Achievement triggers">
                 <AchievementTriggers />
               </LayerBoundary>
+              {/* Firebase auth listener (no-op without NEXT_PUBLIC_FIREBASE_* config; owner session only) */}
+              <AuthSync />
               {/* Typing biometrics tracker + vitals HUD + optional cloud sync */}
               <LayerBoundary name="Biometrics">
                 <BiometricsLayer />

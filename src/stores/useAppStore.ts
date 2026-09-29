@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { useWindowStore } from './useWindowStore';
+import { useWorkspaceStore } from './useWorkspaceStore';
 import type { AppDefinition } from '@/types/app';
 import type { WindowState } from '@/types/window';
 
@@ -40,13 +41,25 @@ export const useAppStore = create<AppStore>()(
       const app = state.registeredApps.find((a) => a.id === appId);
       if (!app) return;
 
-      // If singleton and already running, just focus it
-      if (app.singleton && state.runningAppIds.includes(appId)) {
+      // Singleton already open: bring its window to the front (restoring it
+      // if minimized), switching to its workspace when it lives on another
+      // one, so the launch always shows something.
+      if (app.singleton) {
         const windowStore = useWindowStore.getState();
-        const existingWindow = windowStore.windows.find((w) => w.appId === appId);
+        const appWindows = windowStore.windows.filter((w) => w.appId === appId);
+        const existingWindow =
+          appWindows.find((w) => w.workspaceId === workspaceId) ??
+          appWindows.reduce<WindowState | undefined>((top, w) => (!top || w.zIndex > top.zIndex ? w : top), undefined);
         if (existingWindow) {
+          const workspaceStore = useWorkspaceStore.getState();
+          if (existingWindow.workspaceId !== workspaceStore.activeWorkspaceId) {
+            workspaceStore.switchWorkspace(existingWindow.workspaceId as typeof workspaceStore.activeWorkspaceId);
+          }
           windowStore.focusWindow(existingWindow.id);
-          set((s) => { s.focusedAppId = appId; });
+          set((s) => {
+            if (!s.runningAppIds.includes(appId)) s.runningAppIds.push(appId);
+            s.focusedAppId = appId;
+          });
           return;
         }
       }

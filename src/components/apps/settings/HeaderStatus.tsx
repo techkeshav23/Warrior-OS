@@ -11,6 +11,7 @@ import { Bot } from 'lucide-react';
 import { Badge, Button, type Tone } from '@/components/ui';
 import { useLiteModeStatus } from '@/lib/lite-mode';
 import { getVisitorMode } from '@/lib/visitor';
+import { isFirebaseConfigured } from '@/lib/auth';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useDecayStore } from '@/stores/useDecayStore';
 import { useNexusStore } from '@/stores/useNexusStore';
@@ -66,12 +67,15 @@ function WorkspaceStatus() {
 
 function AccountStatus() {
   const signedIn = useAuthStore((s) => s.isAuthenticated && s.user !== null);
+  const [mode] = useState(getVisitorMode);
+  // No Firebase config, or not the owner session: there is nothing to sign in to.
+  if (!isFirebaseConfigured() || mode !== 'owner') return <Badge>Local only</Badge>;
   return signedIn ? (
     <Badge tone="success" dot>
       Signed in
     </Badge>
   ) : (
-    <Badge>Local only</Badge>
+    <Badge>Not signed in</Badge>
   );
 }
 

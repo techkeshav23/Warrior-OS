@@ -23,7 +23,9 @@ export const useAuthStore = create<AuthState>()(
   immer((set) => ({
     user: null,
     isAuthenticated: false,
-    isLoading: true,
+    // Only useAuth (mounted by AuthSync when Firebase is configured) sets
+    // this to true; a local-only deployment never waits on anything.
+    isLoading: false,
 
     setUser: (user) =>
       set((state) => {

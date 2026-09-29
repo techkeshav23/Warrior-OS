@@ -7,14 +7,17 @@
 
 import { useEffect } from 'react';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { onAuthChange } from '@/lib/auth';
+import { isFirebaseConfigured, onAuthChange } from '@/lib/auth';
 import { DEFAULT_ACCENT } from '@/styles/tokens';
 
 /**
  * Subscribes to Firebase auth state and syncs with Zustand store.
- * Call once at the app root level.
+ * Call once at the app root level (src/components/os/AuthSync.tsx).
+ * Does nothing (no SDK load, no network) when Firebase is not configured
+ * or `enabled` is false; turning it off or unmounting clears the user, so
+ * nothing keeps syncing under an account that is no longer listened to.
  */
-export function useAuth() {
+export function useAuth(enabled = true) {
   const setUser = useAuthStore((s) => s.setUser);
   const setLoading = useAuthStore((s) => s.setLoading);
   const user = useAuthStore((s) => s.user);
@@ -22,6 +25,7 @@ export function useAuth() {
   const isLoading = useAuthStore((s) => s.isLoading);
 
   useEffect(() => {
+    if (!enabled || !isFirebaseConfigured()) return;
     setLoading(true);
     const unsubscribe = onAuthChange((firebaseUser) => {
       if (firebaseUser) {
@@ -52,8 +56,11 @@ export function useAuth() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [setUser, setLoading]);
+    return () => {
+      unsubscribe();
+      setUser(null);
+    };
+  }, [enabled, setUser, setLoading]);
 
   return { user, isAuthenticated, isLoading };
 }

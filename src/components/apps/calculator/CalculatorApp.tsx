@@ -34,6 +34,21 @@ interface HistoryEntry {
 
 const MAX_HISTORY = 12;
 
+type BinOp = Exclude<Op, null>;
+
+/** A left operand waiting for its right-hand side. */
+interface Pending {
+  value: number;
+  op: BinOp;
+}
+
+const PRECEDENCE: Record<BinOp, number> = { '+': 1, '-': 1, '×': 2, '÷': 2, '^': 3 };
+
+/** Does the pending `left` operator resolve before `next` is pushed? (^ is right-associative.) */
+function bindsFirst(left: BinOp, next: BinOp): boolean {
+  return PRECEDENCE[left] > PRECEDENCE[next] || (PRECEDENCE[left] === PRECEDENCE[next] && next !== '^');
+}
+
 function compute(a: number, b: number, op: Op): number {
   switch (op) {
     case '+': return a + b;
@@ -182,9 +197,14 @@ function useSize<T extends HTMLElement>() {
 
 function CalculatorAppInner() {
   const [display, setDisplay] = useState('0');
-  const [previous, setPrevious] = useState<number | null>(null);
-  const [op, setOp] = useState<Op>(null);
-  const [waiting, setWaiting] = useState(false); // waiting for next operand
+  /** Operands + operators still waiting on higher-precedence work (2 + 3 × …). */
+  const [stack, setStack] = useState<Pending[]>([]);
+  /** The chained expression as typed, for the expression line and history. */
+  const [tokens, setTokens] = useState<string[]>([]);
+  /** The next digit starts a new number (after an operator, function, constant or =). */
+  const [fresh, setFresh] = useState(false);
+  /** The display holds an operand; false right after an operator key. */
+  const [ready, setReady] = useState(true);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [deg, setDeg] = useState(true); // degrees vs radians for trig
   /** The expression behind the result on screen (shown above it). */
@@ -198,73 +218,109 @@ function CalculatorAppInner() {
 
   const inputDigit = useCallback((d: string) => {
     setDisplay((prev) => {
-      if (waiting || prev === '0' || prev === 'Error') {
-        setWaiting(false);
-        return d;
-      }
+      if (fresh || prev === '0' || prev === 'Error') return d;
       if (prev.replace(/[-.]/g, '').length >= 15) return prev; // length cap
       return prev + d;
     });
-    if (waiting) setWaiting(false);
-  }, [waiting]);
+    setFresh(false);
+    setReady(true);
+  }, [fresh]);
 
   const inputDot = useCallback(() => {
     setDisplay((prev) => {
-      if (waiting || prev === 'Error') { setWaiting(false); return '0.'; }
+      if (fresh || prev === 'Error') return '0.';
       return prev.includes('.') ? prev : prev + '.';
     });
-    if (waiting) setWaiting(false);
-  }, [waiting]);
+    setFresh(false);
+    setReady(true);
+  }, [fresh]);
 
   const clearAll = useCallback(() => {
     setDisplay('0');
-    setPrevious(null);
-    setOp(null);
-    setWaiting(false);
+    setStack([]);
+    setTokens([]);
+    setFresh(false);
+    setReady(true);
   }, []);
 
   const backspace = useCallback(() => {
     setDisplay((prev) => {
-      if (waiting || prev === 'Error') return prev;
+      if (fresh || prev === 'Error') return prev;
       if (prev.length <= 1 || (prev.length === 2 && prev.startsWith('-'))) return '0';
       return prev.slice(0, -1);
     });
-  }, [waiting]);
+  }, [fresh]);
 
   const toggleSign = useCallback(() => {
     setDisplay((prev) => (prev === '0' || prev === 'Error' ? prev : prev.startsWith('-') ? prev.slice(1) : '-' + prev));
+    setReady(true);
   }, []);
 
-  const chooseOp = useCallback((nextOp: Op) => {
-    const current = parseFloat(display);
-    if (previous !== null && op && !waiting) {
-      const result = compute(previous, current, op);
-      const resStr = fmt(result);
-      setHistory((h) => [{ expr: `${fmt(previous)} ${op} ${fmt(current)}`, result: resStr }, ...h].slice(0, MAX_HISTORY));
-      setDisplay(resStr);
-      setPrevious(Number.isFinite(result) ? result : null);
-    } else {
-      setPrevious(current);
+  /** Error on screen; the chain is dropped. */
+  const fail = useCallback(() => {
+    setDisplay('Error');
+    setStack([]);
+    setTokens([]);
+    setFresh(true);
+    setReady(true);
+  }, []);
+
+  const chooseOp = useCallback((nextOp: BinOp) => {
+    // Operator pressed again before an operand: it replaces the last one.
+    // Pending work below it is re-checked against the new operator (2 − 3 × then + → 2 − 3 first).
+    if (!ready && stack.length > 0) {
+      const rest = stack.slice(0, -1);
+      let value = stack[stack.length - 1].value;
+      while (rest.length > 0 && bindsFirst(rest[rest.length - 1].op, nextOp)) {
+        const top = rest.pop()!;
+        value = compute(top.value, value, top.op);
+      }
+      if (!Number.isFinite(value)) {
+        fail();
+        return;
+      }
+      if (rest.length !== stack.length - 1) setDisplay(fmt(value));
+      setStack([...rest, { value, op: nextOp }]);
+      setTokens((t) => [...t.slice(0, -1), nextOp]);
+      return;
     }
-    setOp(nextOp);
-    setWaiting(true);
-  }, [display, previous, op, waiting]);
+    const current = parseFloat(display);
+    // Resolve whatever binds at least as tightly as the new operator.
+    let value = current;
+    const rest = [...stack];
+    while (rest.length > 0 && bindsFirst(rest[rest.length - 1].op, nextOp)) {
+      const top = rest.pop()!;
+      value = compute(top.value, value, top.op);
+    }
+    if (!Number.isFinite(value)) {
+      fail();
+      return;
+    }
+    if (rest.length !== stack.length) setDisplay(fmt(value));
+    setStack([...rest, { value, op: nextOp }]);
+    setTokens((t) => [...t, fmt(current), nextOp]);
+    setFresh(true);
+    setReady(false);
+  }, [display, stack, ready, fail]);
 
   const equals = useCallback(() => {
-    if (previous === null || op === null) return;
+    if (stack.length === 0) return;
+    // "2 + =" reuses the number on screen as the missing operand.
     const current = parseFloat(display);
-    const result = compute(previous, current, op);
+    let result = current;
+    for (let i = stack.length - 1; i >= 0; i--) result = compute(stack[i].value, result, stack[i].op);
     const resStr = fmt(result);
-    const expr = `${fmt(previous)} ${op} ${fmt(current)}`;
+    const expr = [...tokens, fmt(current)].join(' ');
     setHistory((h) => [{ expr, result: resStr }, ...h].slice(0, MAX_HISTORY));
     setLastExpr(expr);
     setDisplay(resStr);
-    setPrevious(null);
-    setOp(null);
-    setWaiting(true);
-  }, [display, previous, op]);
+    setStack([]);
+    setTokens([]);
+    setFresh(true);
+    setReady(true);
+  }, [display, stack, tokens]);
 
-  /** Apply a unary scientific function to the current display value */
+  /** Apply a unary scientific function to the current display value (it stays the pending operand). */
   const applyFn = useCallback((label: string, fn: (x: number) => number) => {
     const current = parseFloat(display);
     const result = fn(current);
@@ -273,12 +329,16 @@ function CalculatorAppInner() {
     setHistory((h) => [{ expr, result: resStr }, ...h].slice(0, MAX_HISTORY));
     setLastExpr(expr);
     setDisplay(resStr);
-    setWaiting(true);
+    setFresh(true);
+    setReady(true);
   }, [display]);
 
+  /** π / e: a whole operand — the next digit starts a new number. */
   const insertConst = useCallback((val: number) => {
     setDisplay(fmt(val));
-    setWaiting(false);
+    setLastExpr(null);
+    setFresh(true);
+    setReady(true);
   }, []);
 
   const toRad = useCallback((x: number) => (deg ? (x * Math.PI) / 180 : x), [deg]);
@@ -290,6 +350,9 @@ function CalculatorAppInner() {
   }, []);
 
   useEffect(() => () => clearTimeout(flashTimer.current), []);
+
+  /** The operator lit on the keypad: chosen, its operand not typed yet. */
+  const activeOp: Op = !ready && stack.length > 0 ? stack[stack.length - 1].op : null;
 
   // ─── Keyboard support ───
   useEffect(() => {
@@ -328,7 +391,7 @@ function CalculatorAppInner() {
     { id: 'log', label: 'log', fn: () => applyFn('log', Math.log10), title: 'Log base 10' },
     { id: 'sqrt', label: '√', fn: () => applyFn('√', Math.sqrt), title: 'Square root' },
     { id: 'sqr', label: 'x²', fn: () => applyFn('sqr', (x) => x * x), title: 'Square' },
-    { id: 'op^', label: 'xʸ', fn: () => chooseOp('^'), title: 'Power', accent: true, active: op === '^' && waiting },
+    { id: 'op^', label: 'xʸ', fn: () => chooseOp('^'), title: 'Power', accent: true, active: activeOp === '^' },
     { id: 'inv', label: '1/x', fn: () => applyFn('1/', (x) => 1 / x), title: 'Reciprocal' },
     { id: 'fact', label: 'n!', fn: () => applyFn('fact', factorial), title: 'Factorial' },
     { id: 'pct', label: '%', fn: () => applyFn('%', (x) => x / 100), title: 'Percent' },
@@ -338,10 +401,10 @@ function CalculatorAppInner() {
 
   const opKey = (symbol: Exclude<Op, null>, name: string) => (
     <Key
-      tone={op === symbol && waiting ? 'op-active' : 'op'}
+      tone={activeOp === symbol ? 'op-active' : 'op'}
       onClick={() => chooseOp(symbol)}
       label={name}
-      pressed={op === symbol && waiting}
+      pressed={activeOp === symbol}
       flash={flash === `op${symbol}`}
     >
       {OP_SYMBOL[symbol]}
@@ -363,9 +426,9 @@ function CalculatorAppInner() {
   const shown = groupDigits(display);
   const isError = display === 'Error';
   const expression =
-    previous !== null && op
-      ? `${groupDigits(fmt(previous))} ${OP_SYMBOL[op]}`
-      : waiting && lastExpr
+    tokens.length > 0
+      ? tokens.map((t) => (t in OP_SYMBOL ? OP_SYMBOL[t as BinOp] : groupDigits(t))).join(' ')
+      : fresh && lastExpr
         ? `${prettyExpr(lastExpr)} =`
         : '';
   // Inter's tabular digits run ~0.62em wide: fit the number to the display.
@@ -403,7 +466,8 @@ function CalculatorAppInner() {
                   onClick={() => {
                     setDisplay(h.result);
                     setLastExpr(h.expr);
-                    setWaiting(true);
+                    setFresh(true);
+                    setReady(true);
                   }}
                   title={`${prettyExpr(h.expr)} = ${h.result}`}
                   className={cn(

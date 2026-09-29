@@ -57,6 +57,42 @@ interface QuizHistoryStore {
 // Cap stored attempts so localStorage stays bounded under heavy use.
 const MAX_ATTEMPTS = 500;
 
+function finite(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+/** Type-check one saved row; null when it is unusable. */
+function sanitizeAttempt(raw: unknown): QuizAttempt | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.subject !== 'string' || !finite(r.totalQuestions) || !finite(r.correctAnswers) || !finite(r.timestamp)) {
+    return null;
+  }
+  return {
+    subject: r.subject,
+    topic: typeof r.topic === 'string' ? r.topic : null,
+    totalQuestions: r.totalQuestions,
+    correctAnswers: r.correctAnswers,
+    timestamp: r.timestamp,
+    ...(typeof r.deckId === 'string' ? { deckId: r.deckId } : {}),
+    ...(typeof r.topicId === 'string' ? { topicId: r.topicId } : {}),
+    ...(r.retry === true ? { retry: true } : {}),
+  };
+}
+
+/** Shape-check saved state so a corrupted key can never switch off its readers. */
+function sanitizePersisted(raw: unknown): Partial<Pick<QuizHistoryStore, 'attempts'>> {
+  if (!raw || typeof raw !== 'object') return {};
+  const p = raw as Record<string, unknown>;
+  if (!Array.isArray(p.attempts)) return {};
+  return {
+    attempts: p.attempts
+      .map(sanitizeAttempt)
+      .filter((a): a is QuizAttempt => a !== null)
+      .slice(-MAX_ATTEMPTS),
+  };
+}
+
 export const useQuizHistoryStore = create<QuizHistoryStore>()(
   persist(
     immer((set) => ({
@@ -78,6 +114,7 @@ export const useQuizHistoryStore = create<QuizHistoryStore>()(
     {
       name: 'warrior-os-quiz-history',
       partialize: (state) => ({ attempts: state.attempts }),
+      merge: (persisted, current) => ({ ...current, ...sanitizePersisted(persisted) }),
     }
   )
 );

@@ -8,7 +8,7 @@
 
 'use client';
 
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState, type RefObject } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Pencil, Check, X, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,9 @@ import type { CreatureVitals } from './CreatureEngine';
 interface CreatureStatsProps {
   vitals: CreatureVitals;
   onClose: () => void;
+  /** The element that toggles the popup (the sprite). Presses on it are left
+   *  to its own click handler, so a second click closes instead of re-opening. */
+  anchorRef?: RefObject<HTMLElement | null>;
 }
 
 /** Split bar series, in chart order. */
@@ -65,7 +68,7 @@ function formatMinutes(min: number): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
-function CreatureStatsInner({ vitals, onClose }: CreatureStatsProps) {
+function CreatureStatsInner({ vitals, onClose, anchorRef }: CreatureStatsProps) {
   const {
     stage,
     stageInfo,
@@ -98,7 +101,9 @@ function CreatureStatsInner({ vitals, onClose }: CreatureStatsProps) {
   // Close on outside click / Escape (deferred so the opening click doesn't close it).
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (cardRef.current && !cardRef.current.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      if (anchorRef?.current?.contains(target)) return;
+      if (cardRef.current && !cardRef.current.contains(target)) onClose();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -112,7 +117,7 @@ function CreatureStatsInner({ vitals, onClose }: CreatureStatsProps) {
       window.removeEventListener('mousedown', onDown);
       window.removeEventListener('keydown', onKey);
     };
-  }, [onClose]);
+  }, [onClose, anchorRef]);
 
   const beginEdit = () => {
     setDraft(name);

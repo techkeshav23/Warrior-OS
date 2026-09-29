@@ -4,7 +4,9 @@
 // the active workspace's window list (memoized AppIcon buttons with
 // primitive props) and the system tray: workspaces, study timer,
 // install, notifications, sound, network LED, lock, clock and a
-// "show desktop" sliver.
+// "show desktop" sliver. On narrow screens (< sm) the tray keeps just
+// notifications, lock and the clock; workspaces stay on the switcher
+// plate above the taskbar.
 //
 // Desktop-phase shortcuts owned here (the taskbar only exists on the
 // desktop): Ctrl/Cmd+L lock · Ctrl/Cmd+, Settings · Super/Cmd+D show
@@ -413,7 +415,7 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
       <div className="flex shrink-0 items-center gap-0.5 pl-1">
         {/* Workspaces (each in its own accent; a tick marks workspaces with windows) */}
         <div
-          className="mr-1 flex items-center gap-0.5 chamfer [--cut:6px] bg-linear-to-b from-[#05070a] to-[#10141a] p-0.5 shadow-[inset_0_1px_0_rgb(0_0_0/0.8),inset_0_-1px_0_rgb(255_255_255/0.08)]"
+          className="mr-1 hidden items-center sm:flex gap-0.5 chamfer [--cut:6px] bg-linear-to-b from-[#05070a] to-[#10141a] p-0.5 shadow-[inset_0_1px_0_rgb(0_0_0/0.8),inset_0_-1px_0_rgb(255_255_255/0.08)]"
           role="group"
           aria-label="Workspaces"
         >
@@ -458,6 +460,8 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
           })}
         </div>
 
+        {/* Secondary tray items: hidden on narrow screens */}
+        <div className="hidden sm:contents">
         {/* Study timer (Reality Decay) */}
         <DecayTrayTimer />
 
@@ -473,6 +477,7 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
             tooltip="Install as an app"
           />
         )}
+        </div>
 
         {/* Notifications (count badge cut out of the bar) */}
         <span className="relative inline-flex">
@@ -496,6 +501,7 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
           )}
         </span>
 
+        <div className="hidden sm:contents">
         {/* Sound toggle */}
         <IconButton
           icon={soundEnabled ? Volume2 : VolumeX}
@@ -522,6 +528,7 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
             />
           </div>
         </Tooltip>
+        </div>
 
         {/* Lock */}
         <IconButton icon={Lock} onClick={lockScreen} aria-label="Lock screen" tooltip="Lock screen" shortcut={`${mod} L`} />

@@ -486,8 +486,18 @@ export const SUPPLEMENT_ACHIEVEMENTS: Achievement[] = [
   }),
 ];
 
-/** Retitles of older entries whose titles collide with Phase 6 ones. */
+/** Retitles of older entries whose titles collide with Phase 6 ones (or each other). */
 export const LEGACY_ACHIEVEMENT_OVERRIDES: Achievement[] = [
+  // 'Rising Warrior' stays with level-5 (the XP ladder); the 3-day streak gets its own name.
+  def({
+    id: 'streak-3',
+    title: 'Kindled Forge',
+    description: 'Maintain a 3-day streak',
+    category: 'streak',
+    icon: '🌟',
+    xpReward: 75,
+    rarity: 'common',
+  }),
   def({
     id: 'biometrics-first-read',
     title: 'First Reading',

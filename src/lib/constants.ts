@@ -64,23 +64,6 @@ export const KEYBOARD_SHORTCUTS = {
 // ─── OS Phases ───
 export type OSPhase = 'dream' | 'boot' | 'lock' | 'desktop';
 
-// ─── Sound Effects ───
-export const SOUND_EFFECTS = {
-  BOOT: '/sounds/boot.mp3',
-  CLICK: '/sounds/click.mp3',
-  HOVER: '/sounds/hover.mp3',
-  OPEN_WINDOW: '/sounds/open.mp3',
-  CLOSE_WINDOW: '/sounds/close.mp3',
-  MINIMIZE: '/sounds/minimize.mp3',
-  NOTIFICATION: '/sounds/notification.mp3',
-  ACHIEVEMENT: '/sounds/achievement.mp3',
-  ERROR: '/sounds/error.mp3',
-  UNLOCK: '/sounds/unlock.mp3',
-  STARTUP: '/sounds/startup.mp3',
-  XP_GAIN: '/sounds/xp.mp3',
-  LEVEL_UP: '/sounds/levelup.mp3',
-} as const;
-
 // ─── Wallpaper Names ───
 export const WALLPAPER_OPTIONS = [
   { id: 'void', name: 'Forge Night', category: 'dark' },

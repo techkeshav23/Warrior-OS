@@ -92,6 +92,67 @@ interface AchievementProgressState {
   getStudyMinutes: (day: string) => number;
 }
 
+type PersistedProgress = Pick<
+  AchievementProgressState,
+  | 'quizzesCompleted'
+  | 'subjectsQuizzed'
+  | 'terminalCommands'
+  | 'eggsFound'
+  | 'shortcutsUsed'
+  | 'appsOpened'
+  | 'settingsChanged'
+  | 'studyMinutesByDay'
+  | 'activityDays'
+  | 'lastLoginDay'
+  | 'habitXp'
+  | 'streakBonusDay'
+  | 'noteXp'
+>;
+
+function isCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function stringList(value: unknown): string[] | undefined {
+  return Array.isArray(value) ? [...new Set(value.filter((v): v is string => typeof v === 'string'))] : undefined;
+}
+
+/**
+ * Type-check each saved field; a missing or malformed one is left out so
+ * the store default is used instead (a null map or list would otherwise
+ * throw inside every reader).
+ */
+function sanitizePersisted(raw: unknown): Partial<PersistedProgress> {
+  if (!raw || typeof raw !== 'object') return {};
+  const p = raw as Record<string, unknown>;
+  const out: Partial<PersistedProgress> = {};
+  if (p.quizzesCompleted === null || isCount(p.quizzesCompleted)) out.quizzesCompleted = p.quizzesCompleted;
+  if (isCount(p.terminalCommands)) out.terminalCommands = p.terminalCommands;
+  for (const key of ['subjectsQuizzed', 'eggsFound', 'shortcutsUsed', 'appsOpened', 'settingsChanged', 'activityDays'] as const) {
+    const list = stringList(p[key]);
+    if (list) out[key] = list;
+  }
+  if (p.studyMinutesByDay && typeof p.studyMinutesByDay === 'object' && !Array.isArray(p.studyMinutesByDay)) {
+    const minutes: Record<string, number> = {};
+    for (const [day, value] of Object.entries(p.studyMinutesByDay as Record<string, unknown>)) {
+      if (isCount(value)) minutes[day] = value;
+    }
+    out.studyMinutesByDay = minutes;
+  }
+  for (const key of ['lastLoginDay', 'streakBonusDay'] as const) {
+    if (p[key] === null || typeof p[key] === 'string') out[key] = p[key] as string | null;
+  }
+  const habitXp = p.habitXp as Partial<DailyIds> | null | undefined;
+  if (habitXp && typeof habitXp === 'object' && typeof habitXp.day === 'string') {
+    out.habitXp = { day: habitXp.day, ids: stringList(habitXp.ids) ?? [] };
+  }
+  const noteXp = p.noteXp as Partial<DailyCount> | null | undefined;
+  if (noteXp && typeof noteXp === 'object' && typeof noteXp.day === 'string' && isCount(noteXp.count)) {
+    out.noteXp = { day: noteXp.day, count: noteXp.count };
+  }
+  return out;
+}
+
 export const useAchievementProgressStore = create<AchievementProgressState>()(
   persist(
     immer((set, get) => ({
@@ -226,6 +287,7 @@ export const useAchievementProgressStore = create<AchievementProgressState>()(
         }
         return state;
       },
+      merge: (persisted, current) => ({ ...current, ...sanitizePersisted(persisted) }),
       partialize: (state) => ({
         quizzesCompleted: state.quizzesCompleted,
         subjectsQuizzed: state.subjectsQuizzed,

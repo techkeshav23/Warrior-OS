@@ -67,29 +67,62 @@ function isWarriorKey(key: string): boolean {
   return key.startsWith('warrior');
 }
 
+/** Remove every Warrior OS key from one storage area. */
+function eraseWarriorKeys(storage: Storage): void {
+  const keys: string[] = [];
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i);
+    if (key !== null && isWarriorKey(key)) keys.push(key);
+  }
+  for (const key of keys) storage.removeItem(key);
+}
+
 /**
- * Erase this browser's Warrior OS and reload into a first boot. Saving is
- * switched off first for Warrior OS keys, so nothing still running (timers,
- * page-hide handlers) writes the old state back before the reload.
+ * Erase this browser's Warrior OS (local and session storage, the music
+ * library) and reload into a first boot. Saving is switched off first for
+ * Warrior OS keys, so nothing still running (timers, page-hide handlers)
+ * writes the old state back before the reload.
  */
 function resetWarriorOS(): void {
   try {
-    const storage = window.localStorage;
+    const local = window.localStorage;
+    const session = window.sessionStorage;
     const setItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
-      if (this === storage && isWarriorKey(String(key))) return;
+      if ((this === local || this === session) && isWarriorKey(String(key))) return;
       setItem.call(this, key, value);
     };
-    const keys: string[] = [];
-    for (let i = 0; i < storage.length; i++) {
-      const key = storage.key(i);
-      if (key !== null && isWarriorKey(key)) keys.push(key);
-    }
-    for (const key of keys) storage.removeItem(key);
+    eraseWarriorKeys(local);
+    // Session keys too (small-screen "continue", ghost session id, …).
+    eraseWarriorKeys(session);
   } catch {
     // Storage blocked: there is nothing saved to erase.
   }
-  window.location.reload();
+  deleteMusicLibrary().finally(() => window.location.reload());
+}
+
+/** IndexedDB of the Music Player's own files (music-library-db.ts). */
+const MUSIC_LIBRARY_DB = 'warrior-music-library';
+
+/**
+ * Delete the music library database. An open connection (Music Player
+ * used this session) blocks the delete until the reload closes it; the
+ * browser then finishes it, so "blocked" is as good as done here.
+ */
+function deleteMusicLibrary(): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () => resolve();
+    try {
+      const req = window.indexedDB.deleteDatabase(MUSIC_LIBRARY_DB);
+      req.onsuccess = done;
+      req.onerror = done;
+      req.onblocked = done;
+      window.setTimeout(done, 1500);
+    } catch {
+      // IndexedDB unavailable: no library was ever saved.
+      done();
+    }
+  });
 }
 
 // ─── Tab ───

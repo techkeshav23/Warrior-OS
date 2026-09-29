@@ -50,7 +50,7 @@ import {
   loadHabitsLite,
   pomodoroRemainingMs,
 } from '@/lib/nexus/context';
-import { requestNexusAI } from '@/lib/nexus/ai-client';
+import { fetchNexusAIStatus, requestNexusAI } from '@/lib/nexus/ai-client';
 import { extractTopicQuery } from '@/lib/nexus/offline-brain';
 import { getVisitorMode } from '@/lib/visitor';
 import { checkHabitToday, listHabits, logExpense } from '@/lib/nexus/quick-actions';
@@ -239,6 +239,24 @@ function runSwitchWorkspace(workspaceId: NexusWorkspaceId): NexusCommandResult {
   return { ok: true, reply: `${titleCase(workspaceId)} workspace pe aa gaye.` };
 }
 
+/**
+ * Which brain answered last: 'ai' (Gemini), 'offline', or null before the
+ * first answer / status check. "Explain X" follow-ups are only offered
+ * when the AI can actually explain X — the offline brain cannot.
+ */
+let brainMode: 'ai' | 'offline' | null = null;
+let brainStatusRequested = false;
+
+function aiCanExplain(): boolean {
+  if (brainMode === null && !brainStatusRequested && typeof window !== 'undefined') {
+    brainStatusRequested = true;
+    void fetchNexusAIStatus().then((status) => {
+      if (status && brainMode === null) brainMode = status.configured ? 'ai' : 'offline';
+    });
+  }
+  return brainMode === 'ai';
+}
+
 function runSearchNotes(query: string): NexusCommandResult {
   const opened = openOrFocusApp('notes');
   if (!opened) return { ok: false, reply: 'Notes app registered nahi hai.' };
@@ -251,7 +269,9 @@ function runSearchNotes(query: string): NexusCommandResult {
     return {
       ok: true,
       reply: `Notes mein "${q}" ka koi match nahi. Naya note bana de — likha hua concept yaad rehta hai.`,
-      followUps: [{ kind: 'ask', label: `Explain ${q.length > 18 ? `${q.slice(0, 17)}…` : q}`, prompt: `Explain ${q} — short and sharp.` }],
+      followUps: aiCanExplain()
+        ? [{ kind: 'ask', label: `Explain ${q.length > 18 ? `${q.slice(0, 17)}…` : q}`, prompt: `Explain ${q} — short and sharp.` }]
+        : [],
     };
   }
   const titles = matches
@@ -728,6 +748,15 @@ function historyFor(conversationId: string): NexusChatTurn[] {
   return turns.slice(-NEXUS_LIMITS.historyTurns);
 }
 
+function localIntentFor(message: string) {
+  return parseLocalIntent(
+    message,
+    useAppStore.getState().registeredApps,
+    listHabits().map((h) => h.name),
+    listDeckNames()
+  );
+}
+
 /**
  * Resolve one user input to a reply: local intent first, Gemini second.
  * Runs OS side effects but does not touch the chat transcript.
@@ -740,12 +769,7 @@ export async function processNexusInput(
   if (!message) return { reply: NEXUS_LINES.empty, source: 'local', actions: [] };
 
   const apps = useAppStore.getState().registeredApps;
-  const intent = parseLocalIntent(
-    message,
-    apps,
-    listHabits().map((h) => h.name),
-    listDeckNames()
-  );
+  const intent = localIntentFor(message);
 
   if (intent.type === 'help') return { reply: NEXUS_HELP_TEXT, source: 'local', actions: HELP_ACTIONS, intent };
   if (intent.type === 'easter_egg') return { reply: intent.reply, source: 'local', actions: [], intent };
@@ -766,6 +790,7 @@ export async function processNexusInput(
   // ── Fallback: Gemini ──
   const context = useNexusStore.getState().contextEnabled ? buildNexusContext({ detailed: true }) : undefined;
   const ai = await requestNexusAI({ message, history: options.history ?? [], context });
+  if (ai.ok) brainMode = ai.offline ? 'offline' : 'ai';
   if (!ai.ok) {
     return {
       reply: ai.reply,
@@ -828,8 +853,25 @@ export async function sendToNexus(text: string, options: SendToNexusOptions = {}
       ? options.conversationId
       : store.ensureConversation();
 
-  const history = historyFor(conversationId);
   const via = options.via ?? 'text';
+
+  // "new chat" / "clear chat" reset the transcript itself: recording the
+  // turn would leave it in the old chat (or the freshly cleared one).
+  const intent = localIntentFor(message);
+  if (intent.type === 'new_chat' || intent.type === 'clear_chat') {
+    let reply: string;
+    if (intent.type === 'new_chat') {
+      useNexusStore.getState().newConversation();
+      reply = 'Naya chat khol diya.';
+    } else {
+      useNexusStore.getState().clearConversation(conversationId);
+      reply = 'Chat saaf.';
+    }
+    if (via === 'voice') speakNexus(reply);
+    return { reply, source: 'local', actions: [], intent };
+  }
+
+  const history = historyFor(conversationId);
   useNexusStore.getState().appendMessage(conversationId, { role: 'user', content: message, via });
   useNexusStore.getState().beginRequest(conversationId);
 

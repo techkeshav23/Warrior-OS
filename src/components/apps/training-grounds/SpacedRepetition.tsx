@@ -22,6 +22,7 @@ import {
 } from '@/stores/useLearningStore';
 import { recordStudyAction } from '@/components/achievements/study-streak';
 import type { DueCard, ReviewGrade } from '@/types/learning';
+import type { DeckTarget } from './deep-link';
 import { KeyHints, TabHeader } from './QuizControls';
 import { DueForecast } from './practice/DueForecast';
 import { FlipCard, GradeBar, GradeSummary, REVIEW_GRADES, RevealButton, countGrades } from './practice/StudyCard';
@@ -39,6 +40,8 @@ interface SpacedRepetitionProps {
   initialDeckId?: string | null;
   /** Topic inside that deck. */
   initialTopicId?: string | null;
+  /** Called with the deck (and topic) shown now, whenever it changes. */
+  onScopeChange?: (target: DeckTarget | null) => void;
 }
 
 interface ReviewResult {
@@ -62,7 +65,7 @@ interface ReviewSession {
   finishedAt: number | null;
 }
 
-function SpacedRepetitionInner({ initialDeckId = null, initialTopicId = null }: SpacedRepetitionProps) {
+function SpacedRepetitionInner({ initialDeckId = null, initialTopicId = null, onScopeChange }: SpacedRepetitionProps) {
   const decks = useLearningStore((s) => s.decks);
   const reviews = useLearningStore((s) => s.reviews);
   const recordAttempt = useLearningStore((s) => s.recordAttempt);
@@ -86,6 +89,9 @@ function SpacedRepetitionInner({ initialDeckId = null, initialTopicId = null }: 
     return { deck, topic, deckId: deck?.id, topicId: topic?.id };
   }, [decks, deckId, topicId]);
   const scopeDeck = scope.deck;
+  useEffect(() => {
+    onScopeChange?.(scope.deckId ? { deckId: scope.deckId, topicId: scope.topicId ?? null } : null);
+  }, [onScopeChange, scope.deckId, scope.topicId]);
   const scopeTopic = scope.topic;
 
   const queue = useMemo(

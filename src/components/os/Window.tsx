@@ -233,8 +233,10 @@ export function Window({ windowState, children }: WindowProps) {
       ref={rndRef}
       position={position}
       size={size}
-      minWidth={minSize.width}
-      minHeight={minSize.height}
+      // A window maximized on a screen smaller than its minimum size must
+      // still fit the screen.
+      minWidth={isMaximized ? undefined : minSize.width}
+      minHeight={isMaximized ? undefined : minSize.height}
       disableDragging={isMaximized}
       enableResizing={!isMaximized}
       dragHandleClassName="window-drag-handle"
