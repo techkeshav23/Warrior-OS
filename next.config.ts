@@ -16,6 +16,9 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  // Standalone output: a self-contained server bundle so the Docker runtime
+  // image only needs .next/standalone + .next/static + public.
+  output: "standalone",
   reactCompiler: true,
   poweredByHeader: false,
   async headers() {
