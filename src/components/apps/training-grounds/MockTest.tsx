@@ -46,6 +46,7 @@ import { isQuizCard, listCardLocations, useLearningStore } from '@/stores/useLea
 import { dispatchCreatureEvent } from '@/components/creature';
 import { recordQuizCompletion } from '@/components/achievements/quiz-achievements';
 import type { QuizCard, RecordAttemptInput } from '@/types/learning';
+import type { DeckTarget } from './deep-link';
 import { QuestionView } from './QuestionView';
 import {
   AccuracyBar,
@@ -180,6 +181,8 @@ interface MockResult {
 interface MockTestProps {
   /** Deck to preselect, e.g. from a NEXUS deep link. */
   initialDeckId?: string | null;
+  /** Called with the one deck chosen now (null for several), whenever it changes. */
+  onScopeChange?: (target: DeckTarget | null) => void;
 }
 
 function emptyBreakdown(key: string, label: string): Breakdown {
@@ -324,7 +327,7 @@ function BreakdownRow({ row, topic = false }: { row: Breakdown; topic?: boolean 
   );
 }
 
-function MockTestInner({ initialDeckId = null }: MockTestProps) {
+function MockTestInner({ initialDeckId = null, onScopeChange }: MockTestProps) {
   const decks = useLearningStore((s) => s.decks);
   const recordAttempts = useLearningStore((s) => s.recordAttempts);
   const addXP = useXPStore((s) => s.addXP);
@@ -339,6 +342,10 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
       .map((d) => d.id);
     return initialDeckId && usable.includes(initialDeckId) ? [initialDeckId] : usable;
   });
+  const onlyDeckId = chosenIds.length === 1 ? chosenIds[0] : null;
+  useEffect(() => {
+    onScopeChange?.(onlyDeckId ? { deckId: onlyDeckId, topicId: null } : null);
+  }, [onScopeChange, onlyDeckId]);
   const [run, setRun] = useState<MockRun | null>(null);
   const [result, setResult] = useState<MockResult | null>(null);
   const [now, setNow] = useState(() => Date.now());

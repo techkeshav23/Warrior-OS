@@ -4,7 +4,6 @@
 
 export { useClock } from './useClock';
 export { useParallax } from './useParallax';
-export { useSound } from './useSound';
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';
 export { useContextMenu } from './useContextMenu';
 export { useAuth } from './useAuth';

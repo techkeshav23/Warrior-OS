@@ -45,9 +45,11 @@ The same list, with comments, is in [`.env.example`](.env.example).
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Public | `messagingSenderId` |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | Public | `appId` |
 | `NEXT_PUBLIC_FIREBASE_DATABASE_URL` | Public | Realtime Database URL (step 3.5) |
-| `NEXT_PUBLIC_SITE_URL` | Public | Your public origin, e.g. `https://warrior-os.vercel.app` (used for link previews; defaults to the Vercel production domain) |
+| `NEXT_PUBLIC_SITE_URL` | Public | Your public origin, e.g. `https://warrior-os.vercel.app` (used for link previews; defaults to the Vercel production domain). **Required when hosting anywhere other than Vercel** |
 
 Keep the Gemini and weather keys under exactly these names. Never create `NEXT_PUBLIC_` versions of them: anything named `NEXT_PUBLIC_*` is shipped to every browser. The Firebase web config is public by design; the security rules below are what protect the data.
+
+**Hosting off Vercel** (a Node server, Docker, another platform): set `NEXT_PUBLIC_SITE_URL` before `npm run build`. Without it and without Vercel's `VERCEL_PROJECT_PRODUCTION_URL`, the `og:image` / `twitter:image` link-preview URLs fall back to `http://localhost:3000`, so shared links show no preview image. Also have your reverse proxy set `X-Real-IP` (or append the client address to `X-Forwarded-For`): the per-IP rate limits on `/api/ai` and `/api/weather` read the client address from those headers.
 
 Tip: to keep preview visitors out of the production campfire, leave `NEXT_PUBLIC_FIREBASE_DATABASE_URL` unset for **Preview** (or point it at a second database).
 
@@ -55,8 +57,8 @@ Tip: to keep preview visitors out of the production campfire, leave `NEXT_PUBLIC
 
 Create the project once at [console.firebase.google.com](https://console.firebase.google.com). The free Spark plan is enough.
 
-1. **Create a project**, then **Project settings → General → Your apps → Web (`</>`)**. Register an app (no Firebase Hosting needed) and copy the six config values into the `NEXT_PUBLIC_FIREBASE_*` variables.
-2. **Authentication → Get started → Sign-in method:** enable **Google** and **Email/Password** (the providers `src/lib/auth.ts` uses). This only backs cloud sync for signed-in users; the OS itself never requires an account.
+1. **Create a project**, then **Project settings → General → Your apps → Web (`</>`)**. Register an app (no Firebase Hosting needed) and copy the six config values into the `NEXT_PUBLIC_FIREBASE_*` variables. Sign-in and cloud sync switch on only when `API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID` and `APP_ID` are all set (`isFirebaseConfigured()` in `src/lib/auth.ts`); without them the Firebase SDK is never loaded and **Settings → Account** says cloud sync is off.
+2. **Authentication → Get started → Sign-in method:** enable **Google** and **Email/Password** (the providers `src/lib/auth.ts` uses). Sign-in lives in **Settings → Account** (Sign in with Google, or email + password with a Create account option; Sign out on the same page) and is offered only in the **owner** session: guest sessions hold demo data and always stay local. `AuthSync` (`src/components/os/AuthSync.tsx`) listens for the signed-in user; the only thing synced is the typing-vitals hourly averages (Settings → Account shows the sync state and a Sync now button). The OS itself never requires an account.
 3. **Authentication → Settings → Authorized domains:** add your production domain (`<project>.vercel.app` and any custom domain). `localhost` is there already. Wildcards are not supported, so add a specific preview domain only if you sign in there.
 4. **Firestore Database → Create database** (production mode, any region), then **Rules** → paste and **Publish**:
 
@@ -64,7 +66,7 @@ Create the project once at [console.firebase.google.com](https://console.firebas
    rules_version = '2';
    service cloud.firestore {
      match /databases/{database}/documents {
-       // Each signed-in user owns their own tree, e.g. users/{uid}/biometrics/{day}.
+       // Each signed-in user owns their own tree: users/{uid}/biometrics/{day}.
        match /users/{uid}/{document=**} {
          allow read, write: if request.auth != null && request.auth.uid == uid;
        }

@@ -6,8 +6,11 @@
 // a handful of achievements, and progress on the sample learning decks.
 //
 // • Guests only: an owner session never gets demo data.
-// • Runs on its own once per browser (DEMO_SEED_FLAG_KEY); Settings →
-//   Showcase runs it again on request (`force`).
+// • Runs on its own once per browser (DEMO_SEED_FLAG_KEY), and only in a
+//   clean browser: never where the owner has unlocked before
+//   (hasOwnerHistory) and never when any app already holds data, so demo
+//   rows are never mixed into someone's real notes, projects or expenses.
+//   Settings → Showcase runs it again on request (`force`), per area.
 // • Fills only areas that are empty, through each app's own store
 //   actions (Notes and Habit Forge keep plain localStorage lists), and
 //   never overwrites anything saved.
@@ -22,7 +25,7 @@
 
 import { OWNER } from '@/config/owner';
 import { LEVEL_THRESHOLDS } from '@/lib/constants';
-import { getVisitorMode, type VisitorMode } from '@/lib/visitor';
+import { getVisitorMode, hasOwnerHistory, type VisitorMode } from '@/lib/visitor';
 import { levelAchievementsFor, mergeAchievements, utcDayKey } from '@/components/achievements/award';
 import { streakAchievementsFor } from '@/components/achievements/day-streak';
 import { useEffectsStore } from '@/components/effects/useEffectsStore';
@@ -58,8 +61,11 @@ export interface DemoSeedReport {
   seeded: DemoSeedArea[];
   /** Areas left alone: they already had data (or could not be written). */
   skipped: DemoSeedArea[];
-  /** Why nothing ran at all. */
-  blocked?: 'not-guest' | 'already-seeded';
+  /**
+   * Why nothing ran at all. 'owner-history' / 'has-data': the automatic
+   * seed found the owner's (or someone's) saved data in this browser.
+   */
+  blocked?: 'not-guest' | 'already-seeded' | 'owner-history' | 'has-data';
 }
 
 export interface DemoSeedOptions {
@@ -90,9 +96,15 @@ export function seedDemoData(options: DemoSeedOptions = {}): DemoSeedReport {
   const mode = options.mode === undefined ? getVisitorMode() : options.mode;
   if (mode !== 'guest') return { ...report, blocked: 'not-guest' };
   if (!options.force && hasDemoSeedRun()) return { ...report, blocked: 'already-seeded' };
+  // The automatic seed is all-or-nothing: a browser with the owner's history
+  // or any saved data is left untouched (no flag written, nothing mixed in).
+  if (!options.force && hasOwnerHistory()) return { ...report, blocked: 'owner-history' };
 
   const now = Date.now();
   const empty = new Set(AREA_ORDER.filter((area) => isAreaEmpty(area)));
+  if (!options.force && AREA_ORDER.some((area) => !empty.has(area) && isAreaLoaded(area))) {
+    return { ...report, blocked: 'has-data' };
+  }
 
   quietly(() => {
     // Before the seeders: Project Forge unlocks its achievements as projects are created.
@@ -213,6 +225,25 @@ function isEmptyList(key: string): boolean {
     return Array.isArray(value) && value.length === 0;
   } catch {
     return false;
+  }
+}
+
+/** False while the area's store is still loading (it then counts as not empty, but not as data either). */
+function isAreaLoaded(area: DemoSeedArea): boolean {
+  switch (area) {
+    case 'notes':
+    case 'habits':
+      return true;
+    case 'projects':
+      return hydrated(useProjectForgeStore);
+    case 'expenses':
+      return hydrated(useExpenseStore);
+    case 'calendar':
+      return hydrated(useCalendarStore);
+    case 'learning':
+      return hydrated(useLearningStore);
+    case 'progress':
+      return hydrated(useXPStore);
   }
 }
 

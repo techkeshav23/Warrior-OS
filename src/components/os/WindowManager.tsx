@@ -26,6 +26,13 @@ export function WindowManager() {
     syncRunningAppsFromWindows(windows);
   }, [windows, syncRunningAppsFromWindows]);
 
+  // Maximized windows track the browser size.
+  useEffect(() => {
+    const onResize = () => useWindowStore.getState().fitMaximizedToViewport();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   // Only show windows for the active workspace
   const visibleWindows = windows.filter(
     (w) => w.workspaceId === activeWorkspaceId && !w.isMinimized

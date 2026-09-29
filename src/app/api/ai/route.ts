@@ -35,6 +35,7 @@ import {
   sanitizeWireActions,
 } from '@/lib/nexus/protocol';
 import { NEXUS_OFFLINE_MODEL, offlineNexusReply } from '@/lib/nexus/offline-brain';
+import { clientIp } from '@/lib/client-ip';
 import type { NexusChatTurn, NexusContext, NexusWireAction } from '@/types/nexus';
 
 // Edge runtime — fast cold start, low latency for a chat endpoint.
@@ -46,19 +47,9 @@ const RATE_LIMIT_REQUESTS = 20;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_TRACKED = 5_000;
 
-// ─── Per-IP sliding-window rate limit (in-memory, per instance) ───
+// ─── Per-IP sliding-window rate limit (in-memory, per instance; IP from lib/client-ip) ───
 
 const rateBuckets = new Map<string, number[]>();
-
-function clientKey(req: Request): string {
-  const forwarded = req.headers.get('x-forwarded-for');
-  const ip =
-    forwarded?.split(',')[0]?.trim() ||
-    req.headers.get('x-real-ip')?.trim() ||
-    req.headers.get('cf-connecting-ip')?.trim() ||
-    'anonymous';
-  return ip.slice(0, 64);
-}
 
 function takeRateToken(key: string, now: number): { ok: true } | { ok: false; retryAfterSec: number } {
   const cutoff = now - RATE_LIMIT_WINDOW_MS;
@@ -381,7 +372,7 @@ export async function POST(req: Request) {
   const now = Date.now();
 
   // 1. Rate limit (cheap, before any work).
-  const limit = takeRateToken(clientKey(req), now);
+  const limit = takeRateToken(clientIp(req), now);
   if (!limit.ok) {
     return json(
       429,

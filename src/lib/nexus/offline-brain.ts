@@ -246,6 +246,28 @@ const KNOWLEDGE: readonly Entry[] = [
     actions: [{ type: 'switch_workspace', target: 'study', label: 'Study workspace' }, HELP],
   },
   {
+    name: 'Terminal',
+    match: [/\bterminal\b/, /\bcommand\s+line\b/, /\bshell\b/, /\bcli\b/],
+    body:
+      'The **Terminal** is a command line for the OS (Ctrl + backtick opens it). Type `help` for the full list:\n\n' +
+      '- `ls` — installed apps. `stats` — today\'s study summary. `xp` — level and XP.\n' +
+      '- `decks` — your decks with mastery and cards due. `train review` — straight to due cards; `train start <deck>` — a quiz.\n' +
+      '- `notes <query>` — open Notes on a search. `neofetch`, `whoami`, `history`, `clear`.\n\n' +
+      'Up/Down arrows walk the command history, and a few easter eggs are hidden in there.',
+    actions: [openApp('Terminal', 'Open Terminal'), HELP],
+  },
+  {
+    name: 'Everyday tools',
+    match: [/\bcalculator\b/, /\bcalendar\b/, /\bweather\b/, /\bfiles?\s+(?:app|manager|explorer)\b/, /\bfile\s+manager\b/],
+    body:
+      'The everyday tools:\n\n' +
+      '- **Calculator** — standard maths, keyboard input works.\n' +
+      '- **Calendar** — month view with events, repeats and reminders (NEXUS pings you).\n' +
+      '- **Weather** — search any city for current conditions and the forecast.\n' +
+      '- **Files** — a virtual file manager: folders and text files, saved in this browser.',
+    actions: [openApp('Calendar', 'Open Calendar'), openApp('Weather', 'Open Weather'), openApp('Files', 'Open Files')],
+  },
+  {
     name: 'Voice control',
     match: [/\bvoice\b/, /\bhey\s+warrior\b/, /\bwake\s+(?:word|mode)\b/, /\bmic(?:rophone)?\b/, /\bspeech\b/],
     body:
@@ -564,6 +586,37 @@ function statusReply(ctx: Ctx): OfflineBrainReply {
   );
 }
 
+const DUE_COUNT_RE =
+  /\b(?:how\s+many|kitne|kitni|number\s+of)\b.*\b(?:cards?|reviews?|flashcards?)\b.*\b(?:due|pending|left|baaki)\b|\b(?:how\s+many|kitne|kitni)\s+(?:due|pending)\b|\b(?:anything|whats|kya)\s+due\b|\bdue\s+(?:cards?\s+)?(?:count|kitne|kitni)\b/;
+
+function dueReply(ctx: Ctx, guest: boolean): OfflineBrainReply {
+  const due = typeof ctx?.dueCards === 'number' ? ctx.dueCards : null;
+  const focus = ctx?.focusDeck ?? null;
+  if (due === null) {
+    return reply(
+      guest
+        ? 'I can\'t see the decks right now (OS context is off). Say `review due cards` and the flashcards open on whatever is due.'
+        : 'Decks abhi dikh nahi rahe (OS context off hai). `review due cards` bol — jo due hai seedha khul jayega.',
+      [review(), MY_DECKS]
+    );
+  }
+  if (due === 0) {
+    return reply(
+      guest
+        ? 'Nothing is due right now — a good time for new cards or a quiz.'
+        : 'Abhi koi card due nahi. Naya topic utha ya ek quiz se khud ko check kar.',
+      [quiz(focus, focus ? `${focus} quiz` : 'Quick quiz'), MY_DECKS]
+    );
+  }
+  const where = focus ? (guest ? ` — most of them in **${focus}**` : ` — sabse zyada **${focus}** mein`) : '';
+  return reply(
+    guest
+      ? `**${due} ${due === 1 ? 'card is' : 'cards are'} due**${where}. Reviewing them now keeps them in memory.`
+      : `**${due} ${due === 1 ? 'card' : 'cards'} due hain**${where}. 10-15 minute ka review — abhi kar le.`,
+    [review(focus), MY_DECKS]
+  );
+}
+
 function coachReply(ctx: Ctx): OfflineBrainReply {
   const decks = ctx?.decks;
   const due = typeof ctx?.dueCards === 'number' ? ctx.dueCards : null;
@@ -679,6 +732,9 @@ export function offlineNexusReply(
   if (/\b(?:my|mera|meri)\s+(?:streak|level|xp)\b|\bstreak\s+(?:kitna|kitni|kya)\b/.test(text)) {
     return statusReply(context);
   }
+
+  // How many cards are due
+  if (DUE_COUNT_RE.test(text)) return dueReply(context, guest);
 
   // Motivation / fatigue / procrastination
   if (/\b(?:demotivat|unmotivat|no\s+motivation|motivation|give\s+up|quit|haar|hopeless|depress|sad|udaas|bored|boring|procrastinat|lazy|aalas|man\s+nahi|mann\s+nahi|cant\s+focus|distract)/.test(text)) {

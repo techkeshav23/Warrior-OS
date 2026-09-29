@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useMemo, useDeferredValue, useCallback, useRef, memo, type KeyboardEvent } from 'react';
+import { useState, useEffect, useMemo, useDeferredValue, useCallback, useRef, memo, type KeyboardEvent } from 'react';
 import {
   CalendarClock,
   Check,
@@ -39,6 +39,7 @@ import type {
   QuizCard,
   ReviewGrade,
 } from '@/types/learning';
+import type { DeckTarget } from './deep-link';
 import { QuestionView } from './QuestionView';
 import { DifficultyBadge, TabHeader } from './QuizControls';
 import { GradeBar } from './practice/StudyCard';
@@ -61,6 +62,8 @@ const KIND_ICONS: Readonly<Record<CardKind, LucideIcon>> = {
 interface QuestionBankProps {
   /** Deck to open on, e.g. from a NEXUS deep link. */
   initialDeckId?: string | null;
+  /** Called with the deck (and topic) shown now, whenever it changes. */
+  onScopeChange?: (target: DeckTarget | null) => void;
 }
 
 /** Lower-cased text a search matches against: prompt, options, answer, explanation, tags. */
@@ -250,12 +253,15 @@ function CardDetail({
 
 // ─── Bank ───
 
-function QuestionBankInner({ initialDeckId = null }: QuestionBankProps) {
+function QuestionBankInner({ initialDeckId = null, onScopeChange }: QuestionBankProps) {
   const decks = useLearningStore((s) => s.decks);
   const reviews = useLearningStore((s) => s.reviews);
   const [query, setQuery] = useState('');
   const [deckId, setDeckId] = useState<string>(initialDeckId ?? ALL);
   const [topicId, setTopicId] = useState<string>(ALL);
+  useEffect(() => {
+    onScopeChange?.(deckId === ALL ? null : { deckId, topicId: null });
+  }, [onScopeChange, deckId]);
   const [tag, setTag] = useState<string>(ALL);
   const [difficulty, setDifficulty] = useState<Difficulty | typeof ALL>(ALL);
   const [kind, setKind] = useState<CardKind | typeof ALL>(ALL);

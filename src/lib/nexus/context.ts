@@ -96,9 +96,9 @@ export function computeHabitStreak(habits: HabitLite[], now: number): number {
   if (activeDays.size === 0) return 0;
   let current = 0;
   for (let i = 0; i < 365; i++) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().split('T')[0];
+    // Step whole UTC days (a UTC day is always 24h), so a DST change in the
+    // local timezone can never land two steps on the same day key.
+    const key = new Date(now - i * 86_400_000).toISOString().slice(0, 10);
     if (activeDays.has(key)) current++;
     else if (i === 0) continue; // today may simply not be done yet
     else break;

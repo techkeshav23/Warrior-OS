@@ -153,6 +153,8 @@ type RunSeed = Pick<QuizRun, 'deckId' | 'deckName' | 'topicName' | 'items' | 'se
 interface QuizEngineProps {
   /** Deck (and topic) to preselect, e.g. from a NEXUS deep link. */
   initialTarget?: DeckTarget | null;
+  /** Called with the deck (and topic) shown now, whenever it changes. */
+  onScopeChange?: (target: DeckTarget | null) => void;
 }
 
 function quizXP(correct: number, total: number, retry: boolean): number {
@@ -160,7 +162,7 @@ function quizXP(correct: number, total: number, retry: boolean): number {
   return correct * XP_PER_CORRECT + bonus;
 }
 
-function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
+function QuizEngineInner({ initialTarget = null, onScopeChange }: QuizEngineProps) {
   const [phase, setPhase] = useState<Phase>('setup');
   const [deckId, setDeckId] = useState<string | null>(initialTarget?.deckId ?? null);
   const [topicId, setTopicId] = useState<string | null>(initialTarget?.topicId ?? null);
@@ -173,6 +175,9 @@ function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
   const finishedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
+  useEffect(() => {
+    onScopeChange?.(deckId ? { deckId, topicId } : null);
+  }, [onScopeChange, deckId, topicId]);
 
   const addXP = useXPStore((s) => s.addXP);
   const recordSession = useQuizHistoryStore((s) => s.recordAttempt);

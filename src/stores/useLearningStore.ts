@@ -62,6 +62,8 @@ const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 /** A missed card comes back this soon. */
 const RELEARN_DELAY_MS = 10 * MINUTE;
+/** A card rated Hard while still being learned comes back after this. */
+const HARD_STEP_MS = 60 * MINUTE;
 const MAX_INTERVAL_DAYS = 365;
 const START_EASE = 2.5;
 const MIN_EASE = 1.3;
@@ -465,7 +467,10 @@ export function cardAnswerText(card: Card): string {
 
 /**
  * Next review state after an answer (SM-2 style). Answering a card before
- * it is due only counts toward mastery; a miss always sends it back.
+ * it is due only counts toward mastery; a miss always sends it back. A card
+ * still being (re)learned (interval 0) is always rescheduled, so a second
+ * try right after a miss takes effect. Again < Hard < Good < Easy at every
+ * step.
  */
 export function scheduleReview(
   prev: CardReview | null | undefined,
@@ -475,7 +480,7 @@ export function scheduleReview(
   now: number
 ): CardReview {
   const recent = [...(prev?.recent ?? []), correct].slice(-RECENT_RESULTS);
-  if (prev && now < prev.dueAt && grade !== 'again') {
+  if (prev && prev.intervalDays > 0 && now < prev.dueAt && grade !== 'again') {
     return { ...prev, lastReviewedAt: now, recent };
   }
 
@@ -483,6 +488,13 @@ export function scheduleReview(
   let intervalDays = prev?.intervalDays ?? 0;
   let reps = prev?.reps ?? 0;
   let lapses = prev?.lapses ?? 0;
+  // A new or just-missed card: Hard keeps it in learning, Good/Easy graduate it.
+  const learning = reps === 0;
+  // Graduated intervals, each at least a day past the one below it.
+  const hardDays = Math.max(1, intervalDays + 1, Math.round(intervalDays * 1.2));
+  const goodDays = Math.max(hardDays + 1, reps === 1 ? 3 : Math.round(intervalDays * ease));
+  const easyDays = Math.max(goodDays + 1, Math.round(intervalDays * ease * 1.3));
+  let stepMs = RELEARN_DELAY_MS;
   switch (grade) {
     case 'again':
       if (reps > 0) lapses += 1;
@@ -491,17 +503,22 @@ export function scheduleReview(
       ease = Math.max(MIN_EASE, ease - 0.2);
       break;
     case 'hard':
-      reps += 1;
-      intervalDays = Math.max(1, intervalDays + 1, Math.round(intervalDays * 1.2));
       ease = Math.max(MIN_EASE, ease - 0.15);
+      if (learning) {
+        intervalDays = 0;
+        stepMs = HARD_STEP_MS;
+      } else {
+        reps += 1;
+        intervalDays = hardDays;
+      }
       break;
     case 'good':
       reps += 1;
-      intervalDays = reps === 1 ? 1 : reps === 2 ? 3 : Math.max(intervalDays + 1, Math.round(intervalDays * ease));
+      intervalDays = learning ? 1 : goodDays;
       break;
     case 'easy':
       reps += 1;
-      intervalDays = reps === 1 ? 4 : Math.max(intervalDays + 1, Math.round(intervalDays * ease * 1.3));
+      intervalDays = learning ? 4 : easyDays;
       ease = Math.min(MAX_EASE, ease + 0.15);
       break;
   }
@@ -512,7 +529,7 @@ export function scheduleReview(
     intervalDays,
     reps,
     lapses,
-    dueAt: intervalDays === 0 ? now + RELEARN_DELAY_MS : now + intervalDays * DAY,
+    dueAt: intervalDays === 0 ? now + stepMs : now + intervalDays * DAY,
     lastReviewedAt: now,
     recent,
   };
@@ -646,22 +663,101 @@ type PersistedLearning = Pick<LearningStore, 'decks' | 'reviews' | 'attempts' | 
 
 const EMPTY_MASTERY: Mastery = { value: 0, total: 0, seen: 0, mastered: 0 };
 
-function isDeckShape(value: unknown): value is Deck {
-  if (!value || typeof value !== 'object') return false;
-  const d = value as Partial<Deck>;
-  return typeof d.id === 'string' && typeof d.name === 'string' && Array.isArray(d.topics);
+const GRADES: readonly ReviewGrade[] = ['again', 'hard', 'good', 'easy'];
+const ATTEMPT_SOURCES: readonly CardAttempt['source'][] = ['quiz', 'mock', 'flashcards', 'review'];
+
+function finiteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
 }
 
-/** Shape-check saved state so a corrupted key can never crash the apps. */
+/** A saved card with its id and timestamps kept; null when unusable. */
+function sanitizeSavedCard(raw: unknown): Card | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.id !== 'string' || !r.id) return null;
+  const card = normalizeCardInput(raw);
+  if (!card) return null;
+  return {
+    ...card,
+    id: r.id,
+    tags: card.tags ?? [],
+    difficulty: card.difficulty ?? 'medium',
+    createdAt: finiteNumber(r.createdAt) ? r.createdAt : 0,
+    ...(finiteNumber(r.updatedAt) ? { updatedAt: r.updatedAt } : {}),
+  } as Card;
+}
+
+function sanitizeSavedTopic(raw: unknown): Topic | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.id !== 'string' || !r.id) return null;
+  const cards = Array.isArray(r.cards)
+    ? r.cards.map(sanitizeSavedCard).filter((c): c is Card => c !== null)
+    : [];
+  const description = typeof r.description === 'string' ? r.description : '';
+  return {
+    id: r.id,
+    name: (typeof r.name === 'string' && r.name) || DEFAULT_TOPIC_NAME,
+    ...(description ? { description } : {}),
+    cards,
+    createdAt: finiteNumber(r.createdAt) ? r.createdAt : 0,
+  };
+}
+
+/**
+ * Deep-check a saved deck: non-object topics/cards and cards that fail the
+ * import validator are dropped, bad fields fall back to defaults. Ids are
+ * kept as saved so review state still matches.
+ */
+function sanitizeSavedDeck(raw: unknown, index: number): Deck | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.id !== 'string' || !r.id || !Array.isArray(r.topics)) return null;
+  return {
+    id: r.id,
+    name: (typeof r.name === 'string' && r.name) || DEFAULT_DECK_NAME,
+    description: typeof r.description === 'string' ? r.description : '',
+    color: validColor(r.color) ?? DECK_COLORS[index % DECK_COLORS.length],
+    icon: (typeof r.icon === 'string' && r.icon) || DEFAULT_DECK_ICON,
+    topics: r.topics.map(sanitizeSavedTopic).filter((t): t is Topic => t !== null),
+    createdAt: finiteNumber(r.createdAt) ? r.createdAt : 0,
+    ...(finiteNumber(r.updatedAt) ? { updatedAt: r.updatedAt } : {}),
+    ...(r.isSample === true ? { isSample: true } : {}),
+  };
+}
+
+function isAttemptShape(value: unknown): value is CardAttempt {
+  if (!value || typeof value !== 'object') return false;
+  const a = value as Partial<CardAttempt>;
+  return (
+    typeof a.cardId === 'string' &&
+    typeof a.deckId === 'string' &&
+    typeof a.topicId === 'string' &&
+    typeof a.correct === 'boolean' &&
+    GRADES.includes(a.grade as ReviewGrade) &&
+    ATTEMPT_SOURCES.includes(a.source as CardAttempt['source']) &&
+    finiteNumber(a.timestamp) &&
+    (a.durationMs === undefined || finiteNumber(a.durationMs))
+  );
+}
+
+/** Shape-check saved state (deeply) so a corrupted key can never crash the apps. */
 function sanitizePersisted(raw: unknown): Partial<PersistedLearning> {
   if (!raw || typeof raw !== 'object') return {};
   const p = raw as Record<string, unknown>;
   const out: Partial<PersistedLearning> = {};
-  if (Array.isArray(p.decks)) out.decks = p.decks.filter(isDeckShape);
-  if (p.reviews && typeof p.reviews === 'object' && !Array.isArray(p.reviews)) {
-    out.reviews = p.reviews as Record<string, CardReview>;
+  if (Array.isArray(p.decks)) {
+    out.decks = p.decks.map(sanitizeSavedDeck).filter((d): d is Deck => d !== null);
   }
-  if (Array.isArray(p.attempts)) out.attempts = p.attempts as CardAttempt[];
+  if (p.reviews && typeof p.reviews === 'object' && !Array.isArray(p.reviews)) {
+    const reviews: Record<string, CardReview> = {};
+    for (const [cardId, value] of Object.entries(p.reviews as Record<string, unknown>)) {
+      const review = normalizeReview(value, cardId);
+      if (review) reviews[cardId] = review;
+    }
+    out.reviews = reviews;
+  }
+  if (Array.isArray(p.attempts)) out.attempts = p.attempts.filter(isAttemptShape).slice(-MAX_ATTEMPTS);
   if (Array.isArray(p.dismissedSamples)) {
     out.dismissedSamples = p.dismissedSamples.filter((id): id is string => typeof id === 'string');
   }

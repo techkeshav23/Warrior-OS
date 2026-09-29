@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { resolveDisplayFontFamily } from '@/components/effects/effects-utils';
 
 // ─────────────────────────────────────────────────────────────
 // Label textures
@@ -27,6 +28,12 @@ export interface LabelTextureOptions {
 
 const LABEL_W = 512;
 
+/** Canvas font family for the mono face (next/font's generated name), resolved from <body>. */
+function resolveMonoFontFamily(): string {
+  const loaded = getComputedStyle(document.body).getPropertyValue('--font-jetbrains').trim();
+  return `${loaded ? `${loaded}, ` : ''}"JetBrains Mono", "Fira Code", ui-monospace, monospace`;
+}
+
 /** Draw a label to a canvas texture. Returns the texture and its aspect (w/h). */
 export function createLabelTexture(opts: LabelTextureOptions): { texture: THREE.CanvasTexture; aspect: number } | null {
   if (typeof document === 'undefined') return null;
@@ -38,9 +45,8 @@ export function createLabelTexture(opts: LabelTextureOptions): { texture: THREE.
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
 
-  const family = opts.mono
-    ? '"JetBrains Mono", "Fira Code", ui-monospace, monospace'
-    : 'Orbitron, "Segoe UI", system-ui, sans-serif';
+  // next/font serves faces under generated names, so read them from the CSS vars.
+  const family = opts.mono ? resolveMonoFontFamily() : resolveDisplayFontFamily();
 
   if (opts.plate !== 'none') {
     ctx.fillStyle = 'rgba(6, 8, 14, 0.86)';

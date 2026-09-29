@@ -41,6 +41,7 @@ import {
   Plus,
   SearchX,
   Trash2,
+  TriangleAlert,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -63,6 +64,7 @@ import {
 import { cn, generateId } from '@/lib/utils';
 import { BEVEL_SUNK, ENGRAVED_LABEL, SLOT_FILL } from '@/components/ui/armor';
 import { MarkdownPreview } from '@/components/apps/notes-archive/markdown';
+import { announceStorageWrite, reportStorageFull, useStorageSync } from '@/lib/storage-sync';
 
 interface FSNode {
   id: string;
@@ -100,16 +102,47 @@ function renameLegacySeedFolder(fs: FSNode): FSNode {
   return { ...fs, children: fs.children.map((c) => (isLegacy(c) ? { ...c, name: 'Training' } : c)) };
 }
 
-function loadFS(): FSNode {
-  if (typeof window === 'undefined') return DEFAULT_FS;
+function readFSRaw(): string | null {
   try {
-    const raw = localStorage.getItem(FS_KEY);
-    return raw ? renameLegacySeedFolder(JSON.parse(raw)) : DEFAULT_FS;
+    return localStorage.getItem(FS_KEY);
+  } catch { return null; }
+}
+
+/** Validate one stored node (and its subtree); null drops it. */
+function sanitizeNode(raw: unknown, fallbackId: string): FSNode | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const n = raw as Partial<FSNode>;
+  const id = typeof n.id === 'string' && n.id ? n.id : fallbackId;
+  const name = typeof n.name === 'string' ? n.name : id;
+  if (n.type === 'file') return { ...n, id, name, type: 'file', content: typeof n.content === 'string' ? n.content : '', children: undefined };
+  if (n.type !== 'folder') return null;
+  const children = (Array.isArray(n.children) ? n.children : [])
+    .map((c, i) => sanitizeNode(c, `${id}-${i}`))
+    .filter((c): c is FSNode => c !== null);
+  return { ...n, id, name, type: 'folder', children };
+}
+
+/** Parse + validate the stored tree: anything that isn't a folder reads as the default tree. */
+function parseFS(raw: string | null): FSNode {
+  if (!raw) return DEFAULT_FS;
+  try {
+    const root = sanitizeNode(JSON.parse(raw), 'root');
+    return root?.type === 'folder' ? renameLegacySeedFolder(root) : DEFAULT_FS;
   } catch { return DEFAULT_FS; }
 }
 
-function saveFS(fs: FSNode) {
-  localStorage.setItem(FS_KEY, JSON.stringify(fs));
+function loadFS(): FSNode {
+  if (typeof window === 'undefined') return DEFAULT_FS;
+  return parseFS(readFSRaw());
+}
+
+/** Persist the tree; returns the raw JSON written, or null when storage refused it (full / blocked). */
+function saveFS(fs: FSNode): string | null {
+  const raw = JSON.stringify(fs);
+  try {
+    localStorage.setItem(FS_KEY, raw);
+    return raw;
+  } catch { return null; }
 }
 
 /** Immutably update the folder at the given path of ids, running `fn` on its children */
@@ -239,15 +272,34 @@ function FilesAppInner() {
   const [filter, setFilter] = useState('');
   const [pendingDelete, setPendingDelete] = useState<FSNode | null>(null);
   const [filePreview, setFilePreview] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [rootRef, width] = useWidth<HTMLDivElement>();
 
   const showSidebar = width === 0 || width >= 640;
   const contentWidth = showSidebar ? width - 200 : width;
   const wideToolbar = width === 0 || contentWidth >= 560;
 
-  const commit = useCallback((next: FSNode) => {
+  // Several Files windows (or tabs) may be open: every change re-reads the
+  // stored tree first and is announced, so no window writes a stale copy.
+  const seenRaw = useRef<string | null | undefined>(undefined);
+  useStorageSync(FS_KEY, () => {
+    const raw = readFSRaw();
+    if (raw === seenRaw.current) return;
+    seenRaw.current = raw;
+    setFs(parseFS(raw));
+  });
+
+  const commit = useCallback((change: (current: FSNode) => FSNode) => {
+    const next = change(loadFS());
+    const raw = saveFS(next);
+    // A refused write is not shown either: the next commit starts from storage.
+    if (raw === null) {
+      reportStorageFull('Files');
+      return;
+    }
     setFs(next);
-    saveFS(next);
+    seenRaw.current = raw;
+    announceStorageWrite(FS_KEY);
   }, []);
 
   const currentFolder = useMemo(() => folderAtPath(fs, path), [fs, path]);
@@ -290,17 +342,17 @@ function FilesAppInner() {
     const node: FSNode = type === 'folder'
       ? { id: generateId('d'), name, type: 'folder', children: [] }
       : { id: generateId('f'), name, type: 'file', content: '' };
-    commit(updateFolder(fs, path, (children) => [...children, node]));
+    commit((cur) => updateFolder(cur, path, (children) => [...children, node]));
     setFilter('');
     setSelectedId(node.id);
     setRenaming(node.id);
     setRenameValue(name);
-  }, [fs, path, commit]);
+  }, [path, commit]);
 
   const deleteNode = useCallback((id: string) => {
-    commit(updateFolder(fs, path, (children) => children.filter((c) => c.id !== id)));
+    commit((cur) => updateFolder(cur, path, (children) => children.filter((c) => c.id !== id)));
     setSelectedId((s) => (s === id ? null : s));
-  }, [fs, path, commit]);
+  }, [path, commit]);
 
   const startRename = useCallback((node: FSNode) => {
     setSelectedId(node.id);
@@ -311,12 +363,12 @@ function FilesAppInner() {
   const applyRename = useCallback((id: string) => {
     const name = renameValue.trim();
     if (name) {
-      commit(updateFolder(fs, path, (children) =>
+      commit((cur) => updateFolder(cur, path, (children) =>
         children.map((c) => (c.id === id ? { ...c, name } : c))
       ));
     }
     setRenaming(null);
-  }, [fs, path, renameValue, commit]);
+  }, [path, renameValue, commit]);
 
   const openNode = useCallback((node: FSNode) => {
     if (node.type === 'folder') goTo([...path, node.id]);
@@ -329,11 +381,18 @@ function FilesAppInner() {
 
   const saveOpenFile = useCallback(() => {
     if (!openFile) return;
-    commit(updateFolder(fs, path, (children) =>
+    commit((cur) => updateFolder(cur, path, (children) =>
       children.map((c) => (c.id === openFile.id ? { ...c, content: openFile.content } : c))
     ));
     setOpenFile(null);
-  }, [fs, path, openFile, commit]);
+    setConfirmDiscard(false);
+  }, [path, openFile, commit]);
+
+  /** Close the editor; unsaved edits ask first (Save / Discard / Cancel). */
+  const requestCloseFile = useCallback(() => {
+    if (openFile && openFile.content !== openFile.original) setConfirmDiscard(true);
+    else setOpenFile(null);
+  }, [openFile]);
 
   const onItemKey = (e: KeyboardEvent<HTMLElement>, node: FSNode) => {
     if (e.key === 'Enter') {
@@ -737,7 +796,7 @@ function FilesAppInner() {
       {/* File viewer/editor */}
       <Dialog
         open={openFile !== null}
-        onClose={() => setOpenFile(null)}
+        onClose={requestCloseFile}
         size="xl"
         icon={openKind?.icon}
         iconTone="neutral"
@@ -757,7 +816,7 @@ function FilesAppInner() {
                 <Kbd keys={['Ctrl', 'S']} size="sm" /> save
               </span>
             </span>
-            <Button variant="ghost" onClick={() => setOpenFile(null)}>
+            <Button variant="ghost" onClick={requestCloseFile}>
               Close
             </Button>
             <Button variant="primary" onClick={saveOpenFile} disabled={!dirty}>
@@ -810,6 +869,37 @@ function FilesAppInner() {
           </div>
         )}
       </Dialog>
+
+      {/* Unsaved edits: closing the editor asks first */}
+      <Dialog
+        open={confirmDiscard && openFile !== null}
+        onClose={() => setConfirmDiscard(false)}
+        size="sm"
+        icon={TriangleAlert}
+        iconTone="ember"
+        showClose={false}
+        title="Save changes?"
+        description={openFile ? `“${openFile.name}” has unsaved changes.` : undefined}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmDiscard(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                setConfirmDiscard(false);
+                setOpenFile(null);
+              }}
+            >
+              Discard
+            </Button>
+            <Button variant="primary" onClick={saveOpenFile}>
+              Save
+            </Button>
+          </>
+        }
+      />
 
       <ConfirmDialog
         open={pendingDelete !== null}

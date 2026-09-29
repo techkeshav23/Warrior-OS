@@ -1,6 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Firestore Utilities
-// Generic CRUD wrappers for Firestore operations
+// Generic CRUD wrappers for Firestore operations.
+// Imports ./firebase statically (which initializes the app), so load this
+// module only with import() after isFirebaseConfigured() (src/lib/auth.ts).
 // ═══════════════════════════════════════════════════════════
 
 import {

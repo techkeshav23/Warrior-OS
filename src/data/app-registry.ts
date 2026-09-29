@@ -115,6 +115,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     minSize: { width: 500, height: 350 },
     category: 'study',
     description: 'Habits, routines and streaks that pay XP',
+    singleton: true,
   },
   {
     id: 'flashcards',
@@ -135,6 +136,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     minSize: { width: 400, height: 300 },
     category: 'study',
     description: 'Rich markdown note-taking with auto-save',
+    singleton: true,
   },
   {
     id: 'memory-palace',
@@ -239,6 +241,7 @@ export const APP_REGISTRY: AppDefinition[] = [
     minSize: { width: 500, height: 350 },
     category: 'utility',
     description: 'File explorer and document manager',
+    singleton: true,
   },
   {
     id: 'calculator',

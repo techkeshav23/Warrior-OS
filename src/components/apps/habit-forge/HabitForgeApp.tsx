@@ -6,12 +6,13 @@
 
 'use client';
 
-import { useState, useCallback, useEffect, useMemo, memo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, memo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Flame, ListChecks, Plus, Zap } from 'lucide-react';
 import { Button, ConfirmDialog, EmptyState, ProgressBar, Tabs } from '@/components/ui';
 import { BEVEL_SUNK, SLOT_FILL } from '@/components/ui/armor';
 import { cn } from '@/lib/utils';
+import { announceStorageWrite, reportStorageFull, useStorageSync } from '@/lib/storage-sync';
 import { utcDayKey } from '@/components/achievements/award';
 import { currentStreak, longestStreak } from '@/components/achievements/day-streak';
 import { collectStudyDays } from '@/components/achievements/study-streak';
@@ -21,7 +22,7 @@ import { HabitGrid } from './HabitGrid';
 import { RoutineChecklist } from './RoutineChecklist';
 import { StreakHero } from './StreakHero';
 import { habitRun, lastDays, loadRoutineDone, type HabitPreset } from './habit-utils';
-import { rewardHabitCompletion } from './streak';
+import { parseStoredHabits, rewardHabitCompletion } from './streak';
 
 export interface Habit {
   id: string;
@@ -38,14 +39,32 @@ export interface RoutineItem {
   category: 'morning' | 'study' | 'night';
 }
 
-function loadHabits(): Habit[] {
-  if (typeof window === 'undefined') return [];
-  try { return JSON.parse(localStorage.getItem('warrior-habits') || '[]'); }
-  catch { return []; }
+const HABITS_KEY = 'warrior-habits';
+
+function readHabitsRaw(): string | null {
+  try { return localStorage.getItem(HABITS_KEY); }
+  catch { return null; }
 }
 
-function saveHabits(habits: Habit[]) {
-  localStorage.setItem('warrior-habits', JSON.stringify(habits));
+/** Parse + validate the stored list: anything that isn't a list of habits reads as empty. */
+function parseHabits(raw: string | null): Habit[] {
+  try {
+    return parseStoredHabits(JSON.parse(raw || '[]'));
+  } catch { return []; }
+}
+
+function loadHabits(): Habit[] {
+  if (typeof window === 'undefined') return [];
+  return parseHabits(readHabitsRaw());
+}
+
+/** Persist the list; returns the raw JSON written, or null when storage refused it (full / blocked). */
+function saveHabits(habits: Habit[]): string | null {
+  const raw = JSON.stringify(habits);
+  try {
+    localStorage.setItem(HABITS_KEY, raw);
+    return raw;
+  } catch { return null; }
 }
 
 const DEFAULT_ROUTINES: RoutineItem[] = [
@@ -96,6 +115,31 @@ function HabitForgeAppInner() {
     setStudyDays(collectStudyDays());
   }, []);
 
+  // The list is also written elsewhere (NEXUS "done <habit>", another
+  // window or tab): re-read on every announced change, and apply each edit
+  // to the freshly stored list so nothing written meanwhile is lost.
+  const seenRaw = useRef<string | null | undefined>(undefined);
+  useStorageSync(HABITS_KEY, () => {
+    const raw = readHabitsRaw();
+    if (raw === seenRaw.current) return;
+    seenRaw.current = raw;
+    setHabits(parseHabits(raw));
+    setStudyDays(collectStudyDays());
+  });
+
+  const commit = useCallback((change: (current: Habit[]) => Habit[]) => {
+    const next = change(loadHabits());
+    const raw = saveHabits(next);
+    // A refused write is not shown either: the next commit starts from storage.
+    if (raw === null) {
+      reportStorageFull('Habit Forge');
+      return;
+    }
+    setHabits(next);
+    seenRaw.current = raw;
+    announceStorageWrite(HABITS_KEY);
+  }, []);
+
   const onRoutineProgress = useCallback(() => {
     setStudyDays(collectStudyDays());
     setRoutineDone(loadRoutineDone(utcDayKey()).size);
@@ -109,17 +153,15 @@ function HabitForgeAppInner() {
       color: preset.color,
       completions: [],
     };
-    const updated = [...habits, habit];
-    setHabits(updated);
-    saveHabits(updated);
-  }, [habits]);
+    commit((current) => [...current, habit]);
+  }, [commit]);
 
   const toggleHabitToday = useCallback((habitId: string) => {
     const today = utcDayKey();
-    const target = habits.find((h) => h.id === habitId);
+    const target = loadHabits().find((h) => h.id === habitId);
     if (!target) return;
     const wasDone = target.completions.includes(today);
-    const updated = habits.map((h) =>
+    commit((current) => current.map((h) =>
       h.id !== habitId
         ? h
         : {
@@ -128,9 +170,7 @@ function HabitForgeAppInner() {
               ? h.completions.filter((d) => d !== today)
               : [...h.completions, today],
           }
-    );
-    setHabits(updated);
-    saveHabits(updated);
+    ));
 
     if (wasDone) {
       refreshStreak();
@@ -148,14 +188,12 @@ function HabitForgeAppInner() {
         nonce: (prev?.nonce ?? 0) + 1,
       }));
     }
-  }, [habits, refreshStreak]);
+  }, [commit, refreshStreak]);
 
   const removeHabit = useCallback((habitId: string) => {
-    const updated = habits.filter((h) => h.id !== habitId);
-    setHabits(updated);
-    saveHabits(updated);
+    commit((current) => current.filter((h) => h.id !== habitId));
     refreshStreak();
-  }, [habits, refreshStreak]);
+  }, [commit, refreshStreak]);
 
   const today = utcDayKey();
   const streak = currentStreak(studyDays, today);

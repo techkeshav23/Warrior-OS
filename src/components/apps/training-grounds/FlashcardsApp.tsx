@@ -3,9 +3,10 @@
 // The standalone 'flashcards' app: pick a deck and topic, flip
 // through the cards (quiz cards show their answer on the back) and
 // rate each one. Space flips, 1-4 rate, S shuffles, → skips.
-// Every rating counts toward mastery; only cards that are due move
-// their review schedule (see scheduleReview), so free practice here
-// never scrambles the Review queue.
+// Every rating counts toward mastery; only cards that are due (or
+// still being relearned) move their review schedule (see
+// scheduleReview), so free practice here never scrambles the Review
+// queue.
 // ═══════════════════════════════════════════════════════════
 
 'use client';

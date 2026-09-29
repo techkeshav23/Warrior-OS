@@ -6,6 +6,8 @@
 // nowhere else. The route also validates input, rounds coordinates
 // (privacy + better cache hits) and keeps a 10-minute in-memory
 // cache per rounded coordinate / city so the free quota lasts.
+// Upstream calls are budgeted globally and per client IP, and
+// unknown cities are remembered briefly.
 //
 //   GET /api/weather?lat=28.61&lon=77.21[&forecast=1]
 //   GET /api/weather?city=New%20Delhi,IN[&forecast=1]
@@ -18,6 +20,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { NextResponse, type NextRequest } from 'next/server';
+import { clientIp } from '@/lib/client-ip';
 import { fetchKeylessWeather } from './open-meteo';
 
 // The in-memory cache lives in the Node.js server process.
@@ -34,6 +37,12 @@ const FORECAST_SLOTS = 6; // 6 × 3h = the next 18 hours
 // Free tier allows 60 calls/min. Stay under it even if someone sprays
 // random coordinates at the route (each would be a cache miss).
 const UPSTREAM_BUDGET_PER_MIN = 50;
+// One client may use only a slice of that budget, so a single caller
+// spraying cache misses cannot rate-limit everyone else.
+const UPSTREAM_BUDGET_PER_IP_PER_MIN = 12;
+const MAX_TRACKED_IPS = 5000;
+// "City not found" is remembered briefly so bogus names don't re-hit upstream.
+const NOT_FOUND_TTL_MS = 5 * 60 * 1000;
 
 // Control characters and URL/markup metacharacters are never part of a
 // city name. The value is URL-encoded before it goes upstream anyway;
@@ -86,18 +95,65 @@ interface CacheEntry<T> {
 const currentCache = new Map<string, CacheEntry<WeatherPayload>>();
 const forecastCache = new Map<string, CacheEntry<ForecastSlot[]>>();
 const inflight = new Map<string, Promise<UpstreamResult<unknown>>>();
+const notFoundCache = new Map<string, number>(); // key → expiry (epoch ms)
 const upstreamCallTimes: number[] = [];
+const ipCallTimes = new Map<string, number[]>();
 
-/** Sliding one-minute budget shared by every upstream call. */
-function takeUpstreamSlot(): boolean {
+/**
+ * Sliding one-minute budget: global (every upstream call) and per client
+ * IP. `slots` are taken all-or-nothing (a keyless city lookup costs two).
+ */
+function takeUpstreamSlots(ip: string, slots = 1): boolean {
   const now = Date.now();
   while (upstreamCallTimes.length > 0 && now - upstreamCallTimes[0] > 60_000) {
     upstreamCallTimes.shift();
   }
-  if (upstreamCallTimes.length >= UPSTREAM_BUDGET_PER_MIN) return false;
-  upstreamCallTimes.push(now);
+  const mine = (ipCallTimes.get(ip) ?? []).filter((t) => now - t <= 60_000);
+  if (
+    upstreamCallTimes.length + slots > UPSTREAM_BUDGET_PER_MIN ||
+    mine.length + slots > UPSTREAM_BUDGET_PER_IP_PER_MIN
+  ) {
+    if (mine.length > 0) ipCallTimes.set(ip, mine);
+    else ipCallTimes.delete(ip);
+    return false;
+  }
+  for (let i = 0; i < slots; i++) {
+    upstreamCallTimes.push(now);
+    mine.push(now);
+  }
+  ipCallTimes.delete(ip); // re-insert so Map order tracks recency
+  ipCallTimes.set(ip, mine);
+  while (ipCallTimes.size > MAX_TRACKED_IPS) {
+    const oldest = ipCallTimes.keys().next().value;
+    if (oldest === undefined) break;
+    ipCallTimes.delete(oldest);
+  }
   return true;
 }
+
+function isKnownNotFound(key: string): boolean {
+  const expires = notFoundCache.get(key);
+  if (expires === undefined) return false;
+  if (expires > Date.now()) return true;
+  notFoundCache.delete(key);
+  return false;
+}
+
+/** Remember a city_not_found result for a few minutes. */
+function rememberNotFound<T>(key: string, result: UpstreamResult<T>): UpstreamResult<T> {
+  if (!result.ok && result.error === 'city_not_found') {
+    notFoundCache.delete(key);
+    notFoundCache.set(key, Date.now() + NOT_FOUND_TTL_MS);
+    while (notFoundCache.size > MAX_CACHE_ENTRIES) {
+      const oldest = notFoundCache.keys().next().value;
+      if (oldest === undefined) break;
+      notFoundCache.delete(oldest);
+    }
+  }
+  return result;
+}
+
+const NOT_FOUND: { ok: false; status: number; error: string } = { ok: false, status: 404, error: 'city_not_found' };
 
 function cacheGet<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
   const hit = cache.get(key);
@@ -196,8 +252,8 @@ function upstreamUrl(endpoint: 'weather' | 'forecast', location: WeatherLocation
   return `${OWM_BASE}/${endpoint}?${params.toString()}`;
 }
 
-async function callUpstream(url: string): Promise<UpstreamResult<unknown>> {
-  if (!takeUpstreamSlot()) {
+async function callUpstream(url: string, ip: string): Promise<UpstreamResult<unknown>> {
+  if (!takeUpstreamSlots(ip)) {
     return { ok: false, status: 429, error: 'rate_limited' };
   }
 
@@ -309,13 +365,18 @@ function parseForecast(body: unknown): ForecastSlot[] {
   return slots;
 }
 
-async function getCurrent(location: WeatherLocation, apiKey: string): Promise<UpstreamResult<WeatherPayload>> {
+async function getCurrent(
+  location: WeatherLocation,
+  apiKey: string,
+  ip: string
+): Promise<UpstreamResult<WeatherPayload>> {
   const key = cacheKeyFor(location);
   const hit = cacheGet(currentCache, key);
   if (hit) return { ok: true, value: hit };
+  if (isKnownNotFound(key)) return NOT_FOUND;
 
   return dedupe<WeatherPayload>(`cur|${key}`, async () => {
-    const result = await callUpstream(upstreamUrl('weather', location, apiKey));
+    const result = rememberNotFound(key, await callUpstream(upstreamUrl('weather', location, apiKey), ip));
     if (!result.ok) return result;
     const payload = parseCurrent(result.value, location);
     if (!payload) return { ok: false, status: 502, error: 'upstream_error' };
@@ -324,13 +385,14 @@ async function getCurrent(location: WeatherLocation, apiKey: string): Promise<Up
   });
 }
 
-async function getForecast(location: WeatherLocation, apiKey: string): Promise<ForecastSlot[]> {
+async function getForecast(location: WeatherLocation, apiKey: string, ip: string): Promise<ForecastSlot[]> {
   const key = cacheKeyFor(location);
   const hit = cacheGet(forecastCache, key);
   if (hit) return hit;
+  if (isKnownNotFound(key)) return [];
 
   const result = await dedupe<ForecastSlot[]>(`fc|${key}`, async () => {
-    const upstream = await callUpstream(upstreamUrl('forecast', location, apiKey));
+    const upstream = await callUpstream(upstreamUrl('forecast', location, apiKey), ip);
     if (!upstream.ok) return upstream;
     const slots = parseForecast(upstream.value);
     cacheSet(forecastCache, key, slots);
@@ -342,18 +404,20 @@ async function getForecast(location: WeatherLocation, apiKey: string): Promise<F
 
 /** Keyless provider, sharing the cache, dedupe and upstream budget. */
 async function getKeyless(
-  location: WeatherLocation
+  location: WeatherLocation,
+  ip: string
 ): Promise<UpstreamResult<WeatherPayload & { forecast: ForecastSlot[] }>> {
   const key = `om|${cacheKeyFor(location)}`;
   const hit = cacheGet(currentCache, key);
   if (hit) return { ok: true, value: { ...hit, forecast: hit.forecast ?? [] } };
+  if (isKnownNotFound(key)) return NOT_FOUND;
 
   return dedupe(key, async () => {
     // Geocoding + forecast: two upstream calls for a city, one for coordinates.
-    if (!takeUpstreamSlot() || (location.kind === 'city' && !takeUpstreamSlot())) {
+    if (!takeUpstreamSlots(ip, location.kind === 'city' ? 2 : 1)) {
       return { ok: false, status: 429, error: 'rate_limited' };
     }
-    const result = await fetchKeylessWeather(location, FORECAST_SLOTS);
+    const result = rememberNotFound(key, await fetchKeylessWeather(location, FORECAST_SLOTS));
     if (!result.ok) return result;
     cacheSet(currentCache, key, result.value);
     return { ok: true, value: result.value };
@@ -373,9 +437,10 @@ export async function GET(request: NextRequest) {
   // into the browser bundle, so it is deliberately not read.
   const apiKey = readApiKey(process.env.WEATHER_API_KEY);
   const wantForecast = request.nextUrl.searchParams.get('forecast') === '1';
+  const ip = clientIp(request);
 
   if (!apiKey) {
-    const keyless = await getKeyless(location);
+    const keyless = await getKeyless(location, ip);
     if (!keyless.ok) return json({ error: keyless.error }, keyless.status);
     const { forecast, ...rest } = keyless.value;
     const body: WeatherPayload = wantForecast ? { ...rest, forecast } : rest;
@@ -383,14 +448,14 @@ export async function GET(request: NextRequest) {
   }
 
   const [current, forecast] = await Promise.all([
-    getCurrent(location, apiKey),
-    wantForecast ? getForecast(location, apiKey) : Promise.resolve(undefined),
+    getCurrent(location, apiKey, ip),
+    wantForecast ? getForecast(location, apiKey, ip) : Promise.resolve(undefined),
   ]);
 
   if (!current.ok) {
     // A rejected (or not yet activated) key should not take weather down.
     if (current.error === 'weather_key_rejected') {
-      const keyless = await getKeyless(location);
+      const keyless = await getKeyless(location, ip);
       if (keyless.ok) {
         const { forecast: slots, ...rest } = keyless.value;
         return json(wantForecast ? { ...rest, forecast: slots } : rest, 200, 120);

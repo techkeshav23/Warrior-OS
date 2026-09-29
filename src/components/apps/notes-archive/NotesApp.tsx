@@ -28,7 +28,8 @@ import { MarkdownEditor, type EditorMode } from './MarkdownEditor';
 import { SearchPanel } from './SearchPanel';
 import { wikiTargets } from './markdown';
 import { rewardNoteCreated } from './note-rewards';
-import { NOTES_APP_IDS, NOTES_SEARCH_EVENT, parseNotesSearch } from './deep-link';
+import { announceStorageWrite, reportStorageFull, useStorageSync } from '@/lib/storage-sync';
+import { NOTES_APP_IDS, NOTES_NEW_EVENT, NOTES_SEARCH_EVENT, parseNotesNew, parseNotesSearch } from './deep-link';
 
 /** A search opened from outside (NEXUS deep link); nonce remounts the panel. */
 interface SearchRequest {
@@ -47,15 +48,49 @@ export interface Note {
   pinned?: boolean;
 }
 
-function loadNotes(): Note[] {
-  if (typeof window === 'undefined') return [];
+const NOTES_KEY = 'warrior-notes';
+
+function readNotesRaw(): string | null {
   try {
-    return JSON.parse(localStorage.getItem('warrior-notes') || '[]');
-  } catch { return []; }
+    return localStorage.getItem(NOTES_KEY);
+  } catch { return null; }
 }
 
-function saveNotes(notes: Note[]) {
-  localStorage.setItem('warrior-notes', JSON.stringify(notes));
+/** Parse + validate the stored list: anything that isn't a list reads as empty. */
+function parseNotes(raw: string | null): Note[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw || '[]');
+  } catch { return []; }
+  if (!Array.isArray(data)) return [];
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  return data.flatMap((item, i): Note[] => {
+    if (typeof item !== 'object' || item === null) return [];
+    const n = item as Partial<Note>;
+    return [{
+      ...n,
+      id: typeof n.id === 'string' && n.id ? n.id : `note-restored-${i}`,
+      title: str(n.title),
+      content: str(n.content),
+      tags: Array.isArray(n.tags) ? n.tags.filter((t): t is string => typeof t === 'string') : [],
+      createdAt: str(n.createdAt),
+      updatedAt: str(n.updatedAt),
+    }];
+  });
+}
+
+function loadNotes(): Note[] {
+  if (typeof window === 'undefined') return [];
+  return parseNotes(readNotesRaw());
+}
+
+/** Persist the list; returns the raw JSON written, or null when storage refused it (full / blocked). */
+function saveNotes(notes: Note[]): string | null {
+  const raw = JSON.stringify(notes);
+  try {
+    localStorage.setItem(NOTES_KEY, raw);
+    return raw;
+  } catch { return null; }
 }
 
 // ─── Collections ─────────────────────────────────────────
@@ -120,6 +155,30 @@ function NotesAppInner() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
   const [rootRef, layout] = useLayoutMode();
+
+  // Several Notes windows (or tabs) may be open: every change re-reads the
+  // stored list first and is announced, so no window writes a stale copy.
+  const seenRaw = useRef<string | null | undefined>(undefined);
+  useStorageSync(NOTES_KEY, () => {
+    const raw = readNotesRaw();
+    if (raw === seenRaw.current) return;
+    seenRaw.current = raw;
+    setNotes(parseNotes(raw));
+  });
+
+  /** Apply `change` to the freshly stored list, persist it and announce it. */
+  const commit = (change: (current: Note[]) => Note[]) => {
+    const next = change(loadNotes());
+    const raw = saveNotes(next);
+    // A refused write is not shown either: the next commit starts from storage.
+    if (raw === null) {
+      reportStorageFull('Notes');
+      return;
+    }
+    setNotes(next);
+    seenRaw.current = raw;
+    announceStorageWrite(NOTES_KEY);
+  };
 
   // 'warrior:notes-search' (e.g. from NEXUS): open search pre-filled with the query.
   usePendingEventListener({
@@ -191,9 +250,7 @@ function NotesAppInner() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    const updated = [note, ...notes];
-    setNotes(updated);
-    saveNotes(updated);
+    commit((current) => [note, ...current]);
     setActiveNoteId(note.id);
     setFreshNoteId(note.id);
     if (current === 'pinned' || current.startsWith('tag:')) setCollection('all');
@@ -201,25 +258,27 @@ function NotesAppInner() {
     rewardNoteCreated();
   };
 
+  // 'warrior:notes-new' (e.g. Command Palette "New Note"): start a blank note.
+  usePendingEventListener({
+    eventName: NOTES_NEW_EVENT,
+    parse: parseNotesNew,
+    appIds: NOTES_APP_IDS,
+    onEvent: () => createNote(),
+  });
+
   const updateNote = (id: string, changes: Partial<Note>) => {
-    const updated = notes.map((n) =>
-      n.id === id ? { ...n, ...changes, updatedAt: new Date().toISOString() } : n
+    commit((current) =>
+      current.map((n) => (n.id === id ? { ...n, ...changes, updatedAt: new Date().toISOString() } : n))
     );
-    setNotes(updated);
-    saveNotes(updated);
   };
 
   /** Pinning is an arrangement, not an edit: updatedAt stays. */
   const togglePin = (id: string) => {
-    const updated = notes.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n));
-    setNotes(updated);
-    saveNotes(updated);
+    commit((current) => current.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n)));
   };
 
   const deleteNote = (id: string) => {
-    const updated = notes.filter((n) => n.id !== id);
-    setNotes(updated);
-    saveNotes(updated);
+    commit((current) => current.filter((n) => n.id !== id));
     if (activeNoteId === id) {
       // Land on the neighbour in the list (single pane: back to the list).
       const index = visible.findIndex((n) => n.id === id);
@@ -245,9 +304,7 @@ function NotesAppInner() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      const updated = [note, ...notes];
-      setNotes(updated);
-      saveNotes(updated);
+      commit((current) => [note, ...current]);
       setActiveNoteId(note.id);
       if (current === 'pinned' || current.startsWith('tag:')) setCollection('all');
       rewardNoteCreated();

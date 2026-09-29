@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useCreatureStore } from '@/stores/useCreatureStore';
 import { CreatureEngine, useCreatureVitals } from './CreatureEngine';
@@ -25,6 +25,7 @@ export function WarriorCreature() {
   const registerInteraction = useCreatureStore((s) => s.registerInteraction);
   const setMood = useCreatureStore((s) => s.setMood);
   const [statsOpen, setStatsOpen] = useState(false);
+  const spriteRef = useRef<HTMLDivElement>(null);
 
   const handleClick = useCallback(() => {
     registerInteraction();
@@ -56,11 +57,13 @@ export function WarriorCreature() {
           <AnimatePresence>
             {statsOpen && (
               <div className="absolute bottom-full mb-1 right-0">
-                <CreatureStats vitals={vitals} onClose={closeStats} />
+                <CreatureStats vitals={vitals} onClose={closeStats} anchorRef={spriteRef} />
               </div>
             )}
           </AnimatePresence>
-          <CreatureRenderer vitals={vitals} onClick={handleClick} />
+          <div ref={spriteRef}>
+            <CreatureRenderer vitals={vitals} onClick={handleClick} />
+          </div>
         </div>
       </div>
     </>

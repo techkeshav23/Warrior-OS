@@ -153,7 +153,7 @@ npm run dev                  # http://localhost:3000
 | `npm run lint` | ESLint |
 | `npm run test:e2e` | Playwright smoke test (run `npm run build` first) |
 
-Without any keys everything runs locally: NEXUS answers with its offline brain, weather comes from Open-Meteo, Ghost Warriors is a local campfire. [DEPLOY.md](DEPLOY.md) covers Vercel, Firebase and every environment variable.
+Without any keys everything runs locally: NEXUS answers with its offline brain, weather comes from Open-Meteo, Ghost Warriors is a local campfire. [DEPLOY.md](DEPLOY.md) covers Vercel, Firebase and every environment variable. Hosting anywhere other than Vercel? Set `NEXT_PUBLIC_SITE_URL` to your public origin before building, or link previews point at `localhost`.
 
 ## Keyboard shortcuts
 

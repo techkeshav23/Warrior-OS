@@ -1,11 +1,14 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Firebase Configuration
+// Initializes the app on import, so it is only ever loaded with a
+// dynamic import() after isFirebaseConfigured() (src/lib/auth.ts) says
+// the NEXT_PUBLIC_FIREBASE_* web config exists. Without it the SDK is
+// never downloaded and nothing talks to Firebase.
 // ═══════════════════════════════════════════════════════════
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -20,6 +23,5 @@ const firebaseConfig = {
 const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
-export { app, auth, db, storage };
+export { app, auth, db };

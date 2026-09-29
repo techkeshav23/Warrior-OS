@@ -10,7 +10,7 @@
 
 'use client';
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Search,
@@ -55,6 +55,8 @@ import { findMatchingNotes, loadNotesLite, type NoteLite } from '@/lib/nexus/con
 import { emitWarriorEvent, WARRIOR_EVENTS } from '@/lib/nexus/events';
 import { openOrFocusApp } from '@/lib/nexus/windows';
 import { listHabits, type HabitRef } from '@/lib/nexus/quick-actions';
+import { sendPendingEvent } from '@/components/achievements/pending-events';
+import { NOTES_NEW_EVENT, type NotesNewDetail } from '@/components/apps/notes-archive/deep-link';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { Kbd } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -274,6 +276,9 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       action: () => {
         markUsed();
         launchApp('notes', activeWorkspaceId);
+        // Notes creates + selects a blank note (open window or fresh launch).
+        const detail: NotesNewDetail = {};
+        sendPendingEvent(NOTES_NEW_EVENT, detail);
         onClose();
       },
     });
@@ -475,6 +480,26 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     if (isOpen) setQuery('');
   }
 
+  // Focus returns to whatever had it before the palette opened, unless a
+  // command ran (it may have opened or focused something else).
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const ranCommandRef = useRef(false);
+  const runItem = useCallback((item: CommandItem) => {
+    ranCommandRef.current = true;
+    item.action();
+  }, []);
+  useEffect(() => {
+    if (!isOpen) return;
+    const active = document.activeElement;
+    restoreFocusRef.current = active instanceof HTMLElement && active !== document.body ? active : null;
+    ranCommandRef.current = false;
+    return () => {
+      const back = restoreFocusRef.current;
+      restoreFocusRef.current = null;
+      if (!ranCommandRef.current && back && document.contains(back)) back.focus();
+    };
+  }, [isOpen]);
+
   // On open: focus the input and refresh notes, habits and due dates (async, not in render).
   useEffect(() => {
     if (!isOpen) return;
@@ -510,7 +535,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         case 'Enter':
           if (e.isComposing) return;
           e.preventDefault();
-          filtered[selectedIndex]?.action();
+          if (filtered[selectedIndex]) runItem(filtered[selectedIndex]);
           break;
         case 'Escape':
           onClose();
@@ -519,7 +544,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [isOpen, filtered, selectedIndex, onClose]);
+  }, [isOpen, filtered, selectedIndex, onClose, runItem]);
 
   return (
     <AnimatePresence>
@@ -566,7 +591,11 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                 ref={inputRef}
                 id={PALETTE_INPUT_ID}
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  // Typing after a command that kept the palette open (e.g. Log Expense).
+                  ranCommandRef.current = false;
+                  setQuery(e.target.value);
+                }}
                 placeholder='Search apps, or tell NEXUS: "study mode", "quiz me on <deck>"…'
                 aria-label="Command palette"
                 autoComplete="off"
@@ -605,7 +634,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                       <button
                         type="button"
                         data-index={i}
-                        onClick={cmd.action}
+                        onClick={() => runItem(cmd)}
                         onMouseMove={() => {
                           if (!selected) setSelectedIndex(i);
                         }}

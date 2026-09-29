@@ -5,10 +5,14 @@
 
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 
+/**
+ * A handler may return `false` to say it did nothing (e.g. Escape with no
+ * overlay open): the event is then left alone for other listeners.
+ */
 interface ShortcutMap {
-  [key: string]: () => void;
+  [key: string]: () => unknown;
 }
 
 const MODIFIER_KEYS: readonly string[] = ['control', 'shift', 'alt', 'meta'];
@@ -46,24 +50,28 @@ function isTypingTarget(target: EventTarget | null): boolean {
  * Key format: see shortcutCombo — "ctrl+k", "ctrl+shift+p", "f11", etc.
  */
 export function useKeyboardShortcuts(shortcuts: ShortcutMap) {
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
+  // One listener for the component's lifetime, reading the latest map: it
+  // stays ahead of listeners that overlays add later (so a page-level
+  // Escape sees the overlay it closes), and callers can pass a fresh map
+  // each render.
+  const shortcutsRef = useRef(shortcuts);
+  useEffect(() => {
+    shortcutsRef.current = shortcuts;
+  });
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger shortcuts when typing in inputs (Escape still works)
       if (isTypingTarget(e.target) && e.key !== 'Escape') return;
 
       const combo = shortcutCombo(e);
-      const handler = combo ? shortcuts[combo] : undefined;
-      if (handler) {
+      const handler = combo ? shortcutsRef.current[combo] : undefined;
+      if (handler && handler() !== false) {
         e.preventDefault();
         e.stopPropagation();
-        handler();
       }
-    },
-    [shortcuts]
-  );
-
-  useEffect(() => {
+    };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+  }, []);
 }

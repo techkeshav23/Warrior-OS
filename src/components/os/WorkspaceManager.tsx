@@ -21,7 +21,9 @@
 // Looks: the active workspace's wallpaper + accent are applied on mount,
 // on switch and whenever a look changes. Until a look has been saved
 // (first run on a device) the current on-screen look is saved into the
-// active workspace instead of painting the defaults over it.
+// active workspace instead of painting the defaults over it. With
+// adaptive wallpaper on, mount (unlock) and switch paint the time-of-day
+// wallpaper instead, and look edits leave the wallpaper alone.
 //
 // DOM hooks: [data-workspace-root] (mounted once) holds the current
 // [data-workspace-face]; layers that must stack between the desktop
@@ -30,11 +32,12 @@
 
 'use client';
 
-import { memo, useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { motion, AnimatePresence, useReducedMotion, type Variants } from 'framer-motion';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useWindowStore } from '@/stores/useWindowStore';
+import { adaptiveWallpaperId } from '@/hooks/useAdaptiveWallpaper';
 import { useLiteMode } from '@/lib/lite-mode';
 import { EASE_OUT_QUINT, resolveAccent } from '@/styles/tokens';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -112,6 +115,7 @@ function WorkspaceManagerInner({ children }: WorkspaceManagerProps) {
   const workspaces = useWorkspaceStore((s) => s.workspaces);
   const setWallpaper = useSettingsStore((s) => s.setWallpaper);
   const setAccentColor = useSettingsStore((s) => s.setAccentColor);
+  const adaptiveWallpaper = useSettingsStore((s) => s.adaptiveWallpaper);
   const lite = useLiteMode();
   const reduceMotion = useReducedMotion() ?? false;
   const flat = lite || reduceMotion;
@@ -131,20 +135,29 @@ function WorkspaceManagerInner({ children }: WorkspaceManagerProps) {
     setTurning(true);
   }
 
+  // Workspace whose look was last applied: tells a mount/switch apart from
+  // a look edit.
+  const paintedWorkspaceRef = useRef<WorkspaceId | null>(null);
+
   // Apply the active workspace's look (mount, switch, and look edits).
   useEffect(() => {
     const store = useWorkspaceStore.getState();
     const workspace = workspaces.find((w) => w.id === activeWorkspaceId);
     if (!workspace) return;
+    const entering = paintedWorkspaceRef.current !== activeWorkspaceId;
+    paintedWorkspaceRef.current = activeWorkspaceId;
     if (!store.looksSaved) {
       // First run on this device: what's on screen becomes this look.
       const { wallpaper, accentColor } = useSettingsStore.getState();
       store.updateWorkspace(activeWorkspaceId, { wallpaper, accentColor });
       return;
     }
-    setWallpaper(workspace.wallpaper);
+    if (!adaptiveWallpaper) setWallpaper(workspace.wallpaper);
+    // Adaptive owns the wallpaper: time-of-day on entry; a look edit (e.g. a
+    // manual pick, kept until the next time-of-day shift) is left alone.
+    else if (entering) setWallpaper(adaptiveWallpaperId());
     setAccentColor(workspace.accentColor);
-  }, [activeWorkspaceId, workspaces, setWallpaper, setAccentColor]);
+  }, [activeWorkspaceId, workspaces, adaptiveWallpaper, setWallpaper, setAccentColor]);
 
   // Windows of the workspace being entered stay reachable.
   useEffect(() => {
