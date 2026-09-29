@@ -16,7 +16,7 @@ Designed and built by **[Keshav Upadhyay](https://github.com/techkeshav23)** (@t
 
 ---
 
-Warrior OS is a complete desktop operating system written in TypeScript and running in a browser tab: a cinematic boot, a lock screen, draggable glass windows, workspaces, a taskbar, a command palette that understands plain language, and 19 apps. It is my personal OS, so it knows me: a creature that grows with my work, an assistant with a personality, a world that reacts to how I study, code and rest.
+Warrior OS is a complete desktop operating system written in TypeScript and running in a browser tab: a cinematic boot, a lock screen, draggable armored windows, workspaces, a taskbar, a command palette that understands plain language, and 19 apps. It is my personal OS, so it knows me: a creature that grows with my work, an assistant with a personality, a world that reacts to how I study, code and rest.
 
 **Take the tour:** open the live site, let it boot, then click **Explore as Guest** on the lock screen (or type anything and press Enter). Press **Ctrl+K** anywhere on the desktop.
 
@@ -81,21 +81,24 @@ Most "OS in a browser" projects stop at windows. These systems make this one fee
 | Backend (optional) | Firebase Auth, Firestore, Realtime Database; Gemini API; OpenWeatherMap or keyless Open-Meteo |
 | Quality and delivery | ESLint, Playwright end-to-end smoke test, GitHub Actions CI, Vercel |
 
-## Design system — FORGE HUD
+## Design system — FORGED ARMOR
 
-Every surface, from the boot log and lock screen to the desktop and all 19 apps, is built on one design system: **FORGE HUD**, a calm sci-fi command center lit by forge-fire. It pairs two accents with fixed jobs, **Plasma × Ember**:
+Every surface, from the boot log and lock screen to the desktop and all 19 apps, is built on one design system: **FORGED ARMOR**. The OS is a warrior's kit, not a glass dashboard: **steel + ember**, with chamfered plates instead of rounded cards.
 
-- **Plasma** (cyan) is the machine: interaction, focus, selection, info and live status.
-- **Ember** (orange) is warrior energy: streaks, XP, fire, achievements and "forge" actions.
+- **Steel** is the body: gunmetal plates with cut (chamfered) corners, brushed grain, bevelled edges that catch the light, rivets on the big plates and engraved labels. There is no rounded chrome; circles are kept for dots, avatars and knobs.
+- **Ember** is heat: the primary action, focus, selection, streaks, XP and anything live glow molten orange.
+- **Plasma** cyan is kept for tech only (NEXUS, links, data highlights, info), and **gold** marks XP and rank.
 
-The rest is quiet deep-ink surfaces, 1px hairlines and legible type (Inter for UI, JetBrains Mono for data and HUD labels, Orbitron only for big numbers and the logo). Glow and motion are saved for focus, live status and wins, and every screen ships designed empty, loading and error states.
+Type is Chakra Petch for display (its own letters are chamfered), Inter for UI and JetBrains Mono for data. Glow and motion are saved for focus, live status and wins, and every screen ships designed empty, loading and error states.
 
-- **Tokens:** `src/app/globals.css` (Tailwind v4 `@theme`, the source of truth) and `src/styles/tokens.ts` (the same values for canvas, charts and motion).
-- **Kit:** `src/components/ui` (buttons, fields, tabs, menus, dialogs, stat tiles, empty states, `AppLayout`, `AppIcon` and more).
-- **Live style guide:** the `/design-system` route (run `npm run dev`, then open [localhost:3000/design-system](http://localhost:3000/design-system)) renders every token, component, app icon and a sample window from the same code.
+**Backgrounds.** Right-click the desktop and pick **Change background…** (or open Settings → Appearance) to choose a wallpaper, press `Ctrl+Alt+W` / `Ctrl+Alt+Shift+W` to step to the next or previous one, or turn on the **slideshow** to rotate them every 5, 15, 30 or 60 minutes, in order or shuffled. The forge wallpapers are **Forge Night** (the still default, and what lite mode shows), **Ember Storm**, **Molten Core**, **Battlefield Dusk** and **Steel Rain**, next to the original Starfield, Nebula, Aurora, Fluid, Neural Net and Matrix Rain. NEXUS takes them in plain language too ("wallpaper molten core").
+
+- **Tokens:** `src/app/globals.css` (Tailwind v4 `@theme` plus the `armor-*` material and `chamfer-*` shape utilities, the source of truth) and `src/styles/tokens.ts` (the same values for canvas, charts and motion).
+- **Kit:** `src/components/ui` (buttons, fields, tabs, menus, dialogs, stat tiles, empty states, `CutFrame`, `AppLayout`, `AppIcon` and more), with shared plate recipes in `src/components/ui/armor.ts`.
+- **Live style guide:** the `/design-system` route (run `npm run dev`, then open [localhost:3000/design-system](http://localhost:3000/design-system)) renders every material, token, component, app icon and a sample window from the same code.
 - **Rules and patterns:** [docs/design-system.md](docs/design-system.md).
 
-![The FORGE HUD style guide at /design-system](docs/screenshots/design-system.png)
+![The FORGED ARMOR style guide at /design-system](docs/screenshots/design-system.png)
 
 ## Architecture
 
@@ -161,6 +164,7 @@ Without any keys everything runs locally: NEXUS answers with its offline brain, 
 | `Ctrl+K` | Command palette (apps, actions, notes, or plain-language requests to NEXUS) |
 | `Ctrl+1` / `Ctrl+2` / `Ctrl+3` | Study / Build / Chill workspace |
 | `Ctrl+L` | Lock screen |
+| `Ctrl+Alt+W` / `Ctrl+Alt+Shift+W` | Next / previous wallpaper (right-click the desktop → Change background… for the picker) |
 | `Ctrl+,` | Settings |
 | `Cmd+D` (macOS) / `Super+D` | Show desktop |
 | `Esc` | Close the Start menu, palette or notifications; skip a dream or cinematic |

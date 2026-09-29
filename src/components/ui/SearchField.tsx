@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — SearchField (FORGE HUD kit)
+// WARRIOR OS — SearchField (FORGED ARMOR kit)
 // Search input with a leading glass icon, a clear button while it has
 // text, an optional shortcut hint, and Escape-to-clear.
 //   <SearchField value={q} onValueChange={setQ} placeholder="Search notes" shortcut="/" />
@@ -40,7 +40,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
         size={size === 'sm' ? 14 : 16}
         strokeWidth={1.75}
         aria-hidden
-        className={cn('pointer-events-none absolute top-1/2 -translate-y-1/2 text-fg-subtle', FIELD_ICON_POS[size])}
+        className={cn('pointer-events-none absolute z-[1] top-1/2 -translate-y-1/2 text-fg-subtle', FIELD_ICON_POS[size])}
       />
       <input
         ref={ref}
@@ -73,12 +73,12 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
             type="button"
             aria-label="Clear search"
             onClick={clear}
-            className="focus-ring flex size-5 items-center justify-center rounded-[5px] text-fg-subtle transition-colors duration-120 hover:bg-surface-hover hover:text-fg"
+            className="focus-ring-inset chamfer [--cut:3px] flex size-5 items-center justify-center text-fg-subtle transition-colors duration-120 hover:bg-white/[0.08] hover:text-ember-300"
           >
             <X size={14} strokeWidth={1.75} aria-hidden />
           </button>
         ) : shortcut ? (
-          <kbd className="pointer-events-none rounded-[4px] border border-line-strong bg-ink-800 px-1.5 font-mono text-2xs leading-4 text-fg-subtle">
+          <kbd className="pointer-events-none chamfer [--cut:3px] bg-linear-to-b from-[#2b323c] to-[#171b21] px-1.5 font-mono text-2xs leading-4 text-fg-muted shadow-[inset_0_1px_0_rgb(255_255_255/0.12),inset_0_-1px_0_rgb(0_0_0/0.6)]">
             {shortcut}
           </kbd>
         ) : null}

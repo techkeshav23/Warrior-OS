@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — FORGE HUD tokens for JavaScript
+// WARRIOR OS — FORGED ARMOR tokens for JavaScript
 // The source of truth is src/app/globals.css (Tailwind @theme). Use the
 // utilities there in markup; reach for these constants only where CSS
 // classes can't go: canvas / WebGL, recharts props, SVG attributes,
@@ -8,31 +8,86 @@
 
 // ─── Palette (hex / rgba strings, same values as the CSS tokens) ───
 
+/** Forged gunmetal: the armor plates (CSS steel-950…200). */
+export const STEEL = {
+  950: '#07080a',
+  900: '#0b0d10',
+  850: '#101317',
+  800: '#15191e',
+  750: '#1b2026',
+  700: '#232930',
+  600: '#2f363f',
+  500: '#3e4651',
+  400: '#58616d',
+  300: '#7c8592',
+  200: '#a7afba',
+} as const;
+
 export const INK = {
-  950: '#04060b',
-  900: '#070a12',
-  850: '#0b1019',
-  800: '#0f1520',
-  750: '#141b28',
-  700: '#1a2332',
-  600: '#243044',
-  500: '#33415a',
+  950: '#050608',
+  900: '#090b0e',
+  850: '#0d1014',
+  800: '#121519',
+  750: '#171b20',
+  700: '#1e2329',
+  600: '#2a3038',
+  500: '#3a424c',
 } as const;
 
 export const FG = {
-  base: '#e6edf7',
-  muted: '#a0adc2',
-  subtle: '#6f7d94',
-  faint: '#4a566b',
+  base: '#eceae6',
+  muted: '#aab0b8',
+  subtle: '#78818c',
+  faint: '#4e5660',
 } as const;
 
 export const LINE = {
-  base: 'rgba(148,170,205,0.10)',
-  strong: 'rgba(148,170,205,0.18)',
+  base: 'rgba(170,180,195,0.10)',
+  strong: 'rgba(170,180,195,0.19)',
 } as const;
 
+/** Energy / tech only: NEXUS, links, data highlights, info. */
 export const PLASMA = { 300: '#7ce7fb', 400: '#2fd6f5', 500: '#10b8d8', 600: '#0b8fad' } as const;
-export const EMBER = { 300: '#ffb27a', 400: '#ff8a3d', 500: '#f76b15', 600: '#d4520b' } as const;
+/** The brand: accent, focus, heat, primary actions. 100 = white-hot, 800 = cooling iron. */
+export const EMBER = {
+  100: '#fff4e0',
+  200: '#ffd3a8',
+  300: '#ffb27a',
+  400: '#ff8a3d',
+  500: '#f76b15',
+  600: '#d4520b',
+  700: '#a3350a',
+  800: '#5c1a06',
+} as const;
+
+/** forge-heat as gradient stops (canvas / SVG progress): cooling iron → white-hot tip. */
+export const FORGE_HEAT = [
+  { offset: 0, color: EMBER[800] },
+  { offset: 0.22, color: EMBER[700] },
+  { offset: 0.45, color: EMBER[600] },
+  { offset: 0.64, color: EMBER[500] },
+  { offset: 0.8, color: EMBER[400] },
+  { offset: 0.92, color: EMBER[300] },
+  { offset: 1, color: EMBER[100] },
+] as const;
+
+/** Chamfer cut sizes in px (CSS chamfer-xs…lg / --cut-*). */
+export const CUT = { xs: 4, sm: 6, md: 8, lg: 14 } as const;
+
+/**
+ * Chamfered-rectangle path for canvas / SVG (the same shape clip-path
+ * draws). corners = which corners to cut: 'all' or 'tl-br' (windows).
+ */
+export function chamferPath(
+  w: number,
+  h: number,
+  cut: number,
+  corners: 'all' | 'tl-br' = 'all',
+): string {
+  const c = Math.max(0, Math.min(cut, w / 2, h / 2));
+  const o = corners === 'all' ? c : 0;
+  return `M${c} 0H${w - o}L${w} ${o}V${h - c}L${w - c} ${h}H${o}L0 ${h - o}V${c}Z`;
+}
 
 export const STATUS = {
   success: '#3ddc97',
@@ -115,12 +170,16 @@ export const TRANSITION = {
 
 // ─── Accent ───
 
-export const DEFAULT_ACCENT = PLASMA[400];
+/** The brand accent: Ember (was Plasma before FORGED ARMOR). */
+export const DEFAULT_ACCENT = EMBER[400];
 
-/** Accent choices for Settings (the viz palette, Plasma first). */
+/** The pre-FORGED-ARMOR default accent; stores migrate it to DEFAULT_ACCENT. */
+export const PREVIOUS_DEFAULT_ACCENT = PLASMA[400];
+
+/** Accent choices for Settings (the viz palette, Ember first). */
 export const ACCENT_PRESETS = [
-  { label: 'Plasma', value: '#2fd6f5' },
   { label: 'Ember', value: '#ff8a3d' },
+  { label: 'Plasma', value: '#2fd6f5' },
   { label: 'Violet', value: '#a78bfa' },
   { label: 'Mint', value: '#3ddc97' },
   { label: 'Rose', value: '#ff6b8a' },
@@ -134,7 +193,7 @@ export const ACCENT_PRESETS = [
  * Settings swatches) → their on-palette successor.
  */
 const LEGACY_ACCENTS: Readonly<Record<string, string>> = {
-  '#00f0ff': '#2fd6f5', // old neon cyan default → Plasma
+  '#00f0ff': '#ff8a3d', // old neon cyan default → Ember (the brand)
   '#00e676': '#3ddc97', // old Build workspace → Mint
   '#7b61ff': '#a78bfa', // old Chill workspace → Violet
   '#a855f7': '#a78bfa',
@@ -150,7 +209,7 @@ const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/;
 
 /**
  * The accent to paint for a stored accent value: lower-cased hex, legacy
- * values mapped onto the palette, anything invalid → Plasma. Always a plain
+ * values mapped onto the palette, anything invalid → Ember. Always a plain
  * hex, so it is safe to interpolate into CSS.
  */
 export function resolveAccent(color: string | null | undefined): string {
@@ -173,7 +232,7 @@ export function glassAlphaFor(opacity: number): number {
 /**
  * The live accent as a computed colour string (e.g. "rgb(47, 214, 245)"),
  * for canvas / WebGL code that can't use CSS variables. Includes the
- * decay-stage warming. Falls back to Plasma outside the browser.
+ * decay-stage warming. Falls back to Ember outside the browser.
  */
 export function readAccent(): string {
   if (typeof document === 'undefined') return DEFAULT_ACCENT;

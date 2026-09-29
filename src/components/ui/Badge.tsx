@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Badge, Chip, Kbd (FORGE HUD kit)
-// Badge = static status label (mono caps, HUD style). Chip = sentence-case
+// WARRIOR OS — Badge, Chip, Kbd (FORGED ARMOR kit)
+// Badge = small cut plate status label (display caps). Chip = sentence-case
 // tag that can be selected / removed / clicked. Kbd = keyboard key.
 //   <Badge tone="success" dot>Online</Badge>   <Badge tone="ember">+25 XP</Badge>
 //   <Chip selected onClick={…}>Algorithms</Chip>   <Kbd keys={['Ctrl', 'K']} />
@@ -14,11 +14,11 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { renderIcon, type IconLike } from './icon';
 
-export type Tone = 'neutral' | 'accent' | 'ember' | 'success' | 'warning' | 'danger' | 'info' | 'gold';
+export type Tone = 'neutral' | 'accent' | 'ember' | 'success' | 'warning' | 'danger' | 'info' | 'gold' | 'plasma';
 
 /** Full static class strings per tone (Tailwind needs literal names). */
 export const TONE_SOFT: Record<Tone, string> = {
-  neutral: 'bg-surface-active text-fg-muted ring-line-strong',
+  neutral: 'bg-white/[0.07] text-fg-muted ring-white/15',
   accent: 'bg-accent/12 text-accent ring-accent/25',
   ember: 'bg-ember-500/12 text-ember-400 ring-ember-500/30',
   success: 'bg-success/12 text-success ring-success/25',
@@ -26,6 +26,7 @@ export const TONE_SOFT: Record<Tone, string> = {
   danger: 'bg-danger/12 text-danger ring-danger/25',
   info: 'bg-info/12 text-info ring-info/25',
   gold: 'bg-gold/12 text-gold ring-gold/25',
+  plasma: 'bg-plasma-500/12 text-plasma-300 ring-plasma-500/30',
 };
 
 export const TONE_SOLID: Record<Tone, string> = {
@@ -37,6 +38,7 @@ export const TONE_SOLID: Record<Tone, string> = {
   danger: 'bg-danger text-ink-950 ring-transparent',
   info: 'bg-info text-ink-950 ring-transparent',
   gold: 'bg-gold text-ink-950 ring-transparent',
+  plasma: 'bg-plasma-400 text-ink-950 ring-transparent',
 };
 
 export const TONE_DOT: Record<Tone, string> = {
@@ -48,6 +50,7 @@ export const TONE_DOT: Record<Tone, string> = {
   danger: 'bg-danger',
   info: 'bg-info',
   gold: 'bg-gold',
+  plasma: 'bg-plasma-400',
 };
 
 export const TONE_OUTLINE: Record<Tone, string> = {
@@ -59,6 +62,7 @@ export const TONE_OUTLINE: Record<Tone, string> = {
   danger: 'text-danger ring-danger/40',
   info: 'text-info ring-info/40',
   gold: 'text-gold ring-gold/40',
+  plasma: 'text-plasma-300 ring-plasma-400/40',
 };
 
 export const TONE_TEXT: Record<Tone, string> = {
@@ -70,6 +74,7 @@ export const TONE_TEXT: Record<Tone, string> = {
   danger: 'text-danger',
   info: 'text-info',
   gold: 'text-gold',
+  plasma: 'text-plasma-300',
 };
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
@@ -100,7 +105,8 @@ export function Badge({
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full font-mono font-medium uppercase tracking-[0.08em]',
+        'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap font-display font-semibold uppercase tracking-[0.12em]',
+        variant !== 'dot' && 'chamfer [--cut:4px]',
         size === 'sm' ? 'h-4.5 text-[10px]' : 'h-5 text-2xs',
         variant === 'dot' ? 'px-0 text-fg-muted' : size === 'sm' ? 'px-1.5' : 'px-2',
         variant === 'soft' && cn('ring-1 ring-inset', TONE_SOFT[tone]),
@@ -160,15 +166,15 @@ export function Chip({
     </>
   );
   const classes = cn(
-    'inline-flex max-w-full items-center gap-1.5 rounded-full border font-medium transition-colors duration-120 ease-out-quint',
+    'inline-flex max-w-full items-center gap-1.5 chamfer [--cut:5px] font-medium transition-[color,background-color,box-shadow] duration-120 ease-out-quint',
     size === 'sm' ? 'h-6 text-xs' : 'h-7 text-xs',
     onRemove ? 'pl-2.5 pr-1' : size === 'sm' ? 'px-2' : 'px-2.5',
     selected
       ? tone === 'neutral' || tone === 'accent'
-        ? 'border-accent/35 bg-accent/12 text-accent'
-        : cn('border-transparent ring-1 ring-inset', TONE_SOFT[tone])
-      : 'border-line-strong bg-surface-2 text-fg-muted',
-    onClick && !disabled && !selected && 'hover:border-fg-faint hover:bg-surface-hover hover:text-fg',
+        ? 'bg-linear-to-b from-ember-500/25 to-ember-600/10 text-ember-300 shadow-[inset_0_1px_0_rgb(255_200_160/0.25),inset_0_-2px_0_var(--color-ember-400,#ff8a3d)]'
+        : cn('ring-1 ring-inset', TONE_SOFT[tone])
+      : 'bg-linear-to-b from-[#29303a] to-[#181c22] text-fg-muted shadow-[inset_0_1px_0_rgb(255_255_255/0.12),inset_0_-1px_0_rgb(0_0_0/0.6)]',
+    onClick && !disabled && !selected && 'hover:from-[#343c47] hover:to-[#1d2229] hover:text-ember-300',
     disabled && 'opacity-45',
     className
   );
@@ -180,7 +186,7 @@ export function Chip({
         e.stopPropagation();
         onRemove();
       }}
-      className="focus-ring -my-1 flex size-5 items-center justify-center rounded-full text-current opacity-70 hover:bg-surface-active hover:opacity-100"
+      className="focus-ring-inset -my-1 flex size-5 items-center justify-center chamfer [--cut:3px] text-current opacity-70 hover:bg-white/10 hover:opacity-100"
     >
       <X size={12} strokeWidth={2} aria-hidden />
     </button>
@@ -190,7 +196,7 @@ export function Chip({
     if (remove) {
       return (
         <span className={classes}>
-          <button type={type} onClick={onClick} disabled={disabled} aria-pressed={selected} className="focus-ring flex min-w-0 items-center gap-1.5 rounded-full" {...props}>
+          <button type={type} onClick={onClick} disabled={disabled} aria-pressed={selected} className="focus-ring-inset flex min-w-0 items-center gap-1.5" {...props}>
             {body}
           </button>
           {remove}
@@ -198,7 +204,7 @@ export function Chip({
       );
     }
     return (
-      <button type={type} onClick={onClick} disabled={disabled} aria-pressed={selected} className={cn(classes, 'focus-ring')} {...props}>
+      <button type={type} onClick={onClick} disabled={disabled} aria-pressed={selected} className={cn(classes, 'focus-ring-inset')} {...props}>
         {body}
       </button>
     );
@@ -220,7 +226,8 @@ export interface KbdProps extends HTMLAttributes<HTMLElement> {
 }
 
 const KEY =
-  'inline-flex items-center justify-center rounded-[5px] border border-line-strong border-b-2 bg-ink-800 font-mono font-medium text-fg-muted';
+  'inline-flex items-center justify-center chamfer [--cut:3px] bg-linear-to-b from-[#303843] to-[#171b21] font-mono font-medium text-fg-muted ' +
+  'shadow-[inset_0_1px_0_rgb(255_255_255/0.16),inset_0_-2px_0_rgb(0_0_0/0.65)]';
 
 /** Keyboard key cap. */
 export function Kbd({ keys, size = 'md', className, children, ...props }: KbdProps) {

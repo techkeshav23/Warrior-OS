@@ -92,7 +92,7 @@ function CreatureIslandBadgeInner({ expanded = false, className }: CreatureIslan
   if (expanded) {
     return (
       <span className={cn('flex min-w-0 items-center gap-3', className)} title={signal.text}>
-        <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-control border border-line-strong bg-ink-850">
+        <span className="armor-plate chamfer-xs flex size-8 shrink-0 items-center justify-center overflow-hidden">
           <CreatureCanvas form={signal.form} stage={signal.stage} mood={signal.mood} size={18} goldenAura={signal.goldenAura} />
         </span>
         <span className="min-w-0 flex-1">
@@ -137,7 +137,8 @@ function CreatureLockBadgeInner({ className }: CreatureLockBadgeProps) {
   return (
     <div
       className={cn(
-        'inline-flex items-center gap-2 rounded-full border border-line-strong bg-ink-950/60 py-1 pl-1.5 pr-3 backdrop-blur-md lite:bg-ink-900',
+        // Cut steel tag, like the lock screen's status strip
+        'armor-plate chamfer-xs inline-flex items-center gap-2 py-1 pl-1.5 pr-3',
         className
       )}
       title={`${name} · ${moodMeta.label}`}

@@ -13,6 +13,16 @@ import { useState, useRef, useEffect, useCallback, useMemo, memo, type KeyboardE
 import { ChevronRight, Eraser, Sparkles, SquareTerminal, Trophy } from 'lucide-react';
 import { Badge, IconButton, Kbd } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import {
+  BEVEL_PRESSED,
+  BEVEL_RAISED,
+  BEVEL_SUNK,
+  ENGRAVED_LABEL,
+  FOCUS_EDGE,
+  SLOT_FILL,
+  STEEL_PLATE,
+  STEEL_PLATE_HOT,
+} from '@/components/ui/armor';
 import { useXPStore } from '@/stores/useXPStore';
 import { COMMANDS } from './commands';
 import { EASTER_EGGS } from './easter-eggs';
@@ -104,7 +114,7 @@ function clockTime(at: number): string {
 function Prompt({ className }: { className?: string }) {
   return (
     <span className={cn('shrink-0 whitespace-nowrap', className)}>
-      <span className="text-plasma-400">warrior@os</span>
+      <span className="text-ember-400">warrior@os</span>
       <span className="text-fg-subtle">:</span>
       <span className="text-info">~</span>
       <span className="text-fg-subtle">$</span>
@@ -148,12 +158,12 @@ function HelpText({ content }: { content: string }) {
 function WelcomeBanner({ onRun }: { onRun: (command: string) => void }) {
   return (
     <div className="flex items-start gap-3.5 py-1 font-sans">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-card border border-line-strong bg-ink-800 text-plasma-400 shadow-[0_0_20px_-8px_var(--color-plasma-400)] inset-shadow-[0_1px_0_rgb(255_255_255/0.06)]">
+      <span className="armor-plate rivets flex size-11 shrink-0 items-center justify-center text-ember-400 [--cut:8px] [--rivet-inset:1px]">
         <SquareTerminal size={20} strokeWidth={1.75} aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-sm font-semibold text-fg">Warrior Terminal</span>
+          <span className="font-display text-sm font-semibold uppercase tracking-[0.12em] text-fg">Warrior Terminal</span>
           <span className="font-mono text-2xs text-fg-subtle">v1.0 · warrior-bash</span>
         </p>
         <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-fg-muted">
@@ -182,9 +192,16 @@ function WelcomeBanner({ onRun }: { onRun: (command: string) => void }) {
               key={command}
               type="button"
               onClick={() => onRun(command)}
-              className="focus-ring group/q inline-flex h-6 items-center gap-1 rounded-full border border-line-strong bg-surface-2 pl-1.5 pr-2.5 font-mono text-2xs text-fg-muted transition-[border-color,background-color,color] duration-120 ease-out-quint hover:border-plasma-400/40 hover:bg-surface-hover hover:text-fg"
+              className={cn(
+                'group/q chamfer-xs inline-flex h-6 items-center gap-1 pl-1.5 pr-2.5 font-mono text-2xs text-fg-muted transition-[background-color,color,box-shadow] duration-120 ease-out-quint hover:text-ember-200 active:translate-y-px',
+                STEEL_PLATE,
+                STEEL_PLATE_HOT,
+                BEVEL_RAISED,
+                BEVEL_PRESSED,
+                FOCUS_EDGE
+              )}
             >
-              <ChevronRight size={12} strokeWidth={2} className="text-plasma-400" aria-hidden />
+              <ChevronRight size={12} strokeWidth={2} className="text-ember-400" aria-hidden />
               {command}
             </button>
           ))}
@@ -220,7 +237,7 @@ function OutputLine({ line, onRun }: { line: TerminalLine; onRun: (command: stri
       );
     case 'ascii':
       return (
-        <pre className="scrollbar-thin overflow-x-auto whitespace-pre leading-[1.2] text-plasma-300">{line.content}</pre>
+        <pre className="scrollbar-thin overflow-x-auto whitespace-pre leading-[1.2] text-ember-300 [text-shadow:0_0_12px_rgb(247_107_21/0.45)]">{line.content}</pre>
       );
     default:
       if (line.type === 'info' && line.content.startsWith('Available commands:')) {
@@ -460,12 +477,14 @@ function TerminalAppInner() {
 
   return (
     <div
-      className="@container flex h-full min-h-0 cursor-text flex-col bg-ink-900 font-mono text-ui text-fg selection:bg-plasma-400/25 selection:text-fg"
+      className="@container flex h-full min-h-0 cursor-text flex-col bg-steel-950 font-mono text-ui text-fg selection:bg-ember-500/30 selection:text-fg"
       onClick={focusInput}
     >
       {/* Header */}
-      <div className="flex h-9 shrink-0 cursor-default items-center gap-2 border-b border-line bg-ink-950/40 pl-3.5 pr-1.5">
-        <SquareTerminal size={14} strokeWidth={1.75} className="shrink-0 text-plasma-400" aria-hidden />
+      <div className="brushed bevel relative flex h-9 shrink-0 cursor-default items-center gap-2 bg-steel-800 pl-3.5 pr-1.5">
+        <SquareTerminal size={14} strokeWidth={1.75} className="shrink-0 text-ember-400" aria-hidden />
+        <span className={ENGRAVED_LABEL}>Terminal</span>
+        <span aria-hidden className="h-3 w-px bg-line-strong" />
         <span className="truncate text-xs text-fg-muted">
           warrior@os<span className="text-fg-subtle">:</span>
           <span className="text-info">~</span>
@@ -512,7 +531,7 @@ function TerminalAppInner() {
                   <span
                     aria-hidden
                     className={cn(
-                      'absolute -left-3 bottom-2.5 top-2.5 w-0.5 rounded-full',
+                      'absolute -left-3 bottom-2.5 top-2.5 w-0.5',
                       failed ? 'bg-danger/70' : 'bg-transparent'
                     )}
                   />
@@ -544,7 +563,7 @@ function TerminalAppInner() {
       </div>
 
       {/* Input */}
-      <div className="flex h-11 shrink-0 items-center gap-2.5 border-t border-line bg-ink-950/50 px-4 transition-colors duration-120 focus-within:bg-ink-950/70">
+      <div className={cn('relative flex h-11 shrink-0 items-center gap-2.5 px-4 transition-[box-shadow] duration-120 focus-within:ember-edge', SLOT_FILL, BEVEL_SUNK)}>
         <Prompt />
         <div className="relative h-5 min-w-0 flex-1">
           {suggestion && (
@@ -558,7 +577,7 @@ function TerminalAppInner() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="relative h-5 w-full bg-transparent leading-5 text-fg caret-plasma-400 outline-none focus-visible:outline-none"
+            className="relative h-5 w-full bg-transparent leading-5 text-fg caret-ember-400 outline-none focus-visible:outline-none"
             autoFocus
             spellCheck={false}
             autoComplete="off"

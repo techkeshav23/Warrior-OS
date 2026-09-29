@@ -136,7 +136,7 @@ interface FlipCardProps {
 
 // No backdrop-filter on the faces: it breaks backface-visibility in some browsers.
 const FACE =
-  'hud-corners relative col-start-1 row-start-1 flex min-h-[240px] min-w-0 flex-col rounded-card border border-line-strong bg-ink-850 p-5 shadow-e2 inset-shadow-[0_1px_0_rgb(255_255_255/0.05)]';
+  'armor-panel rivets relative col-start-1 row-start-1 flex min-h-[240px] min-w-0 flex-col bg-steel-800 p-6 [--cut:8px] [--cut-tl:26px] [--cut-br:26px] [--rivet-inset:6px] transition-shadow duration-180 group-focus-visible/flip:ember-edge';
 
 const HIDDEN_FACE = { backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' } as const;
 
@@ -152,9 +152,22 @@ function FlipCardInner({ card, flipped, onFlip, caption, accent, badge }: FlipCa
   const edgeBar = (
     <span
       aria-hidden
-      className="pointer-events-none absolute inset-x-8 top-0 h-0.5 rounded-b-full opacity-90"
+      className="pointer-events-none absolute left-10 right-8 top-0 h-0.5 opacity-90"
       style={{ background: edge, boxShadow: `0 0 12px ${edge}` }}
     />
+  );
+  // The forge seam: a molten line along the bottom and up the cut corner.
+  const emberSeam = (
+    <>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute bottom-0 left-6 right-8 h-px bg-linear-to-r from-transparent via-ember-500/80 to-ember-300 shadow-[0_0_10px_var(--color-ember-500)]"
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute bottom-0 right-0 size-[26px] bg-[linear-gradient(to_top_left,transparent_calc(50%-1px),var(--color-ember-300)_calc(50%-1px),var(--color-ember-400)_calc(50%+0.5px),transparent_calc(50%+0.5px))] drop-shadow-[0_0_4px_var(--color-ember-500)]"
+      />
+    </>
   );
   return (
     <div className="@container w-full" style={reduceMotion ? undefined : { perspective: 1400 }}>
@@ -168,7 +181,7 @@ function FlipCardInner({ card, flipped, onFlip, caption, accent, badge }: FlipCa
         animate={{ rotateY: flipped && !reduceMotion ? 180 : 0 }}
         transition={{ duration: 0.5, ease: EASE_OUT_QUINT }}
         style={{ transformStyle: 'preserve-3d' }}
-        className="focus-ring grid w-full cursor-pointer select-none grid-cols-[minmax(0,1fr)] rounded-card"
+        className="group/flip grid w-full cursor-pointer select-none grid-cols-[minmax(0,1fr)] outline-none"
       >
         {/* Front */}
         <div
@@ -177,6 +190,7 @@ function FlipCardInner({ card, flipped, onFlip, caption, accent, badge }: FlipCa
           aria-hidden={flipped}
         >
           {edgeBar}
+          {emberSeam}
           <div className="flex items-center justify-between gap-2">
             <span className="hud-label min-w-0 truncate" title={caption}>
               {caption}
@@ -222,8 +236,9 @@ function FlipCardInner({ card, flipped, onFlip, caption, accent, badge }: FlipCa
           aria-hidden={!flipped}
         >
           {edgeBar}
+          {emberSeam}
           <div className="flex items-center justify-between gap-2">
-            <span className="hud-label shrink-0 text-success">Answer</span>
+            <span className="engraved shrink-0 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-success">Answer</span>
             <span className="hud-label min-w-0 truncate" title={caption}>
               {caption}
             </span>
@@ -257,7 +272,7 @@ export function RevealButton({ onReveal }: { onReveal: () => void }) {
   return (
     <Button variant="primary" size="lg" leadingIcon={Eye} onClick={onReveal} className="min-w-48">
       Show answer
-      <span aria-hidden className="ml-1.5 rounded-[5px] bg-accent-fg/12 px-1.5 py-px font-mono text-2xs">
+      <span aria-hidden className="ml-1.5 chamfer-xs [--cut:3px] bg-accent-fg/12 px-1.5 py-px font-mono text-2xs">
         Space
       </span>
     </Button>
@@ -282,7 +297,7 @@ export function GradeBar({ onGrade, previews, size = 'md' }: GradeBarProps) {
           onClick={() => onGrade(g.grade)}
           aria-keyshortcuts={size === 'md' ? g.key : undefined}
           className={cn(
-            'focus-ring flex min-w-0 items-center justify-center rounded-control border font-semibold',
+            'focus-ring bevel relative flex min-w-0 items-center justify-center chamfer-sm border font-display font-semibold tracking-wide',
             'transition-[background-color,border-color,transform] duration-120 ease-out-quint active:translate-y-px',
             size === 'sm' ? 'h-8 px-2 text-xs' : 'min-h-14 flex-col gap-1 px-2 py-2 text-ui',
             g.button
@@ -311,7 +326,7 @@ export function GradeSummary({ counts }: { counts: Readonly<Record<ReviewGrade, 
   return (
     <div className="space-y-3">
       <div
-        className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full"
+        className="flex h-2.5 w-full gap-0.5 overflow-hidden chamfer-xs [--cut:3px] bg-steel-950"
         role="img"
         aria-label={GRADE_META.map((g) => `${g.label} ${counts[g.grade]}`).join(', ')}
       >

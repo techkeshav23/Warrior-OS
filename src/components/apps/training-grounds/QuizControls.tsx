@@ -48,11 +48,11 @@ export function TabHeader({
   return (
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div className="flex min-w-0 items-start gap-3">
-        <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-control border border-line bg-ink-800 text-accent inset-shadow-[0_1px_0_rgb(255_255_255/0.05)]">
+        <span className="armor-plate chamfer-sm mt-0.5 flex size-9 shrink-0 items-center justify-center text-accent [--cut-tr:0px] [--cut-bl:0px]">
           <Icon size={18} strokeWidth={1.75} aria-hidden />
         </span>
         <div className="min-w-0">
-          <h3 className="text-lg font-semibold text-fg">{title}</h3>
+          <h3 className="font-display text-lg font-semibold tracking-wide text-fg">{title}</h3>
           {description != null && <p className="mt-0.5 max-w-prose text-ui text-fg-muted">{description}</p>}
         </div>
       </div>
@@ -84,19 +84,19 @@ export function DeckPickCard({ icon, name, meta, mastery, selected, disabled = f
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        'focus-ring flex min-w-0 flex-col gap-3 rounded-card border p-3.5 text-left',
-        'transition-[background-color,border-color] duration-120 ease-out-quint disabled:cursor-not-allowed disabled:opacity-45',
+        'focus-ring armor-panel chamfer-md flex min-w-0 flex-col gap-3 p-3.5 text-left',
+        'transition-[background-color,box-shadow] duration-120 ease-out-quint disabled:cursor-not-allowed disabled:opacity-45',
         selected
-          ? 'border-accent/50 bg-accent/8'
-          : 'border-line bg-surface-2 hover:border-line-strong hover:bg-surface-hover active:bg-surface-active'
+          ? 'ember-edge bg-[color-mix(in_oklab,var(--accent)_10%,rgb(34_40_48/0.6))]'
+          : 'hover:bg-steel-750/80 active:bg-steel-800'
       )}
     >
       <span className="flex items-center gap-3">
         <span
           aria-hidden
           className={cn(
-            'flex size-9 shrink-0 items-center justify-center rounded-control border bg-ink-800 text-lg',
-            selected ? 'border-accent/30 text-accent' : 'border-line text-fg-muted'
+            'flex size-9 shrink-0 items-center justify-center chamfer-sm bg-steel-950/70 bevel text-lg',
+            selected ? 'text-accent' : 'text-fg-muted'
           )}
         >
           {icon}
@@ -110,8 +110,8 @@ export function DeckPickCard({ icon, name, meta, mastery, selected, disabled = f
         <span
           aria-hidden
           className={cn(
-            'flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors duration-120',
-            selected ? 'border-accent bg-accent text-accent-fg' : 'border-line-strong text-transparent'
+            'flex size-5 shrink-0 items-center justify-center chamfer-xs [--cut:3px] transition-colors duration-120',
+            selected ? 'bg-accent text-accent-fg' : 'border border-steel-500 bg-steel-950/80 text-transparent'
           )}
         >
           <Check size={12} strokeWidth={3} />
@@ -177,12 +177,12 @@ export function AccuracyBar({ pct, className, label }: { pct: number; className?
 export type PaletteState = 'current' | 'correct' | 'wrong' | 'answered' | 'marked' | 'empty';
 
 const PALETTE_STYLES: Readonly<Record<PaletteState, string>> = {
-  current: 'bg-accent font-semibold text-accent-fg shadow-glow',
+  current: 'bg-linear-to-b from-ember-300 via-accent to-ember-600 font-semibold text-accent-fg shadow-[inset_0_1px_0_rgb(255_240_220/0.7),inset_0_-1px_0_rgb(90_25_0/0.7)]',
   correct: 'bg-success/14 text-success ring-1 ring-inset ring-success/30 hover:bg-success/22',
   wrong: 'bg-danger/14 text-danger ring-1 ring-inset ring-danger/30 hover:bg-danger/22',
   answered: 'bg-accent/14 text-accent ring-1 ring-inset ring-accent/30 hover:bg-accent/22',
   marked: 'bg-warning/14 text-warning ring-1 ring-inset ring-warning/35 hover:bg-warning/22',
-  empty: 'bg-surface-2 text-fg-subtle ring-1 ring-inset ring-line hover:bg-surface-hover hover:text-fg',
+  empty: 'bg-steel-950/70 text-fg-subtle shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_-1px_0_rgb(255_255_255/0.06)] ring-1 ring-inset ring-line hover:bg-steel-750 hover:text-fg',
 };
 
 const PALETTE_WORDS: Readonly<Record<PaletteState, string>> = {
@@ -214,7 +214,7 @@ export function PaletteButton({
       aria-current={state === 'current' ? 'step' : undefined}
       title={`Question ${index + 1}: ${PALETTE_WORDS[state]}`}
       className={cn(
-        'focus-ring shrink-0 rounded-[6px] font-mono tabular transition-[background-color,color,box-shadow] duration-120 ease-out-quint',
+        'focus-ring shrink-0 chamfer-xs [--cut:4px] font-mono tabular transition-[background-color,color,box-shadow] duration-120 ease-out-quint',
         size === 'sm' ? 'size-6 text-[10px]' : 'size-7 text-2xs',
         PALETTE_STYLES[state]
       )}
@@ -238,7 +238,7 @@ export function PaletteLegend({ items }: { items: readonly PaletteState[] }) {
     <span className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs text-fg-subtle">
       {items.map((state) => (
         <span key={state} className="inline-flex items-center gap-1.5">
-          <span aria-hidden className={cn('size-2 rounded-[3px]', swatch[state])} />
+          <span aria-hidden className={cn('size-2.5 chamfer-xs [--cut:2px]', swatch[state])} />
           <span className="first-letter:uppercase">{PALETTE_WORDS[state]}</span>
         </span>
       ))}
@@ -290,7 +290,7 @@ export function ScoreHero({ grade, gradeColor, tone, pct, eyebrow, title, meta, 
         </motion.div>
         <div className="min-w-0 flex-1">
           <div className="hud-label">{eyebrow}</div>
-          <h3 className="mt-1.5 text-xl font-semibold text-fg tabular">{title}</h3>
+          <h3 className="mt-1.5 font-display text-xl font-semibold tracking-wide text-fg tabular">{title}</h3>
           <p className="mt-1 text-ui text-fg-muted">{meta}</p>
           {badges != null && (
             <div className="mt-3 flex flex-wrap items-center justify-center gap-2 @xl:justify-start">{badges}</div>
@@ -338,7 +338,7 @@ export function ReviewRow({ index, status, prompt, preview, meta, flags, childre
           className="shrink-0 text-fg-subtle transition-transform duration-180 ease-out-quint group-open/review:rotate-180"
         />
       </summary>
-      <div className="space-y-3 border-t border-line bg-surface-2 px-4 py-4">{children}</div>
+      <div className="space-y-3 border-t border-black/40 bg-steel-950/45 px-4 py-4 shadow-[inset_0_1px_0_rgb(255_255_255/0.04)]">{children}</div>
     </details>
   );
 }
@@ -379,7 +379,7 @@ export function ConfirmBar({ children, actions }: { children: ReactNode; actions
   return (
     <div
       role="alert"
-      className="flex animate-rise-in flex-wrap items-center gap-x-3 gap-y-2 rounded-card bg-warning/10 px-4 py-3 ring-1 ring-inset ring-warning/25"
+      className="relative flex animate-rise-in flex-wrap items-center gap-x-3 gap-y-2 chamfer-md bg-warning/10 px-4 py-3 ring-1 ring-inset ring-warning/25 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-warning"
     >
       <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-warning" aria-hidden />
       <p className="min-w-0 flex-1 text-ui text-fg">{children}</p>

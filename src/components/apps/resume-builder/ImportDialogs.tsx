@@ -115,12 +115,12 @@ function PickerDialog({
                 <li key={item.id}>
                   <label
                     className={cn(
-                      'flex items-start gap-3 rounded-card border px-3 py-2.5 transition-[background-color,border-color] duration-120 ease-out-quint',
+                      'armor-panel chamfer-sm flex items-start gap-3 px-3 py-2.5 transition-[background-color,box-shadow] duration-120 ease-out-quint',
                       item.disabled
-                        ? 'cursor-not-allowed border-line opacity-50'
+                        ? 'cursor-not-allowed opacity-50'
                         : isOn
-                          ? 'cursor-pointer border-accent/35 bg-accent/[0.06]'
-                          : 'cursor-pointer border-line hover:border-line-strong hover:bg-surface-hover'
+                          ? 'ember-edge cursor-pointer bg-accent/[0.07]'
+                          : 'cursor-pointer hover:bg-steel-700/70'
                     )}
                   >
                     <Checkbox checked={isOn} disabled={item.disabled} onChange={() => toggle(item.id)} />

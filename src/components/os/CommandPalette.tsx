@@ -175,9 +175,9 @@ function RowIcon({ cmd }: { cmd: CommandItem }) {
     <span
       aria-hidden
       className={cn(
-        'flex size-7 shrink-0 items-center justify-center rounded-control border inset-shadow-[0_1px_0_rgb(255_255_255/0.06)]',
-        nexus ? 'border-accent/30 bg-accent/10' : 'border-line-strong bg-linear-to-b from-ink-750 to-ink-850',
-        kind.tint
+        'chamfer-xs flex size-7 shrink-0 items-center justify-center',
+        // NEXUS is energy/tech: a plasma-tinted plate; everything else steel.
+        nexus ? 'bevel bg-plasma-500/12 text-plasma-300' : cn('armor-plate', kind.tint)
       )}
     >
       <Icon size={16} strokeWidth={1.75} />
@@ -545,16 +545,22 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.985, transition: { duration: 0.14, ease: EASE } }}
             transition={{ duration: 0.2, ease: EASE }}
-            className="glass-popover relative mx-4 flex w-full max-w-[640px] flex-col overflow-hidden rounded-sheet shadow-e3"
+            className="armor-drop relative mx-4 w-full max-w-[640px]"
           >
-            {/* Signature hairline */}
+          <div className="armor-popover rivets relative flex flex-col overflow-hidden [--cut-bl:0px] [--cut-tr:0px] [--cut:14px] [--rivet-inset:7px]">
+            {/* Signature: a heated seam along the top plate edge */}
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-x-12 top-0 h-px bg-linear-to-r from-transparent via-accent/50 to-transparent"
+              className="pointer-events-none absolute inset-x-16 top-0 h-px bg-linear-to-r from-transparent via-ember-400/70 to-transparent"
             />
 
             {/* Search Input */}
-            <div className="flex h-14 shrink-0 items-center gap-3 border-b border-line px-5 transition-colors duration-180 focus-within:border-accent/30">
+            <div className="group/search relative flex h-14 shrink-0 items-center gap-3 border-b border-line bg-steel-950/35 px-5">
+              {/* Heats up while the slot has focus */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 -bottom-px h-px bg-linear-to-r from-ember-600 via-ember-400 to-ember-300 opacity-0 transition-opacity duration-180 group-focus-within/search:opacity-100"
+              />
               <Search size={18} strokeWidth={1.75} aria-hidden className="shrink-0 text-fg-subtle" />
               <input
                 ref={inputRef}
@@ -587,7 +593,14 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                   return (
                     <Fragment key={cmd.id}>
                       {showHeading && (
-                        <div className={cn('hud-label px-5 pb-1.5', i === 0 ? 'pt-1.5' : 'pt-3')}>{group}</div>
+                        <div
+                          className={cn(
+                            'engraved px-5 pb-1.5 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle',
+                            i === 0 ? 'pt-1.5' : 'pt-3'
+                          )}
+                        >
+                          {group}
+                        </div>
                       )}
                       <button
                         type="button"
@@ -597,13 +610,13 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                           if (!selected) setSelectedIndex(i);
                         }}
                         className={cn(
-                          'relative mx-2 flex h-11 w-[calc(100%-16px)] items-center gap-3 rounded-control px-2.5 text-left',
+                          'chamfer-sm relative mx-2 flex h-11 w-[calc(100%-16px)] items-center gap-3 px-2.5 text-left',
                           'transition-colors duration-75 focus-ring-inset',
                           selected ? 'bg-accent-soft text-fg' : 'text-fg-muted'
                         )}
                       >
                         {selected && (
-                          <span aria-hidden className="absolute inset-y-2.5 left-0 w-0.5 rounded-full bg-accent" />
+                          <span aria-hidden className="absolute inset-y-2 left-0 w-[2px] bg-linear-to-b from-ember-300 to-ember-600" />
                         )}
                         <RowIcon cmd={cmd} />
                         <span className="min-w-0 flex-1 truncate text-ui">{cmd.label}</span>
@@ -624,7 +637,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             </div>
 
             {/* Footer: key hints */}
-            <div className="flex h-10 shrink-0 items-center gap-4 border-t border-line bg-ink-950/30 px-5 text-xs text-fg-subtle">
+            <div className="flex h-10 shrink-0 items-center gap-4 border-t border-line bg-steel-950/40 px-5 text-xs text-fg-subtle">
               <span className="flex items-center gap-1.5">
                 <Kbd size="sm">↑</Kbd>
                 <Kbd size="sm">↓</Kbd>
@@ -639,10 +652,11 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                 Close
               </span>
               <span className="ml-auto flex items-center gap-1.5 truncate">
-                <Sparkles size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-accent" />
+                <Sparkles size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-plasma-400" />
                 <span className="truncate">NEXUS understands English + Hinglish</span>
               </span>
             </div>
+          </div>
           </motion.div>
         </div>
       )}

@@ -1,10 +1,11 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — AppIcon (FORGE HUD kit)
+// WARRIOR OS — AppIcon (FORGED ARMOR kit)
 // The one app icon used everywhere (desktop, start menu, taskbar, window
-// title, palette, tour): a rounded-[28%] ink tile with a hairline edge,
-// an inner top highlight, a faint hue wash and the app's lucide glyph
-// tinted with its hue. `active` (or hovering a `.group` parent) adds a
-// soft hue glow.
+// title, palette, tour): a forged insignia plate — cut top-left and
+// bottom-right, a beveled steel rim, a dark steel face with a faint hue
+// wash, rivets on the small cuts (40px+), and the app's lucide glyph in
+// its hue. `active` heats the rim to ember with a glow rising from the
+// bottom; hovering a `.group` parent heats the rim to the app hue.
 //   <AppIcon appId="notes" size={40} />
 //   <button className="group"><AppIcon appId={id} size={56} active={running} /></button>
 // ═══════════════════════════════════════════════════════════
@@ -42,16 +43,28 @@ function strokeFor(size: number): number {
   return 1.75;
 }
 
+/** Insignia plate outline: big cuts top-left + bottom-right, small cuts on the other two. */
+const PLATE =
+  'polygon(26% 0, 92% 0, 100% 8%, 100% 74%, 74% 100%, 8% 100%, 0 92%, 0 26%)';
+
 function AppIconInner({ appId, size = 40, active = false, label, className }: AppIconProps) {
   const spec = getAppIconSpec(appId);
   const hue = APP_HUES[spec.hue];
   const Glyph = spec.icon;
   const small = size <= 20;
-  const style = {
-    width: size,
-    height: size,
-    '--app-hue': hue,
-    backgroundImage: `radial-gradient(120% 85% at 50% 0%, color-mix(in srgb, ${hue} ${small ? 10 : 16}%, transparent) 0%, transparent 62%), linear-gradient(180deg, var(--color-ink-750, #141b28) 0%, var(--color-ink-900, #070a12) 100%)`,
+  const edge = size >= 40 ? 1.5 : 1;
+  const style = { width: size, height: size, '--app-hue': hue, clipPath: PLATE } as CSSProperties;
+  const face = {
+    inset: edge,
+    clipPath: PLATE,
+    backgroundImage: [
+      active
+        ? `radial-gradient(90% 60% at 50% 110%, color-mix(in srgb, var(--color-ember-500, #f76b15) 45%, transparent) 0%, transparent 70%)`
+        : 'none',
+      `radial-gradient(110% 80% at 50% 0%, color-mix(in srgb, ${hue} ${small ? 12 : 18}%, transparent) 0%, transparent 65%)`,
+      'linear-gradient(180deg, #2a313a 0%, #171b21 48%, #0b0d11 100%)',
+    ].join(', '),
+    boxShadow: 'inset 0 1px 0 rgb(255 255 255 / 0.12), inset 0 -1px 0 rgb(0 0 0 / 0.6)',
   } as CSSProperties;
 
   return (
@@ -61,20 +74,29 @@ function AppIconInner({ appId, size = 40, active = false, label, className }: Ap
       aria-hidden={label ? undefined : true}
       data-app-icon={appId}
       className={cn(
-        'relative inline-flex shrink-0 items-center justify-center rounded-[28%] border',
-        'transition-[border-color,box-shadow] duration-180 ease-out-quint',
-        'inset-shadow-[0_1px_0_rgb(255_255_255/0.09)]',
+        // The rim: a beveled steel edge (light top-left → dark bottom-right)
+        // that heats to ember when active and to the app hue on hover.
+        'relative inline-flex shrink-0 items-center justify-center',
+        'transition-[filter] duration-180 ease-out-quint',
         active
-          ? 'border-[color-mix(in_srgb,var(--app-hue)_45%,transparent)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--app-hue)_14%,transparent),0_0_18px_-4px_color-mix(in_srgb,var(--app-hue)_55%,transparent)]'
+          ? 'bg-[linear-gradient(135deg,#ffd2a8_0%,var(--color-ember-400,#ff8a3d)_35%,var(--color-ember-600,#d4520b)_100%)]'
           : cn(
-              'border-line-strong shadow-[0_1px_2px_rgb(0_0_0/0.35)]',
-              'group-hover:border-[color-mix(in_srgb,var(--app-hue)_35%,transparent)] group-hover:shadow-[0_0_16px_-6px_color-mix(in_srgb,var(--app-hue)_50%,transparent)]',
-              'group-focus-visible:border-[color-mix(in_srgb,var(--app-hue)_35%,transparent)]'
+              'bg-[linear-gradient(135deg,#9aa6b6_0%,#4b5563_40%,#1a1f26_100%)]',
+              'group-hover:bg-[linear-gradient(135deg,#fff_0%,var(--app-hue)_40%,#1a1f26_100%)]',
+              'group-focus-visible:bg-[linear-gradient(135deg,#fff_0%,var(--app-hue)_40%,#1a1f26_100%)]'
             ),
         className
       )}
       style={style}
     >
+      <span aria-hidden className="absolute" style={face} />
+      {size >= 40 && (
+        <>
+          {/* Rivets on the two small cuts */}
+          <span aria-hidden className="absolute size-[3px] rounded-full bg-[#8d97a5] shadow-[0_1px_0_rgb(0_0_0/0.8)]" style={{ top: '11%', right: '11%' }} />
+          <span aria-hidden className="absolute size-[3px] rounded-full bg-[#8d97a5] shadow-[0_1px_0_rgb(0_0_0/0.8)]" style={{ bottom: '11%', left: '11%' }} />
+        </>
+      )}
       <Glyph
         size={glyphSize(size)}
         strokeWidth={strokeFor(size)}
@@ -83,10 +105,10 @@ function AppIconInner({ appId, size = 40, active = false, label, className }: Ap
         style={{
           color: hue,
           filter: active
-            ? `drop-shadow(0 0 6px color-mix(in srgb, ${hue} 60%, transparent))`
+            ? `drop-shadow(0 1px 0 rgb(0 0 0 / 0.8)) drop-shadow(0 0 6px color-mix(in srgb, ${hue} 60%, transparent))`
             : small
               ? undefined
-              : `drop-shadow(0 0 3px color-mix(in srgb, ${hue} 30%, transparent))`,
+              : `drop-shadow(0 1px 0 rgb(0 0 0 / 0.85)) drop-shadow(0 0 3px color-mix(in srgb, ${hue} 30%, transparent))`,
         }}
       />
     </span>

@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — LockScreen Component
-// FORGE HUD lock screen over the Deep Space wallpaper: display clock
-// and date, a status strip (level, streak, weather), and a glass unlock
-// card with the owner's identity. Two ways in:
+// FORGED ARMOR lock screen over the Forge Night wallpaper: display clock
+// and date, a status strip of cut steel tags (level, streak, weather),
+// and a riveted forged unlock plate with the owner's identity. Two ways in:
 //   • owner  — type a password + Enter (any password unlocks)
 //   • guest  — "Explore as Guest" for portfolio visitors
 // Both run the same scan → exit cinematic and record the visitor mode.
@@ -26,6 +26,8 @@ import { getLocalWeather, type WeatherData } from '@/lib/weather';
 import { useLiteMode } from '@/lib/lite-mode';
 import { cn } from '@/lib/utils';
 import { OWNER } from '@/config/owner';
+import { Kbd } from '@/components/ui/Badge';
+import { BEVEL_PRESSED, BEVEL_SUNK, EMBER_PLATE, ENGRAVED_LABEL, FOCUS_EDGE, SLOT_FILL } from '@/components/ui/armor';
 import { setVisitorMode, type VisitorMode } from '@/lib/visitor';
 import { OwnerAvatar } from '@/components/showcase/OwnerCard';
 import { BrandMark } from '@/components/showcase/BrandMark';
@@ -101,8 +103,8 @@ function LockClockInner() {
 const LockClock = memo(LockClockInner);
 
 // ─── Status strip: level, streak, weather ───
-const CHIP =
-  'inline-flex h-7 min-w-0 items-center gap-1.5 rounded-full border border-line-strong bg-ink-950/55 px-2.5 text-xs text-fg-muted backdrop-blur-md lite:backdrop-blur-none';
+/** Cut steel tag (4px chamfer, raised plate) */
+const CHIP = 'armor-plate chamfer-xs inline-flex h-7 min-w-0 items-center gap-1.5 px-2.5 text-xs text-fg-muted';
 
 function LockStatusInner() {
   const level = useXPStore((s) => s.level);
@@ -179,27 +181,26 @@ function UnlockProgress({ mode }: { mode: VisitorMode }) {
       aria-live="polite"
     >
       <div className="relative flex size-16 items-center justify-center">
+        {/* Forged octagon seal, traced by the scan */}
         <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 64 64" aria-hidden>
-          <circle cx="32" cy="32" r="29" fill="none" stroke="var(--color-line-strong)" strokeWidth="2" />
-          <motion.circle
-            cx="32"
-            cy="32"
-            r="29"
+          <polygon points="58.8,43.1 43.1,58.8 20.9,58.8 5.2,43.1 5.2,20.9 20.9,5.2 43.1,5.2 58.8,20.9" fill="none" stroke="var(--color-line-strong)" strokeWidth="2" />
+          <motion.polygon
+            points="58.8,43.1 43.1,58.8 20.9,58.8 5.2,43.1 5.2,20.9 20.9,5.2 43.1,5.2 58.8,20.9"
             fill="none"
             stroke="var(--accent)"
             strokeWidth="2"
-            strokeLinecap="round"
+            strokeLinejoin="miter"
             initial={{ pathLength: 0 }}
             animate={{ pathLength: 1 }}
             transition={{ duration: SCAN_MS / 1000, ease: [0.45, 0, 0.2, 1] }}
           />
         </svg>
-        <span className="absolute inset-2 rounded-full bg-accent/10 motion-safe:animate-pulse-soft" aria-hidden />
+        <span className="chamfer absolute inset-2 bg-accent/10 [--cut:14px] motion-safe:animate-pulse-soft" aria-hidden />
         <Icon className="relative size-6 text-accent" strokeWidth={1.75} aria-hidden />
       </div>
       <div>
         <p className="text-sm font-medium text-fg">{guest ? 'Opening guest session…' : 'Authenticating…'}</p>
-        <p className="mt-1 hud-label">{guest ? 'Preparing demo workspace' : 'Verifying owner signature'}</p>
+        <p className={cn('mt-1', ENGRAVED_LABEL)}>{guest ? 'Preparing demo workspace' : 'Verifying owner signature'}</p>
       </div>
     </motion.div>
   );
@@ -311,7 +312,7 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
           }}
           transition={{ duration: 0.8, ease: EASE }}
         >
-          {/* ─── Wallpaper: Deep Space, with a gentle two-depth parallax ─── */}
+          {/* ─── Wallpaper: Forge Night, with a gentle two-depth parallax ─── */}
           <div
             className="wos-deep-space"
             aria-hidden="true"
@@ -359,15 +360,20 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
             <motion.section
               {...rise(0.25)}
               aria-label={`Sign in to ${OWNER.shortName}'s system`}
-              className="relative w-full max-w-[380px] rounded-sheet glass-window hud-corners p-6 [@media(max-height:760px)]:p-5"
-              style={{ '--hud-corner-inset': '8px' } as CSSProperties}
+              className="armor-drop relative w-full max-w-[380px]"
             >
+              <div className="armor-window rivets relative p-6 [--cut:16px] [--rivet-inset:8px] [@media(max-height:760px)]:p-5">
+              {/* Notch tab hanging from the top edge */}
+              <span
+                aria-hidden
+                className="notch absolute left-1/2 top-0 h-[5px] w-24 -translate-x-1/2 bg-linear-to-b from-ember-400 to-ember-600 [--notch:4px]"
+              />
               {/* Owner identity */}
               <div className="flex items-center gap-4">
                 <OwnerAvatar size="md" />
                 <div className="min-w-0 flex-1">
-                  <p className="hud-label">System owner</p>
-                  <p className="mt-0.5 truncate text-lg font-semibold text-fg" title={OWNER.name}>
+                  <p className={ENGRAVED_LABEL}>System owner</p>
+                  <p className="mt-0.5 truncate font-display text-lg font-semibold text-fg" title={OWNER.name}>
                     {OWNER.name}
                   </p>
                   <p className="truncate text-xs text-fg-subtle" title={OWNER.tagline}>
@@ -397,10 +403,13 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
                     >
                       <div
                         className={cn(
-                          'group relative flex h-11 items-center rounded-card border bg-ink-950/60',
-                          'transition-[border-color,box-shadow] duration-120 ease-out-quint',
-                          'focus-within:border-accent/70 focus-within:ring-3 focus-within:ring-accent/15',
-                          error ? 'border-danger/60 animate-shake' : 'border-line-strong hover:border-fg-faint'
+                          // Recessed slot in the plate; heats to ember on focus.
+                          'chamfer-sm group relative flex h-11 items-center',
+                          SLOT_FILL,
+                          BEVEL_SUNK,
+                          'transition-[box-shadow] duration-120 ease-out-quint',
+                          'focus-within:ember-edge',
+                          error && 'animate-shake shadow-[inset_0_0_0_1px_rgb(255_84_112/0.6)]'
                         )}
                       >
                         <Lock
@@ -418,7 +427,7 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
                           aria-invalid={error || undefined}
                           data-testid="lock-password"
                           className={cn(
-                            'h-full w-full min-w-0 rounded-card bg-transparent pl-10 pr-12 text-sm text-fg',
+                            'h-full w-full min-w-0 bg-transparent pl-10 pr-12 text-sm text-fg',
                             'placeholder:text-fg-subtle outline-none focus-visible:outline-none'
                           )}
                           autoFocus
@@ -430,10 +439,11 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
                           aria-label="Unlock"
                           title="Unlock (Enter)"
                           className={cn(
-                            'absolute right-1.5 flex size-8 items-center justify-center rounded-control',
-                            'bg-accent text-accent-fg inset-shadow-[0_1px_0_rgb(255_255_255/0.28)]',
-                            'transition-[filter,box-shadow] duration-120 ease-out-quint',
-                            'hover:brightness-110 hover:shadow-glow active:brightness-95 focus-ring'
+                            'chamfer-xs absolute right-1.5 flex size-8 items-center justify-center',
+                            EMBER_PLATE,
+                            BEVEL_PRESSED,
+                            FOCUS_EDGE,
+                            'transition-[filter] duration-120 ease-out-quint hover:brightness-110 active:brightness-95'
                           )}
                         >
                           <ArrowRight className="size-4" strokeWidth={2} aria-hidden />
@@ -443,16 +453,14 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
                         <span>Owner sign-in</span>
                         <span className="flex items-center gap-1.5">
                           Press
-                          <kbd className="inline-flex h-5 items-center rounded-[5px] border border-line-strong bg-surface-2 px-1.5 font-mono text-2xs text-fg-muted">
-                            Enter
-                          </kbd>
+                          <Kbd size="sm">Enter</Kbd>
                         </span>
                       </p>
 
                       {/* Divider */}
                       <div className="my-4 flex items-center gap-3" aria-hidden>
                         <span className="h-px flex-1 bg-line" />
-                        <span className="hud-label text-fg-faint">or</span>
+                        <span className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-faint">or</span>
                         <span className="h-px flex-1 bg-line" />
                       </div>
 
@@ -463,13 +471,15 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
                         data-testid="lock-guest"
                         aria-describedby="lock-guest-hint"
                         className={cn(
-                          'group relative flex h-11 w-full items-center gap-3 overflow-hidden rounded-card px-3.5',
-                          'border border-accent/30 bg-accent/8 text-left text-fg',
-                          'transition-[background-color,border-color,box-shadow] duration-120 ease-out-quint',
-                          'hover:border-accent/55 hover:bg-accent/14 hover:shadow-glow active:bg-accent/20 focus-ring'
+                          // Raised steel plate that heats up on hover / focus.
+                          'armor-plate group relative flex h-11 w-full items-center gap-3 overflow-hidden px-3.5 text-left text-fg',
+                          'transition-[background-color,box-shadow] duration-120 ease-out-quint',
+                          'hover:bg-steel-600 hover:ember-edge focus-visible:ember-edge',
+                          BEVEL_PRESSED,
+                          FOCUS_EDGE
                         )}
                       >
-                        <span className="flex size-7 shrink-0 items-center justify-center rounded-control bg-accent/15 text-accent">
+                        <span className="chamfer-xs bevel flex size-7 shrink-0 items-center justify-center bg-accent/15 text-accent">
                           <Eye className="size-4" strokeWidth={1.75} aria-hidden />
                         </span>
                         <span className="flex-1 text-sm font-medium">Explore as Guest</span>
@@ -487,6 +497,7 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
                     <UnlockProgress key="progress" mode={unlockMode ?? 'owner'} />
                   )}
                 </AnimatePresence>
+              </div>
               </div>
             </motion.section>
 

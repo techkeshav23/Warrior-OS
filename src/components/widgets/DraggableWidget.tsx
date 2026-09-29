@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — DraggableWidget (FORGE HUD)
-// glass-window shell for a desktop widget: HUD label header (grip
+// armor-window shell (riveted forged plate, cut top-left + bottom-right) for a desktop widget: HUD label header (grip
 // appears on hover), pointer drag with a small dead-zone, position
 // persisted on drop, clamped to the viewport (so nothing overflows
 // from 1024px to 1920px+), arrow-key nudging, and a hover close
@@ -185,10 +185,11 @@ function DraggableWidgetInner({
       onDoubleClick={onOpen}
       onKeyDown={onKeyDown}
       className={cn(
-        'group absolute glass-window rounded-window shadow-e2 select-none touch-none',
-        'transition-[opacity,box-shadow,border-color] duration-260 ease-out-quint outline-none',
-        'hover:border-fg-faint focus-visible:border-accent/50 focus-visible:shadow-glow',
-        dragging ? 'cursor-grabbing border-accent/40 shadow-e3' : 'cursor-grab',
+        'group absolute armor-window rivets select-none touch-none [--cut:12px] [--rivet-inset:6px]',
+        'transition-[opacity,box-shadow] duration-260 ease-out-quint outline-none',
+        // Focus / drag heat the plate's edge (inset: survives the chamfer clip)
+        'focus-visible:ember-edge',
+        dragging ? 'cursor-grabbing ember-edge' : 'cursor-grab',
         hidden ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto',
         className
       )}
@@ -202,7 +203,9 @@ function DraggableWidgetInner({
     >
       {/* Header: HUD label + drag hint + close */}
       <div className="flex h-8 items-center justify-between pl-4 pr-1.5 pt-1">
-        <span className="hud-label flex min-w-0 items-center gap-1">
+        <span className="engraved flex min-w-0 items-center gap-1.5 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">
+          {/* Ember tick: the plate's stamp mark */}
+          <span aria-hidden="true" className="h-2.5 w-[3px] shrink-0 bg-linear-to-b from-ember-300 to-ember-600" />
           <span className="truncate">{label}</span>
           <GripVertical
             size={12}

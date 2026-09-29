@@ -568,7 +568,7 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
           <>
             <section className="space-y-3" aria-label="Decks">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="hud-label">Decks</span>
+                <span className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Decks</span>
                 <span className="flex items-center gap-2">
                   <span className={cn('text-xs tabular', chosen.length === 0 ? 'text-warning' : 'text-fg-subtle')}>
                     {chosen.length === 0 ? 'Pick at least one deck.' : `${poolSize} questions available`}
@@ -713,7 +713,7 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
           <span
             title="Time left"
             className={cn(
-              'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-control px-2.5 font-mono text-sm font-semibold tabular',
+              'inline-flex h-7 shrink-0 items-center gap-1.5 chamfer-xs px-2.5 font-mono text-sm font-semibold tabular',
               danger ? 'bg-danger/12 text-danger motion-safe:animate-pulse-soft' : 'bg-accent/10 text-accent'
             )}
           >
@@ -725,9 +725,9 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
             Submit
           </Button>
         </div>
-        <div className="h-0.5 shrink-0 bg-ink-700" aria-hidden>
+        <div className="h-1 shrink-0 bg-steel-950 shadow-[inset_0_1px_0_rgb(0_0_0/0.7)]" aria-hidden>
           <div
-            className={cn('h-full transition-[width] duration-1000 ease-linear', danger ? 'bg-danger' : 'bg-accent/70')}
+            className={cn('h-full transition-[width] duration-1000 ease-linear', danger ? 'bg-danger' : 'forge-heat')}
             style={{ width: `${Math.min(100, ((timeLeft * 1000) / budget) * 100)}%` }}
           />
         </div>
@@ -760,10 +760,10 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
                 transition={TRANSITION.small}
-                className="glass-panel rounded-card p-5"
+                className="armor-panel chamfer-md rivets p-5 [--cut-tl:16px] [--cut-br:16px] [--rivet-inset:5px]"
               >
                 <div className="mb-4 flex flex-wrap items-center gap-2">
-                  <span className="hud-label text-accent">Q{run.index + 1}</span>
+                  <span className="chamfer-xs bg-ember-500/15 px-1.5 py-0.5 font-display text-xs font-semibold tracking-[0.12em] text-accent tabular shadow-[inset_0_-1px_0_var(--color-ember-500)]">Q{run.index + 1}</span>
                   <span aria-hidden className="text-fg-faint">
                     ·
                   </span>
@@ -781,7 +781,7 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
                     onClick={() => toggleMarked(card.id)}
                     aria-pressed={marked}
                     className={cn(
-                      'focus-ring inline-flex h-7 items-center gap-1.5 rounded-control px-2.5 text-xs font-medium',
+                      'focus-ring inline-flex h-7 items-center gap-1.5 chamfer-sm px-2.5 text-xs font-medium',
                       'transition-colors duration-120 ease-out-quint',
                       marked
                         ? 'bg-warning/12 text-warning ring-1 ring-inset ring-warning/30 hover:bg-warning/18'
@@ -880,11 +880,11 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
       const pct = scorePct(row);
       const weak = kind === 'weak';
       return (
-        <div className="glass-panel flex min-w-0 items-center gap-3 rounded-card p-3.5">
+        <div className="armor-panel chamfer-md flex min-w-0 items-center gap-3 p-3.5">
           <span
             aria-hidden
             className={cn(
-              'flex size-9 shrink-0 items-center justify-center rounded-control ring-1 ring-inset',
+              'flex size-9 shrink-0 items-center justify-center chamfer-sm ring-1 ring-inset',
               weak ? 'bg-danger/10 text-danger ring-danger/25' : 'bg-success/10 text-success ring-success/25'
             )}
           >
@@ -998,7 +998,7 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
         {/* Per-question review */}
         <section className="space-y-3" aria-label="Review">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h4 className="text-sm font-semibold text-fg">Review</h4>
+            <h4 className="engraved font-display text-xs font-semibold uppercase tracking-[0.18em] text-fg-muted">Review</h4>
             <div className="flex flex-wrap gap-2">
               <Chip selected={reviewFilter === 'all'} onClick={() => setReviewFilter('all')}>
                 All ({run.items.length})
@@ -1024,7 +1024,7 @@ function MockTestInner({ initialDeckId = null }: MockTestProps) {
               description={reviewFilter === 'wrong' ? 'No wrong answers in this test.' : 'Every question was attempted.'}
             />
           ) : (
-            <div className="glass-panel divide-y divide-line overflow-hidden rounded-card">
+            <div className="armor-panel chamfer-md divide-y divide-black/40 overflow-hidden">
               {reviewed.map(({ item, i, status }) => {
                 const marks = marksFor(status, run.settings);
                 const spent = result.spentMs[item.card.id];

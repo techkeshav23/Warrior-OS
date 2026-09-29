@@ -22,11 +22,11 @@ const DAYS = 90;
 
 /** Ember single-hue ramp: 0 = nothing, 4 = (almost) every habit. */
 const LEVEL_CLASS = [
-  'bg-ink-700/80',
+  'bg-steel-900 shadow-[inset_0_1px_0_rgb(0_0_0/0.6)]',
   'bg-ember-600/35',
   'bg-ember-500/55',
   'bg-ember-500/80',
-  'bg-ember-400',
+  'bg-linear-to-b from-ember-300 to-ember-500',
 ] as const;
 
 const LEVEL_LABEL = ['No habits', 'Under 25%', '25–49%', '50–79%', '80% or more'] as const;
@@ -93,7 +93,7 @@ function HabitGridInner({ habits }: Props) {
         <div className="flex items-center gap-1.5 font-mono text-2xs text-fg-subtle" aria-hidden>
           <span className="mr-0.5">Less</span>
           {LEVEL_CLASS.map((cls, i) => (
-            <span key={cls} title={LEVEL_LABEL[i]} className={cn('size-2.5 rounded-[3px]', cls)} />
+            <span key={cls} title={LEVEL_LABEL[i]} className={cn('chamfer size-2.5 [--cut:2px]', cls)} />
           ))}
           <span className="ml-0.5">More</span>
         </div>
@@ -157,9 +157,9 @@ function WeekColumn({
             key={day.date}
             title={`${shortDate(day.date)}: ${day.count}/${total} habits`}
             className={cn(
-              'aspect-square w-full rounded-[4px] transition-transform duration-120 ease-out-quint hover:scale-110',
+              'chamfer aspect-square w-full transition-transform duration-120 ease-out-quint [--cut:2.5px] hover:scale-110',
               LEVEL_CLASS[day.level],
-              day.date === today && 'ring-1 ring-fg-muted ring-offset-1 ring-offset-ink-900'
+              day.date === today && 'shadow-[inset_0_0_0_1.5px_var(--color-ember-100)]'
             )}
           />
         );

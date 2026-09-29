@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — /design-system
-// FORGE HUD, the Warrior OS design system: tokens, type, layout,
+// FORGED ARMOR, the Warrior OS design system: materials, tokens, type,
 // every kit component in its states, the app-icon set and a composed
 // sample window. The live reference for everyone building apps.
 // ═══════════════════════════════════════════════════════════
@@ -9,9 +9,9 @@ import type { Metadata } from 'next';
 import { DesignSystem } from './DesignSystem';
 
 export const metadata: Metadata = {
-  title: 'FORGE HUD — Design System',
+  title: 'FORGED ARMOR — Design System',
   description:
-    'FORGE HUD, the Warrior OS design system: deep-ink surfaces, plasma accent, ember energy — tokens, components and app icons.',
+    'FORGED ARMOR, the Warrior OS design system: chamfered steel plates, bevels and rivets, engraved labels and ember heat — materials, tokens, components and app icons.',
 };
 
 export default function DesignSystemPage() {

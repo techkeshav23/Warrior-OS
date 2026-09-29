@@ -31,6 +31,7 @@ import { PointerLockControls as PointerLockControlsImpl } from 'three-stdlib';
 import { CircleCheck, Compass, Footprints, Hammer, Info, MousePointer2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AppIcon, Button, Kbd } from '@/components/ui';
+import { FOCUS_EDGE } from '@/components/ui/armor';
 import { PALACE } from './palaceTheme';
 import { useAppStore } from '@/stores/useAppStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
@@ -899,7 +900,7 @@ function PalaceSceneInner() {
 
   return (
     <div
-      className="relative h-full w-full overflow-hidden bg-ink-950"
+      className="relative h-full w-full overflow-hidden bg-steel-950"
       onPointerEnter={() => {
         hoverRef.current = true;
       }}
@@ -1001,11 +1002,15 @@ function PalaceSceneInner() {
             setOverviewOpen(true);
           }}
           title="Open the palace overview (O)"
-          className="glass-popover focus-ring group flex items-center gap-2.5 rounded-card py-2 pl-2 pr-3 text-left transition-[border-color] duration-120 ease-out-quint hover:border-fg-faint"
+          className={cn(
+            'armor-popover rivets group flex items-center gap-2.5 py-2 pl-2 pr-4 text-left [--cut:10px] [--cut-tr:0px] [--cut-bl:0px] [--rivet-inset:1px]',
+            'transition-[filter] duration-120 ease-out-quint hover:brightness-125',
+            FOCUS_EDGE
+          )}
         >
           <AppIcon appId="memory-palace" size={28} />
           <span className="min-w-0">
-            <span className="block truncate text-ui font-semibold text-fg">Memory Palace</span>
+            <span className="block truncate font-display text-ui font-semibold uppercase tracking-[0.08em] text-fg">Memory Palace</span>
             <span className="tabular mt-0.5 flex gap-2.5 font-mono text-2xs text-fg-muted">
               <span>{summary.objects} objects</span>
               <span>{summary.rooms} rooms</span>
@@ -1015,10 +1020,10 @@ function PalaceSceneInner() {
         </button>
         {currentRoom && (
           <div
-            className="glass-popover flex min-w-0 items-center gap-2.5 rounded-control px-3 py-2 animate-fade-in"
+            className="armor-popover flex min-w-0 items-center gap-2.5 px-3 py-2 animate-fade-in [--cut:6px] [--cut-tl:0px] [--cut-br:0px]"
             style={{ '--room': currentRoom.theme.accent } as React.CSSProperties}
           >
-            <span className="h-7 w-0.5 shrink-0 rounded-full bg-[var(--room)] shadow-[0_0_8px_var(--room)]" aria-hidden />
+            <span className="h-7 w-0.5 shrink-0 bg-[var(--room)] shadow-[0_0_8px_var(--room)]" aria-hidden />
             <span className="min-w-0">
               <span className="block truncate text-xs font-semibold text-fg" title={currentRoom.label}>
                 {currentRoom.label}
@@ -1047,8 +1052,8 @@ function PalaceSceneInner() {
       {/* Crosshair */}
       {locked && (
         <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 z-10 size-6 -translate-x-1/2 -translate-y-1/2">
-          <span className="absolute inset-0 rounded-full border border-fg/35" />
-          <span className="absolute left-1/2 top-1/2 size-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_6px_var(--accent)]" />
+          <span className="absolute inset-[5px] rotate-45 border border-fg/35" />
+          <span className="absolute left-1/2 top-1/2 size-1 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-ember-400 shadow-[0_0_6px_var(--color-ember-500)]" />
           <span className="absolute left-1/2 top-0 h-1.5 w-px -translate-x-1/2 bg-fg/55" />
           <span className="absolute bottom-0 left-1/2 h-1.5 w-px -translate-x-1/2 bg-fg/55" />
           <span className="absolute left-0 top-1/2 h-px w-1.5 -translate-y-1/2 bg-fg/55" />
@@ -1058,8 +1063,8 @@ function PalaceSceneInner() {
 
       {/* Walk / inspect hint */}
       {started && !locked && !overviewOpen && flight === null && (
-        <div className="glass-popover pointer-events-auto absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-card py-1.5 pl-3 pr-1.5 text-xs text-fg-muted animate-fade-in">
-          <MousePointer2 size={14} strokeWidth={1.75} className="shrink-0 text-accent" aria-hidden />
+        <div className="armor-popover pointer-events-auto absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 py-1.5 pl-3.5 pr-1.5 text-xs text-fg-muted animate-fade-in [--cut:8px]">
+          <MousePointer2 size={14} strokeWidth={1.75} className="shrink-0 text-ember-400" aria-hidden />
           <span className="whitespace-nowrap">Inspect mode: click objects or holograms</span>
           <Button size="sm" variant="primary" leadingIcon={Footprints} onClick={requestLock}>
             Walk
@@ -1067,7 +1072,7 @@ function PalaceSceneInner() {
         </div>
       )}
       {locked && flight === null && (
-        <div className="glass-popover pointer-events-none absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap rounded-full px-3 py-1.5 text-2xs text-fg-subtle">
+        <div className="armor-popover pointer-events-none absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap px-4 py-1.5 text-2xs text-fg-subtle [--cut:8px]">
           <span className="flex items-center gap-1">
             <Kbd size="sm">W</Kbd>
             <Kbd size="sm">A</Kbd>
@@ -1091,7 +1096,7 @@ function PalaceSceneInner() {
       {flight !== null && (
         <div
           role="status"
-          className="glass-popover pointer-events-none absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full px-3 py-1.5 text-xs text-accent"
+          className="armor-popover ember-edge pointer-events-none absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 px-4 py-1.5 font-display text-xs font-semibold uppercase tracking-[0.12em] text-ember-300 [--cut:8px]"
         >
           <Compass size={14} strokeWidth={1.75} className="animate-spin" aria-hidden /> Travelling
         </div>
@@ -1108,8 +1113,8 @@ function PalaceSceneInner() {
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
-              'glass-popover pointer-events-none absolute left-1/2 top-3 z-20 flex max-w-[50%] -translate-x-1/2 items-center gap-2 rounded-full px-3 py-1.5 text-xs',
-              banner.tone === 'build' && 'text-ember-300',
+              'armor-popover pointer-events-none absolute left-1/2 top-3 z-20 flex max-w-[50%] -translate-x-1/2 items-center gap-2 px-4 py-1.5 text-xs [--cut:8px]',
+              banner.tone === 'build' && 'ember-edge text-ember-300',
               banner.tone === 'success' && 'text-success',
               banner.tone === 'info' && 'text-fg-muted'
             )}

@@ -12,6 +12,7 @@ import { Pencil, Receipt, SearchX, Trash2 } from 'lucide-react';
 import { format, isValid, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Button, Chip, EmptyState, IconButton, SearchField } from '@/components/ui';
+import { ENGRAVED_LABEL } from '@/components/ui/armor';
 import { sumExpenses } from '@/stores/useExpenseStore';
 import type { Expense, ExpenseCategory } from '@/types/expense';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_MAP, dayLabel, formatINR, toDateKey } from './expense-utils';
@@ -102,11 +103,11 @@ function TransactionListInner({
   return (
     <section
       aria-label="Transactions"
-      className={cn('glass-panel flex min-h-0 flex-col rounded-card', className)}
+      className={cn('armor-panel chamfer-md flex min-h-0 flex-col', className)}
     >
       <div className="space-y-3 border-b border-line p-4">
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="text-sm font-semibold text-fg">Transactions</h3>
+          <h3 className="engraved font-display text-sm font-semibold uppercase tracking-[0.08em] text-fg">Transactions</h3>
           <p className="text-xs text-fg-subtle">
             {filtered.length} {isFiltered ? 'shown' : filtered.length === 1 ? 'entry' : 'entries'} ·{' '}
             <span className="tabular font-mono text-fg">{formatINR(filteredTotal)}</span>
@@ -172,7 +173,7 @@ function TransactionListInner({
             {groups.map((g) => (
               <li key={g.date}>
                 <div className="flex h-7 items-center justify-between gap-3 px-2">
-                  <span className="hud-label">{g.date === todayKey ? `Today · ${dayLabel(g.date)}` : dayLabel(g.date)}</span>
+                  <span className={ENGRAVED_LABEL}>{g.date === todayKey ? `Today · ${dayLabel(g.date)}` : dayLabel(g.date)}</span>
                   <span className="tabular font-mono text-2xs text-fg-muted">{formatINR(g.total)}</span>
                 </div>
                 <ul>
@@ -185,13 +186,13 @@ function TransactionListInner({
                       <li
                         key={e.id}
                         className={cn(
-                          'group/row relative flex min-h-12 items-center gap-3 rounded-control px-2 py-1.5 transition-colors duration-120 ease-out-quint',
-                          isEditing ? 'bg-accent/10' : 'hover:bg-surface-hover'
+                          'group/row chamfer-sm relative flex min-h-12 items-center gap-3 px-2 py-1.5 transition-colors duration-120 ease-out-quint',
+                          isEditing ? 'ember-edge bg-accent/10' : 'hover:bg-surface-hover'
                         )}
                       >
-                        {isEditing && <span aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-accent" />}
+                        {isEditing && <span aria-hidden className="absolute inset-y-2 left-0 w-0.5 bg-accent" />}
                         <span
-                          className="flex size-8 shrink-0 items-center justify-center rounded-control bg-accent/12 text-accent"
+                          className="chamfer-xs flex size-8 shrink-0 items-center justify-center bg-accent/12 text-accent shadow-[inset_0_1px_0_rgb(255_255_255/0.08),inset_0_-1px_0_rgb(0_0_0/0.5),inset_0_-2px_0_color-mix(in_oklab,var(--accent)_45%,transparent)]"
                           style={tint(meta.color)}
                         >
                           <Icon size={16} strokeWidth={1.75} aria-hidden />

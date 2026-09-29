@@ -83,7 +83,11 @@ export const SOUND_EFFECTS = {
 
 // ─── Wallpaper Names ───
 export const WALLPAPER_OPTIONS = [
-  { id: 'void', name: 'Void Minimal', category: 'dark' },
+  { id: 'void', name: 'Forge Night', category: 'dark' },
+  { id: 'embers', name: 'Ember Storm', category: 'forge' },
+  { id: 'molten', name: 'Molten Core', category: 'forge' },
+  { id: 'dusk', name: 'Battlefield Dusk', category: 'forge' },
+  { id: 'steelrain', name: 'Steel Rain', category: 'forge' },
   { id: 'starfield', name: 'Star Field', category: 'dark' },
   { id: 'nebula', name: 'Nebula', category: 'shader' },
   { id: 'aurora', name: 'Aurora', category: 'shader' },

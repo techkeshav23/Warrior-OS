@@ -77,16 +77,16 @@ export function DecayRepair({ onDone }: DecayRepairProps) {
         aria-hidden
       />
       <motion.div
-        className="relative flex items-center gap-3 rounded-sheet glass-popover px-5 py-3.5"
+        className="armor-popover rivets relative flex items-center gap-3 px-6 py-3.5 [--cut-bl:0px] [--cut-tr:0px] [--cut:12px] [--rivet-inset:6px]"
         initial={{ scale: 0.96, opacity: 0, y: 6 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       >
-        <span className="flex size-9 items-center justify-center rounded-full border border-success/30 bg-success/12 text-success">
+        <span className="chamfer-sm bevel flex size-9 items-center justify-center bg-success/12 text-success">
           <ShieldCheck className="size-[18px]" strokeWidth={1.75} aria-hidden />
         </span>
         <div className="text-left">
-          <p className="text-base font-semibold text-fg">Systems restored</p>
+          <p className="font-display text-base font-semibold uppercase tracking-[0.08em] text-fg">Systems restored</p>
           <p className="text-ui text-fg-muted">
             Ready for battle.
             {earnsXP && <span className="ml-1.5 font-mono font-medium text-gold tabular">+{REPAIR_XP} XP</span>}

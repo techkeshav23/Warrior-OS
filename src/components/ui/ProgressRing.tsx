@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — ProgressRing (FORGE HUD kit)
-// Circular meter with a tabular center readout (or custom children).
+// WARRIOR OS — ProgressRing (FORGED ARMOR kit)
+// Segmented circular gauge in a steel bezel, forged-number readout (or custom children).
 //   <ProgressRing value={72} size={96} label="FOCUS" />
 //   <ProgressRing value={xpPct} tone="gold"><span>LV 7</span></ProgressRing>
 // ═══════════════════════════════════════════════════════════
@@ -62,7 +62,9 @@ export function ProgressRing({
       style={{ width: size, height: size }}
     >
       <svg width={size} height={size} className="-rotate-90" aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={trackColor} strokeWidth={stroke} opacity={0.7} />
+        {/* Steel bezel + sunk track */}
+        <circle cx={size / 2} cy={size / 2} r={size / 2 - 0.5} fill="none" stroke="rgb(255 255 255 / 0.08)" strokeWidth={1} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={trackColor} strokeWidth={stroke} opacity={0.55} />
         <motion.circle
           cx={size / 2}
           cy={size / 2}
@@ -70,19 +72,30 @@ export function ProgressRing({
           fill="none"
           stroke={fill}
           strokeWidth={stroke}
-          strokeLinecap="round"
+          strokeLinecap="butt"
           strokeDasharray={circumference}
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: offset }}
           transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
           style={glow ? { filter: `drop-shadow(0 0 4px color-mix(in srgb, ${fill} 60%, transparent))` } : undefined}
         />
+        {/* Segment marks cut through the ring (24 plates) */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="var(--color-ink-950, #04060b)"
+          strokeWidth={stroke + 1}
+          strokeDasharray={`1.5 ${circumference / 24 - 1.5}`}
+          opacity={0.85}
+        />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         {children ??
           (showValue && (
             <>
-              <span className={cn('tabular font-display font-semibold leading-none text-fg', valueSize)}>
+              <span className={cn('tabular font-display font-bold leading-none text-fg [text-shadow:0_1px_0_rgb(0_0_0/0.8)]', valueSize)}>
                 {Math.round(clamped)}
                 <span className="ml-px text-[0.6em] text-fg-muted">%</span>
               </span>

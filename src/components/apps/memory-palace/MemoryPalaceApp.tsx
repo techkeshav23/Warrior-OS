@@ -16,7 +16,7 @@ import { AppIcon, EmptyState } from '@/components/ui';
 function PalaceLoading() {
   return (
     <div
-      className="flex h-full w-full flex-col items-center justify-center gap-4 bg-ink-950"
+      className="flex h-full w-full flex-col items-center justify-center gap-4 bg-steel-950"
       role="status"
       aria-label="Raising the palace"
     >
@@ -24,9 +24,9 @@ function PalaceLoading() {
         <AppIcon appId="memory-palace" size={48} active />
       </div>
       <div className="flex flex-col items-center gap-2">
-        <div className="hud-label text-accent">Raising the palace</div>
-        <div className="h-0.5 w-40 overflow-hidden rounded-full bg-ink-700">
-          <div className="h-full w-1/3 rounded-full bg-linear-to-r from-transparent via-accent to-transparent bg-[length:200%_100%] motion-safe:animate-shimmer" />
+        <div className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-ember-400">Raising the palace</div>
+        <div className="h-1 w-40 overflow-hidden bg-steel-900 shadow-[inset_0_1px_0_rgb(0_0_0/0.7)]">
+          <div className="h-full w-1/3 bg-linear-to-r from-transparent via-ember-400 to-transparent bg-[length:200%_100%] motion-safe:animate-shimmer" />
         </div>
       </div>
     </div>

@@ -63,7 +63,7 @@ export function HolographicCard({
       }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       className={cn(
-        'glass-panel relative overflow-hidden rounded-card',
+        'armor-panel chamfer-md relative overflow-hidden',
         className
       )}
       style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
@@ -88,7 +88,7 @@ export function HolographicCard({
       {/* Rainbow spectrum edge */}
       {isHovering && (
         <div
-          className="absolute inset-0 pointer-events-none rounded-card"
+          className="absolute inset-0 pointer-events-none"
           style={{
             opacity: 0.55,
             background: `linear-gradient(

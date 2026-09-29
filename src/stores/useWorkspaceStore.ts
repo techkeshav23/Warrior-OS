@@ -8,7 +8,7 @@
 // and each workspace's name / icon / look, so a reload comes back to the
 // user's last look. Open-window ids are session-only (windows are not
 // persisted). Stored accents pass through resolveAccent(), so legacy
-// neon values land on the FORGE HUD palette; unknown wallpapers fall back
+// neon values land on the FORGED ARMOR palette; unknown wallpapers fall back
 // to the workspace default.
 // ═══════════════════════════════════════════════════════════
 
@@ -18,7 +18,7 @@ import { persist } from 'zustand/middleware';
 import type { Workspace, WorkspaceId, WorkspacePatch } from '@/types/workspace';
 import { DEFAULT_WORKSPACES } from '@/types/workspace';
 import { WALLPAPER_IDS } from '@/stores/useSettingsStore';
-import { resolveAccent } from '@/styles/tokens';
+import { DEFAULT_ACCENT, PREVIOUS_DEFAULT_ACCENT, resolveAccent } from '@/styles/tokens';
 
 interface WorkspaceStore {
   workspaces: Workspace[];
@@ -55,6 +55,30 @@ function isWallpaperId(value: unknown): value is string {
 
 function nonEmpty(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
+}
+
+/**
+ * v1 → v2 (FORGED ARMOR): the Study workspace's old default look (Plasma
+ * accent, Nebula wallpaper) moves to the new default (Ember, Forge Night).
+ * A Plasma accent with another wallpaper was a choice: only the accent
+ * default is replaced then if it is exactly the old default value.
+ */
+function migrateToArmor(persisted: unknown): unknown {
+  if (!persisted || typeof persisted !== 'object') return persisted;
+  const raw = persisted as { workspaces?: unknown };
+  if (!Array.isArray(raw.workspaces)) return persisted;
+  const study = DEFAULT_WORKSPACES.find((w) => w.id === 'study');
+  const workspaces = (raw.workspaces as Partial<Workspace>[]).map((w) => {
+    if (!w || w.id !== 'study' || !study) return w;
+    const accent = typeof w.accentColor === 'string' ? w.accentColor.trim().toLowerCase() : '';
+    if (accent !== PREVIOUS_DEFAULT_ACCENT && accent !== '#00f0ff') return w;
+    return {
+      ...w,
+      accentColor: DEFAULT_ACCENT,
+      wallpaper: w.wallpaper === 'nebula' ? study.wallpaper : w.wallpaper,
+    };
+  });
+  return { ...raw, workspaces };
 }
 
 interface PersistedWorkspaces {
@@ -141,7 +165,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     })),
     {
       name: 'warrior-os-workspaces',
-      version: 1,
+      version: 2,
       partialize: (state): PersistedWorkspaces => ({
         activeWorkspaceId: state.activeWorkspaceId,
         looksSaved: state.looksSaved,
@@ -149,7 +173,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       }),
       // v0 never shipped (the store was session-only); any older or odd
       // shape is rebuilt from the defaults by sanitize().
-      migrate: (persisted) => sanitize(persisted) as unknown as WorkspaceStore,
+      // v1 → v2: see migrateToArmor().
+      migrate: (persisted, version) =>
+        sanitize(version < 2 ? migrateToArmor(persisted) : persisted) as unknown as WorkspaceStore,
       merge: (persisted, current) => ({ ...current, ...sanitize(persisted) }),
     }
   )

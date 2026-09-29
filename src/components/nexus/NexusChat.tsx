@@ -100,12 +100,12 @@ export function NexusTypingIndicator() {
   return (
     <div className="flex items-start gap-3" role="status" aria-label="NEXUS is typing">
       <NexusOrb pulse />
-      <div className="flex h-10 items-center gap-2.5 rounded-card rounded-tl-[4px] border border-line bg-surface-2 px-3.5">
+      <div className="chamfer-md [--cut-tl:0px] bg-linear-to-br from-steel-750/95 via-steel-800/95 to-steel-850/95 shadow-[inset_2px_0_0_var(--color-plasma-400),inset_3px_0_10px_-6px_var(--color-plasma-400),inset_0_1px_0_rgb(255_255_255/0.07),inset_0_-1px_0_rgb(0_0_0/0.55)] flex h-10 items-center gap-2.5 px-3.5">
         <span className="flex items-center gap-1" aria-hidden>
           {[0, 1, 2].map((i) => (
             <motion.span
               key={i}
-              className="size-1.5 rounded-full bg-plasma-300"
+              className="size-1.5 rotate-45 bg-plasma-300"
               animate={reduce ? { opacity: 0.8 } : { opacity: [0.25, 1, 0.25], y: [0, -2, 0] }}
               transition={reduce ? undefined : { duration: 1, repeat: Infinity, delay: i * 0.16, ease: 'easeInOut' }}
             />
@@ -190,12 +190,12 @@ function ActionRow({
             onClick={() => onAction(action)}
             disabled={busy && ask}
             className={cn(
-              'focus-ring group/chip inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium',
-              'transition-[background-color,border-color,color] duration-120 ease-out-quint',
+              'chamfer-xs focus-ring group/chip inline-flex h-7 max-w-full items-center gap-1.5 px-2.5 text-xs font-medium',
+              'transition-[background-color,filter,color] duration-120 ease-out-quint',
               'disabled:pointer-events-none disabled:opacity-45',
               ask
-                ? 'border-line-strong bg-surface-2 text-fg-muted hover:border-fg-faint hover:bg-surface-hover hover:text-fg'
-                : 'border-accent/25 bg-accent/8 text-fg hover:border-accent/45 hover:bg-accent/15 active:bg-accent/20'
+                ? 'armor-plate text-fg-muted hover:brightness-120 hover:text-fg'
+                : 'bg-accent/10 text-fg shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_30%,transparent),inset_0_-2px_0_var(--accent)] hover:bg-accent/18 active:bg-accent/24'
             )}
             title={ask ? `Ask: ${action.prompt}` : 'Run in Warrior OS'}
           >
@@ -228,8 +228,10 @@ function NexusMessageBubbleInner({ message, onAction, busy, canSpeak }: BubblePr
       <div className="flex flex-col items-center gap-2 py-1">
         <div
           className={cn(
-            'flex max-w-[92%] items-center gap-2 rounded-full border px-3 py-1 text-xs',
-            failed ? 'border-danger/30 bg-danger/8 text-danger' : 'border-line bg-surface-2 text-fg-muted'
+            'chamfer-sm flex max-w-[92%] items-center gap-2 px-3 py-1 text-xs',
+            failed
+              ? 'bg-danger/8 text-danger shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-danger)_30%,transparent)]'
+              : 'bg-steel-850/80 text-fg-muted shadow-[inset_0_1px_0_rgb(255_255_255/0.06),inset_0_-1px_0_rgb(0_0_0/0.5)]'
           )}
         >
           {failed ? (
@@ -255,7 +257,7 @@ function NexusMessageBubbleInner({ message, onAction, busy, canSpeak }: BubblePr
     return (
       <div className="flex justify-end pl-10">
         <div className="flex min-w-0 max-w-[min(86%,560px)] flex-col items-end gap-1">
-          <div className="rounded-card rounded-tr-[4px] border border-accent/20 bg-accent/12 px-3.5 py-2 text-fg">
+          <div className="chamfer-md [--cut-tr:0px] bg-linear-to-bl from-ember-500/[0.16] via-ember-600/[0.09] to-steel-800/90 shadow-[inset_-2px_0_0_var(--color-ember-400),inset_-3px_0_10px_-6px_var(--color-ember-500),inset_0_1px_0_rgb(255_220_190/0.08),inset_0_-1px_0_rgb(0_0_0/0.5)] px-3.5 py-2 text-fg">
             <p className="select-text whitespace-pre-wrap break-words text-sm">{message.content}</p>
           </div>
           <div className="flex h-5 items-center gap-2 px-1 text-2xs text-fg-subtle">
@@ -278,8 +280,8 @@ function NexusMessageBubbleInner({ message, onAction, busy, canSpeak }: BubblePr
       <div className="flex min-w-0 max-w-[min(100%,680px)] flex-col items-start gap-2">
         <div
           className={cn(
-            'max-w-full rounded-card rounded-tl-[4px] border px-3.5 py-2.5 text-fg',
-            failed ? 'border-danger/30 bg-danger/8' : 'border-line bg-surface-2'
+            'max-w-full px-3.5 py-2.5 text-fg',
+            failed ? 'chamfer-md [--cut-tl:0px] bg-danger/8 shadow-[inset_2px_0_0_var(--color-danger),inset_0_0_0_1px_color-mix(in_oklab,var(--color-danger)_25%,transparent)]' : 'chamfer-md [--cut-tl:0px] bg-linear-to-br from-steel-750/95 via-steel-800/95 to-steel-850/95 shadow-[inset_2px_0_0_var(--color-plasma-400),inset_3px_0_10px_-6px_var(--color-plasma-400),inset_0_1px_0_rgb(255_255_255/0.07),inset_0_-1px_0_rgb(0_0_0/0.55)]'
           )}
         >
           <NexusMarkdown text={message.content} />
@@ -338,7 +340,7 @@ function DefaultEmptyState({ onPick }: { onPick: (text: string) => void }) {
             key={prompt}
             type="button"
             onClick={() => onPick(prompt)}
-            className="focus-ring h-7 rounded-full border border-line-strong bg-surface-2 px-2.5 text-xs font-medium text-fg-muted transition-colors duration-120 ease-out-quint hover:border-fg-faint hover:bg-surface-hover hover:text-fg"
+            className="armor-plate chamfer-xs focus-ring h-7 px-2.5 text-xs font-medium text-fg-muted transition-[filter,color] duration-120 ease-out-quint hover:brightness-120 hover:text-fg"
           >
             {prompt}
           </button>
@@ -493,7 +495,7 @@ function NexusChatInner({
                 stickToBottomRef.current = true;
                 scrollToBottom(true);
               }}
-              className="focus-ring glass-popover absolute bottom-3 left-1/2 flex h-7 -translate-x-1/2 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-fg-muted transition-colors duration-120 hover:text-fg"
+              className="focus-ring armor-popover chamfer-sm absolute bottom-3 left-1/2 flex h-7 -translate-x-1/2 items-center gap-1.5 px-3 text-xs font-medium text-fg-muted transition-colors duration-120 hover:text-fg"
             >
               <ArrowDown size={13} strokeWidth={2} aria-hidden />
               Latest
@@ -507,11 +509,12 @@ function NexusChatInner({
         <div className="mx-auto w-full max-w-3xl">
           <div
             className={cn(
-              'flex items-end gap-1 rounded-card border bg-ink-950/60 p-1.5',
-              'transition-[border-color,box-shadow] duration-120 ease-out-quint',
+              // Sunk slot: the composer is cut into the plate; focus heats its lower edge.
+              'chamfer-sm flex items-end gap-1 bg-linear-to-b from-steel-950 to-steel-900 p-1.5',
+              'transition-[box-shadow] duration-120 ease-out-quint',
               atLimit
-                ? 'border-danger/60 focus-within:ring-3 focus-within:ring-danger/15'
-                : 'border-line-strong hover:border-fg-faint focus-within:border-accent/60 focus-within:ring-3 focus-within:ring-accent/12'
+                ? 'shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_6px_rgb(0_0_0/0.45),inset_0_-1px_0_rgb(255_255_255/0.07),inset_0_0_0_1px_color-mix(in_oklab,var(--color-danger)_55%,transparent),inset_0_-2px_0_var(--color-danger)]'
+                : 'shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_6px_rgb(0_0_0/0.45),inset_0_-1px_0_rgb(255_255_255/0.07)] hover:shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_6px_rgb(0_0_0/0.45),inset_0_-1px_0_rgb(255_255_255/0.07),inset_0_0_0_1px_var(--color-line-strong)] focus-within:shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_6px_rgb(0_0_0/0.45),inset_0_-1px_0_rgb(255_255_255/0.07),inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_45%,transparent),inset_0_-2px_0_var(--accent),inset_0_-14px_16px_-12px_color-mix(in_oklab,var(--accent)_45%,transparent)]'
             )}
           >
             <NexusVoiceButton />

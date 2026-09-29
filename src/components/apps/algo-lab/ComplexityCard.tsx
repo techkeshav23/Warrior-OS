@@ -9,6 +9,7 @@
 import { memo } from 'react';
 import { Check, Gauge, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ENGRAVED_LABEL } from '@/components/ui/armor';
 import { Badge } from '@/components/ui';
 import type { AlgorithmMeta } from '@/types/algo';
 
@@ -52,9 +53,9 @@ function ComplexityCardInner({ meta, compact = false }: ComplexityCardProps) {
   ];
 
   return (
-    <section className="glass-panel shrink-0 rounded-card p-3" aria-label={`${meta.name} complexity`}>
+    <section className="armor-panel shrink-0 p-3 [--cut:10px]" aria-label={`${meta.name} complexity`}>
       <div className="mb-2.5 flex items-center justify-between gap-2 px-1">
-        <span className="hud-label flex items-center gap-1.5">
+        <span className={cn(ENGRAVED_LABEL, 'flex items-center gap-1.5')}>
           <Gauge size={14} strokeWidth={1.75} aria-hidden />
           Complexity
         </span>
@@ -65,13 +66,13 @@ function ComplexityCardInner({ meta, compact = false }: ComplexityCardProps) {
         )}
       </div>
 
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-control bg-line">
+      <dl className="chamfer-sm grid grid-cols-2 gap-px overflow-hidden bg-black/60">
         {rows.map((row) => {
           const growth = GROWTH[growthOf(row.value)];
           return (
-            <div key={row.label} className="bg-ink-900 px-2.5 py-2" title={`${row.label}: ${row.value} (${growth.label})`}>
+            <div key={row.label} className="bg-steel-900 px-2.5 py-2 shadow-[inset_0_1px_0_rgb(255_255_255/0.04)]" title={`${row.label}: ${row.value} (${growth.label})`}>
               <dt className="hud-label flex items-center gap-1.5">
-                <span aria-hidden className={cn('size-1.5 rounded-full', growth.dot)} />
+                <span aria-hidden className={cn('size-1.5 rotate-45', growth.dot)} />
                 {row.label}
               </dt>
               <dd

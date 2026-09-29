@@ -130,7 +130,7 @@ export function useDatasetControls(): { toolbar: ReactNode; subbar: ReactNode } 
   const subbar = editorOpen ? (
     <form
       onSubmit={applyCustom}
-      className="flex shrink-0 flex-wrap items-start gap-x-2 gap-y-1 border-b border-line bg-ink-950/30 px-3 py-2 animate-fade-in"
+      className="flex shrink-0 flex-wrap items-start gap-x-2 gap-y-1 bg-steel-900 px-3 py-2 shadow-[inset_0_-1px_0_rgb(0_0_0/0.7)] animate-fade-in"
     >
       <div className="min-w-[14rem] flex-1">
         <Input

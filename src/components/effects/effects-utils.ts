@@ -44,7 +44,7 @@ export const FX_IGNORE_SELECTOR = '[data-fx-ignore]';
  * (the CSS tokens name "Orbitron", which next/font registers under a
  * generated family name exposed as --font-orbitron on <body>).
  */
-export const FX_DISPLAY_FONT = 'var(--font-orbitron, "Orbitron"), var(--font-sans)';
+export const FX_DISPLAY_FONT = 'var(--font-display, var(--font-forge, "Chakra Petch")), var(--font-sans)';
 
 /** True when the user asked the OS for reduced motion. Call from handlers/effects. */
 export function prefersReducedMotion(): boolean {

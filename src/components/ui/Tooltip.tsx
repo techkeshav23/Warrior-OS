@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Tooltip (FORGE HUD kit)
+// WARRIOR OS — Tooltip (FORGED ARMOR kit)
 // Small popover label shown on hover and keyboard focus. Rendered in a
 // portal with fixed positioning, so window bodies (overflow: hidden)
 // never clip it. Optional keyboard shortcut renders as <Kbd>.
@@ -144,7 +144,7 @@ export function Tooltip({
             role="tooltip"
             className={cn(
               'pointer-events-none fixed z-[9990] flex max-w-72 items-center gap-2',
-              'glass-popover rounded-control px-2 py-1',
+              'armor-popover chamfer [--cut:5px] px-2 py-1 shadow-[inset_0_-1px_0_var(--color-ember-500,#f76b15)]',
               'text-xs font-medium text-fg',
               'motion-safe:animate-scale-in',
               className
@@ -153,7 +153,7 @@ export function Tooltip({
           >
             <span className="min-w-0">{content}</span>
             {shortcut && (
-              <kbd className="rounded-[4px] border border-line-strong bg-ink-800 px-1 font-mono text-2xs text-fg-muted">
+              <kbd className="chamfer [--cut:3px] bg-linear-to-b from-[#303843] to-[#171b21] px-1 font-mono text-2xs text-fg-muted shadow-[inset_0_1px_0_rgb(255_255_255/0.14),inset_0_-1px_0_rgb(0_0_0/0.6)]">
                 {shortcut}
               </kbd>
             )}

@@ -260,6 +260,22 @@ function subjectFromTarget(target: string): string {
 // ─── Wallpapers ───
 
 const WALLPAPER_ALIASES: ReadonlyArray<readonly [string, string]> = [
+  ['ember storm', 'embers'],
+  ['embers', 'embers'],
+  ['sparks', 'embers'],
+  ['molten core', 'molten'],
+  ['molten', 'molten'],
+  ['lava', 'molten'],
+  ['magma', 'molten'],
+  ['battlefield dusk', 'dusk'],
+  ['battlefield', 'dusk'],
+  ['dusk', 'dusk'],
+  ['sunset', 'dusk'],
+  ['steel rain', 'steelrain'],
+  ['storm', 'steelrain'],
+  ['lightning', 'steelrain'],
+  ['forge night', 'void'],
+  ['forge', 'void'],
   ['void minimal', 'void'],
   ['star field', 'starfield'],
   ['northern lights', 'aurora'],
@@ -299,6 +315,26 @@ export function matchWallpaper(text: string): string | null {
 
 export function wallpaperName(id: string): string {
   return WALLPAPER_OPTIONS.find((w) => w.id === id)?.name ?? id;
+}
+
+/**
+ * change_wallpaper also takes these instead of a wallpaper id: the
+ * executor steps back through the catalog or picks a random other one.
+ * (No id at all still means "next".)
+ */
+export const WALLPAPER_RANDOM = 'random';
+export const WALLPAPER_PREVIOUS = 'previous';
+
+const WALLPAPER_RANDOM_RE = /\b(?:random|shuffle|surprise|any|kuch\s+bhi|koi\s+bhi)\b/;
+const WALLPAPER_PREVIOUS_RE = /\b(?:previous|prev|pichla|pichhla|pichle|last|back)\b/;
+
+/** A wallpaper id, or the "random" / "previous" option, named in the text. */
+function wallpaperTarget(text: string): string | null {
+  const id = matchWallpaper(text);
+  if (id) return id;
+  if (WALLPAPER_RANDOM_RE.test(text)) return WALLPAPER_RANDOM;
+  if (WALLPAPER_PREVIOUS_RE.test(text)) return WALLPAPER_PREVIOUS;
+  return null;
 }
 
 // ─── Rule helpers ───
@@ -412,11 +448,11 @@ function parseWallpaper(text: string): NexusCommand | null {
   if (!/\b(?:wallpaper|wallpapers|background|wall\s+paper|bg)\b/.test(text)) return null;
   const leftovers = leftoverWords(text, [
     /\b(?:wallpapers?|background|wall\s+paper|bg)\b/g,
-    /\b(?:change|set|switch|make|use|put|next|different|shuffle|badlo|badal|badle|laga|lagao|it)\b/g,
+    /\b(?:change|set|switch|make|use|put|next|different|shuffle|badlo|badal|badle|laga|lagao|it|surprise|any|kuch|koi|bhi|previous|prev|pichla|pichhla|pichle|last|back|go)\b/g,
     WALLPAPER_ALIAS_WORDS_RE,
   ]);
   if (leftovers.length > 1) return null;
-  const id = matchWallpaper(text.replace(/\b(?:wallpapers?|background|bg)\b/g, ' '));
+  const id = wallpaperTarget(text.replace(/\b(?:wallpapers?|background|bg)\b/g, ' '));
   return id ? { type: 'change_wallpaper', wallpaperId: id } : { type: 'change_wallpaper' };
 }
 
@@ -794,6 +830,8 @@ export function describeCommand(command: NexusCommand): string {
     case 'chill_mode':
       return 'Chill mode';
     case 'change_wallpaper':
+      if (command.wallpaperId === WALLPAPER_RANDOM) return 'Random wallpaper';
+      if (command.wallpaperId === WALLPAPER_PREVIOUS) return 'Previous wallpaper';
       return command.wallpaperId ? `Wallpaper: ${wallpaperName(command.wallpaperId)}` : 'Next wallpaper';
     case 'start_pomodoro':
       return command.focusMinutes ? `Start ${command.focusMinutes} min pomodoro` : 'Start pomodoro';
@@ -855,7 +893,7 @@ export function resolveWireCommand(wire: NexusWireAction, apps: readonly NexusAp
     case 'chill_mode':
       return { type: 'chill_mode' };
     case 'change_wallpaper': {
-      const id = target ? matchWallpaper(target) : null;
+      const id = target ? wallpaperTarget(target.toLowerCase()) : null;
       return id ? { type: 'change_wallpaper', wallpaperId: id } : { type: 'change_wallpaper' };
     }
     case 'start_pomodoro': {

@@ -63,28 +63,28 @@ function AppLoadingInner({ label, className, error, retry }: AppLoadingProps) {
     >
       {/* Toolbar skeleton */}
       <div className="flex items-center gap-2">
-        <Skeleton className="h-7 w-24 rounded-control" />
-        <Skeleton className="h-7 flex-1 rounded-control opacity-60" />
-        <Skeleton className="size-7 rounded-control" />
+        <Skeleton className="h-7 w-24 chamfer-sm" />
+        <Skeleton className="h-7 flex-1 chamfer-sm opacity-60" />
+        <Skeleton className="size-7 chamfer-sm" />
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4">
         {/* Sidebar skeleton (container query: hidden in narrow windows) */}
         <div className="hidden w-1/4 min-w-[96px] flex-col gap-2 @md:flex">
           {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-7 rounded-control opacity-70" />
+            <Skeleton key={i} className="h-7 chamfer-sm opacity-70" />
           ))}
         </div>
 
         {/* Content card skeleton */}
-        <div className="glass-panel flex min-w-0 flex-1 flex-col gap-3 rounded-card p-4">
+        <div className="armor-panel chamfer-md flex min-w-0 flex-1 flex-col gap-3 p-4">
           <Skeleton className="h-4 w-1/3" />
           {LINE_WIDTHS.map((width) => (
             <Skeleton key={width} className={width} />
           ))}
           <div className="mt-auto grid grid-cols-3 gap-2">
             {[0, 1, 2].map((i) => (
-              <Skeleton key={i} shape="block" className="h-12 rounded-control opacity-70" />
+              <Skeleton key={i} shape="block" className="h-12 chamfer-sm opacity-70" />
             ))}
           </div>
         </div>

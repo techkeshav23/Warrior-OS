@@ -1,14 +1,14 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — "Deep Space" wallpaper (id: void)
-// The default / fallback wallpaper: lite mode, browsers without hardware
-// WebGL, and any wallpaper that crashes all land here, so it is the
-// desktop most visitors see first. Deep ink, a plasma aurora top-left,
-// dawn breaking over a planet's ember rim bottom-right, fine star dust,
+// WARRIOR OS — "Forge Night" wallpaper (id: void)
+// The default / fallback wallpaper: new visitors, lite mode, browsers
+// without hardware WebGL, and any wallpaper that crashes all land here.
+// A gunmetal night: cold steel sky, a jagged ridge rim-lit by the ember
+// glow of a forge below it, sparks rising from the valley, faint ash,
 // vignette and grain.
 // CSS-only (src/styles/deep-space.css): painted once, zero JS animation.
-// The only motion is a very slow compositor drift of the aurora, which
-// stops under reduced motion and lite mode. In live mode the mouse
-// uniforms feed a gentle two-depth parallax through CSS variables.
+// The only motion is a slow compositor "breathing" of the forge glow,
+// which stops under reduced motion and lite mode. In live mode the mouse
+// uniforms feed a gentle three-depth parallax through CSS variables.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -29,7 +29,8 @@ function VoidMinimalInner({ mouseX, mouseY }: WallpaperProps) {
 
   return (
     <div className="wos-deep-space" style={style} aria-hidden="true">
-      <div className="wos-deep-space__aurora" />
+      <div className="wos-deep-space__heat" />
+      <div className="wos-deep-space__sparks" />
       <div className="wos-deep-space__field" />
     </div>
   );

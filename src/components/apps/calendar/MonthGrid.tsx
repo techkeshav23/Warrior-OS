@@ -73,24 +73,29 @@ const DayCell = memo(function DayCell({
       className={cn(
         'group relative flex min-w-0 cursor-default flex-col gap-1 overflow-hidden border-b border-r border-line p-1 outline-none last:border-r-0',
         'transition-colors duration-120 ease-out-quint',
-        'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
+        'shadow-[inset_1px_1px_0_rgb(255_255_255/0.03)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
         isSelected
           ? 'bg-accent/[0.07] hover:bg-accent/10'
           : inMonth
-            ? cn(weekend && 'bg-ink-950/20', 'hover:bg-surface-hover')
-            : 'bg-ink-950/40 hover:bg-surface-2'
+            ? cn(weekend && 'bg-steel-950/30', 'hover:bg-surface-hover')
+            : 'bg-steel-950/55 hover:bg-surface-2'
       )}
     >
       {/* Today: accent edge along the top */}
       {isToday && <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-accent shadow-[0_0_10px_var(--accent)]" />}
-      {isSelected && <span aria-hidden className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-accent/35" />}
+      {isSelected && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_45%,transparent),inset_0_-2px_0_var(--accent),inset_0_-14px_16px_-12px_color-mix(in_oklab,var(--accent)_45%,transparent)]"
+        />
+      )}
 
       <div className="flex items-center justify-between gap-1">
         <span
           className={cn(
-            'tabular flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs',
+            'tabular flex h-6 min-w-6 items-center justify-center px-1.5 text-xs',
             isToday
-              ? 'bg-accent font-semibold text-accent-fg'
+              ? 'chamfer-xs bg-linear-to-b from-accent to-accent/80 font-display font-semibold text-accent-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.45),inset_0_-1px_0_rgb(0_0_0/0.35)]'
               : inMonth
                 ? cn('font-medium', isSelected ? 'text-fg' : 'text-fg-muted')
                 : 'text-fg-faint'
@@ -108,7 +113,7 @@ const DayCell = memo(function DayCell({
             onCreate(dateKey);
           }}
           onDoubleClick={(e) => e.stopPropagation()}
-          className="flex size-5 items-center justify-center rounded-[5px] text-fg-subtle opacity-0 transition-[opacity,background-color,color] duration-120 hover:bg-surface-active hover:text-accent focus-visible:opacity-100 group-hover:opacity-100"
+          className="chamfer-xs flex size-5 items-center justify-center text-fg-subtle opacity-0 transition-[opacity,background-color,color] duration-120 hover:bg-surface-active hover:text-accent focus-visible:opacity-100 group-hover:opacity-100"
         >
           <Plus size={13} strokeWidth={2} />
         </button>
@@ -130,7 +135,7 @@ const DayCell = memo(function DayCell({
               onDoubleClick={(e) => e.stopPropagation()}
               title={`${occ.event.time ? formatTime12(occ.event.time) : 'All day'} · ${occ.event.title}`}
               className={cn(
-                'flex h-4 min-w-0 shrink-0 items-center gap-1 rounded-[3px] border-l-2 pl-1 pr-1 text-left text-[11px] leading-none text-fg',
+                'flex h-4 min-w-0 shrink-0 items-center gap-1 border-l-2 pl-1 pr-2 text-left text-[11px] leading-none text-fg [clip-path:polygon(0_0,calc(100%-5px)_0,100%_50%,calc(100%-5px)_100%,0_100%)]',
                 'transition-[filter,background-color] duration-120 hover:brightness-125',
                 !inMonth && 'opacity-55'
               )}
@@ -157,7 +162,7 @@ const DayCell = memo(function DayCell({
               onSelect(dateKey);
             }}
             onDoubleClick={(e) => e.stopPropagation()}
-            className="tabular self-start rounded-[4px] px-1 font-mono text-[10px] leading-4 text-fg-subtle transition-colors duration-120 hover:bg-surface-active hover:text-fg"
+            className="chamfer-xs tabular self-start px-1 font-mono text-[10px] leading-4 text-fg-subtle transition-colors duration-120 hover:bg-surface-active hover:text-fg"
           >
             +{hiddenBars} more
           </button>
@@ -168,7 +173,7 @@ const DayCell = memo(function DayCell({
       {count > 0 && (
         <div className="flex flex-wrap items-center gap-[3px] px-1 @xl:hidden" aria-hidden="true">
           {occurrences.slice(0, MAX_DOTS).map((occ) => (
-            <span key={occ.key} className="size-1.5 rounded-full" style={{ background: eventColor(occ.event.color) }} />
+            <span key={occ.key} className="size-1.5 rotate-45" style={{ background: eventColor(occ.event.color) }} />
           ))}
           {count > MAX_DOTS && (
             <span className="tabular font-mono text-[9px] leading-none text-fg-subtle">+{count - MAX_DOTS}</span>

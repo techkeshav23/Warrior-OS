@@ -32,6 +32,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button, IconButton, SegmentedControl } from '@/components/ui';
 import { ConfirmButton } from '@/components/apps/project-forge/ConfirmButton';
+import { BEVEL_SUNK, SLOT_FILL } from '@/components/ui/armor';
 import { useProjectForgeStore } from '@/stores/useProjectForgeStore';
 import { RESUME_ACCENTS, RESUME_SECTION_LABELS, useResumeStore } from '@/stores/useResumeStore';
 import type { ResumeDensity, ResumeFont, ResumeSectionKey } from '@/types/resume';
@@ -59,7 +60,7 @@ const SECTIONS: { key: EditorSection; label: string; hint: string; Icon: LucideI
   { key: 'layout', label: 'Layout & style', hint: 'Section order, accent, font, spacing', Icon: Palette },
 ];
 
-const LABEL = 'text-xs font-medium text-fg-muted';
+const LABEL = 'engraved font-display text-2xs font-semibold uppercase tracking-[0.16em] text-fg-muted';
 
 // ─── Sections ───
 
@@ -489,7 +490,7 @@ function LayoutSection() {
           {order.map((key, i) => {
             const isHidden = hidden.includes(key);
             return (
-              <li key={key} className="flex h-10 items-center gap-1 rounded-control bg-ink-950/45 pl-3 pr-1.5">
+              <li key={key} className={cn('chamfer-sm flex h-10 items-center gap-1 pl-3 pr-1.5', SLOT_FILL, BEVEL_SUNK)}>
                 <span className="tabular w-5 font-mono text-2xs text-fg-subtle">{i + 1}</span>
                 <span className={cn('flex-1 text-ui', isHidden ? 'text-fg-subtle line-through decoration-fg-faint' : 'text-fg')}>
                   {RESUME_SECTION_LABELS[key]}
@@ -540,9 +541,11 @@ function LayoutSection() {
                 // Paper ink colours (printed content), shown as swatches.
                 style={{ '--swatch': accent.hex } as CSSProperties}
                 className={cn(
-                  'focus-ring flex size-8 items-center justify-center rounded-full bg-(--swatch) text-fg',
-                  'ring-offset-2 ring-offset-ink-900 transition-[box-shadow,transform] duration-120 ease-out-quint',
-                  active ? 'ring-2 ring-fg' : 'ring-1 ring-line-strong hover:ring-fg-subtle'
+                  'focus-ring chamfer-sm flex size-8 items-center justify-center bg-(--swatch) text-fg',
+                  'transition-[box-shadow,filter] duration-120 ease-out-quint',
+                  active
+                    ? 'shadow-[inset_0_0_0_2px_var(--color-fg),inset_0_0_0_3px_rgb(0_0_0/0.55)]'
+                    : 'shadow-[inset_0_1px_0_rgb(255_255_255/0.3),inset_0_-1px_0_rgb(0_0_0/0.45)] hover:brightness-110'
                 )}
               >
                 {active && <Check size={14} strokeWidth={2.5} aria-hidden />}
@@ -577,7 +580,8 @@ function LayoutSection() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-danger/20 bg-danger/[0.04] px-3.5 py-3">
+      <div className="armor-panel chamfer-md relative flex flex-wrap items-center justify-between gap-3 bg-danger/[0.05] px-3.5 py-3">
+        <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-0.5 bg-linear-to-b from-danger/80 to-danger/10" />
         <div className="min-w-0">
           <p className="text-ui font-medium text-fg">Clear resume</p>
           <p className="text-xs text-fg-subtle">Erases every section. Style settings stay.</p>
@@ -663,30 +667,34 @@ function ResumeEditorInner() {
             <div
               key={key}
               className={cn(
-                'glass-panel rounded-card transition-[border-color] duration-180 ease-out-quint',
-                isOpen && 'border-line-strong'
+                'armor-panel chamfer-md relative transition-[background-color] duration-180 ease-out-quint',
+                isOpen && 'bg-steel-750/80'
               )}
             >
+              {/* Open plate: a heated marker on the left edge */}
+              {isOpen && (
+                <span aria-hidden className="pointer-events-none absolute left-0 top-4 h-6 w-1 bg-ember-500 shadow-[0_0_8px_var(--color-ember-500)]" />
+              )}
               <button
                 type="button"
                 onClick={() => toggle(key)}
                 aria-expanded={isOpen}
-                className="focus-ring-inset group/section flex w-full items-center gap-3 rounded-card px-3.5 py-3 text-left transition-colors duration-120 hover:bg-surface-hover"
+                className="focus-ring-inset group/section flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors duration-120 hover:bg-surface-hover"
               >
                 <span
                   className={cn(
-                    'flex size-8 shrink-0 items-center justify-center rounded-control border bg-ink-800 transition-colors duration-120',
-                    isOpen ? 'border-accent/30 text-accent' : 'border-line text-fg-muted group-hover/section:text-fg'
+                    'armor-plate chamfer-sm flex size-8 shrink-0 items-center justify-center transition-colors duration-120',
+                    isOpen ? 'ember-edge text-accent' : 'text-fg-muted group-hover/section:text-fg'
                   )}
                 >
                   <Icon size={16} strokeWidth={1.75} aria-hidden />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-fg">{label}</span>
+                  <span className="engraved block font-display text-sm font-semibold uppercase tracking-[0.08em] text-fg">{label}</span>
                   <span className="block truncate text-xs text-fg-subtle">{summary}</span>
                 </span>
                 {count !== undefined && count > 0 && (
-                  <span className="tabular rounded-full bg-surface-active px-1.5 font-mono text-2xs leading-4 text-fg-muted">
+                  <span className="tabular chamfer-xs bg-steel-900 px-1.5 font-mono text-2xs leading-4 text-fg-muted shadow-[inset_0_1px_0_rgb(0_0_0/0.6),inset_0_-1px_0_rgb(255_255_255/0.06)]">
                     {count}
                   </span>
                 )}
@@ -702,7 +710,7 @@ function ResumeEditorInner() {
                   {notice && notice.section === key && (
                     <div
                       role="status"
-                      className="flex items-start gap-2 rounded-control bg-info/10 py-2 pl-3 pr-1.5 text-xs text-fg-muted"
+                      className="chamfer-sm flex items-start gap-2 bg-info/10 py-2 pl-3 pr-1.5 text-xs text-fg-muted shadow-[inset_2px_0_0_var(--color-info)]"
                     >
                       <Info size={14} strokeWidth={1.75} aria-hidden className="mt-px shrink-0 text-info" />
                       <span className="flex-1 pt-px">{notice.text}</span>

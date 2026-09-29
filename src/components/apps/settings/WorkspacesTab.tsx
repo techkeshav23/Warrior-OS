@@ -16,7 +16,8 @@ import { ACCENT_PRESETS, resolveAccent } from '@/styles/tokens';
 import type { Workspace, WorkspaceId } from '@/types/workspace';
 import { WALLPAPERS, WallpaperThumb, resolveWallpaper, wallpaperLabel } from './wallpapers';
 import { updateWorkspaceLook } from './workspace-looks';
-import { SettingsPage, SettingsSection } from './parts';
+import { BEVEL_RAISED, BEVEL_SUNK, ENGRAVED_LABEL, SLOT_FILL, STEEL_PLATE } from '@/components/ui/armor';
+import { GROOVE, SettingsPage, SettingsSection } from './parts';
 
 /** Workspace.icon holds a lucide icon name. */
 const ICONS: Record<string, LucideIcon> = { GraduationCap, Code2: CodeXml, CodeXml, Music };
@@ -68,21 +69,45 @@ function WorkspaceCard({
   const windows = ws.openWindowIds?.length || 0;
 
   return (
-    <Card padding="none" tone={active ? 'accent' : 'default'} role="group" aria-label={`${ws.name} workspace`}>
+    <Card
+      padding="none"
+      hud={active}
+      tone={active ? 'accent' : 'default'}
+      role="group"
+      aria-label={`${ws.name} workspace`}
+      className="chamfer-tl-br"
+    >
       {/* Identity */}
-      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-3 px-4 py-3.5">
-        <div className="relative w-20 shrink-0 overflow-hidden rounded-control border border-line-strong">
-          <WallpaperThumb id={ws.wallpaper} />
+      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-3 py-3.5 pr-4 pl-5">
+        {/* Stamped bay number */}
+        <span
+          aria-hidden
+          className={cn(
+            'engraved flex h-12 w-7 shrink-0 flex-col items-center justify-center font-display text-lg leading-none font-bold tabular chamfer-xs',
+            SLOT_FILL,
+            BEVEL_SUNK,
+            active ? 'text-accent' : 'text-steel-400'
+          )}
+        >
+          {String(index + 1).padStart(2, '0')}
+        </span>
+        {/* Wallpaper viewport, set into a bevelled frame */}
+        <div className={cn('relative w-20 shrink-0 overflow-hidden chamfer [--cut:5px] p-0.5', STEEL_PLATE, BEVEL_RAISED)}>
+          <div className="chamfer-xs overflow-hidden">
+            <WallpaperThumb id={ws.wallpaper} />
+          </div>
           <span
             style={accentVar(accent)}
-            className="absolute bottom-1 left-1 flex size-6 items-center justify-center rounded-[6px] border border-accent/40 bg-ink-950/80 text-accent"
+            className="absolute bottom-1 left-1 flex size-6 items-center justify-center chamfer-xs bg-ink-950/85 text-accent shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_45%,transparent)]"
           >
             <Icon size={14} strokeWidth={1.75} aria-hidden />
           </span>
         </div>
         <div className="min-w-0 flex-1 basis-32">
           <div className="flex min-w-0 items-center gap-2">
-            <p className="truncate text-sm font-semibold text-fg">{ws.name}</p>
+            <p className="truncate font-display text-sm font-semibold uppercase tracking-[0.08em] text-fg" title={ws.name}>
+              {ws.name}
+            </p>
             {active && (
               <Badge tone="accent" dot size="sm">
                 Active
@@ -108,9 +133,9 @@ function WorkspaceCard({
       </div>
 
       {/* Look editor */}
-      <div className="flex flex-col gap-3 border-t border-line px-4 py-3 @lg:flex-row @lg:items-center @lg:justify-between">
+      <div className={cn('flex flex-col gap-3 bg-black/15 py-3 pr-4 pl-5 @lg:flex-row @lg:items-center @lg:justify-between', GROOVE)}>
         <div role="group" aria-label={`${ws.name} accent`} className="flex flex-wrap items-center gap-2">
-          <span className="hud-label mr-1 w-20">Accent</span>
+          <span className={cn(ENGRAVED_LABEL, 'mr-1 w-20')}>Accent</span>
           {ACCENT_PRESETS.map((p) => {
             const selected = p.value === accent;
             return (
@@ -123,9 +148,12 @@ function WorkspaceCard({
                 onClick={() => updateWorkspaceLook(ws.id, { accentColor: p.value })}
                 style={accentVar(p.value)}
                 className={cn(
-                  'focus-ring flex size-7 items-center justify-center rounded-full bg-accent',
-                  'ring-offset-2 ring-offset-ink-900 transition-shadow duration-180 ease-out-quint',
-                  selected ? 'ring-2 ring-accent' : 'hover:ring-2 hover:ring-line-strong'
+                  'flex size-7 items-center justify-center chamfer [--cut:6px] bg-accent',
+                  'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-fg',
+                  'transition-[box-shadow,filter] duration-180 ease-out-quint',
+                  selected
+                    ? 'shadow-[inset_0_0_0_2px_var(--color-ink-950),inset_0_0_0_3.5px_var(--color-fg)]'
+                    : 'shadow-[inset_0_1px_0_rgb(255_255_255/0.35),inset_0_-2px_0_rgb(0_0_0/0.35)] hover:brightness-115'
                 )}
               >
                 {selected && <Check size={12} strokeWidth={2.75} className="text-accent-fg" aria-hidden />}
@@ -134,7 +162,7 @@ function WorkspaceCard({
           })}
         </div>
         <div className="flex items-center gap-2 @lg:w-52">
-          <span className="hud-label w-20 shrink-0 @lg:hidden">Wallpaper</span>
+          <span className={cn(ENGRAVED_LABEL, 'w-20 shrink-0 @lg:hidden')}>Wallpaper</span>
           <Select
             size="sm"
             aria-label={`${ws.name} wallpaper`}

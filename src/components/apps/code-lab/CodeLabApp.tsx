@@ -42,6 +42,7 @@ import {
 } from '@/components/ui';
 import { highlight } from './syntax';
 import { cn } from '@/lib/utils';
+import { ENGRAVED_LABEL } from '@/components/ui/armor';
 
 const STORE_KEY = 'warrior-codelab';
 const LAYOUT_KEY = 'warrior-codelab-layout';
@@ -85,17 +86,17 @@ body {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at 50% 0%, #141b28, #04060b 70%);
-  color: #e6edf7;
+  background: radial-gradient(circle at 50% 0%, #1b2026, #050608 70%);
+  color: #eceae6;
   font-family: Inter, system-ui, sans-serif;
 }
 
 .card {
   max-width: 360px;
   padding: 32px 36px;
-  border: 1px solid rgba(148, 170, 205, 0.18);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
+  background: linear-gradient(#232930, #15191e);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.6);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
   text-align: center;
 }
 
@@ -104,23 +105,25 @@ body {
   font: 500 11px/16px ui-monospace, monospace;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #6f7d94;
+  color: #78818c;
 }
 
-h1 { margin: 8px 0; font-size: 32px; color: #2fd6f5; }
-.lead { margin: 0 0 20px; color: #a0adc2; line-height: 1.5; }
+h1 { margin: 8px 0; font-size: 32px; color: #ff8a3d; text-transform: uppercase; letter-spacing: 0.04em; }
+.lead { margin: 0 0 20px; color: #aab0b8; line-height: 1.5; }
 
 button {
   padding: 10px 18px;
   border: 0;
-  border-radius: 8px;
-  background: linear-gradient(#ff8a3d, #f76b15);
-  color: #04060b;
+  background: linear-gradient(#ffb27a, #ff8a3d 45%, #d4520b);
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
+  color: #1a0a02;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   font-weight: 600;
   cursor: pointer;
 }
 
-#out { margin: 12px 0 0; color: #6f7d94; font-size: 13px; }`,
+#out { margin: 12px 0 0; color: #78818c; font-size: 13px; }`,
   js: `let count = 0;
 const out = document.getElementById('out');
 
@@ -276,12 +279,12 @@ function CodeEditor({ value, lang, label, cursorLine, onChange, onRun, onCursor 
   };
 
   return (
-    <div className="relative flex min-h-0 flex-1 overflow-hidden bg-ink-850 font-mono text-ui leading-5 [font-variant-ligatures:none] [tab-size:2]">
+    <div className="relative flex min-h-0 flex-1 overflow-hidden bg-steel-950 font-mono text-ui leading-5 [font-variant-ligatures:none] [tab-size:2]">
       {/* Gutter */}
-      <div aria-hidden className="relative w-11 shrink-0 select-none overflow-hidden border-r border-line bg-ink-900/60">
+      <div aria-hidden className="brushed relative w-11 shrink-0 select-none overflow-hidden bg-steel-850 shadow-[inset_-1px_0_0_rgb(0_0_0/0.7),1px_0_0_rgb(255_255_255/0.04)]">
         <div ref={gutterRef} className="py-3 pr-2.5 text-right text-xs leading-5 text-fg-faint tabular">
           {Array.from({ length: lineCount }, (_, i) => (
-            <div key={i} className={cn(i + 1 === cursorLine && 'text-fg-muted')}>
+            <div key={i} className={cn(i + 1 === cursorLine && 'text-ember-300')}>
               {i + 1}
             </div>
           ))}
@@ -292,7 +295,7 @@ function CodeEditor({ value, lang, label, cursorLine, onChange, onRun, onCursor 
       <div className="relative min-w-0 flex-1 overflow-hidden">
         <div ref={layerRef} aria-hidden className="pointer-events-none absolute left-0 top-0 min-w-full">
           <div
-            className="absolute inset-x-0 h-5 bg-surface-hover"
+            className="absolute inset-x-0 h-5 bg-ember-500/[0.06] shadow-[inset_2px_0_0_var(--color-ember-500)]"
             style={{ top: `calc(0.75rem + ${(cursorLine - 1) * 1.25}rem)` }}
           />
           <pre className="relative m-0 whitespace-pre px-4 py-3 text-fg">
@@ -313,7 +316,7 @@ function CodeEditor({ value, lang, label, cursorLine, onChange, onRun, onCursor 
           autoComplete="off"
           autoCorrect="off"
           aria-label={`${label} editor`}
-          className="scrollbar-thin absolute inset-0 size-full resize-none overflow-auto whitespace-pre bg-transparent px-4 py-3 text-transparent caret-plasma-300 outline-none selection:bg-plasma-400/25 selection:text-transparent focus-visible:outline-none"
+          className="scrollbar-thin absolute inset-0 size-full resize-none overflow-auto whitespace-pre bg-transparent px-4 py-3 text-transparent caret-ember-300 outline-none selection:bg-ember-500/30 selection:text-transparent focus-visible:outline-none"
         />
       </div>
     </div>
@@ -324,7 +327,13 @@ function CodeEditor({ value, lang, label, cursorLine, onChange, onRun, onCursor 
 
 function PaneHeader({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('flex h-9 shrink-0 items-center gap-2 border-b border-line bg-ink-950/30 pl-3 pr-1.5', className)}>
+    <div
+      className={cn(
+        'brushed relative flex h-9 shrink-0 items-center gap-2 bg-steel-800 pl-3 pr-1.5',
+        'shadow-[inset_0_1px_0_rgb(255_255_255/0.07),inset_0_-1px_0_rgb(0_0_0/0.65)]',
+        className
+      )}
+    >
       {children}
     </div>
   );
@@ -437,9 +446,9 @@ function CodeLabAppInner() {
   const showPreview = layout !== 'editor';
 
   return (
-    <div className="@container flex h-full min-h-0 flex-col bg-ink-900 text-fg">
+    <div className="@container flex h-full min-h-0 flex-col bg-steel-900 text-fg">
       {/* ── Toolbar ── */}
-      <Toolbar aria-label="Code Lab" className="bg-ink-950/40">
+      <Toolbar aria-label="Code Lab" className="brushed bg-steel-850">
         <SegmentedControl<Lang>
           size="sm"
           aria-label="File"
@@ -452,7 +461,7 @@ function CodeLabAppInner() {
             value: f.lang,
             label: (
               <span className="flex items-center gap-1.5">
-                <span className={cn('size-1.5 shrink-0 rounded-full', f.dot)} aria-hidden />
+                <span className={cn('size-1.5 shrink-0 rotate-45', f.dot)} aria-hidden />
                 <span className="hidden font-mono @3xl:inline">{f.file}</span>
                 <span className="@3xl:hidden">{f.label}</span>
               </span>
@@ -492,13 +501,18 @@ function CodeLabAppInner() {
             aria-label="Editor"
             className={cn(
               'flex min-h-0 min-w-0 flex-1 flex-col',
-              showPreview && (layout === 'stack' ? 'border-b border-line' : 'border-r border-line')
+              showPreview &&
+                (layout === 'stack'
+                  ? 'shadow-[inset_0_-1px_0_rgb(0_0_0/0.8),0_1px_0_rgb(255_255_255/0.05)]'
+                  : 'shadow-[inset_-1px_0_0_rgb(0_0_0/0.8),1px_0_0_rgb(255_255_255/0.05)]')
             )}
           >
             <PaneHeader>
-              <span className={cn('size-2 shrink-0 rounded-full', file.dot)} aria-hidden />
-              <span className="truncate font-mono text-xs text-fg">{file.file}</span>
-              <span className="hud-label">{file.label}</span>
+              <span className="notch -ml-3 flex h-full items-center gap-2 bg-steel-700 px-3.5 shadow-[inset_0_-2px_0_var(--color-ember-500)] [--notch:5px]">
+                <span className={cn('size-2 shrink-0 rotate-45', file.dot)} aria-hidden />
+                <span className="truncate font-mono text-xs text-fg">{file.file}</span>
+              </span>
+              <span className={ENGRAVED_LABEL}>{file.label}</span>
               <span className="flex-1" />
               <span className="pr-1.5 font-mono text-2xs text-fg-subtle tabular">
                 Ln {cursor.line}, Col {cursor.col}
@@ -526,14 +540,14 @@ function CodeLabAppInner() {
               {autoRun && <span className="absolute inset-0 rounded-full bg-success opacity-50 motion-safe:animate-ping" />}
               <span className={cn('relative size-2 rounded-full', autoRun ? 'bg-success' : 'bg-fg-subtle')} />
             </span>
-            <span className="hud-label text-fg-muted">Preview</span>
+            <span className={ENGRAVED_LABEL}>Preview</span>
             <span className="truncate font-mono text-2xs text-fg-subtle tabular">
               {autoRun ? 'Live' : 'Manual'} · ran {clockTime(doc.at)}
             </span>
             <span className="flex-1" />
             <IconButton icon={RotateCw} size="xs" iconSize={13} onClick={run} aria-label="Reload preview" tooltip />
           </PaneHeader>
-          <div className="relative min-h-0 flex-1 bg-ink-850">
+          <div className="relative min-h-0 flex-1 bg-steel-950">
             <iframe
               ref={iframeRef}
               title="Code Lab Preview"
@@ -544,13 +558,13 @@ function CodeLabAppInner() {
           </div>
 
           {/* Console */}
-          <div className={cn('flex shrink-0 flex-col border-t border-line bg-ink-900', consoleOpen && 'h-40')}>
-            <PaneHeader className={cn(!consoleOpen && 'border-b-0')}>
+          <div className={cn('flex shrink-0 flex-col bg-steel-900 shadow-[0_-1px_0_rgb(0_0_0/0.8)]', consoleOpen && 'h-40')}>
+            <PaneHeader>
               <button
                 type="button"
                 onClick={() => setConsoleOpen((open) => !open)}
                 aria-expanded={consoleOpen}
-                className="focus-ring -ml-1.5 flex h-7 items-center gap-1.5 rounded-control px-1.5 text-fg-muted transition-colors duration-120 hover:bg-surface-hover hover:text-fg"
+                className="focus-ring-inset chamfer-xs -ml-1.5 flex h-7 items-center gap-1.5 px-1.5 text-fg-muted transition-colors duration-120 hover:bg-steel-700 hover:text-ember-200"
               >
                 <ChevronDown
                   size={14}
@@ -559,7 +573,7 @@ function CodeLabAppInner() {
                   aria-hidden
                 />
                 <SquareTerminal size={14} strokeWidth={1.75} aria-hidden />
-                <span className="hud-label text-fg-muted">Console</span>
+                <span className={ENGRAVED_LABEL}>Console</span>
               </button>
               {errorCount > 0 && (
                 <Badge tone="danger" size="sm">
@@ -619,9 +633,9 @@ function CodeLabAppInner() {
       </div>
 
       {/* ── Status bar ── */}
-      <div className="flex h-7 shrink-0 items-center gap-3 border-t border-line bg-ink-950/40 px-3 font-mono text-2xs text-fg-subtle">
+      <div className="brushed flex h-7 shrink-0 items-center gap-3 bg-steel-850 px-3 font-mono text-2xs text-fg-subtle shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_-1px_0_rgb(0_0_0/0.7)]">
         <span className="flex items-center gap-1.5">
-          <span className={cn('size-1.5 rounded-full', file.dot)} aria-hidden />
+          <span className={cn('size-1.5 rotate-45', file.dot)} aria-hidden />
           {file.label}
         </span>
         <span className="tabular">

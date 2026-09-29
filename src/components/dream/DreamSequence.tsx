@@ -93,7 +93,7 @@ function DreamSequence({ onComplete, scene: sceneProp, skippable = true }: Dream
       </div>
       {skippable && (
         <div className="pointer-events-none absolute bottom-6 right-8 z-20 flex items-center gap-2 text-xs text-fg-subtle">
-          <kbd className="inline-flex h-5 items-center rounded-[5px] border border-line-strong bg-surface-2 px-1.5 font-mono text-2xs text-fg-muted">
+          <kbd className="armor-plate chamfer-xs inline-flex h-5 items-center px-1.5 font-mono text-2xs text-fg-muted">
             Esc
           </kbd>
           to skip

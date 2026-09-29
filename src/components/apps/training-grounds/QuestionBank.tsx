@@ -176,7 +176,7 @@ function FlashcardPractice({ card, onStudied }: PracticeProps & { card: Flashcar
 
 function FlashcardBack({ card }: { card: Flashcard }) {
   return (
-    <div className="space-y-1.5 rounded-control bg-success/8 px-3.5 py-3 ring-1 ring-inset ring-success/20">
+    <div className="relative space-y-1.5 chamfer-sm bg-success/8 px-3.5 py-3 ring-1 ring-inset ring-success/20 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-success/70">
       <p className="font-mono text-2xs font-medium uppercase tracking-[0.12em] text-success">Answer</p>
       <p className="select-text whitespace-pre-wrap text-ui text-fg">{card.back}</p>
       {card.explanation && (
@@ -413,7 +413,7 @@ function QuestionBankInner({ initialDeckId = null }: QuestionBankProps) {
 
       {/* Cards */}
       {filtered.length > 0 && (
-        <div className="glass-panel divide-y divide-line overflow-hidden rounded-card">
+        <div className="armor-panel chamfer-md divide-y divide-black/40 overflow-hidden">
           {filtered.slice(0, limit).map((location) => {
             const { card, deckName, topicName } = location;
             const open = expandedId === card.id;
@@ -434,8 +434,8 @@ function QuestionBankInner({ initialDeckId = null }: QuestionBankProps) {
                   <span
                     aria-hidden
                     className={cn(
-                      'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-control border bg-ink-800 transition-colors duration-120',
-                      open ? 'border-accent/40 text-accent' : 'border-line text-fg-subtle'
+                      'mt-0.5 flex size-7 shrink-0 items-center justify-center chamfer-xs bg-steel-950/70 bevel transition-[color,box-shadow] duration-120',
+                      open ? 'ember-edge text-accent' : 'text-fg-subtle'
                     )}
                   >
                     <KindIcon size={14} strokeWidth={1.75} />

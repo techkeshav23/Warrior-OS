@@ -107,20 +107,21 @@ function ToastMedallion({ achievement, still }: { achievement: Achievement; stil
   return (
     <motion.span
       aria-hidden
-      className="relative flex size-10 shrink-0 rounded-full p-[2px]"
+      // Octagonal forged medallion (rarity-metal rim, steel face)
+      className="relative flex size-10 shrink-0 p-[2px] [clip-path:polygon(29.3%_0,70.7%_0,100%_29.3%,100%_70.7%,70.7%_100%,29.3%_100%,0_70.7%,0_29.3%)]"
       style={{
         background: rarity.gradient,
-        boxShadow: `0 0 0 1px ${withAlpha(GOLD, 0.3)}, 0 0 16px ${withAlpha(GOLD, 0.26)}`,
+        boxShadow: `inset 0 1px 0 ${withAlpha('#fff4e8', 0.5)}, inset 0 -1px 0 rgb(0 0 0 / 0.45)`,
       }}
       initial={still ? false : { scale: 0.55, rotate: -24 }}
       animate={{ scale: 1, rotate: 0 }}
       transition={{ delay: 0.06, duration: 0.42, ease: EASE_OUT_QUINT }}
     >
       <span
-        className="relative flex size-full items-center justify-center overflow-hidden rounded-full"
+        className="relative flex size-full items-center justify-center overflow-hidden [clip-path:polygon(29.3%_0,70.7%_0,100%_29.3%,100%_70.7%,70.7%_100%,29.3%_100%,0_70.7%,0_29.3%)]"
         style={{ background: FACE, boxShadow: `inset 0 1px 0 rgb(255 255 255 / 0.1), inset 0 0 10px ${rarity.glow}` }}
       >
-        <span className="absolute inset-[4px] rounded-full border" style={{ borderColor: withAlpha(GOLD, 0.26) }} />
+        
         <Glyph
           size={18}
           strokeWidth={1.75}
@@ -185,7 +186,7 @@ function AchievementToastCard({ entry, ref }: { entry: ToastEntry; ref?: Ref<HTM
       onFocus={pause}
       onBlur={resume}
       data-achievement-toast={a.id}
-      className="glass-popover pointer-events-auto relative flex w-[min(400px,calc(100vw-32px))] items-center gap-3 overflow-hidden rounded-card border-gold/25 py-2.5 pl-3 pr-2"
+      className="armor-popover rivets pointer-events-auto relative flex w-[min(400px,calc(100vw-32px))] items-center gap-3 overflow-hidden py-2.5 pl-3 pr-2 shadow-[inset_0_0_0_1px_rgb(245_192_74/0.28)] [--cut-bl:0px] [--cut-tr:0px] [--cut:12px] [--rivet-inset:5px]"
     >
       {/* forge light behind the medallion + warm top hairline */}
       <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-44" style={{ background: FORGE_LIGHT }} />
@@ -197,14 +198,14 @@ function AchievementToastCard({ entry, ref }: { entry: ToastEntry; ref?: Ref<HTM
       <ToastMedallion achievement={a} still={reduceMotion} />
 
       <div className="relative min-w-0 flex-1">
-        <p className="hud-label text-gold">Achievement unlocked</p>
-        <p className="mt-0.5 truncate text-sm font-semibold text-fg" title={`${a.title}: ${a.description}`}>
+        <p className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-gold">Achievement unlocked</p>
+        <p className="mt-0.5 truncate font-display text-sm font-semibold text-fg" title={`${a.title}: ${a.description}`}>
           {a.title}
         </p>
       </div>
 
       <div className="relative flex shrink-0 flex-col items-end">
-        <span className="tabular font-mono text-ui font-semibold leading-5 text-gold">
+        <span className="tabular font-display text-ui font-semibold leading-5 text-gold">
           +{a.xpReward}
           <span className="ml-1 text-2xs font-medium">XP</span>
         </span>
@@ -227,7 +228,7 @@ function AchievementToastCard({ entry, ref }: { entry: ToastEntry; ref?: Ref<HTM
       {/* countdown hairline, gold into ember */}
       <motion.span
         aria-hidden
-        className="absolute inset-x-0 bottom-0 h-px origin-left bg-linear-to-r from-gold to-ember-500 opacity-70"
+        className="absolute inset-x-0 bottom-0 h-[2px] origin-left bg-linear-to-r from-ember-600 via-ember-400 to-gold opacity-80"
         style={{ scaleX: remaining }}
       />
     </motion.div>

@@ -312,7 +312,7 @@ function captureScreen(root: HTMLElement): HTMLCanvasElement {
   return paintLockScreen(w, h, scale);
 }
 
-/** Recreation of the lock screen's look: deep space, clock, the unlock card mid-scan. */
+/** Recreation of the lock screen's look: Forge Night, clock, the unlock card mid-scan. */
 function paintLockScreen(w: number, h: number, scale: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(w * scale);
@@ -321,7 +321,7 @@ function paintLockScreen(w: number, h: number, scale: number): HTMLCanvasElement
   if (!ctx) return canvas;
   ctx.scale(scale, scale);
 
-  // Deep Space: ink, a plasma aurora top-left, the ember horizon bottom-right.
+  // Forge Night: ink, a plasma aurora top-left, the ember horizon bottom-right.
   const bg = ctx.createLinearGradient(0, 0, 0, h);
   bg.addColorStop(0, '#060912');
   bg.addColorStop(1, INK[950]);

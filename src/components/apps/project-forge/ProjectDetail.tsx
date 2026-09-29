@@ -12,10 +12,12 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { Check, ExternalLink, ListChecks, Pause, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge, Button, Checkbox, Chip, EmptyState, IconButton, Input, ProgressBar, Switch } from '@/components/ui';
-import { TRANSITION } from '@/styles/tokens';
+import { BEVEL_SUNK, ENGRAVED_LABEL } from '@/components/ui/armor';
+import { CUT, TRANSITION } from '@/styles/tokens';
 import { effectiveProgress, useProjectForgeStore } from '@/stores/useProjectForgeStore';
 import type { ForgeProject, ForgeStage } from '@/types/project-forge';
 import { ConfirmButton } from './ConfirmButton';
+import { CutFrame } from '@/components/ui/CutFrame';
 import { linkIcon } from './ProjectCard';
 import { StagePicker } from './ProjectModal';
 import { TimeTracker } from './TimeTracker';
@@ -41,7 +43,7 @@ interface ProjectDetailProps {
 function SectionTitle({ id, children, aside }: { id?: string; children: string; aside?: ReactNode }) {
   return (
     <div className="mb-2.5 flex min-h-5 items-center gap-2">
-      <h3 id={id} className="hud-label">
+      <h3 id={id} className={ENGRAVED_LABEL}>
         {children}
       </h3>
       {aside}
@@ -118,11 +120,11 @@ function ProjectDetailInner({ project, onClose, onEdit }: ProjectDetailProps) {
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: reduceMotion ? 0 : 24, opacity: 0, transition: TRANSITION.small }}
         transition={TRANSITION.panel}
-        className="@container relative flex h-full w-full max-w-[600px] flex-col border-l border-line-strong bg-ink-900 shadow-e3 outline-none"
+        className="@container armor-panel chamfer-tl-br [--cut:14px] relative flex h-full w-full max-w-[600px] flex-col bg-steel-850 outline-none"
       >
         <span
           aria-hidden
-          className={cn('pointer-events-none absolute inset-y-0 left-0 w-px bg-linear-to-b to-transparent to-50%', meta.line)}
+          className={cn('pointer-events-none absolute inset-y-0 left-0 w-0.5 bg-linear-to-b to-transparent to-50%', meta.line)}
         />
 
         {/* Header */}
@@ -165,7 +167,7 @@ function ProjectDetailInner({ project, onClose, onEdit }: ProjectDetailProps) {
             <section aria-label="Progress and stage">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <p className="hud-label">Progress</p>
+                  <p className={ENGRAVED_LABEL}>Progress</p>
                   <p className="mt-1.5 font-display text-2xl font-semibold leading-none text-fg tabular">
                     {progress}
                     <span className="ml-0.5 text-base text-fg-subtle">%</span>
@@ -221,7 +223,7 @@ function ProjectDetailInner({ project, onClose, onEdit }: ProjectDetailProps) {
             {project.links.length > 0 && (
               <section>
                 <SectionTitle>Links</SectionTitle>
-                <ul className="divide-y divide-line overflow-hidden rounded-card border border-line bg-surface-2">
+                <ul className="armor-panel chamfer-md divide-y divide-line overflow-hidden">
                   {project.links.map((link) => {
                     const Icon = linkIcon(link);
                     return (
@@ -274,27 +276,29 @@ function ProjectDetailInner({ project, onClose, onEdit }: ProjectDetailProps) {
               </SectionTitle>
 
               {project.tasks.length === 0 ? (
-                <EmptyState
-                  size="sm"
-                  icon={ListChecks}
-                  title="No tasks yet"
-                  description="Break the build into steps; ticking them can drive progress."
-                  className="rounded-card border border-dashed border-line"
-                />
+                <div className="relative chamfer-md">
+                  <CutFrame cut={CUT.md} className="text-steel-500/60" />
+                  <EmptyState
+                    size="sm"
+                    icon={ListChecks}
+                    title="No tasks yet"
+                    description="Break the build into steps; ticking them can drive progress."
+                  />
+                </div>
               ) : (
                 <ul className="divide-y divide-line">
                   {project.tasks.map((task) => (
-                    <li key={task.id} className="group/task flex min-h-10 items-center gap-3 rounded-control px-1.5 transition-colors duration-120 hover:bg-surface-hover">
+                    <li key={task.id} className="group/task flex min-h-10 items-center gap-3 px-1.5 transition-colors duration-120 hover:bg-surface-hover">
                       <button
                         type="button"
                         onClick={() => toggleTask(project.id, task.id)}
                         aria-pressed={task.done}
                         aria-label={task.done ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
                         className={cn(
-                          'focus-ring flex size-4 shrink-0 items-center justify-center rounded-[4px] border transition-[background-color,border-color] duration-120 ease-out-quint',
+                          'focus-ring chamfer [--cut:3px] flex size-4 shrink-0 items-center justify-center transition-[background-color,box-shadow] duration-120 ease-out-quint',
                           task.done
-                            ? 'border-success bg-success text-ink-950'
-                            : 'border-fg-faint bg-ink-950/60 hover:border-fg-subtle'
+                            ? 'bg-success text-ink-950 shadow-[inset_0_1px_0_rgb(255_255_255/0.45),inset_0_-1px_0_rgb(0_0_0/0.35)]'
+                            : cn('bg-steel-950 hover:bg-steel-900', BEVEL_SUNK)
                         )}
                       >
                         {task.done && <Check size={12} strokeWidth={3} aria-hidden />}
@@ -340,7 +344,8 @@ function ProjectDetailInner({ project, onClose, onEdit }: ProjectDetailProps) {
             <TimeTracker projectId={project.id} />
 
             {/* Danger zone */}
-            <section className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-danger/20 bg-danger/[0.04] px-4 py-3">
+            <section className="armor-panel chamfer-md relative flex flex-wrap items-center justify-between gap-3 bg-danger/[0.05] px-4 py-3">
+              <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-0.5 bg-linear-to-b from-danger/80 to-danger/10" />
               <div className="min-w-0">
                 <p className="text-ui font-medium text-fg">Delete project</p>
                 <p className="text-xs text-fg-subtle">Removes it from the board along with its time log.</p>

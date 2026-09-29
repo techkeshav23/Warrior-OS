@@ -11,6 +11,9 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge, IconButton, Input, Textarea, type IconLike, type Tone } from '@/components/ui';
 import { ConfirmButton } from '@/components/apps/project-forge/ConfirmButton';
+import { CutFrame } from '@/components/ui/CutFrame';
+import { BEVEL_SUNK, SLOT_FILL } from '@/components/ui/armor';
+import { CUT } from '@/styles/tokens';
 
 interface TextFieldProps {
   label: string;
@@ -104,7 +107,7 @@ export function EntryCard({
   children,
 }: EntryCardProps) {
   return (
-    <div className="rounded-card bg-ink-950/45 inset-shadow-[0_1px_0_var(--color-surface-2)]">
+    <div className={cn('chamfer-md', SLOT_FILL, BEVEL_SUNK)}>
       <div className="flex h-10 items-center gap-2 pl-3 pr-1.5">
         <span className="tabular font-mono text-2xs text-fg-subtle">{String(index + 1).padStart(2, '0')}</span>
         <p className="min-w-0 flex-1 truncate text-ui font-medium text-fg" title={title}>
@@ -140,11 +143,12 @@ export function AddButton({ onClick, children }: { onClick: () => void; children
       type="button"
       onClick={onClick}
       className={cn(
-        'focus-ring flex h-8 w-full items-center justify-center gap-1.5 rounded-control border border-dashed border-line-strong',
-        'text-ui font-medium text-fg-muted transition-[background-color,border-color,color] duration-120 ease-out-quint',
-        'hover:border-accent/45 hover:bg-accent/[0.05] hover:text-accent active:bg-accent/10'
+        'focus-ring group/add chamfer-sm relative flex h-8 w-full items-center justify-center gap-1.5',
+        'text-ui font-medium text-fg-muted transition-[background-color,color] duration-120 ease-out-quint',
+        'hover:bg-accent/[0.05] hover:text-accent active:bg-accent/10'
       )}
     >
+      <CutFrame cut={CUT.sm} className="text-steel-500 transition-colors duration-120 group-hover/add:text-accent/60" />
       <Plus size={16} strokeWidth={1.75} aria-hidden />
       {children}
     </button>

@@ -28,6 +28,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ENGRAVED_LABEL } from '@/components/ui/armor';
 import { AppIcon, AppLayout, NavItem, Select, SidebarNav } from '@/components/ui';
 import type { AlgoLabView } from '@/types/algo';
 import { ALGO_LAB_SECTIONS, SORTING_ALGORITHMS, isAlgoLabView, isGraphView, isSortView, isTreeView } from '@/data/algorithms';
@@ -70,8 +71,8 @@ function renderView(view: AlgoLabView) {
 
 function ProgressCell({ label, value }: { label: string; value: number }) {
   return (
-    <div className="min-w-0 rounded-control bg-surface-2 px-2 py-1.5">
-      <div className="hud-label truncate">{label}</div>
+    <div className="chamfer-xs bevel min-w-0 bg-steel-800 px-2 py-1.5">
+      <div className={cn(ENGRAVED_LABEL, 'truncate')}>{label}</div>
       <div className="tabular font-mono text-ui font-medium text-fg">{value}</div>
     </div>
   );
@@ -87,7 +88,7 @@ function LabProgressInner() {
   return (
     <div className="flex flex-col gap-2 px-1">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="hud-label">Progress</span>
+        <span className={ENGRAVED_LABEL}>Progress</span>
         <span className="tabular font-mono text-xs text-fg">
           {completedSorts.length}
           <span className="text-fg-subtle">/{SORT_ALGORITHM_IDS.length} sorts</span>
@@ -100,7 +101,7 @@ function LabProgressInner() {
             <span
               key={id}
               title={`${SORTING_ALGORITHMS[id].name}${done ? ' (done)' : ''}`}
-              className={cn('h-1 flex-1 rounded-full', done ? 'bg-success shadow-[0_0_6px_var(--color-success)]' : 'bg-ink-600')}
+              className={cn('h-1.5 flex-1 -skew-x-[30deg]', done ? 'forge-heat shadow-[0_0_6px_var(--color-ember-500)]' : 'bg-steel-900 shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_-1px_0_rgb(255_255_255/0.06)]')}
             />
           );
         })}
@@ -131,8 +132,8 @@ function LabSidebarInner() {
         <div className="flex items-center gap-2.5">
           <AppIcon appId="algo-lab" size={28} active />
           <div className="min-w-0">
-            <div className="truncate text-ui font-semibold text-fg">Algo Lab</div>
-            <div className="hud-label truncate">Visualizer</div>
+            <div className="truncate font-display text-ui font-semibold uppercase tracking-[0.08em] text-fg">Algo Lab</div>
+            <div className={cn(ENGRAVED_LABEL, 'truncate')}>Visualizer</div>
           </div>
         </div>
       }
@@ -142,7 +143,7 @@ function LabSidebarInner() {
       <div className="scrollbar-thin -mx-3 -my-3 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 py-3">
         {ALGO_LAB_SECTIONS.map((section) => (
           <div key={section.category} className="flex flex-col gap-0.5">
-            <div className="hud-label px-2.5 pb-1.5 pt-1">{section.label}</div>
+            <div className={cn(ENGRAVED_LABEL, 'px-2.5 pb-1.5 pt-1')}>{section.label}</div>
             {section.entries.map((entry) => {
               const done = isSortView(entry.view) && completedSorts.includes(entry.view);
               return (
@@ -232,7 +233,7 @@ function AlgoLabAppInner() {
   }, [touch]);
 
   return (
-    <div ref={rootRef} className="h-full min-h-0 w-full bg-ink-950/25">
+    <div ref={rootRef} className="h-full min-h-0 w-full bg-steel-950/30">
       <LabChromeContext.Provider value={chrome}>
         <AppLayout sidebar={compact ? undefined : <LabSidebar />} padded={false} scroll={false}>
           <AnimatePresence mode="wait" initial={false}>

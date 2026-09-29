@@ -94,16 +94,16 @@ function StreakBoardInner() {
         <span
           aria-hidden
           className={cn(
-            'flex size-11 shrink-0 items-center justify-center rounded-card border',
+            'chamfer flex size-12 shrink-0 items-center justify-center [--cut:10px]',
             lit
-              ? 'border-ember-500/40 bg-linear-to-b from-ember-500/25 to-ember-600/5 text-ember-400 shadow-[0_0_24px_-6px_var(--color-ember-500)]'
-              : 'border-line-strong bg-ink-800 text-fg-subtle'
+              ? 'bg-[radial-gradient(circle_at_50%_70%,var(--color-ember-500)_0%,var(--color-ember-700)_45%,var(--color-steel-900)_80%)] text-ember-100 shadow-[inset_0_1px_0_rgb(255_220_190/0.35),inset_0_-2px_0_var(--color-ember-300)]'
+              : 'bg-linear-to-b from-steel-950 to-steel-900 text-fg-subtle shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_-1px_0_rgb(255_255_255/0.07)]'
           )}
         >
-          <Flame size={22} strokeWidth={1.75} className={lit ? 'fill-ember-500/25' : undefined} />
+          <Flame size={22} strokeWidth={1.75} className={lit ? 'fill-ember-300/40' : undefined} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-2xs font-medium uppercase tracking-[0.14em] text-ember-300">Study streak</p>
+          <p className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-ember-300">Study streak</p>
           <p className="mt-1.5 flex items-baseline gap-1.5 leading-none">
             <motion.span
               key={current}
@@ -130,19 +130,19 @@ function StreakBoardInner() {
       </div>
 
       <ol
-        className="mt-4 flex gap-[3px]"
+        className="mt-4 flex gap-[2px]"
         aria-label={`${litDays} of the last ${CHAIN_DAYS} days had study activity`}
       >
         {[...recent].map((c, i) => (
           <li
             key={i}
             className={cn(
-              'h-3 min-w-0 flex-1 rounded-[2px]',
+              'h-3 min-w-0 flex-1 [clip-path:polygon(3px_0,100%_0,calc(100%-3px)_100%,0_100%)]',
               c === '1'
-                ? 'bg-linear-to-t from-ember-600 to-ember-400'
+                ? 'bg-linear-to-t from-ember-700 via-ember-500 to-ember-300'
                 : i === CHAIN_DAYS - 1
-                  ? 'border border-dashed border-ember-500/60'
-                  : 'bg-ink-700/80'
+                  ? 'animate-pulse-soft bg-ember-500/15 shadow-[inset_0_-2px_0_var(--color-ember-500)]'
+                  : 'bg-steel-900 shadow-[inset_0_1px_0_rgb(0_0_0/0.7)]'
             )}
           />
         ))}

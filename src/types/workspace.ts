@@ -16,13 +16,13 @@ export type WorkspaceId = 'study' | 'build' | 'chill';
 /** The parts of a workspace a user can change (Settings, the desktop menu). */
 export type WorkspacePatch = Partial<Pick<Workspace, 'name' | 'accentColor' | 'wallpaper' | 'icon'>>;
 
-/** Default looks use the FORGE HUD palette (see src/styles/tokens.ts). */
+/** Default looks use the FORGED ARMOR palette (see src/styles/tokens.ts). */
 export const DEFAULT_WORKSPACES: Workspace[] = [
   {
     id: 'study',
     name: 'Study',
-    accentColor: '#2fd6f5', // Plasma
-    wallpaper: 'nebula',
+    accentColor: '#ff8a3d', // Ember (the brand)
+    wallpaper: 'void', // Forge Night
     openWindowIds: [],
     icon: 'GraduationCap',
   },

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Music Player App (WarBeats) · FORGE HUD
+// WARRIOR OS — Music Player App (WarBeats) · FORGED ARMOR
 // Two tabs under one header:
 //   Procedural — the OS composes for you (Tone.js engine, 4 moods)
 //   Library    — your own audio files, stored on this device

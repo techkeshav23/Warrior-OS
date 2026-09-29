@@ -280,7 +280,7 @@ function FlashcardsAppInner() {
         >
           <Card hud tone="ember" padding="lg">
             <div className="flex flex-col items-center gap-4 text-center @lg:flex-row @lg:text-left">
-              <span className="flex size-14 shrink-0 items-center justify-center rounded-card border border-gold/35 bg-gold/10 text-gold shadow-[0_0_28px_-6px_var(--color-gold)]">
+              <span className="armor-plate chamfer-md flex size-14 shrink-0 items-center justify-center bg-[color-mix(in_oklab,var(--color-gold)_18%,var(--color-steel-800))] text-gold [--cut-tl:12px] [--cut-br:12px]">
                 <Trophy size={26} strokeWidth={1.75} aria-hidden />
               </span>
               <div className="min-w-0 flex-1">

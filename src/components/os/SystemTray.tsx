@@ -54,7 +54,7 @@ export function SystemTray({ onNotificationClick: _onNotificationClick }: System
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
         className={cn(
-          'flex h-8 items-center rounded-control px-2 text-fg-muted transition-colors duration-120 ease-out-quint focus-ring',
+          'chamfer-xs flex h-8 items-center px-2 text-fg-muted transition-colors duration-120 ease-out-quint focus-ring',
           expanded ? 'bg-surface-active text-fg' : 'hover:bg-surface-hover hover:text-fg'
         )}
       >
@@ -69,11 +69,11 @@ export function SystemTray({ onNotificationClick: _onNotificationClick }: System
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="glass-popover absolute bottom-full right-0 mb-2 w-64 rounded-card p-4"
+            className="armor-popover absolute bottom-full right-0 mb-2 w-64 p-4 [--cut:8px]"
             role="dialog"
             aria-label="Quick settings"
           >
-            <p className="hud-label mb-3">Quick settings</p>
+            <p className="engraved mb-3 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Quick settings</p>
 
             {/* Volume slider */}
             <Slider
@@ -94,10 +94,8 @@ export function SystemTray({ onNotificationClick: _onNotificationClick }: System
                 onClick={toggleSound}
                 aria-pressed={soundEnabled}
                 className={cn(
-                  'flex h-9 items-center gap-2 rounded-control border px-3 text-xs font-medium transition-colors duration-120 ease-out-quint focus-ring',
-                  soundEnabled
-                    ? 'border-accent/30 bg-accent/12 text-accent'
-                    : 'border-line-strong bg-surface-2 text-fg-muted hover:bg-surface-hover hover:text-fg'
+                  'armor-plate flex h-9 items-center gap-2 px-3 text-xs font-medium transition-colors duration-120 ease-out-quint focus-ring',
+                  soundEnabled ? 'ember-edge text-accent' : 'text-fg-muted hover:bg-steel-600 hover:text-fg'
                 )}
               >
                 <Volume2 size={14} strokeWidth={1.75} aria-hidden />
@@ -105,7 +103,7 @@ export function SystemTray({ onNotificationClick: _onNotificationClick }: System
               </button>
               <button
                 type="button"
-                className="flex h-9 items-center gap-2 rounded-control border border-line-strong bg-surface-2 px-3 text-xs font-medium text-fg-muted transition-colors duration-120 ease-out-quint hover:bg-surface-hover hover:text-fg focus-ring"
+                className="armor-plate flex h-9 items-center gap-2 px-3 text-xs font-medium text-fg-muted transition-colors duration-120 ease-out-quint hover:bg-steel-600 hover:text-fg focus-ring"
               >
                 <Wifi size={14} strokeWidth={1.75} aria-hidden />
                 Network

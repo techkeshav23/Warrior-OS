@@ -61,6 +61,7 @@ import {
   type MenuItem,
 } from '@/components/ui';
 import { cn, generateId } from '@/lib/utils';
+import { BEVEL_SUNK, ENGRAVED_LABEL, SLOT_FILL } from '@/components/ui/armor';
 import { MarkdownPreview } from '@/components/apps/notes-archive/markdown';
 
 interface FSNode {
@@ -368,7 +369,8 @@ function FilesAppInner() {
       onKeyDown={(e) => { if (e.key === 'Enter') applyRename(node.id); if (e.key === 'Escape') { e.stopPropagation(); setRenaming(null); } }}
       aria-label={`Rename ${node.name}`}
       className={cn(
-        'min-w-0 rounded-[6px] border border-accent/60 bg-ink-950/70 px-1.5 text-xs text-fg outline-none ring-3 ring-accent/15',
+        'ember-edge chamfer-xs min-w-0 px-1.5 text-xs text-fg outline-none',
+        SLOT_FILL,
         className
       )}
     />
@@ -393,7 +395,7 @@ function FilesAppInner() {
       footer={
         <div className="flex flex-col gap-2 px-1">
           <div className="flex items-center justify-between gap-2">
-            <span className="hud-label flex items-center gap-1.5">
+            <span className={cn(ENGRAVED_LABEL, 'flex items-center gap-1.5')}>
               <HardDrive size={12} strokeWidth={2} aria-hidden />
               Browser storage
             </span>
@@ -432,7 +434,7 @@ function FilesAppInner() {
                   aria-current={last ? 'page' : undefined}
                   title={c.name}
                   className={cn(
-                    'focus-ring flex h-7 min-w-0 items-center gap-1.5 rounded-control px-1.5 text-ui transition-colors duration-120 ease-out-quint',
+                    'focus-ring chamfer-sm flex h-7 min-w-0 items-center gap-1.5 px-1.5 text-ui transition-colors duration-120 ease-out-quint',
                     last ? 'font-medium text-fg' : 'text-fg-muted hover:bg-surface-hover hover:text-fg'
                   )}
                 >
@@ -515,16 +517,19 @@ function FilesAppInner() {
         const ext = node.type === 'file' ? extensionOf(node.name) : '';
         const body = (
           <>
-            <span className={cn('relative flex size-14 items-center justify-center rounded-card border', kind.well)}>
-              <Icon
-                size={28}
-                strokeWidth={1.5}
-                className={kind.tint}
-                aria-hidden
-                {...(node.type === 'folder' ? { fill: 'currentColor', fillOpacity: 0.14 } : {})}
-              />
+            {/* Unclipped shell so the extension tag can hang below the cut plate */}
+            <span className="relative flex size-14">
+              <span className={cn('armor-plate chamfer-md flex size-full items-center justify-center', kind.well)}>
+                <Icon
+                  size={28}
+                  strokeWidth={1.5}
+                  className={kind.tint}
+                  aria-hidden
+                  {...(node.type === 'folder' ? { fill: 'currentColor', fillOpacity: 0.14 } : {})}
+                />
+              </span>
               {ext && (
-                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-[4px] border border-line-strong bg-ink-850 px-1 font-mono text-[9px] font-medium leading-[14px] tracking-wide text-fg-muted">
+                <span className="chamfer-xs absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-steel-900 px-1.5 font-mono text-[9px] font-medium leading-[14px] tracking-wide text-fg-muted shadow-[inset_0_1px_0_rgb(255_255_255/0.08),inset_0_-1px_0_rgb(0_0_0/0.6)]">
                   {ext}
                 </span>
               )}
@@ -540,9 +545,9 @@ function FilesAppInner() {
           </>
         );
         const tileClass = cn(
-          'flex w-full flex-col items-center gap-1 rounded-card px-2 pb-2.5 pt-3.5 text-center',
-          'transition-colors duration-120 ease-out-quint',
-          isSelected ? 'bg-accent/10 ring-1 ring-inset ring-accent/35' : 'hover:bg-surface-hover'
+          'chamfer-md flex w-full flex-col items-center gap-1 px-2 pb-2.5 pt-3.5 text-center',
+          'transition-[background-color,box-shadow] duration-120 ease-out-quint',
+          isSelected ? 'ember-edge bg-accent/10' : 'hover:bg-steel-750/60 hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.06),inset_0_-1px_0_rgb(0_0_0/0.4)]'
         );
         return (
           <li key={node.id} className="group/tile relative">
@@ -593,9 +598,9 @@ function FilesAppInner() {
   const renderList = () => (
     <div role="table" aria-label={`${currentFolder.name} contents`} className="-mx-2">
       <div role="row" className={cn('grid items-center gap-3 border-b border-line px-3 pb-2', listCols)}>
-        <span role="columnheader" className="hud-label">Name</span>
-        {showKindColumn && <span role="columnheader" className="hud-label">Kind</span>}
-        <span role="columnheader" className="hud-label text-right">Size</span>
+        <span role="columnheader" className={ENGRAVED_LABEL}>Name</span>
+        {showKindColumn && <span role="columnheader" className={ENGRAVED_LABEL}>Kind</span>}
+        <span role="columnheader" className={cn(ENGRAVED_LABEL, 'text-right')}>Size</span>
         <span role="columnheader" aria-label="Actions" />
       </div>
       <div role="rowgroup" className="flex flex-col pt-1">
@@ -623,13 +628,13 @@ function FilesAppInner() {
                 } else onItemKey(e, node);
               }}
               className={cn(
-                'focus-ring-inset group/row relative grid h-10 cursor-default items-center gap-3 rounded-control px-3',
+                'focus-ring-inset group/row chamfer-sm relative grid h-10 cursor-default items-center gap-3 px-3',
                 'transition-colors duration-120 ease-out-quint',
                 listCols,
-                isSelected ? 'bg-accent/10' : 'hover:bg-surface-hover'
+                isSelected ? 'ember-edge bg-accent/10' : 'hover:bg-surface-hover'
               )}
             >
-              {isSelected && <span aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-accent" />}
+              {isSelected && <span aria-hidden className="absolute inset-y-2 left-0 w-0.5 bg-accent" />}
               <span role="cell" className="flex min-w-0 items-center gap-2.5">
                 <Icon
                   size={16}
@@ -777,7 +782,7 @@ function FilesAppInner() {
               />
             )}
             {openIsMarkdown && filePreview ? (
-              <div className="scrollbar-thin h-[min(52vh,420px)] overflow-y-auto rounded-control border border-line bg-ink-950/40 px-5 py-4">
+              <div className={cn('scrollbar-thin chamfer-sm h-[min(52vh,420px)] overflow-y-auto px-5 py-4', SLOT_FILL, BEVEL_SUNK)}>
                 <MarkdownPreview source={openFile.content} />
               </div>
             ) : (
@@ -793,9 +798,11 @@ function FilesAppInner() {
                 aria-label={`Contents of ${openFile.name}`}
                 spellCheck={false}
                 className={cn(
-                  'scrollbar-thin h-[min(52vh,420px)] w-full resize-none rounded-control border border-line-strong bg-ink-950/55 px-4 py-3',
+                  'scrollbar-thin chamfer-sm h-[min(52vh,420px)] w-full resize-none px-4 py-3',
+                  SLOT_FILL,
+                  BEVEL_SUNK,
                   'select-text font-mono text-ui leading-6 text-fg outline-none placeholder:text-fg-subtle',
-                  'transition-[border-color,box-shadow] duration-120 ease-out-quint focus:border-accent/70 focus:ring-3 focus:ring-accent/15'
+                  'transition-[box-shadow] duration-120 ease-out-quint focus:ember-edge'
                 )}
                 placeholder="Empty file…"
               />

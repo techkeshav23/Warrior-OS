@@ -386,7 +386,7 @@ function NexusVoiceButtonInner({ className }: { className?: string }) {
       {listening && (
         <motion.span
           aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-control ring-1 ring-danger/60"
+          className="chamfer-sm pointer-events-none absolute inset-0 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-danger)_60%,transparent)]"
           animate={{ opacity: [0.9, 0.2, 0.9], scale: [1, 1.14, 1] }}
           transition={{ duration: 1.3, repeat: Infinity, ease: 'easeInOut' }}
         />
@@ -538,7 +538,7 @@ function NexusVoiceIndicatorInner() {
           exit={reduce ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
           transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
           className={cn(
-            'glass-popover pointer-events-auto flex min-h-10 max-w-[min(420px,calc(100vw_-_24px))] items-center gap-2.5 rounded-full py-1 pl-3 pr-1',
+            'armor-popover chamfer-sm pointer-events-auto flex min-h-10 max-w-[min(420px,calc(100vw_-_24px))] items-center gap-2.5 py-1 pl-3 pr-1',
             tone === 'danger' && 'border-danger/40',
             tone === 'live' && 'border-danger/35',
             tone === 'armed' && 'border-accent/30'

@@ -6,7 +6,7 @@
 
 'use client';
 
-import { memo, useMemo, useState, type CSSProperties, type FormEvent } from 'react';
+import { memo, useMemo, useState, type FormEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { CalendarRange, Swords, TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,9 +17,9 @@ import type { CardReview, Deck } from '@/types/learning';
 import type { QuestPlan, QuestPlanInput } from './quest-plan-store';
 import { learningDaysFrom } from './quest-plan';
 import { DAY_MS, dayKeyOf, daysBetween, parseDayKey, shortDateLabel, utcDayStart } from './schedule';
+import { EmberSeam } from '../armor-bits';
 
 /** HUD corner brackets in forge ember (the form is a forge action). */
-const EMBER_CORNERS = { '--hud-corner-color': 'color-mix(in oklab, var(--color-ember-500) 45%, transparent)' } as CSSProperties;
 
 /** Default horizon of a new plan. */
 const DEFAULT_DAYS = 14;
@@ -99,15 +99,15 @@ function QuestPlanFormInner({ decks, reviews, now, plan, onSave, onCancel }: Que
       initial={{ opacity: 0, y: reduceMotion ? 0 : 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={TRANSITION.panel}
-      className="@container glass-panel hud-corners space-y-5 rounded-card p-5"
-      style={EMBER_CORNERS}
+      className="@container armor-panel chamfer-md rivets relative space-y-5 p-5 [--cut-tl:16px] [--cut-br:16px] [--rivet-inset:5px]"
     >
+      <EmberSeam />
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-control border border-ember-500/35 bg-ember-500/10 text-ember-400">
+        <span className="armor-plate chamfer-sm mt-0.5 flex size-9 shrink-0 items-center justify-center bg-[color-mix(in_oklab,var(--color-ember-500)_18%,var(--color-steel-800))] text-ember-400 [--cut-tr:0px] [--cut-bl:0px]">
           <Swords size={18} strokeWidth={1.75} aria-hidden />
         </span>
         <div className="min-w-0">
-          <h3 className="text-lg font-semibold text-fg">{plan ? 'Edit your quest' : 'Forge a quest'}</h3>
+          <h3 className="font-display text-lg font-semibold tracking-wide text-fg">{plan ? 'Edit your quest' : 'Forge a quest'}</h3>
           <p className="mt-0.5 max-w-prose text-ui text-fg-muted">
             Name a goal and a date. Your unseen cards get spread over the days left, reviews stay on schedule, and every day
             hands you a short list of quests.
@@ -134,7 +134,7 @@ function QuestPlanFormInner({ decks, reviews, now, plan, onSave, onCancel }: Que
       </div>
 
       <fieldset className="space-y-2">
-        <legend className="mb-2 text-xs font-medium text-fg-muted">Decks</legend>
+        <legend className="engraved mb-2 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Decks</legend>
         {decks.length === 0 ? (
           <p className="text-xs text-fg-subtle">No decks yet. Create one in Decks first.</p>
         ) : (
@@ -158,8 +158,8 @@ function QuestPlanFormInner({ decks, reviews, now, plan, onSave, onCancel }: Que
       <div
         role={problem ? 'alert' : 'status'}
         className={cn(
-          'flex items-start gap-3 rounded-control px-3.5 py-3 text-ui ring-1 ring-inset',
-          problem ? 'bg-warning/8 text-fg ring-warning/25' : 'bg-surface-2 text-fg-muted ring-line'
+          'flex items-start gap-3 chamfer-sm px-3.5 py-3 text-ui ring-1 ring-inset',
+          problem ? 'bg-warning/8 text-fg ring-warning/25' : 'bg-steel-950/50 text-fg-muted ring-line bevel'
         )}
       >
         {problem ? (

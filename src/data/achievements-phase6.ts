@@ -427,7 +427,7 @@ export const SUPPLEMENT_ACHIEVEMENTS: Achievement[] = [
   def({
     id: 'shortcut-master',
     title: 'Shortcut Master',
-    description: 'Used every global shortcut: Ctrl+K and Ctrl+1/2/3.',
+    description: 'Used every global shortcut: Ctrl+K, Ctrl+1/2/3 and Ctrl+Alt+W (next / previous background).',
     category: 'exploration',
     icon: '⌨️',
     xpReward: 100,

@@ -13,6 +13,7 @@
 import { useEffect } from 'react';
 import { AlertTriangle, RefreshCw, RotateCcw, X } from 'lucide-react';
 import { OWNER } from '@/config/owner';
+import { BEVEL_PRESSED, BEVEL_RAISED, EMBER_PLATE, STEEL_PLATE, STEEL_PLATE_HOT } from '@/components/ui/armor';
 
 // ─── Error helpers ───
 
@@ -64,11 +65,16 @@ function reloadOS(): void {
 }
 
 // Kit button recipes (Button primary / secondary, md + lg), inlined so
-// the fault screens depend on nothing but React and the stylesheet.
+// the fault screens depend on nothing but React, the stylesheet and the
+// armor class-string recipes (no components).
 const BTN =
-  'inline-flex shrink-0 items-center justify-center gap-2 rounded-control font-medium transition-[background-color,border-color,color,box-shadow,filter] duration-120 ease-out-quint focus-ring';
-const BTN_PRIMARY = `${BTN} bg-accent text-accent-fg inset-shadow-[0_1px_0_rgb(255_255_255/0.28)] hover:brightness-110 hover:shadow-glow active:brightness-95`;
-const BTN_SECONDARY = `${BTN} border border-line-strong bg-surface-2 text-fg hover:border-fg-faint hover:bg-surface-hover active:bg-surface-active`;
+  'chamfer-sm inline-flex shrink-0 items-center justify-center gap-2 font-medium transition-[background-color,color,box-shadow,filter] duration-120 ease-out-quint focus-ring';
+const BTN_PRIMARY = `${BTN} ${EMBER_PLATE} ${BEVEL_PRESSED} hover:brightness-110 active:brightness-95`;
+const BTN_SECONDARY = `${BTN} ${STEEL_PLATE} ${STEEL_PLATE_HOT} ${BEVEL_RAISED} ${BEVEL_PRESSED}`;
+/** Hazard stripes: danger on dark steel, for fault plates. */
+const HAZARD =
+  'bg-[repeating-linear-gradient(-45deg,color-mix(in_oklab,var(--color-danger)_70%,transparent)_0_6px,var(--color-steel-900)_6px_12px)]';
+const ENGRAVED_DANGER = 'engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-danger';
 
 // ─── In-window fault panel ───
 
@@ -99,11 +105,11 @@ export function AppFaultPanel({ appName, error, onRestart, onClose }: AppFaultPa
       />
 
       <div className="relative flex w-full max-w-sm flex-col items-center">
-        <div className="flex size-12 items-center justify-center rounded-card border border-danger/30 bg-danger/10 text-danger">
+        <div className="chamfer-sm bevel flex size-12 items-center justify-center bg-danger/12 text-danger">
           <AlertTriangle className="size-6" strokeWidth={1.75} aria-hidden />
         </div>
 
-        <p className="mt-4 hud-label text-danger">System fault</p>
+        <p className={`mt-4 ${ENGRAVED_DANGER}`}>System fault</p>
         <h2 className="mt-1.5 text-lg font-semibold text-fg">{appName} stopped working</h2>
         <p className="mt-1.5 text-ui text-fg-muted">
           {chunkError
@@ -111,7 +117,7 @@ export function AppFaultPanel({ appName, error, onRestart, onClose }: AppFaultPa
             : 'The fault was contained to this window. The rest of Warrior OS is still running.'}
         </p>
 
-        <div className="mt-4 w-full rounded-control border border-line bg-ink-950/60 px-3 py-2 text-left font-mono text-xs">
+        <div className="mt-4 w-full chamfer-sm bg-steel-950 px-3 py-2 text-left font-mono text-xs shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_6px_rgb(0_0_0/0.45),inset_0_-1px_0_rgb(255_255_255/0.07)]">
           <p className="flex items-center justify-between gap-3">
             <span className="text-2xs uppercase tracking-[0.14em] text-fg-subtle">Fault code</span>
             <span className="text-danger tabular">{faultCode(error)}</span>
@@ -226,10 +232,10 @@ export function SystemFaultScreen({ error }: { error: unknown }) {
 
       <div className="relative w-full max-w-xl">
         <div className="wos-fault-reveal flex items-center gap-3">
-          <span className="flex size-9 items-center justify-center rounded-control border border-danger/30 bg-danger/10 text-danger">
+          <span className="chamfer-xs bevel flex size-9 items-center justify-center bg-danger/12 text-danger">
             <AlertTriangle className="size-[18px]" strokeWidth={1.75} aria-hidden />
           </span>
-          <p className="hud-label text-danger">
+          <p className={ENGRAVED_DANGER}>
             Kernel panic <span className="text-fg-faint">·</span> <span className="tabular">{code}</span>
           </p>
         </div>
@@ -253,9 +259,10 @@ export function SystemFaultScreen({ error }: { error: unknown }) {
         </p>
 
         <dl
-          className="wos-fault-reveal mt-6 overflow-hidden rounded-card border border-line bg-ink-900/80 font-mono text-xs"
+          className="wos-fault-reveal armor-panel rivets relative mt-6 overflow-hidden pt-2 font-mono text-xs [--cut-bl:0px] [--cut-tr:0px] [--cut:12px] [--rivet-inset:6px]"
           style={{ animationDelay: '0.24s' }}
         >
+          <span aria-hidden className={`absolute inset-x-0 top-0 h-1.5 opacity-80 ${HAZARD}`} />
           {[
             ['Fault', describeError(error, 240), 'text-fg'],
             ['Status', 'Core halted · saved data intact', 'text-fg-muted'],
@@ -275,7 +282,7 @@ export function SystemFaultScreen({ error }: { error: unknown }) {
           </button>
           <span className="flex items-center gap-1.5 text-xs text-fg-subtle">
             or press
-            <kbd className="inline-flex h-5 items-center rounded-[5px] border border-line-strong bg-surface-2 px-1.5 font-mono text-2xs text-fg-muted">
+            <kbd className="armor-plate chamfer-xs inline-flex h-5 items-center px-1.5 font-mono text-2xs text-fg-muted">
               Enter
             </kbd>
           </span>

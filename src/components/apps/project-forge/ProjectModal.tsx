@@ -11,6 +11,7 @@ import { memo, useId, useMemo, useState, type FormEvent, type KeyboardEvent } fr
 import { Anvil, Check, Link2, Pencil, Plus, X } from 'lucide-react';
 import { cn, generateId } from '@/lib/utils';
 import { Button, Checkbox, Dialog, IconButton, Input, Kbd, Slider, Textarea } from '@/components/ui';
+import { BEVEL_SUNK, SLOT_FILL } from '@/components/ui/armor';
 import {
   FORGE_STAGES,
   cleanTag,
@@ -32,7 +33,7 @@ interface ProjectModalProps {
 }
 
 const LINK_LABELS = ['GitHub', 'Live', 'Demo', 'Docs', 'Figma', 'Video', 'Devpost'];
-const FIELD_LABEL = 'text-xs font-medium text-fg-muted';
+const FIELD_LABEL = 'engraved font-display text-2xs font-semibold uppercase tracking-[0.16em] text-fg-muted';
 
 function toDraft(project: ForgeProject | null, stage: ForgeStage): ForgeProjectInput {
   if (!project) {
@@ -96,11 +97,14 @@ export function StagePicker({ value, onChange, lockCurrent = false, ...aria }: S
             disabled={lockCurrent && active}
             onClick={() => onChange(stage)}
             className={cn(
-              'focus-ring flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-control border px-2 text-ui font-medium',
+              'focus-ring armor-plate chamfer-sm flex h-9 min-w-0 items-center justify-center gap-1.5 px-2 text-ui font-medium',
               'transition-[background-color,border-color,color] duration-120 ease-out-quint',
               active
-                ? cn(meta.selected, 'disabled:cursor-default')
-                : 'border-line-strong bg-surface-2 text-fg-muted hover:border-fg-faint hover:bg-surface-hover hover:text-fg active:bg-surface-active'
+                ? cn(
+                    meta.selected,
+                    'shadow-[inset_0_1px_0_rgb(0_0_0/0.55),inset_0_2px_5px_rgb(0_0_0/0.35),inset_0_-2px_0_currentColor] disabled:cursor-default'
+                  )
+                : 'text-fg-muted hover:bg-steel-600 hover:text-fg active:brightness-90'
             )}
           >
             <Icon size={14} strokeWidth={1.75} aria-hidden className={cn('shrink-0', !active && meta.text)} />
@@ -270,22 +274,24 @@ function ProjectModalInner({ open, project, initialStage, onClose, onSaved }: Pr
           </label>
           <div
             className={cn(
-              'flex min-h-10 flex-wrap items-center gap-1.5 rounded-control border border-line-strong bg-ink-950/55 p-1.5',
-              'transition-[border-color,box-shadow] duration-120 ease-out-quint hover:border-fg-faint',
-              'focus-within:border-accent/70 focus-within:ring-3 focus-within:ring-accent/15'
+              'chamfer-sm flex min-h-10 flex-wrap items-center gap-1.5 p-1.5',
+              SLOT_FILL,
+              BEVEL_SUNK,
+              'transition-[box-shadow] duration-120 ease-out-quint',
+              'focus-within:ember-edge'
             )}
           >
             {draft.techStack.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex h-6 max-w-full items-center gap-1 rounded-full border border-line-strong bg-surface-2 pl-2.5 pr-0.5 text-xs font-medium text-fg"
+                className="armor-plate chamfer-xs inline-flex h-6 max-w-full items-center gap-1 pl-2.5 pr-0.5 text-xs font-medium text-fg"
               >
                 <span className="truncate">{tag}</span>
                 <button
                   type="button"
                   onClick={() => patch({ techStack: draft.techStack.filter((t) => t !== tag) })}
                   aria-label={`Remove ${tag}`}
-                  className="focus-ring flex size-5 items-center justify-center rounded-full text-fg-subtle transition-colors duration-120 hover:bg-danger/15 hover:text-danger"
+                  className="focus-ring chamfer-xs flex size-5 items-center justify-center text-fg-subtle transition-colors duration-120 hover:bg-danger/15 hover:text-danger"
                 >
                   <X size={12} strokeWidth={2} aria-hidden />
                 </button>

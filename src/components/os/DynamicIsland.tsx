@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — DynamicIsland Component (FORGE HUD)
-// Hardware-black pill at the top centre that morphs between live
+// WARRIOR OS — DynamicIsland Component (FORGED ARMOR)
+// A forged steel bar with cut ends at the top centre that morphs between live
 // activities. Compact shows the most important one (achievement >
 // timer > music > creature > unread), with small indicators for the
 // rest; click to expand into one row per activity. Hidden when idle.
@@ -115,11 +115,11 @@ function EqBars({ still }: { still: boolean }) {
     <span aria-hidden className="flex h-3.5 items-end gap-[2px]">
       {rest.map((h, i) =>
         still ? (
-          <span key={i} className="w-[3px] rounded-full bg-accent" style={{ height: `${h * 100}%` }} />
+          <span key={i} className="w-[3px] bg-accent" style={{ height: `${h * 100}%` }} />
         ) : (
           <motion.span
             key={i}
-            className="h-full w-[3px] origin-bottom rounded-full bg-accent"
+            className="h-full w-[3px] origin-bottom bg-accent"
             initial={{ scaleY: h }}
             animate={{ scaleY: [h, 1, 0.35, 0.8, h] }}
             transition={{ duration: 1.1 + i * 0.12, repeat: Infinity, ease: 'easeInOut', delay: i * 0.1 }}
@@ -144,7 +144,7 @@ function RingProgress({ progress, tone }: { progress: number; tone: 'accent' | '
         fill="none"
         stroke={tone === 'success' ? 'var(--color-success)' : 'var(--accent)'}
         strokeWidth="2"
-        strokeLinecap="round"
+        strokeLinecap="butt"
         strokeDasharray={c}
         strokeDashoffset={c * (1 - progress)}
         className="transition-[stroke-dashoffset] duration-1000 ease-linear"
@@ -156,7 +156,7 @@ function RingProgress({ progress, tone }: { progress: number; tone: 'accent' | '
 function ExpandedRow({ icon, title, detail, trailing }: { icon: ReactNode; title: ReactNode; detail?: ReactNode; trailing?: ReactNode }) {
   return (
     <span className="flex items-center gap-3 py-1.5">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-control border border-line-strong bg-ink-850">
+      <span className="armor-plate chamfer-xs flex size-8 shrink-0 items-center justify-center">
         {icon}
       </span>
       <span className="min-w-0 flex-1">
@@ -267,7 +267,7 @@ export function DynamicIsland() {
     .join(', ');
 
   return (
-    <div ref={rootRef} className="fixed left-1/2 top-3 -translate-x-1/2" style={{ zIndex: 'var(--z-dynamic-island)' }}>
+    <div ref={rootRef} className="armor-drop fixed left-1/2 top-3 -translate-x-1/2" style={{ zIndex: 'var(--z-dynamic-island)' }}>
       <AnimatePresence>
         {primary !== undefined && (
           <motion.button
@@ -281,14 +281,16 @@ export function DynamicIsland() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.94, transition: { duration: 0.16, ease: EASE } }}
             transition={{ duration: 0.26, ease: EASE, layout: { duration: 0.26, ease: EASE } }}
-            style={{ borderRadius: expanded ? 22 : 18 }}
+            data-loud={loud || undefined}
             className={cn(
-              'block overflow-hidden border bg-ink-950/90 text-left backdrop-blur-xl lite:bg-ink-950',
-              'inset-shadow-[0_1px_0_rgb(255_255_255/0.06)] shadow-e2 focus-ring',
-              'transition-[border-color,box-shadow] duration-260 ease-out-quint',
+              // Forged bar: cut ends (all four corners at 12px, or 14px open),
+              // popover steel, bevelled edge; heats to gold on an achievement.
+              'armor-popover block overflow-hidden text-left focus-ring',
+              expanded ? '[--cut:14px]' : '[--cut:12px]',
+              'transition-[box-shadow] duration-260 ease-out-quint',
               loud
-                ? 'border-gold/40 shadow-[0_0_28px_-8px_var(--color-gold)]'
-                : 'border-line-strong hover:border-fg-faint'
+                ? 'shadow-[inset_0_0_0_1px_rgb(245_192_74/0.45),inset_0_-2px_0_0_var(--color-gold),inset_0_-14px_16px_-12px_rgb(245_192_74/0.45)]'
+                : 'hover:ember-edge'
             )}
           >
             <AnimatePresence mode="wait" initial={false}>
@@ -298,9 +300,9 @@ export function DynamicIsland() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1, transition: { duration: 0.18, delay: 0.06 } }}
                   exit={{ opacity: 0, transition: { duration: 0.08 } }}
-                  className="flex w-[340px] flex-col px-4 py-2.5"
+                  className="flex w-[340px] flex-col px-5 py-2.5"
                 >
-                  <span className="hud-label pb-1 pt-0.5">Live activity</span>
+                  <span className="engraved pb-1 pt-0.5 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Live activity</span>
                   {achievement && (
                     <ExpandedRow
                       icon={<Trophy size={16} strokeWidth={1.75} className="text-gold" />}
@@ -347,14 +349,14 @@ export function DynamicIsland() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1, transition: { duration: 0.18, delay: 0.04 } }}
                   exit={{ opacity: 0, transition: { duration: 0.08 } }}
-                  className="flex h-9 min-w-[132px] items-center gap-2 pl-3.5 pr-3"
+                  className="flex h-9 min-w-[132px] items-center gap-2 pl-5 pr-4"
                 >
                   <span className="flex min-w-0 flex-1 items-center gap-2">{compactPrimary}</span>
                   {indicators.length > 0 && (
                     <span className="ml-1 flex shrink-0 items-center gap-1.5 border-l border-line pl-2.5 text-fg-subtle">
                       {indicators.includes('timer') && <Timer size={12} strokeWidth={2} aria-hidden className="text-accent" />}
                       {indicators.includes('music') && <EqBars still />}
-                      {indicators.includes('creature') && <span aria-hidden className="size-1.5 rounded-full bg-warning" />}
+                      {indicators.includes('creature') && <span aria-hidden className="size-1.5 rotate-45 bg-warning" />}
                       {indicators.includes('unread') && (
                         <span className="tabular flex items-center gap-1 font-mono text-2xs">
                           <Bell size={12} strokeWidth={2} aria-hidden />

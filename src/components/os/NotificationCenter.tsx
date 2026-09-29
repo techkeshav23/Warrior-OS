@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — NotificationCenter Component (FORGE HUD)
-// Right-hand glass sheet above the taskbar: notifications grouped by
+// WARRIOR OS — NotificationCenter Component (FORGED ARMOR)
+// Right-hand forged sheet (riveted, cut top-left + bottom-right) above the taskbar: notifications grouped by
 // day (Today / Yesterday / Earlier), each row with a lucide icon in its
 // tone, relative time, unread marker and a dismiss action. Header:
 // unread count + mark all read + close; footer: clear all.
@@ -61,7 +61,7 @@ const TYPE_META: Record<NotificationType, NotificationMeta> = {
 
 /** Lucide icon + tone for a notification (NEXUS messages get the NEXUS glyph). */
 export function notificationMeta(n: Pick<Notification, 'type' | 'title'>): NotificationMeta {
-  if (/^nexus\b/i.test(n.title.trim())) return { icon: BrainCircuit, tone: 'accent' };
+  if (/^nexus\b/i.test(n.title.trim())) return { icon: BrainCircuit, tone: 'plasma' };
   return TYPE_META[n.type] ?? TYPE_META.info;
 }
 
@@ -136,17 +136,19 @@ function NotificationRow({ notification: n, now, onRead, onRemove }: Notificatio
         type="button"
         onClick={() => onRead(n.id)}
         aria-label={`${n.title}${n.read ? '' : ', unread'}. Mark as read`}
-        className="absolute inset-0 rounded-card focus-ring-inset"
+        className="chamfer-sm absolute inset-0 focus-ring-inset"
       />
       <div
         className={cn(
-          'pointer-events-none relative flex gap-3 rounded-card px-3 py-3 transition-colors duration-120 ease-out-quint',
+          'chamfer-sm pointer-events-none relative flex gap-3 px-3 py-3 transition-colors duration-120 ease-out-quint',
           n.read ? 'group-hover:bg-surface-hover' : 'bg-surface-2 group-hover:bg-surface-hover'
         )}
       >
+        {/* Unread: a heated seam on the plate's left edge */}
+        {!n.read && <span aria-hidden className="absolute inset-y-2 left-0 w-[2px] bg-linear-to-b from-ember-300 to-ember-600" />}
         <span
           className={cn(
-            'mt-px flex size-8 shrink-0 items-center justify-center rounded-control ring-1 ring-inset',
+            'chamfer-xs mt-px flex size-8 shrink-0 items-center justify-center ring-1 ring-inset',
             TONE_SOFT[tone],
             n.read && 'opacity-70'
           )}
@@ -211,7 +213,7 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
       {/* Header */}
       <header className="flex h-14 shrink-0 items-center gap-2.5 border-b border-line pl-5 pr-3">
         <Bell size={18} strokeWidth={1.75} aria-hidden className="text-fg-muted" />
-        <h2 className="text-sm font-semibold text-fg">Notifications</h2>
+        <h2 className="engraved font-display text-sm font-semibold uppercase tracking-[0.14em] text-fg">Notifications</h2>
         {unreadCount > 0 && (
           <Badge tone="accent" size="sm">
             {unreadCount} new
@@ -243,7 +245,9 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
         ) : (
           groups.map((group) => (
             <section key={group.label} aria-label={group.label}>
-              <h3 className="hud-label px-3 pb-1.5 pt-4">{group.label}</h3>
+              <h3 className="engraved px-3 pb-1.5 pt-4 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">
+                {group.label}
+              </h3>
               <ul className="flex flex-col gap-1">
                 {group.items.map((n) => (
                   <NotificationRow key={n.id} notification={n} now={now} onRead={markAsRead} onRemove={removeNotification} />
@@ -255,7 +259,7 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Footer */}
-      <footer className="flex h-12 shrink-0 items-center justify-between border-t border-line bg-ink-950/30 pl-5 pr-3">
+      <footer className="flex h-12 shrink-0 items-center justify-between border-t border-line bg-steel-950/40 pl-5 pr-4">
         <span className="tabular hud-label">
           {notifications.length} {notifications.length === 1 ? 'notification' : 'notifications'}
         </span>
@@ -316,10 +320,13 @@ export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps)
             animate={{ opacity: 1, x: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 16, transition: { duration: 0.16, ease: EASE } }}
             transition={{ duration: 0.26, ease: EASE }}
-            className="glass-popover fixed bottom-14 right-2 top-2 flex w-[380px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-sheet shadow-e3 outline-none"
+            className="armor-drop fixed bottom-14 right-2 top-2 flex w-[380px] max-w-[calc(100vw-16px)] outline-none"
             style={{ zIndex: 'var(--z-notification)' }}
           >
-            <NotificationPanel onClose={onClose} />
+            {/* The plate: clipped, so the drop shadow lives on the aside */}
+            <div className="armor-popover rivets flex min-w-0 flex-1 flex-col overflow-hidden [--cut-bl:0px] [--cut-tr:0px] [--cut:14px] [--rivet-inset:7px]">
+              <NotificationPanel onClose={onClose} />
+            </div>
           </motion.aside>
         </>
       )}

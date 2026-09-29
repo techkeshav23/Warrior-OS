@@ -72,7 +72,7 @@ function TrophyTile({ size = 'md' }: { size?: 'sm' | 'md' }) {
     <span
       aria-hidden
       className={cn(
-        'flex shrink-0 items-center justify-center rounded-card border border-gold/35 bg-linear-to-b from-gold/20 to-gold/[0.03] text-gold shadow-[0_0_24px_-8px_var(--color-gold)]',
+        'chamfer flex shrink-0 items-center justify-center bg-[radial-gradient(circle_at_50%_30%,color-mix(in_oklab,var(--color-gold)_32%,var(--color-steel-800)),var(--color-steel-900)_85%)] text-gold shadow-[inset_0_1px_0_color-mix(in_oklab,var(--color-gold)_55%,transparent),inset_0_-1px_0_rgb(0_0_0/0.6)] [--cut:10px]',
         size === 'sm' ? 'size-10' : 'size-11'
       )}
     >
@@ -85,7 +85,7 @@ function GoldWash() {
   return (
     <span
       aria-hidden
-      className="pointer-events-none absolute inset-0 -z-10 rounded-card bg-linear-to-b from-gold/[0.06] to-transparent to-60%"
+      className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-b from-gold/[0.06] to-transparent to-60%"
     />
   );
 }
@@ -99,7 +99,7 @@ function GallerySummary({ stats }: { stats: AchievementStats }) {
         <div className="flex min-w-0 items-center gap-3.5">
           <TrophyTile />
           <div className="min-w-0">
-            <p className="font-mono text-2xs font-medium uppercase tracking-[0.14em] text-gold">Trophy room</p>
+            <p className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-gold">Trophy room</p>
             <p className="mt-1.5 flex items-baseline gap-1.5 leading-none">
               <span className="tabular font-display text-3xl font-semibold text-fg">{stats.unlocked}</span>
               <span className="tabular font-mono text-sm text-fg-subtle">/ {stats.total}</span>
@@ -121,7 +121,7 @@ function GallerySummary({ stats }: { stats: AchievementStats }) {
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
         {RARITY_ORDER.map((r) => (
           <span key={r} className="flex items-center gap-1.5 text-xs text-fg-muted">
-            <span className="size-2 rounded-full" style={{ background: RARITY_STYLE[r].color }} />
+            <span className="size-2 rotate-45 scale-[0.85]" style={{ background: RARITY_STYLE[r].color }} />
             {RARITY_STYLE[r].label}
             <span className="tabular font-mono text-fg-subtle">
               {stats.byRarity[r].unlocked}/{stats.byRarity[r].total}
@@ -159,11 +159,9 @@ function AchievementTile({ achievement, index, onOpen }: TileProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index, 30) * 0.012, duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        'focus-ring group relative isolate flex min-h-[132px] flex-col items-center gap-2 overflow-hidden rounded-card border px-2.5 pb-3 pt-3.5 text-center',
-        'transition-[background-color,border-color] duration-120 ease-out-quint',
-        unlocked
-          ? 'bg-surface-2 hover:bg-surface-hover'
-          : 'border-line bg-ink-950/25 hover:border-line-strong hover:bg-surface-2'
+        'armor-panel chamfer-md focus-ring group relative isolate flex min-h-[132px] flex-col items-center gap-2 overflow-hidden px-2.5 pb-3 pt-3.5 text-center',
+        'transition-[filter,border-color] duration-120 ease-out-quint hover:brightness-120',
+        !unlocked && 'bg-steel-900/70'
       )}
       style={unlocked ? { borderColor: tint(rarity.color, 30) } : undefined}
     >
@@ -259,7 +257,7 @@ function AchievementGalleryInner() {
         </div>
 
         {visible.length === 0 ? (
-          <div className="rounded-card border border-dashed border-line-strong">
+          <div className="chamfer-md bg-linear-to-b from-steel-950 to-steel-900 shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_6px_rgb(0_0_0/0.45),inset_0_-1px_0_rgb(255_255_255/0.07)]">
             <EmptyState
               icon={Trophy}
               title={status === 'unlocked' ? 'Nothing unlocked here yet' : 'No achievements match'}
@@ -319,8 +317,8 @@ function AchievementSummaryCardInner({ onOpen }: { onOpen: () => void }) {
       onClick={onOpen}
       aria-label={`Achievements: ${stats.unlocked} of ${stats.total} unlocked. Open the gallery`}
       className={cn(
-        'glass-panel focus-ring group relative isolate flex h-full w-full min-w-0 flex-col rounded-card p-4 text-left',
-        'transition-[background-color,border-color] duration-180 ease-out-quint hover:bg-surface-hover'
+        'armor-panel chamfer-md focus-ring group relative isolate flex h-full w-full min-w-0 flex-col p-4 text-left',
+        'transition-[filter] duration-180 ease-out-quint hover:brightness-115'
       )}
       style={GOLD_EDGE}
     >
@@ -328,7 +326,7 @@ function AchievementSummaryCardInner({ onOpen }: { onOpen: () => void }) {
       <div className="flex w-full items-start gap-3.5">
         <TrophyTile />
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-2xs font-medium uppercase tracking-[0.14em] text-gold">Achievements</p>
+          <p className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-gold">Achievements</p>
           <p className="mt-1.5 flex items-baseline gap-1.5 leading-none">
             <span className="tabular font-display text-3xl font-semibold text-fg">{stats.unlocked}</span>
             <span className="tabular font-mono text-sm text-fg-subtle">/ {stats.total}</span>

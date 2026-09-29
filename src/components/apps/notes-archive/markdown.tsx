@@ -124,7 +124,7 @@ function renderInline(text: string, ctx: RenderContext, key = 'i'): ReactNode[] 
     const k = `${key}-${n++}`;
     if (m[1] != null) {
       out.push(
-        <code key={k} className="rounded-[5px] border border-line bg-ink-850 px-1.5 py-px font-mono text-[0.86em] text-fg">
+        <code key={k} className="chamfer-xs bg-steel-950 px-1.5 py-px font-mono text-[0.86em] text-fg shadow-[inset_0_1px_0_rgb(0_0_0/0.6)]">
           {m[1]}
         </code>
       );
@@ -141,7 +141,7 @@ function renderInline(text: string, ctx: RenderContext, key = 'i'): ReactNode[] 
           title={known ? `Open “${title}”` : `Create “${title}”`}
           onClick={() => ctx.onNavigate?.(title)}
           className={cn(
-            'focus-ring inline rounded-[4px] px-0.5 text-left font-medium underline underline-offset-[3px]',
+            'focus-ring inline px-0.5 text-left font-medium underline underline-offset-[3px]',
             'transition-colors duration-120 ease-out-quint',
             known
               ? 'text-accent decoration-accent/40 hover:bg-accent/10 hover:decoration-accent'
@@ -177,7 +177,7 @@ function renderInline(text: string, ctx: RenderContext, key = 'i'): ReactNode[] 
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="focus-ring rounded-[3px] text-accent underline decoration-accent/40 underline-offset-[3px] transition-colors duration-120 hover:decoration-accent"
+          className="focus-ring text-accent underline decoration-accent/40 underline-offset-[3px] transition-colors duration-120 hover:decoration-accent"
         >
           {m[6] ?? href}
         </a>
@@ -257,7 +257,7 @@ export function MarkdownPreview({ source, onNavigate, knownTitles, hideLeadingTi
             return (
               <blockquote
                 key={key}
-                className="my-4 rounded-r-control border-l-2 border-accent/55 bg-surface-2 py-2 pl-4 pr-3 text-fg-muted"
+                className="chamfer-sm my-4 border-l-2 border-accent/55 bg-surface-2 py-2 pl-4 pr-3 text-fg-muted [--cut-bl:0px] [--cut-tl:0px]"
               >
                 {renderLines(block.lines, ctx, key)}
               </blockquote>
@@ -266,7 +266,7 @@ export function MarkdownPreview({ source, onNavigate, knownTitles, hideLeadingTi
             return <hr key={key} className="my-6 h-px border-0 bg-line" />;
           case 'code':
             return (
-              <div key={key} className="my-4 overflow-hidden rounded-card border border-line bg-ink-850">
+              <div key={key} className="chamfer-md my-4 overflow-hidden bg-linear-to-b from-steel-950 to-ink-850 shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_6px_rgb(0_0_0/0.4),inset_0_-1px_0_rgb(255_255_255/0.06)]">
                 {block.lang && (
                   <div className="hud-label border-b border-line px-3 py-1.5">{block.lang}</div>
                 )}
@@ -294,7 +294,7 @@ export function MarkdownPreview({ source, onNavigate, knownTitles, hideLeadingTi
                         {block.start + ii}.
                       </span>
                     ) : (
-                      <span className="mt-[9px] size-1.5 shrink-0 rounded-full bg-accent/60" aria-hidden />
+                      <span className="mt-[9px] size-1.5 shrink-0 rotate-45 bg-accent/60" aria-hidden />
                     )}
                     <span className={cn('min-w-0 flex-1', item.task && 'text-fg-subtle line-through decoration-fg-faint')}>
                       {item.task !== null && <span className="sr-only">{item.task ? 'Done: ' : 'To do: '}</span>}
@@ -332,7 +332,7 @@ function highlightInline(text: string, key: string): ReactNode[] {
     const k = `${key}-${n++}`;
     if (m[1] != null) {
       out.push(
-        <span key={k} className="rounded-[3px] bg-surface-active text-fg">
+        <span key={k} className="bg-surface-active text-fg">
           {m[1]}
         </span>
       );

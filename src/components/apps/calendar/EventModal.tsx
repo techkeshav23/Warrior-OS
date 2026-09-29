@@ -359,11 +359,18 @@ function EventModalInner({ state, event, onClose, onSaved }: EventModalProps) {
                   onClick={() => pickCategory(c.id)}
                   aria-pressed={active}
                   className={cn(
-                    'focus-ring flex h-9 items-center justify-center gap-2 rounded-control border text-ui font-medium',
-                    'transition-[background-color,border-color,color] duration-120 ease-out-quint',
-                    active ? 'text-fg' : 'border-line-strong bg-surface-2 text-fg-muted hover:border-fg-faint hover:bg-surface-hover hover:text-fg'
+                    'armor-plate chamfer-sm focus-ring flex h-9 items-center justify-center gap-2 text-ui font-medium',
+                    'transition-[filter,color] duration-120 ease-out-quint',
+                    active ? 'text-fg' : 'text-fg-muted hover:brightness-120 hover:text-fg'
                   )}
-                  style={active ? { borderColor: tintColor(c.color, 55), background: tintColor(c.color, 14) } : undefined}
+                  style={
+                    active
+                      ? {
+                          backgroundColor: tintColor(c.color, 16),
+                          boxShadow: `inset 0 0 0 1px ${tintColor(c.color, 55)}, inset 0 -2px 0 ${c.color}`,
+                        }
+                      : undefined
+                  }
                 >
                   <Icon size={16} strokeWidth={1.75} style={{ color: c.color }} aria-hidden />
                   {c.label}
@@ -390,8 +397,10 @@ function EventModalInner({ state, event, onClose, onSaved }: EventModalProps) {
                   aria-label={`Colour ${swatch}`}
                   onClick={() => pickColor(swatch)}
                   className={cn(
-                    'focus-ring flex size-6 items-center justify-center rounded-full transition-transform duration-120 ease-out-quint hover:scale-110',
-                    active && 'ring-2 ring-fg ring-offset-2 ring-offset-ink-850'
+                    'chamfer-xs focus-ring flex size-7 items-center justify-center transition-transform duration-120 ease-out-quint hover:scale-110',
+                    active
+                      ? 'shadow-[inset_0_0_0_2px_var(--color-fg),inset_0_0_0_3px_rgb(0_0_0/0.5)]'
+                      : 'shadow-[inset_0_1px_0_rgb(255_255_255/0.35),inset_0_-1px_0_rgb(0_0_0/0.45)]'
                   )}
                   style={{ background: swatch }}
                 >
@@ -400,10 +409,10 @@ function EventModalInner({ state, event, onClose, onSaved }: EventModalProps) {
               );
             })}
             <label
-              className="relative ml-1 flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-line-strong px-2.5 text-xs text-fg-muted transition-colors duration-120 hover:border-fg-faint hover:bg-surface-hover hover:text-fg focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent"
+              className="armor-plate chamfer-sm relative ml-1 flex h-7 cursor-pointer items-center gap-1.5 px-2.5 text-xs text-fg-muted transition-[filter,color] duration-120 hover:brightness-120 hover:text-fg focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-accent"
               title="Custom colour"
             >
-              <span className="size-3 rounded-full ring-1 ring-line-strong" style={{ background: color }} aria-hidden />
+              <span className="chamfer size-3 [--cut:2px]" style={{ background: color }} aria-hidden />
               Custom
               <input
                 type="color"

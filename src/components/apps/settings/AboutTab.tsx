@@ -44,14 +44,29 @@ function AboutTabInner() {
   return (
     <SettingsPage>
       {/* Hero */}
-      <Card hud padding="lg">
+      <Card hud padding="lg" className="chamfer-tl-br">
+        <span
+          aria-hidden
+          className="engraved pointer-events-none absolute top-3 right-7 font-mono text-2xs tracking-[0.2em] text-fg-faint"
+        >
+          MK · IV
+        </span>
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-4">
             <BrandMark size={56} glow />
-            <div className="min-w-0">
-              <p className="font-display text-xl font-semibold tracking-[0.08em] text-fg">WARRIOR OS</p>
-              <p className="hud-label mt-1">v4.0 — The Living World</p>
+            <div className="min-w-0 flex-1">
+              <p className="engraved font-display text-xl font-bold tracking-[0.12em] text-fg">WARRIOR OS</p>
+              <p className="engraved mt-1 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-ember-400/85">
+                v4.0 — The Living World
+              </p>
             </div>
+          </div>
+          {/* Forged seam with segment marks */}
+          <div aria-hidden className="flex h-1.5 items-center gap-1">
+            <span className="h-0.5 w-8 forge-heat" />
+            <span className="h-px flex-1 bg-[repeating-linear-gradient(90deg,rgb(255_255_255/0.13)_0_1px,transparent_1px_12px)] shadow-[0_1px_0_rgb(0_0_0/0.6)]" />
+            <span className="h-1.5 w-px bg-white/20" />
+            <span className="h-1.5 w-px bg-white/20" />
           </div>
           <p className="max-w-prose text-ui text-fg-muted">
             Warrior OS is {OWNER.shortName}&apos;s personal operating system, running entirely in the browser: a

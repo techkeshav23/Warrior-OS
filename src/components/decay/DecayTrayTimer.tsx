@@ -107,7 +107,7 @@ export function DecayTrayTimer({ className }: { className?: string }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          'flex h-8 items-center gap-1.5 rounded-control px-2 transition-colors duration-120 ease-out-quint focus-ring',
+          'chamfer-xs flex h-8 items-center gap-1.5 px-2 transition-colors duration-120 ease-out-quint focus-ring',
           open ? 'bg-surface-active text-fg' : 'text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active'
         )}
         title={`Continuous study ${formatStudyMinutes(minutes)} · ${DECAY_STAGE_NAMES[safeStage]}`}
@@ -129,14 +129,14 @@ export function DecayTrayTimer({ className }: { className?: string }) {
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 4, opacity: 0, scale: 0.98, transition: { duration: 0.12, ease: EASE } }}
             transition={{ duration: 0.18, ease: EASE }}
-            className="glass-popover absolute bottom-11 right-0 w-72 rounded-card p-4 text-left"
+            className="armor-popover absolute bottom-11 right-0 w-72 p-4 text-left [--cut:8px]"
             style={{ transformOrigin: 'bottom right' }}
             role="dialog"
             aria-label="Reality Decay timer"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="hud-label">Continuous study</p>
+                <p className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Continuous study</p>
                 <p className="tabular mt-1.5 font-display text-2xl font-semibold leading-none text-fg">
                   {formatStudyMinutes(minutes)}
                 </p>
@@ -161,7 +161,10 @@ export function DecayTrayTimer({ className }: { className?: string }) {
                 {[1, 2, 3, 4, 5].map((s) => (
                   <span
                     key={s}
-                    className={cn('h-1.5 flex-1 rounded-full', s <= safeStage ? STAGE_FILL[s] : 'bg-ink-600/70')}
+                    className={cn(
+                      'h-2 flex-1 [clip-path:polygon(3px_0,100%_0,calc(100%-3px)_100%,0_100%)]',
+                      s <= safeStage ? STAGE_FILL[s] : 'bg-steel-700'
+                    )}
                   />
                 ))}
               </div>

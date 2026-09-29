@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Procedural Music Player (FORGE HUD)
+// WARRIOR OS — Procedural Music Player (FORGED ARMOR)
 // The "Procedural" tab of WarBeats: a now-playing hero (mood, live
 // staff of generated notes, transport with the primary play button,
 // new seed, volume), four mode cards (Morning / Deep Study / Typing
@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { IconButton, Slider, Switch } from '@/components/ui';
+import { BEVEL_PRESSED, BEVEL_SUNK, EMBER_PLATE, ENGRAVED_LABEL, FOCUS_EDGE, SLOT_FILL } from '@/components/ui/armor';
 import { VIZ } from '@/styles/tokens';
 import { useProceduralMusic } from '@/hooks/useProceduralMusic';
 import { useMusicGenStore, MUSIC_MOODS, type MusicMood } from '@/stores/useMusicGenStore';
@@ -148,8 +149,8 @@ function ProceduralMusicPlayerInner({ className }: { className?: string }) {
       <section
         aria-label="Now playing"
         className={cn(
-          'glass-panel relative isolate shrink-0 overflow-hidden rounded-card',
-          live && 'hud-corners'
+          'armor-panel rivets relative isolate shrink-0 overflow-hidden [--cut:14px] [--cut-tr:0px] [--cut-bl:0px] [--rivet-inset:2px]',
+          live && 'ember-edge'
         )}
         style={{ '--mood': active.color } as React.CSSProperties}
       >
@@ -163,14 +164,14 @@ function ProceduralMusicPlayerInner({ className }: { className?: string }) {
         />
         <div className="flex items-start gap-3 px-4 pt-3.5">
           <span
-            className="flex size-11 shrink-0 items-center justify-center rounded-card border border-line-strong bg-linear-to-b from-ink-750 to-ink-850 inset-shadow-[0_1px_0_rgb(255_255_255/0.06)]"
+            className="armor-plate flex size-11 shrink-0 items-center justify-center [--cut:8px]"
             style={{ color: active.color }}
           >
             <ActiveIcon size={22} strokeWidth={1.75} aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="hud-label">{live ? 'Now composing' : warming ? 'Warming up' : 'Ready'}</div>
-            <div className="mt-0.5 truncate text-lg font-semibold text-fg">{MOOD_LABELS[activeMood]}</div>
+            <div className={ENGRAVED_LABEL}>{live ? 'Now composing' : warming ? 'Warming up' : 'Ready'}</div>
+            <div className="mt-0.5 truncate font-display text-xl font-semibold uppercase tracking-[0.06em] text-fg">{MOOD_LABELS[activeMood]}</div>
             <div className="truncate text-xs text-fg-muted" title={active.blurb}>
               {active.blurb}
             </div>
@@ -178,7 +179,7 @@ function ProceduralMusicPlayerInner({ className }: { className?: string }) {
         </div>
 
         {/* Live staff: every generated note lands at its pitch */}
-        <div className="relative mx-4 mt-3 h-16 overflow-hidden rounded-control border border-line bg-ink-950/55">
+        <div className={cn('chamfer-sm relative mx-4 mt-3 h-16 overflow-hidden', SLOT_FILL, BEVEL_SUNK)}>
           <NoteStaff color={active.color} />
           {!isGenerating && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 text-xs text-fg-subtle">
@@ -217,11 +218,14 @@ function ProceduralMusicPlayerInner({ className }: { className?: string }) {
             disabled={warming && !isGenerating}
             aria-label={isGenerating ? 'Stop procedural music' : 'Play procedural music'}
             className={cn(
-              'focus-ring flex size-12 shrink-0 items-center justify-center rounded-full',
-              'transition-[filter,box-shadow,background-color] duration-120 ease-out-quint',
+              'chamfer flex size-12 shrink-0 items-center justify-center [--cut:12px]',
+              'transition-[filter,box-shadow,transform] duration-120 ease-out-quint active:translate-y-px',
               'disabled:pointer-events-none disabled:opacity-45',
-              'bg-accent text-accent-fg inset-shadow-[0_1px_0_rgb(255_255_255/0.28)] hover:brightness-110 hover:shadow-glow active:brightness-95',
-              live && 'shadow-glow'
+              FOCUS_EDGE,
+              EMBER_PLATE,
+              'hover:brightness-115 hover:saturate-125 active:brightness-95',
+              BEVEL_PRESSED,
+              live && 'brightness-110'
             )}
           >
             {isGenerating ? (
@@ -253,7 +257,7 @@ function ProceduralMusicPlayerInner({ className }: { className?: string }) {
 
       {/* ── Modes ── */}
       <section aria-label="Music mode" className="shrink-0">
-        <h3 className="hud-label mb-2">Modes</h3>
+        <h3 className={cn(ENGRAVED_LABEL, 'mb-2')}>Modes</h3>
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Music mode">
           {MUSIC_MOODS.map((mood) => {
             const meta = MODES[mood];
@@ -269,16 +273,15 @@ function ProceduralMusicPlayerInner({ className }: { className?: string }) {
                 onClick={() => selectMode(mood)}
                 title={meta.blurb}
                 className={cn(
-                  'focus-ring group relative flex min-w-0 flex-col gap-1 rounded-card border px-3 py-2 text-left',
-                  'transition-[background-color,border-color] duration-120 ease-out-quint',
-                  checked
-                    ? 'border-accent/40 bg-accent/[0.07]'
-                    : 'border-line bg-surface-2 hover:border-line-strong hover:bg-surface-hover active:bg-surface-active'
+                  'armor-plate group relative flex min-w-0 flex-col gap-1 px-3 py-2 text-left [--cut:8px]',
+                  'transition-[filter,box-shadow] duration-120 ease-out-quint active:translate-y-px',
+                  FOCUS_EDGE,
+                  checked ? 'ember-edge' : 'hover:brightness-125'
                 )}
               >
                 <div className="flex items-center gap-2">
                   <span
-                    className="flex size-6 shrink-0 items-center justify-center rounded-[6px] border border-line bg-ink-800"
+                    className={cn('chamfer-xs flex size-6 shrink-0 items-center justify-center bg-steel-900', BEVEL_SUNK)}
                     style={{ color: meta.color }}
                   >
                     <Icon size={14} strokeWidth={1.75} aria-hidden />
@@ -305,7 +308,7 @@ function ProceduralMusicPlayerInner({ className }: { className?: string }) {
       </section>
 
       {/* ── Auto-mood ── */}
-      <section className="shrink-0 rounded-card bg-surface-2 px-3 py-2">
+      <section className="chamfer-md bevel brushed shrink-0 bg-steel-800 px-3 py-2">
         <Switch
           layout="row"
           size="sm"

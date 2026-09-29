@@ -137,14 +137,14 @@ function CreatureStatsInner({ vitals, onClose }: CreatureStatsProps) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98, transition: { duration: 0.14 } }}
       transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      className="glass-popover w-[320px] overflow-hidden rounded-card text-fg"
+      className="armor-popover rivets w-[320px] overflow-hidden text-fg [--cut-bl:0px] [--cut-tr:0px] [--cut:12px] [--rivet-inset:6px]"
       style={{ transformOrigin: 'bottom right' }}
       role="dialog"
       aria-label={`${name} stats`}
     >
       {/* ─── Header: sprite + identity ─── */}
       <div className="flex items-center gap-3 px-4 pb-3 pt-4">
-        <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-card border border-line-strong bg-linear-to-b from-ink-750 to-ink-900">
+        <div className="chamfer-sm relative flex size-12 shrink-0 items-center justify-center overflow-hidden bg-linear-to-b from-steel-900 to-steel-950 shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_6px_rgb(0_0_0/0.45),inset_0_-1px_0_rgb(255_255_255/0.07)]">
           <CreatureCanvas form={form} stage={stage} mood={mood} size={30} goldenAura={hasGoldenAura} crack={eggReadyToHatch ? 0.25 : 0} />
         </div>
         <div className="min-w-0 flex-1">
@@ -162,7 +162,7 @@ function CreatureStatsInner({ vitals, onClose }: CreatureStatsProps) {
                     setEditing(false);
                   }
                 }}
-                className="h-7 min-w-0 flex-1 rounded-control border border-line-strong bg-ink-900/60 px-2 text-ui text-fg outline-none transition-colors focus:border-accent/60"
+                className="chamfer-xs h-7 min-w-0 flex-1 bg-linear-to-b from-steel-950 to-steel-900 px-2 text-ui text-fg outline-none shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_-1px_0_rgb(255_255_255/0.07)] transition-shadow focus:ember-edge"
                 aria-label="Creature name"
               />
               <IconButton icon={Check} size="xs" onClick={commitName} aria-label="Save name" className="text-success" />
@@ -170,7 +170,7 @@ function CreatureStatsInner({ vitals, onClose }: CreatureStatsProps) {
             </div>
           ) : (
             <div className="flex items-center gap-1">
-              <span className="truncate text-sm font-semibold text-fg">{name}</span>
+              <span className="truncate font-display text-sm font-semibold text-fg">{name}</span>
               <IconButton icon={Pencil} size="xs" iconSize={12} onClick={beginEdit} aria-label="Rename creature" tooltip="Rename" />
             </div>
           )}
@@ -250,12 +250,12 @@ function CreatureStatsInner({ vitals, onClose }: CreatureStatsProps) {
         {/* ─── Activity split: what shapes its form ─── */}
         <div>
           <div className="mb-1.5 flex items-baseline justify-between gap-3">
-            <span className="hud-label shrink-0">Study vs code</span>
+            <span className="engraved shrink-0 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Study vs code</span>
             <span className="truncate text-2xs text-fg-subtle" title={isHatched ? undefined : 'The dominant side decides its form'}>
               Dominant <span className="font-medium" style={{ color: accent }}>{dominant}</span>
             </span>
           </div>
-          <div className="flex h-1.5 gap-0.5 overflow-hidden rounded-full" aria-hidden>
+          <div className="flex h-2 gap-0.5 overflow-hidden [clip-path:polygon(3px_0,100%_0,calc(100%-3px)_100%,0_100%)]" aria-hidden>
             {total === 0 ? (
               <span className="h-full flex-1 bg-ink-600/70" />
             ) : (

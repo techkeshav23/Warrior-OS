@@ -125,10 +125,10 @@ function AchievementDetailInner({ achievement, index, total, onClose, onPrev, on
 
         <div className="relative mt-4 flex flex-wrap items-center justify-center gap-1.5">
           <span
-            className="inline-flex h-5 items-center gap-1.5 rounded-full px-2 font-mono text-2xs font-medium uppercase tracking-[0.08em] ring-1 ring-inset"
+            className="chamfer-xs inline-flex h-5 items-center gap-1.5 px-2 font-mono text-2xs font-medium uppercase tracking-[0.08em] ring-1 ring-inset"
             style={{ color: rarity.color, background: tint(rarity.color, 12), '--tw-ring-color': tint(rarity.color, 30) } as CSSProperties}
           >
-            <span className="size-1.5 rounded-full" style={{ background: rarity.color }} />
+            <span className="size-1.5 rotate-45" style={{ background: rarity.color }} />
             {rarity.label}
           </span>
           <Badge tone="neutral">{CATEGORY_LABEL[shown.category]}</Badge>
@@ -139,8 +139,8 @@ function AchievementDetailInner({ achievement, index, total, onClose, onPrev, on
 
         <div
           className={cn(
-            'relative mt-4 flex w-full items-center justify-center gap-2 rounded-control px-3 py-2 text-xs',
-            unlocked ? 'bg-surface-hover text-fg-muted' : 'bg-ink-950/40 text-fg-subtle'
+            'chamfer-sm relative mt-4 flex w-full items-center justify-center gap-2 px-3 py-2 text-xs shadow-[inset_0_1px_0_rgb(0_0_0/0.6),inset_0_-1px_0_rgb(255_255_255/0.06)]',
+            unlocked ? 'bg-steel-900 text-fg-muted' : 'bg-steel-950 text-fg-subtle'
           )}
         >
           {unlocked && shown.unlockedAt ? (

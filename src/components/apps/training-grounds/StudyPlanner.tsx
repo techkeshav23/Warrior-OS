@@ -91,7 +91,7 @@ function QuestRow({ quest, index, done, onToggle, onStart }: QuestRowProps) {
         boss && !done && 'bg-ember-500/6'
       )}
     >
-      {boss && !done && <span aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-ember-400" />}
+      {boss && !done && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-ember-400 shadow-[0_0_8px_var(--color-ember-500)]" />}
       <button
         type="button"
         role="checkbox"
@@ -101,8 +101,8 @@ function QuestRow({ quest, index, done, onToggle, onStart }: QuestRowProps) {
         disabled={quest.achieved}
         onClick={() => onToggle(quest)}
         className={cn(
-          'focus-ring flex size-5 shrink-0 items-center justify-center rounded-[5px] border transition-colors duration-120 ease-out-quint',
-          done ? 'border-success bg-success text-ink-950' : 'border-fg-faint bg-ink-950/60 hover:border-fg-subtle',
+          'focus-ring flex size-5 shrink-0 items-center justify-center chamfer-xs [--cut:3px] border transition-colors duration-120 ease-out-quint',
+          done ? 'border-success bg-success text-ink-950' : 'border-fg-faint bg-steel-950 shadow-[inset_0_1px_0_rgb(0_0_0/0.7)] hover:border-fg-subtle',
           quest.achieved && 'cursor-default'
         )}
       >
@@ -124,8 +124,8 @@ function QuestRow({ quest, index, done, onToggle, onStart }: QuestRowProps) {
       <span
         aria-hidden
         className={cn(
-          'flex size-8 shrink-0 items-center justify-center rounded-control border bg-ink-800',
-          done ? 'border-line text-fg-subtle' : boss ? 'border-ember-500/35 text-ember-400' : 'border-line text-accent'
+          'flex size-8 shrink-0 items-center justify-center chamfer-sm bg-steel-950/70 bevel',
+          done ? 'text-fg-subtle' : boss ? 'ember-edge text-ember-400' : 'text-accent'
         )}
       >
         <Icon size={16} strokeWidth={1.75} />
@@ -180,8 +180,8 @@ function DayRow({ day, todayStart, maxLoad }: { day: PlanDay; todayStart: number
   return (
     <li
       className={cn(
-        'grid grid-cols-[6.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-control px-2.5 py-1.5 @md:grid-cols-[8rem_minmax(0,1fr)_auto]',
-        isToday && 'bg-accent/8',
+        'grid grid-cols-[6.5rem_minmax(0,1fr)_auto] items-center gap-3 chamfer-xs px-2.5 py-1.5 @md:grid-cols-[8rem_minmax(0,1fr)_auto]',
+        isToday && 'bg-accent/8 shadow-[inset_2px_0_0_var(--accent)]',
         day.isTarget && 'bg-ember-500/8'
       )}
     >
@@ -197,13 +197,13 @@ function DayRow({ day, todayStart, maxLoad }: { day: PlanDay; todayStart: number
       >
         {day.learn > 0 && (
           <span
-            className={cn('h-full', day.review > 0 ? 'rounded-l-full' : 'rounded-full')}
+            className="h-full"
             style={{ width: `${learnPct}%`, backgroundColor: NEW_COLOR, minWidth: 4 }}
           />
         )}
         {day.review > 0 && (
           <span
-            className={cn('h-full', day.learn > 0 ? 'rounded-r-full' : 'rounded-full', day.estimated && 'opacity-70')}
+            className={cn('h-full', day.estimated && 'opacity-70')}
             style={{ width: `${reviewPct}%`, backgroundColor: REVIEW_COLOR, minWidth: 4 }}
           />
         )}
@@ -327,17 +327,17 @@ function StudyPlannerInner({ onStart }: StudyPlannerProps) {
           <Card hud tone={ended ? 'ember' : 'default'} padding="lg">
             <div className="flex flex-col items-center gap-4 py-4 text-center">
               {ended ? (
-                <span className="flex size-14 items-center justify-center rounded-card border border-gold/35 bg-gold/10 text-gold shadow-[0_0_28px_-6px_var(--color-gold)]">
+                <span className="armor-plate chamfer-md flex size-14 items-center justify-center bg-[color-mix(in_oklab,var(--color-gold)_18%,var(--color-steel-800))] text-gold [--cut-tl:12px] [--cut-br:12px]">
                   <Trophy size={26} strokeWidth={1.75} aria-hidden />
                 </span>
               ) : (
-                <span className="flex size-14 items-center justify-center rounded-card border border-line-strong bg-ink-800 text-fg-muted">
+                <span className="armor-plate chamfer-md flex size-14 items-center justify-center text-fg-muted [--cut-tl:12px] [--cut-br:12px]">
                   <Flag size={24} strokeWidth={1.75} aria-hidden />
                 </span>
               )}
               <div>
                 <div className="hud-label">{ended ? 'Quest over' : 'Quest'}</div>
-                <h3 className="mt-1 text-xl font-semibold text-fg">{ended ? 'Quest complete' : 'This quest lost its decks'}</h3>
+                <h3 className="mt-1 font-display text-xl font-semibold tracking-wide text-fg">{ended ? 'Quest complete' : 'This quest lost its decks'}</h3>
                 <p className="mt-1 text-ui text-fg-muted">
                   {goal} · {ended ? `target was ${targetLabel}` : 'the decks it covered were deleted'}
                 </p>
@@ -381,7 +381,7 @@ function StudyPlannerInner({ onStart }: StudyPlannerProps) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="hud-label text-ember-400">Quest planner · active quest</div>
-            <h3 className="mt-1.5 break-words text-xl font-semibold text-fg">{goal}</h3>
+            <h3 className="mt-1.5 break-words font-display text-xl font-semibold tracking-wide text-fg">{goal}</h3>
             <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-ui text-fg-muted">
               <Flag size={14} strokeWidth={1.75} className="text-ember-400" aria-hidden />
               {targetLabel}
@@ -425,7 +425,7 @@ function StudyPlannerInner({ onStart }: StudyPlannerProps) {
       {/* Today */}
       <section className="space-y-3" aria-label="Today's quests">
         <div className="flex items-center justify-between gap-3">
-          <h4 className="text-sm font-semibold text-fg">Today&apos;s quests</h4>
+          <h4 className="engraved font-display text-xs font-semibold uppercase tracking-[0.18em] text-fg-muted">Today&apos;s quests</h4>
           <Badge tone={allDone ? 'success' : 'neutral'} icon={allDone ? Check : undefined}>
             {doneCount}/{quests.length} done
           </Badge>
@@ -437,7 +437,7 @@ function StudyPlannerInner({ onStart }: StudyPlannerProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={TRANSITION.small}
-              className="flex items-center gap-3 rounded-card bg-gold/10 px-4 py-3 ring-1 ring-inset ring-gold/25"
+              className="relative flex items-center gap-3 chamfer-md bg-gold/10 px-4 py-3 ring-1 ring-inset ring-gold/25 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-gold"
             >
               <Trophy size={18} strokeWidth={1.75} className="shrink-0 text-gold" aria-hidden />
               <p className="text-ui text-fg">Day cleared. Every quest done: the streak holds.</p>
@@ -452,7 +452,7 @@ function StudyPlannerInner({ onStart }: StudyPlannerProps) {
             description="Nothing due and nothing new left today. Rest, or run a quiz for fun."
           />
         ) : (
-          <ul className="glass-panel divide-y divide-line overflow-hidden rounded-card">
+          <ul className="armor-panel chamfer-md divide-y divide-black/40 overflow-hidden">
             {quests.map((quest, i) => (
               <QuestRow key={quest.id} quest={quest} index={i} done={isDone(quest)} onToggle={toggle} onStart={start} />
             ))}
@@ -463,7 +463,7 @@ function StudyPlannerInner({ onStart }: StudyPlannerProps) {
       {/* Schedule */}
       <section className="space-y-3" aria-label="Schedule">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h4 className="text-sm font-semibold text-fg">Schedule</h4>
+          <h4 className="engraved font-display text-xs font-semibold uppercase tracking-[0.18em] text-fg-muted">Schedule</h4>
           <span className="flex items-center gap-4 text-xs text-fg-muted">
             <span className="flex items-center gap-1.5">
               <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: NEW_COLOR }} />

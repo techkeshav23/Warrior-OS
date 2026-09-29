@@ -12,6 +12,7 @@ import { memo } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Building2, Crown, Footprints, Sparkles, Star, TriangleAlert, X, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BEVEL_SUNK, ENGRAVED_LABEL, FOCUS_EDGE, SLOT_FILL } from '@/components/ui/armor';
 import { AppIcon, Button, IconButton, Kbd, ProgressBar, StatTile } from '@/components/ui';
 import { TRANSITION } from '@/styles/tokens';
 import {
@@ -109,16 +110,16 @@ function PalaceOverviewInner({ summary, growth, rooms, mode, hasContent, onEnter
         initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.97, y: reduceMotion ? 0 : 6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={TRANSITION.panel}
-        className="glass-popover @container relative flex max-h-full w-full max-w-[600px] flex-col overflow-hidden rounded-sheet"
+        className="armor-popover rivets @container relative flex max-h-full w-full max-w-[600px] flex-col overflow-hidden [--cut:16px] [--cut-tr:0px] [--cut-bl:0px] [--rivet-inset:4px]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="relative flex items-start gap-3 px-6 pb-4 pt-6">
-          <span aria-hidden className="pointer-events-none absolute inset-x-12 top-0 h-px bg-linear-to-r from-transparent via-accent/50 to-transparent" />
+          <span aria-hidden className="notch pointer-events-none absolute left-1/2 top-0 h-1 w-40 -translate-x-1/2 bg-linear-to-r from-ember-600 via-ember-300 to-ember-600 shadow-[0_0_12px_var(--color-ember-500)] [--notch:4px]" />
           <AppIcon appId="memory-palace" size={40} active />
           <div className="min-w-0 flex-1">
-            <div className="hud-label mb-1">{intro ? 'Learn · Spatial memory' : 'Overview'}</div>
-            <h2 id="palace-overview-title" className="text-xl font-semibold text-fg">
+            <div className={cn(ENGRAVED_LABEL, 'mb-1')}>{intro ? 'Learn · Spatial memory' : 'Overview'}</div>
+            <h2 id="palace-overview-title" className="font-display text-2xl font-semibold uppercase tracking-[0.06em] text-fg">
               Memory Palace
             </h2>
             <p className="mt-1 text-ui text-fg-muted">
@@ -152,13 +153,13 @@ function PalaceOverviewInner({ summary, growth, rooms, mode, hasContent, onEnter
           {/* Revision recency */}
           <section aria-label="Revision recency">
             <div className="mb-2 flex items-baseline justify-between gap-3">
-              <h3 className="hud-label">Revision recency</h3>
+              <h3 className={ENGRAVED_LABEL}>Revision recency</h3>
               <span className="tabular truncate text-xs text-fg-subtle">
                 {summary.overdue > 0 ? `${summary.overdue} overdue · ` : ''}
                 {summary.synced} synced with Training Grounds
               </span>
             </div>
-            <div className="flex h-2 gap-px overflow-hidden rounded-full bg-ink-700">
+            <div className={cn('chamfer-xs flex h-2.5 gap-px overflow-hidden p-px [--cut:3px]', SLOT_FILL, BEVEL_SUNK)}>
               {BUCKETS.map((b) =>
                 summary.recency[b] > 0 ? (
                   <div
@@ -172,7 +173,7 @@ function PalaceOverviewInner({ summary, growth, rooms, mode, hasContent, onEnter
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-fg-muted">
               {BUCKETS.map((b) => (
                 <span key={b} className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full" style={{ backgroundColor: recencyLabelColor(b) }} aria-hidden />
+                  <span className="size-2 rotate-45" style={{ backgroundColor: recencyLabelColor(b) }} aria-hidden />
                   {RECENCY_STYLES[b].label}
                   <span className="tabular font-mono text-fg">{summary.recency[b]}</span>
                 </span>
@@ -191,7 +192,7 @@ function PalaceOverviewInner({ summary, growth, rooms, mode, hasContent, onEnter
           {/* Rooms that need attention */}
           {urgent.length > 0 && (
             <section aria-label="Rooms needing review">
-              <h3 className="hud-label mb-2">Rooms needing review</h3>
+              <h3 className={cn(ENGRAVED_LABEL, 'mb-2')}>Rooms needing review</h3>
               <div className="grid gap-1.5 @md:grid-cols-2">
                 {urgent.slice(0, 6).map((r) => (
                   <button
@@ -199,11 +200,15 @@ function PalaceOverviewInner({ summary, growth, rooms, mode, hasContent, onEnter
                     type="button"
                     onClick={() => onTeleport(r.key)}
                     title={`Fly to ${r.label}`}
-                    className="focus-ring group flex h-10 min-w-0 items-center gap-2.5 rounded-control border border-line bg-surface-2 px-3 text-left transition-colors duration-120 ease-out-quint hover:border-line-strong hover:bg-surface-hover active:bg-surface-active"
+                    className={cn(
+                      'armor-plate group flex h-10 min-w-0 items-center gap-2.5 px-3 text-left [--cut:6px]',
+                      'transition-[filter,transform] duration-120 ease-out-quint hover:brightness-125 active:translate-y-px',
+                      FOCUS_EDGE
+                    )}
                   >
-                    <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: r.accent }} aria-hidden />
+                    <span className="size-2 shrink-0 rotate-45" style={{ backgroundColor: r.accent }} aria-hidden />
                     <span className="min-w-0 flex-1 truncate text-ui text-fg">{r.label}</span>
-                    <span className="tabular shrink-0 rounded-full bg-danger/12 px-2 font-mono text-2xs leading-5 text-danger">
+                    <span className="tabular chamfer-xs shrink-0 bg-danger/15 px-2 font-mono text-2xs leading-5 text-danger shadow-[inset_0_0_0_1px_rgb(255_84_112/0.3)] [--cut:3px]">
                       {r.dueCount} due
                     </span>
                     <ChevronRight size={14} strokeWidth={1.75} className="shrink-0 text-fg-subtle group-hover:text-fg" aria-hidden />
@@ -214,9 +219,9 @@ function PalaceOverviewInner({ summary, growth, rooms, mode, hasContent, onEnter
           )}
 
           {/* Growth */}
-          <section aria-label="Palace growth" className="rounded-card bg-surface-2 p-4">
+          <section aria-label="Palace growth" className="chamfer-md bevel brushed bg-steel-800 p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="hud-label flex items-center gap-1.5">
+              <h3 className={cn(ENGRAVED_LABEL, 'flex items-center gap-1.5')}>
                 <Crown size={14} strokeWidth={1.75} aria-hidden /> Palace growth
               </h3>
               <span className="tabular font-mono text-2xs text-fg-subtle">
@@ -262,7 +267,7 @@ function PalaceOverviewInner({ summary, growth, rooms, mode, hasContent, onEnter
 
         </div>
         {intro && (
-          <div className="flex shrink-0 flex-col items-center gap-3 border-t border-line bg-ink-950/40 px-6 py-4">
+          <div className="brushed flex shrink-0 flex-col items-center gap-3 bg-steel-900 px-6 py-4 shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_0_rgb(255_255_255/0.04)]">
             <Button variant="primary" size="lg" leadingIcon={Footprints} onClick={onEnter} className="min-w-56">
               Enter the palace
             </Button>

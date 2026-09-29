@@ -1,10 +1,11 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Button + IconButton (FORGE HUD kit)
-//   primary   accent fill — the one main action on a surface
-//   secondary quiet hairline button — most actions
-//   ghost     text-only — toolbars, inline actions
-//   danger    tinted red — destructive actions
-//   ember     forge-fire gradient — warrior moments (streaks, XP, "Forge it")
+// WARRIOR OS — Button + IconButton (FORGED ARMOR kit)
+// Chamfered plates with a bevel; hover heats the metal, press sinks it.
+//   primary   molten ember plate, hot top edge — the one main action
+//   secondary steel plate — most actions
+//   ghost     bare — toolbars, inline actions
+//   danger    blood-red plate — destructive actions
+//   ember     same molten plate as primary (warrior moments)
 // Sizes: sm 28px · md 32px · lg 40px.
 // ═══════════════════════════════════════════════════════════
 
@@ -15,34 +16,36 @@ import { LoaderCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { renderIcon, type IconLike } from './icon';
 import { Tooltip, type TooltipSide } from './Tooltip';
+import { BEVEL_PRESSED, BEVEL_RAISED, EMBER_PLATE, FOCUS_EDGE, STEEL_PLATE, STEEL_PLATE_HOT } from './armor';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'ember';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const BASE =
-  'relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap font-medium ' +
-  'rounded-control transition-[background-color,border-color,color,box-shadow,filter,opacity] duration-120 ease-out-quint ' +
-  'focus-ring disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45';
+  'relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap font-display font-semibold uppercase tracking-[0.08em] ' +
+  'chamfer transition-[background-color,color,box-shadow,filter,opacity,transform] duration-120 ease-out-quint active:translate-y-px ' +
+  FOCUS_EDGE +
+  ' disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45';
 
 const VARIANT: Record<ButtonVariant, string> = {
-  primary:
-    'bg-accent text-accent-fg inset-shadow-[0_1px_0_rgb(255_255_255/0.28)] ' +
-    'hover:brightness-110 hover:shadow-glow active:brightness-95',
-  secondary:
-    'border border-line-strong bg-surface-2 text-fg inset-shadow-[0_1px_0_rgb(255_255_255/0.04)] ' +
-    'hover:border-fg-faint hover:bg-surface-hover active:bg-surface-active',
-  ghost: 'text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active',
-  danger:
-    'border border-danger/30 bg-danger/10 text-danger hover:border-danger/50 hover:bg-danger/18 active:bg-danger/25',
-  ember:
-    'bg-linear-to-b from-ember-400 to-ember-500 text-ink-950 inset-shadow-[0_1px_0_rgb(255_255_255/0.3)] ' +
-    'hover:brightness-110 hover:shadow-[0_0_24px_-4px_var(--color-ember-500,#f76b15)] active:brightness-95',
+  // Molten ember plate with a hot top edge; hover = hotter, press = sinks.
+  primary: cn(EMBER_PLATE, 'hover:brightness-115 hover:saturate-125 active:brightness-95', BEVEL_PRESSED),
+  // Steel plate; hover heats the metal, press sinks it.
+  secondary: cn(STEEL_PLATE, STEEL_PLATE_HOT, BEVEL_RAISED, 'hover:text-ember-300', BEVEL_PRESSED),
+  ghost: 'text-fg-muted hover:bg-white/[0.05] hover:text-ember-300 active:bg-white/[0.08]',
+  danger: cn(
+    'bg-linear-to-b from-[#4a1720] to-[#2a0c12] text-[#ff8a9c]',
+    'shadow-[inset_0_1px_0_rgb(255_120_140/0.35),inset_0_-1px_0_rgb(0_0_0/0.6)]',
+    'hover:from-[#6a1c29] hover:to-[#3a0f18] hover:text-white',
+    BEVEL_PRESSED
+  ),
+  ember: cn(EMBER_PLATE, 'hover:brightness-115 hover:saturate-125 active:brightness-95', BEVEL_PRESSED),
 };
 
 const SIZE: Record<ButtonSize, string> = {
-  sm: 'h-7 gap-1.5 px-2.5 text-xs',
-  md: 'h-8 gap-2 px-3 text-ui',
-  lg: 'h-10 gap-2 px-4 text-sm',
+  sm: 'h-7 gap-1.5 px-3 text-[11px] [--cut:5px]',
+  md: 'h-8 gap-2 px-3.5 text-xs [--cut:6px]',
+  lg: 'h-10 gap-2 px-5 text-ui [--cut:8px]',
 };
 
 const ICON_SIZE: Record<ButtonSize, number> = { sm: 14, md: 16, lg: 18 };
@@ -101,23 +104,33 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 
 // ─── IconButton ───────────────────────────────────────────
 
-export type IconButtonVariant = 'ghost' | 'secondary' | 'primary' | 'danger' | 'ghost-danger';
+export type IconButtonVariant = 'ghost' | 'secondary' | 'primary' | 'danger' | 'ghost-danger' | 'steel-danger';
 export type IconButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 const ICON_VARIANT: Record<IconButtonVariant, string> = {
-  ghost: 'text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active',
-  secondary:
-    'border border-line-strong bg-surface-2 text-fg-muted hover:border-fg-faint hover:bg-surface-hover hover:text-fg active:bg-surface-active',
-  primary: 'bg-accent text-accent-fg hover:brightness-110 active:brightness-95',
-  danger: 'border border-danger/30 bg-danger/10 text-danger hover:bg-danger/18',
-  'ghost-danger': 'text-fg-muted hover:bg-danger/15 hover:text-danger active:bg-danger/25',
+  ghost: 'text-fg-muted hover:bg-white/[0.06] hover:text-ember-300 active:bg-white/[0.09]',
+  secondary: cn(STEEL_PLATE, STEEL_PLATE_HOT, BEVEL_RAISED, 'text-fg-muted hover:text-ember-300', BEVEL_PRESSED),
+  primary: cn(EMBER_PLATE, 'hover:brightness-115 active:brightness-95', BEVEL_PRESSED),
+  danger: cn(
+    'bg-linear-to-b from-[#4a1720] to-[#2a0c12] text-[#ff8a9c] shadow-[inset_0_1px_0_rgb(255_120_140/0.35),inset_0_-1px_0_rgb(0_0_0/0.6)]',
+    'hover:from-[#6a1c29] hover:to-[#3a0f18] hover:text-white'
+  ),
+  'ghost-danger': 'text-fg-muted hover:bg-linear-to-b hover:from-[#7a1f2e] hover:to-[#4a1119] hover:text-white active:brightness-90',
+  // Steel plate that heats to danger red on hover (window Close).
+  'steel-danger': cn(
+    STEEL_PLATE,
+    BEVEL_RAISED,
+    'text-fg-muted hover:from-[#b3263b] hover:via-[#7d1827] hover:to-[#4a0e18] hover:text-white',
+    BEVEL_PRESSED
+  ),
 };
 
+// Icon plates are cut smaller than text buttons so the glyph stays centered.
 const ICON_BOX: Record<IconButtonSize, string> = {
-  xs: 'size-6 rounded-[6px]',
-  sm: 'size-7 rounded-control',
-  md: 'size-8 rounded-control',
-  lg: 'size-10 rounded-control',
+  xs: 'size-6 [--cut:4px]',
+  sm: 'size-7 [--cut:5px]',
+  md: 'size-8 [--cut:6px]',
+  lg: 'size-10 [--cut:7px]',
 };
 
 const ICON_GLYPH: Record<IconButtonSize, number> = { xs: 14, sm: 16, md: 16, lg: 18 };
@@ -172,7 +185,10 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       className={cn(
         BASE,
         ICON_BOX[size],
-        active ? 'bg-accent/15 text-accent hover:bg-accent/20' : ICON_VARIANT[variant],
+        active
+          ? 'bg-linear-to-b from-ember-500/25 to-ember-600/10 text-ember-300 shadow-[inset_0_-2px_0_var(--color-ember-400,#ff8a3d),inset_0_1px_0_rgb(255_255_255/0.08)]'
+          : ICON_VARIANT[variant],
+        'normal-case tracking-normal',
         className
       )}
       {...props}

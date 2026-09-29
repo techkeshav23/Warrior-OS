@@ -11,6 +11,7 @@
 import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { BookOpenText, ChevronRight, CodeXml } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ENGRAVED_LABEL } from '@/components/ui/armor';
 import { Tabs } from '@/components/ui';
 import type { AlgorithmMeta } from '@/types/algo';
 import { tokenizePseudocode, type PseudoTokenKind } from '@/lib/algorithms/pseudocode';
@@ -42,11 +43,11 @@ function Guide({ meta }: { meta: AlgorithmMeta }) {
     <div className="space-y-4 px-4 py-3">
       <p className="select-text text-ui text-fg-muted">{meta.description}</p>
       <section>
-        <h4 className="hud-label mb-2">How it works</h4>
+        <h4 className={cn(ENGRAVED_LABEL, 'mb-2')}>How it works</h4>
         <ol className="space-y-1.5">
           {meta.steps.map((step, i) => (
             <li key={step} className="flex gap-2.5 text-ui text-fg-muted">
-              <span className="tabular mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-active font-mono text-2xs text-fg">
+              <span className="tabular chamfer-xs bevel mt-px flex size-5 shrink-0 items-center justify-center bg-steel-700 font-display text-2xs font-semibold text-ember-300 [--cut:4px]">
                 {i + 1}
               </span>
               <span className="min-w-0 select-text">{step}</span>
@@ -55,7 +56,7 @@ function Guide({ meta }: { meta: AlgorithmMeta }) {
         </ol>
       </section>
       <section>
-        <h4 className="hud-label mb-2">Exam notes</h4>
+        <h4 className={cn(ENGRAVED_LABEL, 'mb-2')}>Exam notes</h4>
         <ul className="space-y-1.5">
           {meta.facts.map((fact) => (
             <li key={fact} className="flex gap-1.5 text-ui text-fg-muted">
@@ -95,7 +96,7 @@ function CodePanelInner({ title, lines, activeLine, meta, className }: CodePanel
   return (
     <div
       className={cn(
-        'glass-panel flex min-h-[12rem] min-w-0 flex-col overflow-hidden rounded-card',
+        'armor-panel flex min-h-[12rem] min-w-0 flex-col overflow-hidden [--cut:10px]',
         className
       )}
     >
@@ -128,7 +129,7 @@ function CodePanelInner({ title, lines, activeLine, meta, className }: CodePanel
         role={meta ? 'tabpanel' : undefined}
         id={meta ? `${idPrefix}-panel-${tab}` : undefined}
         aria-labelledby={meta ? `${idPrefix}-tab-${tab}` : undefined}
-        className="scrollbar-thin relative min-h-0 flex-1 overflow-y-auto border-t border-line bg-ink-950/40"
+        className="scrollbar-thin relative min-h-0 flex-1 overflow-y-auto bg-steel-950/80 shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_3px_8px_rgb(0_0_0/0.4)]"
         aria-label={meta ? undefined : `${title} pseudocode`}
       >
         {showGuide ? (
@@ -144,20 +145,20 @@ function CodePanelInner({ title, lines, activeLine, meta, className }: CodePanel
                   aria-current={active ? 'step' : undefined}
                   className={cn(
                     'relative flex items-start pr-3 transition-colors duration-120 ease-out-quint',
-                    active ? 'bg-accent-soft' : 'hover:bg-surface-hover'
+                    active ? 'bg-linear-to-r from-ember-500/20 via-ember-500/[0.07] to-transparent' : 'hover:bg-surface-hover'
                   )}
                 >
                   <span
                     aria-hidden
                     className={cn(
-                      'absolute inset-y-0 left-0 w-0.5 bg-accent transition-opacity duration-120',
+                      'absolute inset-y-0 left-0 w-0.5 bg-ember-400 shadow-[0_0_8px_var(--color-ember-500)] transition-opacity duration-120',
                       active ? 'opacity-100' : 'opacity-0'
                     )}
                   />
                   <span
                     className={cn(
                       'tabular w-9 shrink-0 select-none pr-3 text-right',
-                      active ? 'text-accent' : 'text-fg-subtle'
+                      active ? 'text-ember-300' : 'text-fg-subtle'
                     )}
                   >
                     {i + 1}

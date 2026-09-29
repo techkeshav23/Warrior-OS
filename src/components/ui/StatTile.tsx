@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — StatTile + Sparkline (FORGE HUD kit)
-// HUD stat: hud-label, big tabular value (font-display), delta chip and
-// an optional sparkline / meter slot.
+// WARRIOR OS — StatTile + Sparkline (FORGED ARMOR kit)
+// Armor stat plate: engraved label, forged display-face number, delta
+// chip, optional sparkline slot and an optional forge-heat meter.
 //   <StatTile label="Focus today" value="3h 20m" delta={12} deltaLabel="vs last week"
 //             icon={Timer} sparkline={<Sparkline data={series} />} />
 //   <StatTile label="Due now" value={due} icon={TriangleAlert} tone={due > 0 ? 'danger' : 'success'} />
@@ -14,6 +14,7 @@ import { TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { renderIcon, type IconLike } from './icon';
 import { PROGRESS_COLOR, type ProgressTone } from './ProgressBar';
+import { ENGRAVED_LABEL } from './armor';
 
 export type StatTileTone = 'default' | 'accent' | 'ember' | 'gold' | 'success' | 'warning' | 'danger';
 
@@ -41,6 +42,8 @@ export interface StatTileProps extends Omit<HTMLAttributes<HTMLDivElement>, 'tit
   plainValue?: boolean;
   /** Render without the card surface (inside another card). */
   bare?: boolean;
+  /** 0–100: a forge-heat meter along the bottom of the plate. */
+  meter?: number;
 }
 
 const VALUE_SIZE = { sm: 'text-xl', md: 'text-2xl', lg: 'text-3xl' } as const;
@@ -76,21 +79,25 @@ export function StatTile({
   size = 'md',
   plainValue = false,
   bare = false,
+  meter,
   className,
   ...props
 }: StatTileProps) {
+  const heat = meter == null ? null : Math.min(100, Math.max(0, meter));
   const DeltaIcon = typeof delta === 'number' ? (delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus) : null;
   return (
     <div
       className={cn(
         'relative flex min-w-0 flex-col gap-3',
-        !bare && 'glass-panel rounded-card p-4',
+        !bare && 'armor-panel chamfer-md p-4 pl-5',
         className
       )}
       {...props}
     >
+      {/* Ember notch on the plate's left edge */}
+      {!bare && <span aria-hidden className="absolute left-0 top-4 h-4 w-1 bg-ember-500 shadow-[0_0_8px_var(--color-ember-500,#f76b15)]" />}
       <div className="flex items-center justify-between gap-2">
-        <span className="hud-label truncate">{label}</span>
+        <span className={cn(ENGRAVED_LABEL, 'truncate')}>{label}</span>
         {icon != null && <span className="shrink-0 text-fg-subtle">{renderIcon(icon, 16)}</span>}
       </div>
       <div className="flex items-end justify-between gap-3">
@@ -99,7 +106,7 @@ export function StatTile({
             <span
               className={cn(
                 'tabular truncate',
-                plainValue ? 'font-sans font-semibold tracking-tight' : 'font-display font-semibold',
+                plainValue ? 'font-sans font-semibold tracking-tight' : 'font-display font-bold tracking-[0.02em] [text-shadow:0_1px_0_rgb(0_0_0/0.8),0_-1px_0_rgb(255_255_255/0.06)]',
                 VALUE_SIZE[size]
               )}
             >
@@ -110,7 +117,7 @@ export function StatTile({
           {(delta != null || deltaLabel != null) && (
             <div className="mt-2 flex items-center gap-2 text-xs">
               {delta != null && (
-                <span className={cn('tabular inline-flex items-center gap-1 rounded-full px-1.5 py-px font-mono text-2xs font-medium', deltaColor(delta, deltaTone))}>
+                <span className={cn('tabular inline-flex items-center gap-1 chamfer [--cut:3px] px-1.5 py-px font-mono text-2xs font-medium', deltaColor(delta, deltaTone))}>
                   {DeltaIcon && <DeltaIcon size={12} strokeWidth={2} aria-hidden />}
                   {typeof delta === 'number' ? `${delta > 0 ? '+' : ''}${delta}%` : delta}
                 </span>
@@ -121,6 +128,20 @@ export function StatTile({
         </div>
         {sparkline != null && <div className="w-24 shrink-0">{sparkline}</div>}
       </div>
+      {heat != null && (
+        <div aria-hidden className="flex h-1.5 gap-0.5">
+          {Array.from({ length: 12 }, (_, i) => {
+            const lit = (i + 1) / 12 <= heat / 100 + 0.001;
+            return (
+              <span
+                key={i}
+                className={cn('flex-1 skew-x-[-20deg]', lit ? '' : 'bg-white/[0.07]')}
+                style={lit ? { background: `color-mix(in srgb, #ffe2c4 ${Math.round((i / 11) * 60)}%, var(--color-ember-${i < 4 ? 600 : 400}, #ff8a3d))` } : undefined}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

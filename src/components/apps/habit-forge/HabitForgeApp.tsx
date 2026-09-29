@@ -10,6 +10,8 @@ import { useState, useCallback, useEffect, useMemo, memo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Flame, ListChecks, Plus, Zap } from 'lucide-react';
 import { Button, ConfirmDialog, EmptyState, ProgressBar, Tabs } from '@/components/ui';
+import { BEVEL_SUNK, SLOT_FILL } from '@/components/ui/armor';
+import { cn } from '@/lib/utils';
 import { utcDayKey } from '@/components/achievements/award';
 import { currentStreak, longestStreak } from '@/components/achievements/day-streak';
 import { collectStudyDays } from '@/components/achievements/study-streak';
@@ -242,7 +244,7 @@ function HabitForgeAppInner() {
                 </div>
 
                 {habits.length === 0 ? (
-                  <div className="rounded-card border border-dashed border-line-strong">
+                  <div className={cn('chamfer-md', SLOT_FILL, BEVEL_SUNK)}>
                     <EmptyState
                       icon={Flame}
                       tone="ember"
@@ -300,10 +302,10 @@ function HabitForgeAppInner() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 6 }}
               transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-              className="glass-popover flex items-center gap-3 rounded-full py-1.5 pl-2 pr-4 text-ui"
+              className="armor-popover chamfer-sm flex items-center gap-3 py-1.5 pl-2 pr-4 text-ui"
             >
               {reward.habitXp > 0 && (
-                <span className="flex items-center gap-1.5 rounded-full bg-gold/12 px-2 py-0.5 font-mono text-xs font-semibold text-gold ring-1 ring-inset ring-gold/25">
+                <span className="chamfer-xs flex items-center gap-1.5 bg-gold/12 px-2 py-0.5 font-mono text-xs font-semibold text-gold shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-gold)_30%,transparent)]">
                   <Zap size={12} strokeWidth={2} aria-hidden />+{reward.habitXp} XP
                 </span>
               )}

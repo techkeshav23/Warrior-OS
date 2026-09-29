@@ -32,6 +32,8 @@ import {
   resolveWireButton,
   resolveWireCommand,
   wallpaperName,
+  WALLPAPER_PREVIOUS,
+  WALLPAPER_RANDOM,
   type LocalIntent,
 } from '@/lib/nexus-intent';
 import { emitWarriorEvent, WARRIOR_EVENTS, type WarriorTrainingStartDetail } from '@/lib/nexus/events';
@@ -56,6 +58,13 @@ import { NEXUS_LIMITS } from '@/lib/nexus/protocol';
 import { speakNexus } from '@/lib/nexus/speech';
 import { NEXUS_HELP_TEXT, NEXUS_LINES } from '@/data/nexus-personality';
 import { WALLPAPER_OPTIONS } from '@/lib/constants';
+import {
+  applyWallpaperToWorkspace,
+  cycleWallpaperId,
+  randomWallpaperId,
+  wallpaperIds,
+} from '@/lib/wallpaper-cycle';
+import { wallpaperLabel } from '@/components/apps/settings/wallpapers';
 import type { ExpenseCategory } from '@/types/expense';
 import type {
   NexusActionButton,
@@ -511,17 +520,31 @@ function runChillMode(): NexusCommandResult {
 }
 
 function runChangeWallpaper(wallpaperId?: string): NexusCommandResult {
-  const valid: string[] = WALLPAPER_OPTIONS.map((w) => w.id);
+  // The live catalog (Settings), so newly added wallpapers are reachable too.
+  const valid = new Set<string>([...wallpaperIds(), ...WALLPAPER_OPTIONS.map((w) => w.id)]);
   const settings = useSettingsStore.getState();
-  const target = wallpaperId ?? valid[(valid.indexOf(settings.wallpaper) + 1) % valid.length];
-  if (!valid.includes(target)) {
-    return { ok: false, reply: `"${target}" wallpaper nahi hai. Options: ${valid.join(', ')}.` };
+  const target =
+    wallpaperId === WALLPAPER_RANDOM
+      ? randomWallpaperId(settings.wallpaper)
+      : wallpaperId === WALLPAPER_PREVIOUS
+        ? cycleWallpaperId(settings.wallpaper, -1)
+        : (wallpaperId ?? cycleWallpaperId(settings.wallpaper, 1));
+  if (!valid.has(target)) {
+    return { ok: false, reply: `"${target}" wallpaper nahi hai. Options: ${[...valid].join(', ')}.` };
   }
-  settings.setWallpaper(target);
+  // Saved into the active workspace's look, like every other wallpaper pick.
+  applyWallpaperToWorkspace(target, 'nexus');
   const adaptiveNote = settings.adaptiveWallpaper
     ? ' (Adaptive wallpaper on hai — agle time-bracket pe auto badal sakta hai.)'
     : '';
-  return { ok: true, reply: `Wallpaper → ${wallpaperName(target)}.${adaptiveNote}` };
+  return {
+    ok: true,
+    reply: `Wallpaper → ${wallpaperLabel(target)}.${adaptiveNote}`,
+    followUps: [
+      button({ type: 'change_wallpaper' }, 'Next wallpaper'),
+      button({ type: 'change_wallpaper', wallpaperId: WALLPAPER_RANDOM }, 'Random wallpaper'),
+    ],
+  };
 }
 
 function runShowStats(): NexusCommandResult {

@@ -197,7 +197,7 @@ const SmallScreenNotice = memo(function SmallScreenNotice({
       exit={{ opacity: 0, scale: 1.04, filter: 'blur(8px)' }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
     >
-      {/* ─── Background: the Deep Space wallpaper, dimmed for reading ─── */}
+      {/* ─── Background: the Forge Night wallpaper, dimmed for reading ─── */}
       <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="wos-deep-space">
           <div className="wos-deep-space__aurora" />
@@ -229,11 +229,11 @@ const SmallScreenNotice = memo(function SmallScreenNotice({
 
         {/* Message */}
         <motion.div variants={itemVariants} className="space-y-3">
-          <p className="inline-flex h-6 items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 font-mono text-2xs font-medium uppercase tracking-[0.12em] text-accent">
+          <p className="chamfer-xs bevel inline-flex h-6 items-center gap-1.5 bg-accent/12 px-2.5 font-mono text-2xs font-medium uppercase tracking-[0.12em] text-accent">
             <Monitor className="size-3.5" strokeWidth={1.75} aria-hidden />
             Best on a big screen
           </p>
-          <h1 id="small-screen-guard-title" className="text-2xl font-semibold text-fg">
+          <h1 id="small-screen-guard-title" className="font-display text-2xl font-semibold text-fg">
             Warrior OS is a desktop experience
           </h1>
           <p className="text-sm text-fg-muted">
@@ -294,7 +294,7 @@ const SmallScreenNotice = memo(function SmallScreenNotice({
 // One 8s cycle: boot mark → three windows open in turn → fade → repeat.
 const CYCLE = 8;
 
-/** Miniature Deep Space: plasma aurora top-left, ember dawn bottom-right. */
+/** Miniature Forge Night: plasma aurora top-left, ember dawn bottom-right. */
 const TEASER_WALLPAPER =
   'radial-gradient(ellipse 60% 55% at 18% 18%, color-mix(in oklab, var(--color-plasma-400) 14%, transparent), transparent 70%), radial-gradient(ellipse 70% 45% at 85% 110%, color-mix(in oklab, var(--color-ember-500) 22%, transparent), transparent 70%), linear-gradient(180deg, var(--color-ink-900), var(--color-ink-950))';
 
@@ -305,18 +305,18 @@ function DesktopTeaser() {
   return (
     <div
       aria-hidden
-      className="relative mx-auto aspect-[16/10] w-full max-w-sm overflow-hidden rounded-card border border-line-strong bg-ink-900 shadow-e3"
+      className="armor-window rivets relative mx-auto aspect-[16/10] w-full max-w-sm overflow-hidden [--cut:12px] [--rivet-inset:6px]"
     >
       {/* Wallpaper */}
       <div className="absolute inset-0" style={{ background: TEASER_WALLPAPER }} />
 
       {/* Dynamic island */}
-      <div className="absolute left-1/2 top-1.5 h-2 w-14 -translate-x-1/2 rounded-full border border-line-strong bg-ink-950/80" />
+      <div className="chamfer absolute left-1/2 top-1.5 h-2 w-14 -translate-x-1/2 bg-steel-700 [--cut:3px]" />
 
       {/* Desktop icons */}
       <div className="absolute left-2 top-5 space-y-1.5">
         {['text-plasma-400', 'text-viz-3', 'text-success', 'text-ember-400'].map((c) => (
-          <div key={c} className={cn('flex size-3 items-center justify-center rounded-[28%] border border-line-strong bg-ink-800', c)}>
+          <div key={c} className={cn('chamfer flex size-3 items-center justify-center bg-steel-700 [--cut:3px]', c)}>
             <span className="size-1 rounded-full bg-current" />
           </div>
         ))}
@@ -363,7 +363,7 @@ function DesktopTeaser() {
           {[0.9, 0.6, 1.1, 0.75, 1.3, 0.8, 1].map((d, i) => (
             <motion.span
               key={i}
-              className="w-[4px] origin-bottom rounded-sm bg-linear-to-t from-viz-3 to-plasma-400"
+              className="w-[4px] origin-bottom bg-linear-to-t from-viz-3 to-plasma-400"
               style={{ height: '100%' }}
               initial={animated ? { scaleY: 0.3 } : false}
               animate={animated ? { scaleY: [0.25, 1, 0.45, 0.8, 0.3] } : { scaleY: 0.35 + (i % 3) * 0.2 }}
@@ -376,9 +376,9 @@ function DesktopTeaser() {
       <TeaserWindow title="Habit Forge" className="bottom-[15%] left-[30%] h-[33%] w-[40%]" appearAt={0.49} animated={animated}>
         <div className="space-y-1.5">
           {[0.9, 0.65, 0.4].map((p, i) => (
-            <div key={i} className="h-[3px] overflow-hidden rounded-full bg-line-strong">
+            <div key={i} className="h-[3px] overflow-hidden bg-steel-900">
               <motion.div
-                className="h-full origin-left rounded-full bg-ember-400/85"
+                className="forge-heat h-full origin-left"
                 style={{ width: `${p * 100}%` }}
                 initial={animated ? { scaleX: 0 } : false}
                 animate={animated ? { scaleX: [0, 0, 1, 1] } : undefined}
@@ -449,7 +449,8 @@ function TeaserWindow({
   return (
     <motion.div
       className={cn(
-        'absolute overflow-hidden rounded-[5px] border border-line-strong bg-ink-850/95 shadow-e2',
+        // Miniature forged window (cut top-left + bottom-right)
+        'chamfer-tl-br absolute overflow-hidden border border-line-strong bg-steel-800 [--cut:5px]',
         className
       )}
       initial={animated ? { opacity: 0, scale: 0.85 } : false}

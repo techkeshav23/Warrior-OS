@@ -14,6 +14,9 @@ import { useSortable } from '@dnd-kit/sortable';
 import { Clock, Github, Globe, Link2, Pause, Play, Square, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge, Chip, ProgressBar } from '@/components/ui';
+import { EMBER_PLATE } from '@/components/ui/armor';
+import { CUT } from '@/styles/tokens';
+import { CutFrame } from '@/components/ui/CutFrame';
 import { effectiveProgress } from '@/stores/useProjectForgeStore';
 import type { ForgeLink, ForgeProject } from '@/types/project-forge';
 import { RunningClock } from './RunningClock';
@@ -46,12 +49,12 @@ export function linkIcon(link: Pick<ForgeLink, 'label' | 'url'>): LucideIcon {
 /** Keep clicks and keys on inner controls from opening or dragging the card. */
 const stop = (event: MouseEvent | KeyboardEvent) => event.stopPropagation();
 
+/** Forged plate per state: cold steel, heated (timer running), lifted, empty slot. */
 const SURFACE = {
-  idle: 'border-line bg-surface-2 shadow-e1 hover:border-line-strong hover:bg-surface-hover',
-  running:
-    'border-ember-500/40 bg-ember-500/[0.06] shadow-[0_0_28px_-12px_var(--color-ember-500)] hover:border-ember-500/55',
-  overlay: 'rotate-[1.5deg] cursor-grabbing border-accent/45 bg-ink-800 shadow-e3',
-  ghost: 'border-dashed border-accent/40 bg-accent/[0.04] shadow-none',
+  idle: 'armor-panel hover:bg-steel-700/70',
+  running: 'armor-panel ember-edge bg-ember-800/40 hover:bg-ember-800/55',
+  overlay: 'armor-plate cursor-grabbing',
+  ghost: 'bg-ember-500/[0.04] text-accent/45',
 } as const;
 
 function ProjectCardViewInner({
@@ -73,14 +76,24 @@ function ProjectCardViewInner({
   const surface = ghost ? 'ghost' : overlay ? 'overlay' : running ? 'running' : 'idle';
 
   return (
+    // Unclipped shell: carries the lift shadow a clipped plate can't cast.
+    <div className={cn(overlay && 'armor-drop rotate-[1.5deg]')}>
     <div
       className={cn(
-        'group/card relative rounded-card border p-3',
-        'transition-[border-color,background-color,box-shadow] duration-120 ease-out-quint',
+        'group/card relative chamfer-md p-3',
+        'transition-[background-color,box-shadow] duration-120 ease-out-quint',
         SURFACE[surface]
       )}
     >
-      <div className={cn('flex flex-col gap-2.5', ghost && 'invisible')}>
+      {ghost && <CutFrame cut={CUT.md} />}
+      {running && (
+        // Heat rising off the bottom edge while the forge is lit.
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-linear-to-t from-ember-500/15 to-transparent"
+        />
+      )}
+      <div className={cn('relative flex flex-col gap-2.5', ghost && 'invisible')}>
         {/* Name + timer toggle */}
         <div className="flex items-start gap-2">
           <p className="min-w-0 flex-1 truncate pt-0.5 text-ui font-semibold text-fg" title={project.name}>
@@ -100,11 +113,11 @@ function ProjectCardViewInner({
               aria-label={running ? `Stop timer for ${project.name}` : `Start timer for ${project.name}`}
               title={running ? 'Stop timer' : 'Start timer'}
               className={cn(
-                'focus-ring flex size-6 shrink-0 items-center justify-center rounded-control border',
-                'transition-[background-color,border-color,color,filter] duration-120 ease-out-quint',
+                'focus-ring flex size-6 shrink-0 items-center justify-center chamfer-xs',
+                'transition-[background-color,color,filter] duration-120 ease-out-quint',
                 running
-                  ? 'border-transparent bg-linear-to-b from-ember-400 to-ember-500 text-ink-950 hover:brightness-110 active:brightness-95'
-                  : 'border-line-strong text-fg-subtle hover:border-ember-500/45 hover:bg-ember-500/10 hover:text-ember-400 active:bg-ember-500/15'
+                  ? cn(EMBER_PLATE, 'hover:brightness-110 active:brightness-95')
+                  : 'armor-plate text-fg-subtle hover:bg-steel-600 hover:text-ember-400 active:brightness-90'
               )}
             >
               {running ? (
@@ -192,7 +205,7 @@ function ProjectCardViewInner({
                     onKeyDown={stop}
                     aria-label={`Open ${name}: ${displayUrl(link.url)}`}
                     title={`${name} · ${displayUrl(link.url)}`}
-                    className="focus-ring flex size-5 items-center justify-center rounded-[5px] text-fg-subtle transition-colors duration-120 hover:bg-surface-active hover:text-fg"
+                    className="focus-ring flex size-5 items-center justify-center chamfer-xs text-fg-subtle transition-colors duration-120 hover:bg-surface-active hover:text-fg"
                   >
                     <Icon size={12} strokeWidth={1.75} aria-hidden />
                   </a>
@@ -206,6 +219,7 @@ function ProjectCardViewInner({
           </span>
         </div>
       </div>
+    </div>
     </div>
   );
 }
@@ -246,7 +260,7 @@ function SortableProjectCardInner({ onOpen, ...cardProps }: SortableProjectCardP
       onKeyDown={handleKeyDown}
       onClick={() => onOpen(project.id)}
       aria-label={`${project.name}, ${STAGE_META[project.stage].label}, ${effectiveProgress(project)}% done`}
-      className="focus-ring touch-manipulation cursor-pointer rounded-card"
+      className="focus-ring touch-manipulation cursor-pointer chamfer-md"
     >
       <ProjectCardView {...cardProps} ghost={isDragging} />
     </div>

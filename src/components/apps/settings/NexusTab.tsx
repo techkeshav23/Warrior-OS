@@ -13,7 +13,7 @@ import { OWNER } from '@/config/owner';
 import { getVisitorMode } from '@/lib/visitor';
 import { useNexusStore } from '@/stores/useNexusStore';
 import { fetchNexusAIStatus, type NexusAIStatus } from '@/lib/nexus/ai-client';
-import { SettingsCard, SettingsPage, SettingsSection, SpecItem, SwitchRow } from './parts';
+import { ForgedPlaque, SettingsCard, SettingsPage, SettingsSection, SpecItem, SwitchRow } from './parts';
 
 type LinkState = { kind: 'checking' } | { kind: 'unknown' } | { kind: 'ready'; status: NexusAIStatus };
 
@@ -49,23 +49,18 @@ function NexusTabInner() {
   return (
     <SettingsPage>
       {/* Identity */}
-      <Card hud>
-        <div className="flex items-start gap-3.5">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-card border border-plasma-400/30 bg-plasma-400/10 text-plasma-400">
-            <Bot size={20} strokeWidth={1.75} aria-hidden />
-          </span>
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <p className="text-ui text-fg-muted">
-              The companion built into {OWNER.shortName}&apos;s Warrior OS: runs commands, coaches learning over
-              your own decks and notes, and guides you through every app.
-            </p>
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-fg-subtle">
-              Summon it with <Kbd keys={['Ctrl', '.']} size="sm" /> or the <Kbd keys={['Ctrl', 'K']} size="sm" />{' '}
-              command bar.
-            </p>
-          </div>
+      <ForgedPlaque icon={Bot} tone="plasma" eyebrow="NEXUS companion" stamp="NX-01">
+        <div className="flex flex-col gap-2">
+          <p className="text-ui text-fg-muted">
+            The companion built into {OWNER.shortName}&apos;s Warrior OS: runs commands, coaches learning over
+            your own decks and notes, and guides you through every app.
+          </p>
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-fg-subtle">
+            Summon it with <Kbd keys={['Ctrl', '.']} size="sm" /> or the <Kbd keys={['Ctrl', 'K']} size="sm" />{' '}
+            command bar.
+          </p>
         </div>
-      </Card>
+      </ForgedPlaque>
 
       {/* Status */}
       <SettingsSection title="Status">

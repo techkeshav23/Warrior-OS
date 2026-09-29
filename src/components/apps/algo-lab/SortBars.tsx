@@ -17,8 +17,8 @@ import { StageLegend, type LegendItem } from './LabLayout';
 type BarState = 'idle' | 'dim' | 'comparing' | 'swapping' | 'pivot' | 'sorted';
 
 const BAR_CLASS: Record<BarState, string> = {
-  idle: 'bg-linear-to-t from-ink-600/70 to-plasma-600/75',
-  dim: 'bg-ink-700/80',
+  idle: 'bg-linear-to-r from-steel-500 via-steel-300 to-steel-500 shadow-[inset_0_1px_0_rgb(255_255_255/0.35)]',
+  dim: 'bg-steel-700/80',
   comparing: 'bg-warning shadow-[0_0_14px_-2px_var(--color-warning)]',
   swapping: 'bg-danger shadow-[0_0_14px_-2px_var(--color-danger)]',
   pivot: 'bg-accent shadow-[0_0_14px_-2px_var(--accent)]',
@@ -79,7 +79,7 @@ function SortBarsInner({ frame, maxValue, animate }: SortBarsProps) {
           <div
             key={i}
             className={cn(
-              'relative min-w-0 flex-1 rounded-t-[3px]',
+              'relative min-w-0 flex-1',
               BAR_CLASS[state],
               animate && 'transition-[height,background-color,box-shadow] duration-180 ease-out-quint'
             )}
@@ -109,7 +109,7 @@ const LEGEND: LegendItem[] = [
   { label: 'Swapping / writing', color: LAB.swap },
   { label: 'Pivot / key / min', color: ACCENT },
   { label: 'Sorted', color: LAB.sorted },
-  { label: 'Unsorted', color: LAB.plasma[600] },
+  { label: 'Unsorted', color: LAB.steel[300] },
 ];
 
 export function SortLegend() {

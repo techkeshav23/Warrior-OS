@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — ToastNotification Component (FORGE HUD)
-// Compact glass toasts above the taskbar (bottom-right): a tone bar,
+// WARRIOR OS — ToastNotification Component (FORGED ARMOR)
+// Compact forged plates (cut top-left + bottom-right) above the taskbar (bottom-right): a tone bar,
 // the notification's lucide icon, title, body and a close button.
 // A hairline countdown runs along the bottom and pauses while the
 // pointer rests on the toast.
@@ -67,13 +67,14 @@ export function ToastNotification({ notification, onDismiss, duration = 5000 }: 
       onMouseLeave={() => {
         pausedRef.current = false;
       }}
-      className="glass-popover pointer-events-auto relative w-[360px] max-w-[calc(100vw-32px)] overflow-hidden rounded-card"
+      className="armor-drop pointer-events-auto w-[360px] max-w-[calc(100vw-32px)]"
     >
+      <div className="armor-popover relative overflow-hidden [--cut-bl:0px] [--cut-tr:0px] [--cut:10px]">
       {/* Tone bar */}
       <span aria-hidden className={cn('absolute inset-y-0 left-0 w-[3px]', TONE_DOT[tone])} />
 
       <div className="flex items-start gap-3 py-3 pl-4 pr-2">
-        <span className={cn('mt-px flex size-7 shrink-0 items-center justify-center rounded-control ring-1 ring-inset', TONE_SOFT[tone])}>
+        <span className={cn('chamfer-xs mt-px flex size-7 shrink-0 items-center justify-center ring-1 ring-inset', TONE_SOFT[tone])}>
           <Icon size={16} strokeWidth={1.75} aria-hidden />
         </span>
 
@@ -91,10 +92,11 @@ export function ToastNotification({ notification, onDismiss, duration = 5000 }: 
       {duration > 0 && (
         <span
           aria-hidden
-          className={cn('absolute bottom-0 left-0 h-px opacity-60', TONE_DOT[tone])}
+          className={cn('absolute bottom-0 left-0 h-[2px] opacity-70', TONE_DOT[tone])}
           style={{ width: `${progress}%` }}
         />
       )}
+      </div>
     </motion.div>
   );
 }

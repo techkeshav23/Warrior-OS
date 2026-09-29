@@ -190,7 +190,7 @@ function TrainingGroundsAppInner({ initialTab = 'decks' }: TrainingGroundsAppPro
 
   const focusCard =
     focusLabel || unmatched ? (
-      <div className="flex items-start gap-2.5 rounded-control bg-surface-2 py-2 pl-2.5 pr-1.5">
+      <div className="relative flex items-start gap-2.5 chamfer-sm bg-steel-950/60 bevel py-2 pl-3 pr-1.5">
         {focusLabel ? (
           <LocateFixed size={16} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0 text-accent" />
         ) : (

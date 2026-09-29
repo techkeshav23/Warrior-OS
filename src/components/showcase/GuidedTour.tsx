@@ -26,6 +26,7 @@ import { ArrowLeft, ArrowRight, Command, Rocket } from 'lucide-react';
 import { useOSStore } from '@/stores/useOSStore';
 import { useTourStore } from '@/stores/useTourStore';
 import { cn } from '@/lib/utils';
+import { BEVEL_PRESSED, BEVEL_RAISED, EMBER_PLATE, ENGRAVED_LABEL, STEEL_PLATE, STEEL_PLATE_HOT } from '@/components/ui/armor';
 import { NexusOrb } from './tour/NexusOrb';
 import { useTourAutoStart } from './tour/useTourAutoStart';
 import { TOUR_ROOT_SELECTOR, isCommandBarOpen, resolveTarget, sendCommandBarShortcut } from './tour/dom';
@@ -75,18 +76,13 @@ const INSTANT = { duration: 0 } as const;
 
 // Kit button recipes (Button: sm/md sizes), inlined so the tour keeps
 // its own focus handling on plain <button>s.
+// Forged plates: cut corners, bevelled steel / molten ember.
 const BUTTON =
-  'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-control px-3 text-ui font-medium ' +
-  'transition-[background-color,border-color,color,box-shadow,filter] duration-120 ease-out-quint focus-ring';
-const BUTTON_GHOST = cn(
-  BUTTON,
-  'border border-line-strong bg-surface-2 text-fg hover:border-fg-faint hover:bg-surface-hover active:bg-surface-active'
-);
+  'chamfer-sm inline-flex h-8 shrink-0 items-center justify-center gap-1.5 px-3 text-ui font-medium ' +
+  'transition-[background-color,color,box-shadow,filter] duration-120 ease-out-quint focus-ring';
+const BUTTON_GHOST = cn(BUTTON, STEEL_PLATE, STEEL_PLATE_HOT, BEVEL_RAISED, BEVEL_PRESSED);
 const BUTTON_QUIET = cn(BUTTON, 'px-2.5 text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active');
-const BUTTON_PRIMARY = cn(
-  BUTTON,
-  'bg-accent text-accent-fg inset-shadow-[0_1px_0_rgb(255_255_255/0.28)] hover:brightness-110 hover:shadow-glow active:brightness-95'
-);
+const BUTTON_PRIMARY = cn(BUTTON, EMBER_PLATE, BEVEL_PRESSED, 'hover:brightness-110 active:brightness-95');
 
 interface Spot {
   stepId: TourStepId | null;
@@ -138,13 +134,13 @@ interface CommandBarDemoProps {
 
 function CommandBarDemo({ keys, onTry }: CommandBarDemoProps) {
   return (
-    <div className="mt-4 rounded-card border border-line bg-ink-950/50 p-3">
-      <p className="hud-label">Try typing</p>
+    <div className="armor-panel mt-4 p-3 [--cut:8px]">
+      <p className={ENGRAVED_LABEL}>Try typing</p>
       <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Things you can type">
         {COMMAND_EXAMPLES.map((phrase) => (
           <li
             key={phrase}
-            className="inline-flex h-6 items-center rounded-full border border-line-strong bg-surface-2 px-2.5 font-mono text-xs text-fg-muted"
+            className="armor-plate chamfer-xs inline-flex h-6 items-center px-2.5 font-mono text-xs text-fg-muted"
           >
             {phrase}
           </li>
@@ -156,7 +152,7 @@ function CommandBarDemo({ keys, onTry }: CommandBarDemoProps) {
             {keys.map((key) => (
               <kbd
                 key={key}
-                className="inline-flex h-6 min-w-6 items-center justify-center rounded-[6px] border border-line-strong bg-surface-2 px-1.5 font-mono text-2xs font-medium text-fg-muted inset-shadow-[0_-1px_0_rgb(255_255_255/0.06)]"
+                className="armor-plate chamfer-xs inline-flex h-6 min-w-6 items-center justify-center px-1.5 font-mono text-2xs font-medium text-fg-muted"
               >
                 {key}
               </kbd>
@@ -418,7 +414,7 @@ function GuidedTourInner({ onOpenCommandBar }: GuidedTourProps) {
                 y: spotBox.y,
                 width: spotBox.w,
                 height: spotBox.h,
-                borderRadius: box ? 14 : 999,
+                borderRadius: box ? 3 : 999,
                 boxShadow: box ? SPOT_RING : SPOT_PLAIN,
               }}
               transition={
@@ -442,8 +438,7 @@ function GuidedTourInner({ onOpenCommandBar }: GuidedTourProps) {
               aria-modal="true"
               aria-labelledby={titleId}
               aria-describedby={bodyId}
-              className="pointer-events-auto absolute left-0 top-0 w-[min(372px,calc(100vw-32px))] max-h-[calc(100vh-32px)] overflow-y-auto rounded-sheet glass-popover hud-corners p-5 scrollbar-thin"
-              style={{ '--hud-corner-inset': '8px' } as React.CSSProperties}
+              className="armor-popover rivets pointer-events-auto absolute left-0 top-0 w-[min(372px,calc(100vw-32px))] max-h-[calc(100vh-32px)] overflow-y-auto p-5 scrollbar-thin [--cut-bl:0px] [--cut-tr:0px] [--cut:14px] [--rivet-inset:7px]"
               initial={{ opacity: 0, scale: 0.96, x: cardPos.x, y: cardPos.y + 10 }}
               animate={{ opacity: 1, scale: 1, x: cardPos.x, y: cardPos.y }}
               // pointer-events can't be tweened, so it switches off at once: the fading card never eats clicks
@@ -452,7 +447,7 @@ function GuidedTourInner({ onOpenCommandBar }: GuidedTourProps) {
             >
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-accent/70 to-transparent"
+                className="notch pointer-events-none absolute left-1/2 top-0 h-[4px] w-24 -translate-x-1/2 bg-linear-to-b from-ember-300 to-ember-600 [--notch:3px]"
               />
 
               <header className="flex items-center gap-3">
@@ -478,7 +473,7 @@ function GuidedTourInner({ onOpenCommandBar }: GuidedTourProps) {
                   exit={{ opacity: 0, y: reduced ? 0 : -4 }}
                   transition={{ duration: reduced ? 0 : 0.18 }}
                 >
-                  <h2 id={titleId} className="text-lg font-semibold text-fg">
+                  <h2 id={titleId} className="font-display text-lg font-semibold text-fg">
                     {copy.title}
                   </h2>
                   <p id={bodyId} className="mt-1.5 text-sm text-fg-muted">
@@ -496,10 +491,10 @@ function GuidedTourInner({ onOpenCommandBar }: GuidedTourProps) {
                   <span
                     key={s.id}
                     className={cn(
-                      'h-1 flex-1 rounded-full transition-colors duration-260 ease-out-quint',
-                      i < index && 'bg-accent/45',
-                      i === index && 'bg-accent shadow-[0_0_8px_-1px_var(--accent)]',
-                      i > index && 'bg-line-strong'
+                      'h-1.5 flex-1 transition-colors duration-260 ease-out-quint [clip-path:polygon(3px_0,100%_0,calc(100%-3px)_100%,0_100%)]',
+                      i < index && 'bg-ember-600',
+                      i === index && 'bg-linear-to-r from-ember-400 to-ember-200',
+                      i > index && 'bg-steel-700'
                     )}
                   />
                 ))}

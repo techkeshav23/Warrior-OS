@@ -2,7 +2,9 @@
 // WARRIOR OS — Desktop Component
 // Desktop surface: icon grid (column-first, like a real desktop, so
 // the right side stays free for widgets) and a right-click menu with
-// working actions (wallpaper, settings, refresh, widgets, info, lock).
+// working actions (background picker, next wallpaper, settings, refresh,
+// widgets, info, lock). FORGED ARMOR: the menu is a riveted steel
+// popover, rows are cut plates that heat to ember on hover / focus.
 // Icons are memoized and receive only stable callbacks.
 //
 // Keyboard: arrow keys move the selection through the icon grid
@@ -29,6 +31,7 @@ import {
   Clock,
   Flame,
   ImagePlay,
+  Images,
   Info,
   Lock,
   MonitorCog,
@@ -44,7 +47,9 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useNotificationStore } from '@/stores/useNotificationStore';
 import { useOSStore } from '@/stores/useOSStore';
 import { useXPStore } from '@/stores/useXPStore';
-import { WALLPAPER_OPTIONS } from '@/lib/constants';
+import { wallpaperLabel } from '@/components/apps/settings/wallpapers';
+import { applyWallpaperToWorkspace, cycleWallpaperId } from '@/lib/wallpaper-cycle';
+import { NEXT_WALLPAPER_KEYS } from '@/hooks/useWallpaperSlideshow';
 import { cn } from '@/lib/utils';
 import { EASE_OUT_QUINT } from '@/styles/tokens';
 import { Kbd } from '@/components/ui/Badge';
@@ -55,9 +60,10 @@ import {
   type WidgetId,
 } from '@/components/widgets/useWidgetStore';
 import { DesktopIcon } from './DesktopIcon';
+import { BackgroundPicker } from './BackgroundPicker';
 
 // ─── Menu geometry (used to keep the whole menu on screen) ───
-const MENU_WIDTH = 256;
+const MENU_WIDTH = 288;
 const MENU_PAD = 4; // p-1
 const ITEM_H = 32;
 const HEADING_H = 28;
@@ -67,9 +73,9 @@ const MENU_HEIGHT =
   MENU_PAD * 2 +
   HEADING_H * 3 +
   DIVIDER_H * 2 +
-  ITEM_H * (3 /* desktop */ + WIDGET_IDS.length + 1 /* reset */ + 2 /* system */);
+  ITEM_H * (4 /* desktop */ + WIDGET_IDS.length + 1 /* reset */ + 2 /* system */);
 
-type MenuAction = 'wallpaper' | 'settings' | 'refresh' | 'reset-widgets' | 'info' | 'lock';
+type MenuAction = 'background' | 'wallpaper' | 'settings' | 'refresh' | 'reset-widgets' | 'info' | 'lock';
 type Icon = ComponentType<LucideProps>;
 
 const WIDGET_ICONS: Record<WidgetId, Icon> = {
@@ -84,28 +90,19 @@ function launch(appId: string) {
   useAppStore.getState().launchApp(appId, useWorkspaceStore.getState().activeWorkspaceId);
 }
 
-function nextWallpaperOption(current: string) {
-  const index = WALLPAPER_OPTIONS.findIndex((w) => w.id === current);
-  return WALLPAPER_OPTIONS[(index + 1) % WALLPAPER_OPTIONS.length];
-}
-
 function nextWallpaper() {
   const settings = useSettingsStore.getState();
-  const next = nextWallpaperOption(settings.wallpaper);
-  settings.setWallpaper(next.id);
-  // Save it as this workspace's look, so it survives switches and reloads.
-  const workspaces = useWorkspaceStore.getState();
-  workspaces.updateWorkspace(workspaces.activeWorkspaceId, {
-    wallpaper: next.id,
-    accentColor: settings.accentColor,
-  });
-  useNotificationStore.getState().addNotification({
-    type: 'system',
-    title: 'Wallpaper',
-    message: settings.adaptiveWallpaper
-      ? `Switched to ${next.name}. Adaptive wallpaper will change it again at the next time-of-day shift.`
-      : `Switched to ${next.name}.`,
-  });
+  const next = cycleWallpaperId(settings.wallpaper, 1);
+  // Saved as this workspace's look, so it survives switches and reloads;
+  // the desktop's wallpaper plate names it.
+  applyWallpaperToWorkspace(next, 'menu');
+  if (settings.adaptiveWallpaper) {
+    useNotificationStore.getState().addNotification({
+      type: 'system',
+      title: 'Wallpaper',
+      message: `Switched to ${wallpaperLabel(next)}. Adaptive wallpaper will change it again at the next time-of-day shift.`,
+    });
+  }
 }
 
 function showSystemInfo() {
@@ -121,10 +118,12 @@ function showSystemInfo() {
 
 // ─── Menu building blocks (kit Menu look, positioned at the pointer) ───
 
+// Rows heat up like the kit Menu: ember wash + a molten 2px left edge.
 const ITEM_CLASS = cn(
-  'group/item flex h-8 w-full select-none items-center gap-2.5 rounded-[6px] px-2.5 text-left text-ui text-fg',
+  'group/item flex h-8 w-full select-none items-center gap-2.5 chamfer [--cut:4px] px-2.5 text-left text-ui text-fg',
   'outline-none transition-colors duration-120 ease-out-quint',
-  'hover:bg-surface-active focus-visible:bg-surface-active'
+  'hover:bg-linear-to-r hover:from-ember-500/20 hover:to-white/[0.03] hover:shadow-[inset_2px_0_0_var(--color-ember-400,#ff8a3d)]',
+  'focus-visible:bg-linear-to-r focus-visible:from-ember-500/20 focus-visible:to-white/[0.03] focus-visible:shadow-[inset_2px_0_0_var(--color-ember-400,#ff8a3d)]'
 );
 
 function MenuIcon({ icon: Glyph }: { icon: Icon }) {
@@ -140,31 +139,35 @@ function MenuIcon({ icon: Glyph }: { icon: Icon }) {
 
 function MenuHeading({ children }: { children: ReactNode }) {
   return (
-    <p aria-hidden="true" className="hud-label flex h-7 items-end px-2.5 pb-1">
+    <p
+      aria-hidden="true"
+      className="engraved flex h-7 items-end px-2.5 pb-1 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle"
+    >
       {children}
     </p>
   );
 }
 
 function MenuDivider() {
-  return <div role="separator" className="-mx-1 my-1 h-px bg-line" />;
+  return <div role="separator" className="-mx-1 my-1 h-px bg-black/60 shadow-[0_1px_0_rgb(255_255_255/0.05)]" />;
 }
 
 /** The kit Switch (sm) look, drawn inside a menuitemcheckbox. */
 function MiniSwitch({ on }: { on: boolean }) {
   return (
-    <span
-      aria-hidden
-      className={cn(
-        'relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border p-px',
-        'transition-[background-color,border-color] duration-180 ease-out-quint',
-        on ? 'border-accent bg-accent' : 'border-line-strong bg-ink-700'
-      )}
-    >
+    <span aria-hidden className="relative inline-flex h-4 w-8 shrink-0 items-center p-0.5">
       <span
         className={cn(
-          'block size-3 rounded-full shadow-e1 transition-transform duration-180 ease-out-quint',
-          on ? 'translate-x-3 bg-white' : 'translate-x-0 bg-fg-muted'
+          'absolute inset-0 chamfer [--cut:4px] transition-[background-color] duration-180 ease-out-quint',
+          'shadow-[inset_0_1px_0_rgb(0_0_0/0.8),inset_0_2px_4px_rgb(0_0_0/0.5),inset_0_-1px_0_rgb(255_255_255/0.1)]',
+          on ? 'bg-linear-to-r from-accent/45 via-accent/80 to-accent' : 'bg-linear-to-b from-steel-950 to-steel-800'
+        )}
+      />
+      <span
+        className={cn(
+          'relative block h-3 w-3.5 chamfer [--cut:2px] transition-transform duration-180 ease-out-quint',
+          'bg-linear-to-b from-steel-200 via-steel-300 to-steel-400',
+          on ? 'translate-x-4' : 'translate-x-0'
         )}
       />
     </span>
@@ -180,6 +183,8 @@ function DesktopInner() {
 
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const closePicker = useCallback(() => setPickerOpen(false), []);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -301,6 +306,9 @@ function DesktopInner() {
   const runAction = (action: MenuAction) => {
     setContextMenu(null);
     switch (action) {
+      case 'background':
+        setPickerOpen(true);
+        break;
       case 'wallpaper':
         nextWallpaper();
         break;
@@ -323,7 +331,7 @@ function DesktopInner() {
     }
   };
 
-  const upcomingWallpaper = nextWallpaperOption(wallpaper);
+  const upcomingWallpaper = wallpaperLabel(cycleWallpaperId(wallpaper, 1));
 
   return (
     <div
@@ -367,7 +375,7 @@ function DesktopInner() {
             initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.18, ease: EASE_OUT_QUINT }}
-            className="glass-popover fixed rounded-card p-1 outline-none"
+            className="armor-popover fixed p-1 outline-none"
             style={{
               left: contextMenu.x,
               top: contextMenu.y,
@@ -388,13 +396,21 @@ function DesktopInner() {
                 type="button"
                 role="menuitem"
                 className={ITEM_CLASS}
+                onClick={() => runAction('background')}
+              >
+                <MenuIcon icon={Images} />
+                <span className="min-w-0 flex-1 truncate">Change background…</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={ITEM_CLASS}
+                title={`Next: ${upcomingWallpaper}`}
                 onClick={() => runAction('wallpaper')}
               >
                 <MenuIcon icon={ImagePlay} />
                 <span className="min-w-0 flex-1 truncate">Next wallpaper</span>
-                <span className="max-w-24 shrink-0 truncate text-xs text-fg-subtle" title={upcomingWallpaper.name}>
-                  {upcomingWallpaper.name}
-                </span>
+                <Kbd keys={NEXT_WALLPAPER_KEYS} size="sm" />
               </button>
               <button
                 type="button"
@@ -471,6 +487,8 @@ function DesktopInner() {
           </motion.div>,
           document.body
         )}
+
+      <BackgroundPicker open={pickerOpen} onClose={closePicker} />
     </div>
   );
 }

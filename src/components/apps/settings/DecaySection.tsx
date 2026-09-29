@@ -9,6 +9,8 @@
 
 import { memo } from 'react';
 import { SegmentedControl, Slider, StatTile } from '@/components/ui';
+import { BEVEL_SUNK, SLOT_FILL } from '@/components/ui/armor';
+import { cn } from '@/lib/utils';
 import {
   useDecayStore,
   BREAK_DURATION_OPTIONS,
@@ -73,10 +75,26 @@ function DecaySectionInner() {
               <li
                 key={i}
                 title={`Stage ${i + 1}: ${DECAY_STAGE_NAMES[i + 1]}`}
-                className="flex min-w-0 flex-col items-center gap-0.5 rounded-control bg-surface-2 px-1 py-1.5"
+                className={cn(
+                  'relative flex min-w-0 flex-col items-center gap-0.5 px-1 py-1.5 chamfer-xs',
+                  SLOT_FILL,
+                  BEVEL_SUNK
+                )}
               >
-                <span className="truncate text-2xs text-fg-subtle">Stage {i + 1}</span>
-                <span className="tabular truncate font-mono text-xs text-fg">{formatStudyMinutes(t)}</span>
+                <span className="engraved truncate font-display text-2xs font-semibold uppercase tracking-[0.14em] text-fg-subtle">
+                  Stage {i + 1}
+                </span>
+                <span className={cn('tabular truncate font-mono text-xs', i + 1 <= stageIndex && enabled ? 'text-ember-300' : 'text-fg')}>
+                  {formatStudyMinutes(t)}
+                </span>
+                {/* Heat mark: this stage has been reached in the current session */}
+                <span
+                  aria-hidden
+                  className={cn(
+                    'absolute inset-x-2 bottom-0 h-0.5',
+                    i + 1 <= stageIndex && enabled ? 'forge-heat' : 'bg-white/[0.06]'
+                  )}
+                />
               </li>
             ))}
           </ol>
@@ -98,7 +116,13 @@ function DecaySectionInner() {
         />
 
         {/* Live readout */}
-        <div className="grid grid-cols-1 divide-y divide-line @sm:grid-cols-3 @sm:divide-x @sm:divide-y-0">
+        <div
+          className={cn(
+            'grid grid-cols-1 bg-black/15 @sm:grid-cols-3',
+            '[&>*+*]:shadow-[inset_0_1px_0_rgb(0_0_0/0.55),inset_0_2px_0_rgb(255_255_255/0.045)]',
+            '@sm:[&>*+*]:shadow-[inset_1px_0_0_rgb(0_0_0/0.55),inset_2px_0_0_rgb(255_255_255/0.045)]'
+          )}
+        >
           <StatTile
             bare
             size="sm"

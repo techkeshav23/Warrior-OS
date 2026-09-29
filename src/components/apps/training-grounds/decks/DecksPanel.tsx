@@ -296,7 +296,7 @@ function DecksPanelInner({ openDeckId, onOpenDeck, onStudy }: DecksPanelProps) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: reduce ? 0 : 4, transition: TRANSITION.hover }}
               transition={TRANSITION.small}
-              className="glass-popover flex min-w-0 max-w-full items-center gap-2.5 rounded-card py-2 pl-3 pr-4 text-ui text-fg"
+              className="armor-popover chamfer-md flex min-w-0 max-w-full items-center gap-2.5 py-2 pl-3 pr-4 text-ui text-fg"
             >
               {flashState.tone === 'ok' ? (
                 <CircleCheck size={16} strokeWidth={1.75} aria-hidden className="shrink-0 text-success" />

@@ -12,6 +12,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui';
+import { BEVEL_SUNK, ENGRAVED_LABEL, SLOT_FILL } from '@/components/ui/armor';
 import { shortDate } from './habit-utils';
 
 export interface ChainLink {
@@ -26,9 +27,11 @@ interface StreakHeroProps {
   chain: readonly ChainLink[];
 }
 
-const EMBER_CORNERS = {
-  '--hud-corner-color': 'color-mix(in oklab, var(--color-ember-400) 55%, transparent)',
-} as CSSProperties;
+// A forged plaque: bigger rivets set further in, a heavier cut.
+const PLAQUE = { '--rivet-inset': '9px', '--cut': '12px' } as CSSProperties;
+
+// Chain links are slanted forged segments.
+const LINK_CUT = '[clip-path:polygon(4px_0,100%_0,calc(100%-4px)_100%,0_100%)]';
 
 const STREAK_HINT =
   'Days in a row with study activity: quizzes, revisions, planner tasks, habits, routines, notes or 10+ minutes in study apps';
@@ -42,23 +45,23 @@ function StreakHeroInner({ streak, best, chain }: StreakHeroProps) {
   const recentActive = recent.filter((c) => c.active).length;
 
   return (
-    <Card tone="ember" hud padding="lg" style={EMBER_CORNERS} role="region" aria-label="Study streak">
+    <Card tone="ember" rivets padding="lg" style={PLAQUE} role="region" aria-label="Study streak">
       <div className="flex flex-col gap-5 @xl:flex-row @xl:items-center @xl:gap-6">
         {/* Flame + count */}
         <div className="flex shrink-0 items-center gap-4" title={STREAK_HINT}>
           <span
             className={cn(
-              'relative flex size-14 shrink-0 items-center justify-center rounded-card border',
+              'chamfer relative flex size-16 shrink-0 items-center justify-center [--cut:14px]',
               lit
-                ? 'border-ember-500/40 bg-linear-to-b from-ember-500/25 to-ember-600/5 text-ember-400 shadow-[0_0_28px_-6px_var(--color-ember-500)]'
-                : 'border-line-strong bg-ink-800 text-fg-subtle'
+                ? 'bg-[radial-gradient(circle_at_50%_70%,var(--color-ember-500)_0%,var(--color-ember-700)_45%,var(--color-steel-900)_80%)] text-ember-100 shadow-[inset_0_1px_0_rgb(255_220_190/0.35),inset_0_-2px_0_var(--color-ember-300)]'
+                : cn(SLOT_FILL, BEVEL_SUNK, 'text-fg-subtle')
             )}
             aria-hidden
           >
-            <Flame size={28} strokeWidth={1.75} className={lit ? 'fill-ember-500/25' : undefined} />
+            <Flame size={30} strokeWidth={1.75} className={lit ? 'fill-ember-300/40 drop-shadow-[0_0_6px_var(--color-ember-400)]' : undefined} />
           </span>
           <div className="min-w-0">
-            <p className="font-mono text-2xs font-medium uppercase tracking-[0.14em] text-ember-300">Study streak</p>
+            <p className={cn(ENGRAVED_LABEL, 'text-ember-300')}>Study streak</p>
             <p className="mt-1 flex items-baseline gap-2 leading-none">
               <motion.span
                 key={streak}
@@ -80,7 +83,7 @@ function StreakHeroInner({ streak, best, chain }: StreakHeroProps) {
         {/* Chain: the last 14 days, or all of them in wide windows */}
         <div className="min-w-0 flex-1 @xl:border-l @xl:border-line @xl:pl-6">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="hud-label">
+            <span className={ENGRAVED_LABEL}>
               Last <span className="@5xl:hidden">{recent.length}</span>
               <span className="hidden @5xl:inline">{chain.length}</span> days
             </span>
@@ -100,13 +103,14 @@ function StreakHeroInner({ streak, best, chain }: StreakHeroProps) {
                 key={link.key}
                 title={`${shortDate(link.key)}${link.isToday ? ' (today)' : ''}: ${link.active ? 'studied' : 'no activity yet'}`}
                 className={cn(
-                  'h-7 min-w-0 flex-1 rounded-[4px] transition-colors duration-180 ease-out-quint',
+                  'h-7 min-w-0 flex-1 transition-colors duration-180 ease-out-quint',
+                  LINK_CUT,
                   i < chain.length - recent.length && 'hidden @5xl:block',
                   link.active
-                    ? 'bg-linear-to-t from-ember-600 to-ember-400 shadow-[inset_0_1px_0_rgb(255_255_255/0.25)]'
+                    ? 'bg-linear-to-t from-ember-700 via-ember-500 to-ember-300 shadow-[inset_0_1px_0_rgb(255_240_220/0.5)]'
                     : link.isToday
-                      ? 'border border-dashed border-ember-500/60 bg-ember-500/5'
-                      : 'bg-ink-700/80'
+                      ? 'animate-pulse-soft bg-ember-500/15 shadow-[inset_0_-2px_0_var(--color-ember-500)]'
+                      : cn(SLOT_FILL, BEVEL_SUNK)
                 )}
               />
             ))}

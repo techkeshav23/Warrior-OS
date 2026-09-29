@@ -314,9 +314,10 @@ function MarkdownEditorInner({
           }}
           aria-label="Note title"
           className={cn(
-            '-mx-2 block w-[calc(100%+1rem)] min-w-0 truncate rounded-control border border-transparent bg-transparent px-2 py-0.5',
+            'chamfer-sm -mx-2 block w-[calc(100%+1rem)] min-w-0 truncate bg-transparent px-2 py-0.5',
             'text-xl font-semibold tracking-tight text-fg outline-none placeholder:text-fg-faint',
-            'transition-colors duration-120 ease-out-quint hover:bg-surface-hover focus:border-line-strong focus:bg-ink-950/40'
+            'transition-[background-color,box-shadow] duration-120 ease-out-quint hover:bg-surface-hover',
+            'focus:bg-steel-950/70 focus:shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_-2px_0_var(--accent)]'
           )}
           placeholder="Untitled"
         />
@@ -324,7 +325,7 @@ function MarkdownEditorInner({
           {note.tags.map((tag) => (
             <span
               key={tag}
-              className="inline-flex h-6 items-center gap-0.5 rounded-full border border-line-strong bg-surface-2 pl-2.5 pr-1 font-mono text-2xs text-fg-muted"
+              className="chamfer-xs inline-flex h-6 items-center gap-0.5 bg-linear-to-b from-steel-700 to-steel-800 pl-2 pr-1 font-mono text-2xs text-fg-muted shadow-[inset_0_1px_0_rgb(255_255_255/0.12),inset_0_-1px_0_rgb(0_0_0/0.55)]"
             >
               <span className="text-accent/70">#</span>
               <span className="max-w-32 truncate" title={tag}>
@@ -334,7 +335,7 @@ function MarkdownEditorInner({
                 type="button"
                 onClick={() => removeTag(tag)}
                 aria-label={`Remove tag ${tag}`}
-                className="focus-ring ml-0.5 flex size-4 items-center justify-center rounded-full text-fg-subtle transition-colors duration-120 hover:bg-surface-active hover:text-fg"
+                className="chamfer-xs focus-ring ml-0.5 flex size-4 items-center justify-center text-fg-subtle transition-colors duration-120 hover:bg-surface-active hover:text-fg"
               >
                 <X size={11} strokeWidth={2} aria-hidden />
               </button>
@@ -358,9 +359,10 @@ function MarkdownEditorInner({
               aria-label="Add tag"
               placeholder="Add tag"
               className={cn(
-                'h-6 w-24 rounded-full border border-dashed border-line-strong bg-transparent pl-6 pr-2.5 font-mono text-2xs text-fg outline-none',
-                'transition-[border-color,width,background-color] duration-180 ease-out-quint placeholder:text-fg-subtle',
-                'hover:border-fg-faint focus:w-32 focus:border-solid focus:border-accent/50 focus:bg-ink-950/40'
+                'chamfer-xs h-6 w-24 bg-steel-950/60 pl-6 pr-2.5 font-mono text-2xs text-fg outline-none',
+                'shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_-1px_0_rgb(255_255_255/0.06)]',
+                'transition-[width,background-color,box-shadow] duration-180 ease-out-quint placeholder:text-fg-subtle',
+                'hover:bg-steel-950 focus:w-32 focus:bg-steel-950 focus:shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_-2px_0_var(--accent)]'
               )}
             />
           </label>

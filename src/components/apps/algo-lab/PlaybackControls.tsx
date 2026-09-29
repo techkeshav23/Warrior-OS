@@ -94,7 +94,7 @@ function PlaybackControlsInner({
   const playLabel = player.playing ? 'Pause' : 'Play';
   const pct = player.total > 1 ? (player.index / (player.total - 1)) * 100 : 0;
   return (
-    <Toolbar border="top" aria-label="Playback" className="bg-ink-950/30">
+    <Toolbar border="top" aria-label="Playback" className="brushed bg-steel-850">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <ToolbarGroup>
           <IconButton

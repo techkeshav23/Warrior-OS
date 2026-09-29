@@ -49,7 +49,7 @@ const OccurrenceRow = memo(function OccurrenceRow({ occ, showDate = false, onOpe
     <button
       type="button"
       onClick={() => onOpen(occ)}
-      className="focus-ring-inset group/occ flex w-full items-stretch gap-3 rounded-control px-2 py-2 text-left transition-colors duration-120 ease-out-quint hover:bg-surface-hover active:bg-surface-active"
+      className="chamfer-sm focus-ring-inset group/occ flex w-full items-stretch gap-3 px-2 py-2 text-left transition-colors duration-120 ease-out-quint hover:bg-surface-hover active:bg-surface-active"
       aria-label={`${event.title}, ${showDate ? `${format(parseISO(occ.date), 'EEEE d MMMM')}, ` : ''}${
         event.time ? formatTime12(event.time) : 'all day'
       }, ${meta.label}. Edit`}
@@ -67,7 +67,7 @@ const OccurrenceRow = memo(function OccurrenceRow({ occ, showDate = false, onOpe
           'All day'
         )}
       </span>
-      <span className="w-0.5 shrink-0 rounded-full" style={{ background: color }} />
+      <span className="w-[3px] shrink-0 [clip-path:polygon(0_0,100%_3px,100%_calc(100%-3px),0_100%)]" style={{ background: color }} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-ui font-medium text-fg" title={event.title}>
           {event.title}
@@ -75,7 +75,7 @@ const OccurrenceRow = memo(function OccurrenceRow({ occ, showDate = false, onOpe
         <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-fg-subtle">
           {showDate && <span className="tabular font-mono">{event.time ? formatTime12(event.time) : 'All day'}</span>}
           <span className="flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full" style={{ background: meta.color }} aria-hidden />
+            <span className="size-1.5 rotate-45" style={{ background: meta.color }} aria-hidden />
             {meta.label}
           </span>
           {event.recurrence !== 'none' && <Repeat size={12} strokeWidth={1.75} aria-hidden />}

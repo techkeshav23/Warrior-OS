@@ -157,7 +157,7 @@ function ExpenseEntryInner({ className, editing, todayKey, onSaved, onCancelEdit
 
         {/* Category */}
         <div className="space-y-1.5">
-          <p id={`${fieldId}-category`} className="text-xs font-medium text-fg-muted">
+          <p id={`${fieldId}-category`} className="engraved font-display text-2xs font-semibold uppercase tracking-[0.16em] text-fg-muted">
             Category
           </p>
           <div role="group" aria-labelledby={`${fieldId}-category`} className="flex flex-wrap gap-1.5">

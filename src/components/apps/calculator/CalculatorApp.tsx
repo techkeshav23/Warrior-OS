@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Calculator App
 // Scientific calculator with keyboard support + history.
-// Ink keypad, operators in the accent, equals as the strongest key;
+// Cut-steel keypad, operators with an ember face, equals the molten plate;
 // the display auto-fits its number. Keys flash when typed. Keyboard
 // input only reaches the calculator while its window is focused and
 // no text field has focus.
@@ -13,6 +13,17 @@ import { useState, useCallback, useEffect, useLayoutEffect, useRef, memo, type R
 import { Delete, History, Trash2, X } from 'lucide-react';
 import { EmptyState, IconButton, Kbd } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import {
+  BEVEL_PRESSED,
+  BEVEL_RAISED,
+  BEVEL_SUNK,
+  EMBER_PLATE,
+  ENGRAVED_LABEL,
+  FOCUS_EDGE,
+  SLOT_FILL,
+  STEEL_PLATE,
+  STEEL_PLATE_HOT,
+} from '@/components/ui/armor';
 
 type Op = '+' | '-' | '×' | '÷' | '^' | null;
 
@@ -69,34 +80,61 @@ const OP_SYMBOL: Record<Exclude<Op, null>, string> = { '+': '+', '-': '−', '×
 
 type KeyTone = 'digit' | 'fn' | 'clear' | 'op' | 'op-active' | 'equals' | 'sci' | 'sci-accent';
 
+// Cut-steel keys: bevelled plates that sink when pressed (or flashed by
+// the keyboard). Digits are raised steel, functions darker gunmetal,
+// operators steel with an ember face and seam, equals the molten plate.
 const KEY_BASE =
-  'focus-ring relative flex min-h-0 min-w-0 select-none items-center justify-center rounded-control border ' +
-  'transition-[background-color,border-color,color,box-shadow,filter,transform] duration-120 ease-out-quint ' +
-  'active:scale-[0.97] data-[flash]:scale-[0.97]';
+  'relative flex min-h-0 min-w-0 select-none items-center justify-center chamfer [--cut:6px] font-display ' +
+  'transition-[background-color,color,box-shadow,filter,transform] duration-120 ease-out-quint ' +
+  FOCUS_EDGE + ' active:translate-y-px data-[flash]:translate-y-px';
+
+/** Sunk look while the keyboard flashes a key (mirrors BEVEL_PRESSED). */
+const FLASH_SINK =
+  'data-[flash]:shadow-[inset_0_1px_0_rgb(0_0_0/0.55),inset_0_2px_5px_rgb(0_0_0/0.35),inset_0_-1px_0_rgb(255_255_255/0.06)]';
+
+/** Darker gunmetal plate for secondary keys. */
+const GUNMETAL = 'bg-linear-to-b from-steel-750 to-steel-850';
 
 const KEY_TONE: Record<KeyTone, string> = {
-  digit:
-    'border-line bg-ink-800/80 text-lg font-medium text-fg inset-shadow-[0_1px_0_rgb(255_255_255/0.05)] ' +
-    'hover:border-line-strong hover:bg-ink-750 active:bg-ink-700 data-[flash]:bg-ink-700',
-  fn:
-    'border-line bg-surface-2 text-base text-fg-muted hover:border-line-strong hover:bg-surface-hover hover:text-fg ' +
-    'active:bg-surface-active data-[flash]:bg-surface-active data-[flash]:text-fg',
-  clear:
-    'border-line bg-surface-2 text-sm font-semibold tracking-wide text-danger hover:border-danger/30 hover:bg-danger/10 ' +
-    'active:bg-danger/15 data-[flash]:bg-danger/15',
-  op:
-    'border-accent/25 bg-accent/10 text-xl text-accent hover:border-accent/45 hover:bg-accent/16 ' +
-    'active:bg-accent/22 data-[flash]:bg-accent/22',
-  'op-active': 'border-accent/70 bg-accent/25 text-xl text-fg ring-1 ring-inset ring-accent/40',
-  equals:
-    'border-transparent bg-accent text-2xl font-semibold text-accent-fg inset-shadow-[0_1px_0_rgb(255_255_255/0.3)] ' +
-    'shadow-[0_0_22px_-8px_var(--accent)] hover:shadow-glow hover:brightness-110 active:brightness-95 data-[flash]:brightness-95',
-  sci:
-    'border-line bg-ink-900/50 font-mono text-2xs text-fg-muted hover:border-line-strong hover:bg-surface-hover hover:text-fg ' +
-    'active:bg-surface-active data-[flash]:bg-surface-active',
-  'sci-accent':
-    'border-line bg-ink-900/50 font-mono text-2xs text-accent hover:border-accent/35 hover:bg-accent/10 ' +
-    'active:bg-accent/15 data-[flash]:bg-accent/15',
+  digit: cn(STEEL_PLATE, STEEL_PLATE_HOT, BEVEL_RAISED, BEVEL_PRESSED, FLASH_SINK, 'text-xl font-medium hover:text-ember-200'),
+  fn: cn(GUNMETAL, BEVEL_RAISED, BEVEL_PRESSED, FLASH_SINK, 'text-lg text-fg-muted hover:from-steel-700 hover:text-fg data-[flash]:text-fg'),
+  clear: cn(
+    GUNMETAL,
+    BEVEL_PRESSED,
+    'text-sm font-semibold uppercase tracking-[0.12em] text-danger hover:from-[#3a1319] hover:to-steel-850',
+    'shadow-[inset_0_1px_0_rgb(255_255_255/0.1),inset_0_-2px_0_rgb(255_84_112/0.55)]',
+    FLASH_SINK
+  ),
+  // Steel with an ember face and a heated bottom seam.
+  op: cn(
+    GUNMETAL,
+    'text-2xl text-accent hover:from-steel-700 hover:text-ember-300',
+    'shadow-[inset_0_1px_0_rgb(255_255_255/0.1),inset_1px_0_0_rgb(255_255_255/0.04),inset_0_-2px_0_var(--color-ember-600),inset_0_-12px_14px_-12px_rgb(247_107_21/0.5)]',
+    BEVEL_PRESSED,
+    FLASH_SINK
+  ),
+  'op-active': 'bg-linear-to-b from-ember-800 to-steel-850 text-2xl text-ember-200 ember-edge',
+  // The molten plate: hot core on top, deep ember below, white-hot seam.
+  equals: cn(
+    EMBER_PLATE,
+    'text-3xl font-bold hover:brightness-115 hover:saturate-125 active:brightness-95 data-[flash]:brightness-95',
+    BEVEL_PRESSED,
+    FLASH_SINK
+  ),
+  sci: cn(
+    'bg-linear-to-b from-steel-800 to-steel-900 font-mono text-2xs text-fg-muted',
+    BEVEL_RAISED,
+    BEVEL_PRESSED,
+    FLASH_SINK,
+    'hover:from-steel-750 hover:text-fg data-[flash]:text-fg'
+  ),
+  'sci-accent': cn(
+    'bg-linear-to-b from-steel-800 to-steel-900 font-mono text-2xs text-accent',
+    BEVEL_RAISED,
+    BEVEL_PRESSED,
+    FLASH_SINK,
+    'hover:from-steel-750 hover:text-ember-300'
+  ),
 };
 
 interface KeyProps {
@@ -341,11 +379,11 @@ function CalculatorAppInner() {
       aria-label="History"
       className={cn(
         'flex w-38 shrink-0 flex-col border-l border-line',
-        wide ? 'bg-ink-950/30' : 'glass-popover absolute inset-y-0 right-0 z-10 animate-fade-in rounded-none border-y-0 border-r-0'
+        wide ? 'brushed bg-steel-900/60' : 'armor-popover absolute inset-y-0 right-0 z-10 animate-fade-in [--cut:0px]'
       )}
     >
       <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-line pl-3.5 pr-1.5">
-        <span className="hud-label">History</span>
+        <span className={ENGRAVED_LABEL}>History</span>
         <span className="flex items-center">
           {history.length > 0 && (
             <IconButton icon={Trash2} aria-label="Clear history" variant="ghost-danger" size="xs" tooltip tooltipSide="bottom" onClick={() => setHistory([])} />
@@ -369,9 +407,9 @@ function CalculatorAppInner() {
                   }}
                   title={`${prettyExpr(h.expr)} = ${h.result}`}
                   className={cn(
-                    'focus-ring-inset flex w-full flex-col items-end gap-0.5 rounded-control px-2.5 py-1.5 text-right',
-                    'transition-colors duration-120 ease-out-quint hover:bg-surface-hover active:bg-surface-active',
-                    i === 0 && 'bg-surface-2'
+                    'focus-ring-inset chamfer-xs flex w-full flex-col items-end gap-0.5 px-2.5 py-1.5 text-right',
+                    'transition-colors duration-120 ease-out-quint hover:bg-steel-750 active:bg-steel-700',
+                    i === 0 && 'bevel bg-steel-800'
                   )}
                 >
                   <span className="tabular w-full truncate font-mono text-2xs text-fg-subtle">{prettyExpr(h.expr)}</span>
@@ -398,19 +436,23 @@ function CalculatorAppInner() {
   );
 
   return (
-    <div ref={rootRef} className="relative flex h-full min-h-0 bg-ink-950/20">
+    <div ref={rootRef} className="relative flex h-full min-h-0 bg-steel-950/30">
       {/* ─── Main calculator ─── */}
       <div className={cn('flex min-w-0 flex-1 flex-col p-3', short ? 'gap-2' : 'gap-2.5')}>
         {/* Display */}
         <div
           className={cn(
-            'hud-corners relative flex shrink-0 flex-col justify-end rounded-card border border-line bg-ink-950/70 px-4',
-            'inset-shadow-[0_1px_0_rgb(255_255_255/0.04)]',
+            'chamfer-md relative flex shrink-0 flex-col justify-end px-4',
+            SLOT_FILL,
+            BEVEL_SUNK,
             short ? 'min-h-19 pb-2 pt-2' : 'min-h-24 pb-3 pt-2.5'
           )}
         >
           <div className="flex h-5 items-center justify-between gap-2">
-            <span className="hud-label text-fg-subtle">{deg ? 'Deg' : 'Rad'}</span>
+            <span className={ENGRAVED_LABEL}>
+              {deg ? 'Deg' : 'Rad'}
+              <span aria-hidden className="ml-2 inline-block h-1.5 w-1.5 bg-ember-500 align-middle shadow-[0_0_6px_var(--color-ember-500)]" />
+            </span>
             {!wide && (
               <IconButton
                 icon={History}
@@ -430,8 +472,8 @@ function CalculatorAppInner() {
               aria-label="Result"
               title={shown}
               className={cn(
-                'tabular block max-w-full truncate font-sans font-light leading-tight tracking-tight',
-                isError ? 'text-danger' : 'text-fg'
+                'tabular block max-w-full truncate font-display font-medium leading-tight tracking-tight',
+                isError ? 'text-danger' : 'text-fg [text-shadow:0_0_18px_rgb(255_138_61/0.18)]'
               )}
               style={{ fontSize: fontPx }}
             >

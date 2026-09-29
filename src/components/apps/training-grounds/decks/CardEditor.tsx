@@ -499,8 +499,8 @@ export function CardEditor({
                   <div
                     key={i}
                     className={cn(
-                      '-mx-1.5 flex items-center gap-2 rounded-control px-1.5 py-1 transition-colors duration-120 ease-out-quint',
-                      correct && 'bg-success/[0.06]'
+                      '-mx-1.5 flex items-center gap-2 chamfer-sm px-1.5 py-1 transition-colors duration-120 ease-out-quint',
+                      correct && 'bg-success/[0.07] shadow-[inset_2px_0_0_var(--color-success)]'
                     )}
                   >
                     <button
@@ -511,10 +511,10 @@ export function CardEditor({
                       title={correct ? 'Correct' : 'Mark as correct'}
                       className={cn(
                         'focus-ring flex size-8 shrink-0 items-center justify-center border font-mono text-xs font-medium transition-colors duration-120 ease-out-quint',
-                        draft.kind === 'mcq' ? 'rounded-full' : 'rounded-control',
+                        draft.kind === 'mcq' ? 'chamfer [--cut:9px]' : 'chamfer-sm',
                         correct
                           ? 'border-success/60 bg-success/15 text-success'
-                          : 'border-line-strong bg-ink-950/40 text-fg-subtle hover:border-fg-faint hover:bg-surface-hover hover:text-fg'
+                          : 'border-line-strong bg-steel-950 text-fg-subtle shadow-[inset_0_1px_0_rgb(0_0_0/0.7)] hover:border-fg-faint hover:bg-steel-750 hover:text-fg'
                       )}
                     >
                       {correct ? <Check size={14} strokeWidth={2.5} aria-hidden /> : letter(i)}
@@ -637,18 +637,18 @@ export function CardEditor({
           labelAside={draft.tags.length > 0 ? `${draft.tags.length}/${LIMITS.tags}` : undefined}
           hint="Enter or comma adds a tag, Backspace removes the last one."
         >
-          <div className="flex min-h-8 flex-wrap items-center gap-1.5 rounded-control border border-line-strong bg-ink-950/55 px-1.5 py-1 transition-[border-color,box-shadow] duration-120 ease-out-quint focus-within:border-accent/70 focus-within:ring-3 focus-within:ring-accent/15 hover:border-fg-faint">
+          <div className="flex min-h-8 flex-wrap items-center gap-1.5 chamfer-sm border border-line-strong bg-linear-to-b from-steel-950 to-steel-900 px-1.5 py-1 shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_6px_rgb(0_0_0/0.45),inset_0_-1px_0_rgb(255_255_255/0.07)] transition-[border-color,box-shadow] duration-120 ease-out-quint focus-within:ember-edge hover:border-fg-faint">
             {draft.tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex h-6 max-w-full items-center gap-0.5 rounded-full border border-line-strong bg-surface-2 pl-2.5 pr-0.5 text-xs font-medium text-fg-muted"
+                className="armor-plate inline-flex h-6 max-w-full items-center gap-0.5 chamfer-xs pl-2 pr-0.5 font-mono text-xs font-medium text-fg-muted"
               >
                 <span className="truncate">#{tag}</span>
                 <button
                   type="button"
                   onClick={() => patch({ tags: draft.tags.filter((t) => t !== tag) })}
                   aria-label={`Remove tag ${tag}`}
-                  className="focus-ring flex size-5 shrink-0 items-center justify-center rounded-full text-fg-subtle transition-colors duration-120 ease-out-quint hover:bg-surface-active hover:text-fg"
+                  className="focus-ring flex size-5 shrink-0 items-center justify-center chamfer-xs [--cut:3px] text-fg-subtle transition-colors duration-120 ease-out-quint hover:bg-surface-active hover:text-fg"
                 >
                   <X size={12} strokeWidth={2} aria-hidden />
                 </button>

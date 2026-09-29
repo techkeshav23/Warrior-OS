@@ -61,11 +61,17 @@ function AccountTabInner() {
     <SettingsPage>
       {isAuthenticated && user ? (
         <SettingsSection title="Profile">
-          <Card hud>
+          <Card hud className="chamfer-tl-br">
+            <p className="engraved mb-3 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-accent/85">
+              Warrior profile
+            </p>
             <div className="flex min-w-0 items-center gap-4">
               <Avatar name={user.displayName || user.email || 'Warrior'} size="xl" status="online" ring />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-base font-semibold text-fg" title={user.displayName || 'Warrior'}>
+                <p
+                  className="truncate font-display text-base font-semibold uppercase tracking-[0.06em] text-fg"
+                  title={user.displayName || 'Warrior'}
+                >
                   {user.displayName || 'Warrior'}
                 </p>
                 <p className="truncate text-ui text-fg-muted" title={user.email ?? undefined}>
