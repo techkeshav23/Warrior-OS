@@ -25,6 +25,7 @@ import { deckCards, useLearningStore } from '@/stores/useLearningStore';
 import type { ImportResult } from '@/types/learning';
 import { DialogShell, SubmitButton } from './Dialog';
 import { downloadTextFile, fileSlug, plural } from './deck-ui';
+import { DashedEdge } from '../armor-bits';
 
 export type TransferMode = 'export' | 'import';
 
@@ -212,7 +213,7 @@ export function TransferDialog({ initialMode, initialDeckIds, open = true, onClo
             setError(null);
           }}
           tabs={MODE_TABS}
-          className="rounded-full border border-line bg-ink-950/40 p-0.5"
+          className="chamfer-sm bg-steel-950/60 bevel p-0.5"
         />
 
         {mode === 'export' ? (
@@ -235,9 +236,9 @@ export function TransferDialog({ initialMode, initialDeckIds, open = true, onClo
                 </span>
               </div>
               {decks.length === 0 ? (
-                <p className="rounded-control bg-surface-2 px-3 py-4 text-center text-ui text-fg-subtle">No decks to export yet.</p>
+                <p className="chamfer-sm bg-steel-950/50 bevel px-3 py-4 text-center text-ui text-fg-subtle">No decks to export yet.</p>
               ) : (
-                <div className="scrollbar-thin max-h-64 divide-y divide-line overflow-y-auto rounded-card border border-line">
+                <div className="scrollbar-thin armor-panel chamfer-md max-h-64 divide-y divide-black/40 overflow-y-auto">
                   {decks.map((deck) => {
                     const on = selected.has(deck.id);
                     return (
@@ -294,19 +295,25 @@ export function TransferDialog({ initialMode, initialDeckIds, open = true, onClo
               onDragLeave={() => setDragging(false)}
               onDrop={onDrop}
               className={cn(
-                'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-card border border-dashed px-4 py-6 text-center transition-colors duration-120 ease-out-quint',
-                'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent',
+                'relative flex cursor-pointer flex-col items-center justify-center gap-2 chamfer-md px-4 py-6 text-center transition-colors duration-120 ease-out-quint',
+                'has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-2 has-[:focus-visible]:outline-accent',
                 dragging
-                  ? 'border-accent/70 bg-accent/10'
+                  ? 'bg-accent/10'
                   : fileName
-                    ? 'border-success/40 bg-success/[0.05]'
-                    : 'border-line-strong bg-surface-2 hover:border-fg-faint hover:bg-surface-hover'
+                    ? 'bg-success/[0.05]'
+                    : 'group/drop bg-steel-950/40 hover:bg-ember-500/5'
               )}
             >
+              <DashedEdge
+                className={cn(
+                  'transition-colors duration-120',
+                  dragging ? 'text-accent' : fileName ? 'text-success/50' : 'text-steel-500 group-hover/drop:text-ember-500/70'
+                )}
+              />
               <span
                 className={cn(
-                  'flex size-10 items-center justify-center rounded-card border bg-ink-800',
-                  fileName ? 'border-success/35 text-success' : 'border-line-strong text-fg-muted'
+                  'armor-plate chamfer-sm flex size-10 items-center justify-center',
+                  fileName ? 'text-success' : 'text-fg-muted'
                 )}
               >
                 {fileName ? <CircleCheck size={20} strokeWidth={1.75} aria-hidden /> : <Upload size={20} strokeWidth={1.75} aria-hidden />}
@@ -352,8 +359,8 @@ export function TransferDialog({ initialMode, initialDeckIds, open = true, onClo
 
             {result && <ImportSummary result={result} />}
 
-            <details className="group/format rounded-card border border-line">
-              <summary className="focus-ring-inset flex cursor-pointer select-none list-none items-center gap-2 rounded-card px-3 py-2.5 text-ui text-fg-muted transition-colors duration-120 ease-out-quint hover:bg-surface-hover hover:text-fg [&::-webkit-details-marker]:hidden">
+            <details className="group/format armor-panel chamfer-md">
+              <summary className="focus-ring-inset flex cursor-pointer select-none list-none items-center gap-2 px-3 py-2.5 text-ui text-fg-muted transition-colors duration-120 ease-out-quint hover:bg-surface-hover hover:text-fg [&::-webkit-details-marker]:hidden">
                 <ChevronRight
                   size={16}
                   strokeWidth={1.75}
@@ -371,7 +378,7 @@ export function TransferDialog({ initialMode, initialDeckIds, open = true, onClo
                   explanation, difficulty (easy / medium / hard) and tags. A deck may also list{' '}
                   <code className="font-mono text-fg">cards</code> directly instead of topics.
                 </p>
-                <pre className="scrollbar-thin max-h-48 select-text overflow-auto rounded-control bg-ink-850 p-3 font-mono text-2xs text-fg-muted">
+                <pre className="scrollbar-thin max-h-48 select-text overflow-auto chamfer-sm bg-steel-950 p-3 shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_-1px_0_rgb(255_255_255/0.06)] font-mono text-2xs text-fg-muted">
                   {EXAMPLE}
                 </pre>
               </div>
@@ -388,8 +395,8 @@ function ImportSummary({ result }: { result: ImportResult }) {
   return (
     <div
       className={cn(
-        'flex flex-col gap-2 rounded-card border px-3.5 py-3',
-        result.ok ? 'border-success/30 bg-success/[0.06]' : 'border-danger/30 bg-danger/[0.06]'
+        'relative flex flex-col gap-2 chamfer-md border px-3.5 py-3 before:absolute before:inset-y-0 before:left-0 before:w-0.5',
+        result.ok ? 'border-success/30 bg-success/[0.06] before:bg-success/70' : 'border-danger/30 bg-danger/[0.06] before:bg-danger/70'
       )}
       role="status"
     >

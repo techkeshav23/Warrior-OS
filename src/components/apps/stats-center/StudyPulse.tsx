@@ -110,7 +110,7 @@ function StudyPulseInner() {
 
 function PulseTile({ children, footer }: { children: ReactNode; footer: ReactNode }) {
   return (
-    <div className="glass-panel flex min-w-0 flex-col gap-4 rounded-card p-4">
+    <div className="armor-panel chamfer-md flex min-w-0 flex-col gap-4 p-4">
       {children}
       <div className="mt-auto">{footer}</div>
     </div>

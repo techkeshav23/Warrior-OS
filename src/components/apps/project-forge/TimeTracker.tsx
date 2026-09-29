@@ -8,7 +8,7 @@
 
 'use client';
 
-import { memo, useMemo, useState, type CSSProperties, type FormEvent } from 'react';
+import { memo, useMemo, useState, type FormEvent } from 'react';
 import {
   Anvil,
   CalendarDays,
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge, Button, Card, EmptyState, Input, ProgressBar, Select } from '@/components/ui';
+import { BEVEL_SUNK, ENGRAVED_LABEL, SLOT_FILL } from '@/components/ui/armor';
 import { useProjectForgeStore } from '@/stores/useProjectForgeStore';
 import type { ForgeActiveTimer, ForgeProject, ForgeSession, ForgeStage } from '@/types/project-forge';
 import { ConfirmButton } from './ConfirmButton';
@@ -53,9 +54,6 @@ const PAGE_SIZE = 40;
 const STAGE_RANK: Record<ForgeStage, number> = { building: 0, testing: 1, ideas: 2, shipped: 3 };
 
 /** Ember HUD brackets for the live timer card. */
-const EMBER_CORNERS = {
-  '--hud-corner-color': 'color-mix(in oklab, var(--color-ember-400) 55%, transparent)',
-} as CSSProperties;
 
 function sortForPicker(projects: readonly ForgeProject[]): ForgeProject[] {
   return [...projects].sort(
@@ -241,7 +239,7 @@ function SessionListInner({ sessions, projectsById, now, showProject, onOpenProj
       {groups.map((group) => (
         <div key={group.day}>
           <div className="flex h-7 items-center justify-between gap-3 px-2">
-            <p className="hud-label">{formatDayLabel(group.day, now)}</p>
+            <p className={ENGRAVED_LABEL}>{formatDayLabel(group.day, now)}</p>
             <span className="tabular font-mono text-2xs text-fg-muted">{formatDuration(group.total)}</span>
           </div>
           <ul className="divide-y divide-line">
@@ -250,7 +248,7 @@ function SessionListInner({ sessions, projectsById, now, showProject, onOpenProj
               return (
                 <li
                   key={session.id}
-                  className="group/session flex min-h-10 items-center gap-3 rounded-control px-2 transition-colors duration-120 hover:bg-surface-hover"
+                  className="group/session flex min-h-10 items-center gap-3 px-2 transition-colors duration-120 hover:bg-surface-hover"
                 >
                   <span className="tabular shrink-0 font-mono text-xs text-fg-subtle">
                     {formatTimeOfDay(session.start)}–{formatTimeOfDay(session.end)}
@@ -263,7 +261,7 @@ function SessionListInner({ sessions, projectsById, now, showProject, onOpenProj
                       type="button"
                       onClick={() => onOpenProject?.(project.id)}
                       title={`Open ${project.name}`}
-                      className="focus-ring flex min-w-0 max-w-[40%] items-center gap-1.5 rounded-[4px] text-ui text-fg-muted transition-colors duration-120 hover:text-fg"
+                      className="focus-ring flex min-w-0 max-w-[40%] items-center gap-1.5 text-ui text-fg-muted transition-colors duration-120 hover:text-fg"
                     >
                       <span className={cn('size-1.5 shrink-0 rounded-full', STAGE_META[project.stage].dot)} />
                       <span className="truncate">{project.name}</span>
@@ -329,7 +327,7 @@ function RunningTimer({
           <button
             type="button"
             onClick={() => onOpenProject(runningProject.id)}
-            className="focus-ring min-w-0 truncate rounded-[4px] text-ui font-medium text-fg transition-colors duration-120 hover:text-ember-300"
+            className="focus-ring min-w-0 truncate text-ui font-medium text-fg transition-colors duration-120 hover:text-ember-300"
           >
             {runningProject.name}
           </button>
@@ -364,7 +362,7 @@ function RunningTimer({
         </ConfirmButton>
       </div>
       {elapsed > LONG_RUN_MS && (
-        <p className="flex items-start gap-2 rounded-control bg-warning/10 px-3 py-2 text-xs text-warning">
+        <p className="chamfer-sm flex items-start gap-2 bg-warning/10 px-3 py-2 text-xs text-warning shadow-[inset_2px_0_0_var(--color-warning)]">
           <TriangleAlert size={14} strokeWidth={1.75} aria-hidden className="mt-px shrink-0" />
           Running for {formatDuration(elapsed)}. Discard it if you forgot to stop it.
         </p>
@@ -396,8 +394,8 @@ function ProjectTimerControl({ project, activeTimer, runningProject, now }: Time
 /** Small unbordered stat well. */
 function TimeStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-control bg-ink-950/40 px-3 py-2.5">
-      <p className="hud-label">{label}</p>
+    <div className={cn('chamfer-sm px-3 py-2.5', SLOT_FILL, BEVEL_SUNK)}>
+      <p className={ENGRAVED_LABEL}>{label}</p>
       <p className="tabular mt-1 font-display text-lg font-semibold leading-6 text-fg">{value}</p>
     </div>
   );
@@ -511,8 +509,7 @@ function ProjectTimePanel({
       title="Time tracker"
       icon={Timer}
       tone={live ? 'ember' : 'default'}
-      hud={live}
-      style={live ? EMBER_CORNERS : undefined}
+      rivets={live}
     >
       <div className="space-y-4">
         <ProjectTimerControl
@@ -553,7 +550,7 @@ function ProjectTimePanel({
 
         {recent.length > 0 && (
           <div>
-            <p className="hud-label mb-1 flex items-center gap-1.5">
+            <p className={cn(ENGRAVED_LABEL, 'mb-1 flex items-center gap-1.5')}>
               <History size={12} strokeWidth={1.75} aria-hidden /> Recent sessions
             </p>
             <SessionList sessions={recent} projectsById={projectsById} now={minuteNow} showProject={false} />
@@ -590,15 +587,16 @@ function WeekBars({ week, today }: { week: WeekSummary; today: number }) {
               {ms > 0 && (
                 <div
                   className={cn(
-                    'w-full max-w-7 rounded-t-[4px] transition-[height,background-color] duration-260 ease-out-quint',
+                    'chamfer [--cut-tl:4px] [--cut-tr:4px] [--cut-bl:0px] [--cut-br:0px] w-full max-w-7 transition-[height,opacity,filter] duration-260 ease-out-quint',
+                    'bg-linear-to-t from-ember-800 via-ember-600 to-ember-400',
                     isToday
-                      ? 'bg-ember-400 shadow-[0_0_18px_-4px_var(--color-ember-500)]'
-                      : 'bg-ember-400/45 group-hover/day:bg-ember-400/70'
+                      ? 'to-ember-200 shadow-[inset_0_2px_0_var(--color-ember-100)]'
+                      : 'opacity-75 group-hover/day:opacity-100'
                   )}
                   style={{ height: `max(4px, ${pct}%)` }}
                 />
               )}
-              <span className="glass-popover pointer-events-none absolute bottom-full z-10 mb-1 hidden whitespace-nowrap rounded-control px-2 py-1 font-mono text-2xs text-fg tabular group-hover/day:block">
+              <span className="armor-popover pointer-events-none absolute bottom-full z-10 mb-1 hidden whitespace-nowrap px-2 py-1 font-mono text-2xs text-fg tabular group-hover/day:block">
                 {formatDuration(ms)}
               </span>
             </div>
@@ -674,8 +672,7 @@ function TimeOverview({
           title="Timer"
           icon={Timer}
           tone={activeTimer ? 'ember' : 'default'}
-          hud={Boolean(activeTimer)}
-          style={activeTimer ? EMBER_CORNERS : undefined}
+          rivets={Boolean(activeTimer)}
         >
           {activeTimer ? (
             <RunningTimer
@@ -763,7 +760,7 @@ function TimeOverview({
                       type="button"
                       onClick={() => onOpenProject?.(id)}
                       title={`Open ${project.name}`}
-                      className="focus-ring flex w-32 min-w-0 shrink-0 items-center gap-2 rounded-[4px] text-left text-ui text-fg-muted transition-colors duration-120 hover:text-fg"
+                      className="focus-ring flex w-32 min-w-0 shrink-0 items-center gap-2 text-left text-ui text-fg-muted transition-colors duration-120 hover:text-fg"
                     >
                       <span className={cn('size-1.5 shrink-0 rounded-full', meta.dot)} />
                       <span className="truncate">{project.name}</span>

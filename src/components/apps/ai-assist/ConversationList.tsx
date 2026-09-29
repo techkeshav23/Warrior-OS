@@ -169,15 +169,17 @@ function ConversationListInner({ onNavigate, onClose }: ConversationListProps) {
                         onClick={() => selectChat(conversation.id)}
                         aria-current={active ? 'true' : undefined}
                         className={cn(
-                          'focus-ring-inset relative flex w-full flex-col gap-0.5 rounded-control py-2 pl-3 pr-9 text-left',
-                          'transition-colors duration-120 ease-out-quint',
-                          active ? 'bg-accent/10' : 'hover:bg-surface-hover active:bg-surface-active'
+                          'chamfer-sm focus-ring-inset relative flex w-full flex-col gap-0.5 py-2 pl-3 pr-9 text-left',
+                          'transition-[background-color,box-shadow] duration-120 ease-out-quint',
+                          active
+                            ? 'bg-linear-to-r from-accent/[0.14] to-accent/[0.04] shadow-[inset_0_1px_0_rgb(255_255_255/0.06),inset_0_-1px_0_color-mix(in_oklab,var(--accent)_55%,transparent)]'
+                            : 'hover:bg-surface-hover active:bg-surface-active'
                         )}
                       >
                         <span
                           aria-hidden
                           className={cn(
-                            'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-accent transition-opacity duration-180',
+                            'absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 bg-accent shadow-[0_0_8px_var(--accent)] transition-opacity duration-180 [clip-path:polygon(0_0,100%_3px,100%_calc(100%-3px),0_100%)]',
                             active ? 'opacity-100' : 'opacity-0'
                           )}
                         />
@@ -246,7 +248,7 @@ function ConversationListInner({ onNavigate, onClose }: ConversationListProps) {
                       <button
                         type="button"
                         onClick={() => runNudge(nudge)}
-                        className="focus-ring inline-flex h-6 min-w-0 items-center gap-1 rounded-full border border-accent/25 bg-accent/8 px-2 text-2xs font-medium text-fg transition-colors duration-120 ease-out-quint hover:border-accent/45 hover:bg-accent/15"
+                        className="chamfer-xs focus-ring inline-flex h-6 min-w-0 items-center gap-1 bg-accent/10 px-2 text-2xs font-medium text-fg shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_28%,transparent)] transition-colors duration-120 ease-out-quint hover:bg-accent/18"
                       >
                         <WandSparkles size={11} strokeWidth={1.75} className="shrink-0 text-accent" aria-hidden />
                         <span className="truncate">{nudge.action.label}</span>

@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Workspace Manager
 // Manages 3 workspaces (Study/Build/Chill) and the workspace switcher
-// pill above the taskbar.
+// plate above the taskbar (a riveted steel bar of cut segments; the
+// active one is heated with an ember seam).
 //
 // Switch transition: the old face turns away in 3D (a quick,
 // accelerating quarter-cube turn that fades), then the new face fades
@@ -180,7 +181,7 @@ function WorkspaceManagerInner({ children }: WorkspaceManagerProps) {
   );
 }
 
-// ─── Workspace switcher pill ───
+// ─── Workspace switcher plate ───
 // A segmented control: each segment shows the workspace's color, name and
 // how many windows are open there. The active segment sits on a sliding
 // thumb. Ctrl+1/2/3 are the keyboard shortcuts (tooltips say so).
@@ -209,71 +210,67 @@ function WorkspaceDotsInner({ className }: WorkspaceDotsProps) {
   );
 
   return (
-    <div
-      role="group"
-      aria-label="Workspaces"
-      className={cn(
-        'glass-window shadow-e2 flex items-center gap-0.5 rounded-full p-1',
-        className
-      )}
-    >
-      {workspaces.map((ws, index) => {
-        const isActive = ws.id === activeWorkspaceId;
-        const color = resolveAccent(ws.accentColor);
-        const count = counts[ws.id] ?? 0;
-        const countLabel = count === 0 ? 'no windows' : `${count} window${count === 1 ? '' : 's'}`;
-        return (
-          <Tooltip
-            key={ws.id}
-            content={`${ws.name} · ${countLabel}`}
-            shortcut={index < 9 ? `Ctrl ${index + 1}` : undefined}
-            side="top"
-          >
-            <button
-              type="button"
-              onClick={() => handleSwitch(ws.id as WorkspaceId)}
-              className={cn(
-                'focus-ring relative flex h-7 items-center gap-2 rounded-full pl-2.5 pr-3',
-                'text-xs font-medium transition-colors duration-120 ease-out-quint',
-                isActive ? 'text-fg' : 'text-fg-subtle hover:bg-surface-hover hover:text-fg-muted'
-              )}
-              style={{ '--ws': color } as CSSProperties}
-              aria-label={`Switch to ${ws.name} workspace`}
-              aria-current={isActive ? 'true' : undefined}
+    <div role="group" aria-label="Workspaces" className={cn('armor-drop', className)}>
+      <div className="armor-popover flex items-center gap-0.5 p-1 [--cut:8px]">
+        {workspaces.map((ws, index) => {
+          const isActive = ws.id === activeWorkspaceId;
+          const color = resolveAccent(ws.accentColor);
+          const count = counts[ws.id] ?? 0;
+          const countLabel = count === 0 ? 'no windows' : `${count} window${count === 1 ? '' : 's'}`;
+          return (
+            <Tooltip
+              key={ws.id}
+              content={`${ws.name} · ${countLabel}`}
+              shortcut={index < 9 ? `Ctrl ${index + 1}` : undefined}
+              side="top"
             >
-              {isActive && (
-                <motion.span
-                  layoutId="workspace-switcher-thumb"
-                  aria-hidden
-                  className="absolute inset-0 rounded-full bg-surface-active ring-1 ring-inset ring-line-strong"
-                  transition={reduceMotion ? { duration: 0 } : { duration: 0.26, ease: EASE_OUT_QUINT }}
-                />
-              )}
-              <span
-                aria-hidden
+              <button
+                type="button"
+                onClick={() => handleSwitch(ws.id as WorkspaceId)}
                 className={cn(
-                  'relative size-1.5 shrink-0 rounded-full bg-(--ws) transition-[opacity,box-shadow] duration-180 ease-out-quint',
-                  isActive
-                    ? 'shadow-[0_0_0_3px_color-mix(in_oklab,var(--ws)_18%,transparent),0_0_10px_color-mix(in_oklab,var(--ws)_70%,transparent)]'
-                    : 'opacity-55'
+                  'relative flex h-7 items-center gap-2 chamfer [--cut:5px] pl-2.5 pr-3',
+                  'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
+                  'font-display text-xs font-semibold uppercase tracking-[0.08em] transition-colors duration-120 ease-out-quint',
+                  isActive ? 'text-fg' : 'text-fg-subtle hover:bg-white/[0.045] hover:text-fg-muted'
                 )}
-              />
-              <span className="relative">{ws.name}</span>
-              {count > 0 && (
+                style={{ '--ws': color } as CSSProperties}
+                aria-label={`Switch to ${ws.name} workspace`}
+                aria-current={isActive ? 'true' : undefined}
+              >
+                {isActive && (
+                  <motion.span
+                    layoutId="workspace-switcher-thumb"
+                    aria-hidden
+                    className="absolute inset-0 bg-linear-to-b from-steel-600 to-steel-750 shadow-[inset_0_1px_0_rgb(255_255_255/0.14),inset_0_-2px_0_var(--color-ember-400,#ff8a3d),inset_0_-10px_12px_-10px_rgb(247_107_21/0.6)]"
+                    transition={reduceMotion ? { duration: 0 } : { duration: 0.26, ease: EASE_OUT_QUINT }}
+                  />
+                )}
                 <span
                   aria-hidden
                   className={cn(
-                    'relative -mr-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-mono text-[10px] leading-none tabular',
-                    isActive ? 'bg-ink-600 text-fg' : 'bg-surface-active text-fg-subtle'
+                    'relative size-1.5 shrink-0 rounded-full bg-(--ws) transition-[opacity,box-shadow] duration-180 ease-out-quint',
+                    isActive
+                      ? 'shadow-[0_0_0_3px_color-mix(in_oklab,var(--ws)_18%,transparent),0_0_10px_color-mix(in_oklab,var(--ws)_70%,transparent)]'
+                      : 'opacity-55'
                   )}
-                >
-                  {count}
-                </span>
-              )}
-            </button>
-          </Tooltip>
-        );
-      })}
+                />
+                <span className="relative">{ws.name}</span>
+                {count > 0 && (
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'relative -mr-1 flex h-4 min-w-4 items-center justify-center chamfer [--cut:3px] px-1 font-mono text-[10px] font-normal leading-none tabular',
+                      isActive ? 'bg-ink-950/70 text-fg' : 'bg-black/40 text-fg-subtle'
+                    )}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
+          );
+        })}
+      </div>
     </div>
   );
 }

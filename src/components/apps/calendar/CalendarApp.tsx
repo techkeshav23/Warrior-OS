@@ -203,16 +203,23 @@ function CalendarAppInner() {
                 aria-pressed={shown}
                 title={shown ? `Hide ${c.label} events` : `Show ${c.label} events`}
                 className={cn(
-                  'focus-ring inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium',
-                  'transition-[background-color,border-color,color] duration-120 ease-out-quint',
+                  'chamfer-xs focus-ring inline-flex h-7 shrink-0 items-center gap-1.5 pl-2 pr-2.5 text-xs font-medium',
+                  'transition-[background-color,box-shadow,color,filter] duration-120 ease-out-quint',
                   shown
-                    ? 'text-fg hover:brightness-110'
-                    : 'border-dashed border-line-strong text-fg-subtle hover:border-fg-faint hover:text-fg-muted'
+                    ? 'text-fg hover:brightness-115'
+                    : 'bg-steel-950 text-fg-subtle shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_-1px_0_rgb(255_255_255/0.06)] hover:text-fg-muted'
                 )}
-                style={shown ? { borderColor: tintColor(c.color, 40), background: tintColor(c.color, 12) } : undefined}
+                style={
+                  shown
+                    ? {
+                        background: `linear-gradient(to bottom, ${tintColor(c.color, 20)}, ${tintColor(c.color, 8)})`,
+                        boxShadow: `inset 0 1px 0 ${tintColor(c.color, 45)}, inset 0 -2px 0 ${c.color}`,
+                      }
+                    : undefined
+                }
               >
                 <span
-                  className={cn('size-2 rounded-full transition-colors duration-120', !shown && 'bg-fg-faint')}
+                  className={cn('size-2 rotate-45 transition-colors duration-120', !shown && 'bg-fg-faint')}
                   style={shown ? { background: c.color } : undefined}
                   aria-hidden
                 />

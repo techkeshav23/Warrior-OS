@@ -206,28 +206,35 @@ function BadgeFace({ achievement, side, gleamDelay, gleamDuration }: BadgeFacePr
   const Glyph = CATEGORY_ICON[achievement.category] ?? Trophy;
   return (
     <div
-      className="absolute inset-0 rounded-full p-[3px]"
+      // Forged octagonal medallion: a rarity-metal rim around a steel face
+      className="absolute inset-0 p-[4px] [clip-path:polygon(29.3%_0,70.7%_0,100%_29.3%,100%_70.7%,70.7%_100%,29.3%_100%,0_70.7%,0_29.3%)]"
       style={{
         background: rarity.gradient,
-        boxShadow: `0 0 0 1px rgba(245, 192, 74, 0.35), 0 0 28px ${rarity.glow}, 0 0 80px rgba(245, 192, 74, 0.22)`,
+        boxShadow: `inset 0 1px 0 rgba(255, 244, 232, 0.55), inset 0 -2px 0 rgba(0, 0, 0, 0.45), inset 0 0 18px ${rarity.glow}`,
         backfaceVisibility: 'hidden',
         WebkitBackfaceVisibility: 'hidden',
         transform: side === 'back' ? 'rotateY(180deg)' : undefined,
       }}
     >
       <div
-        className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full"
+        className="relative flex h-full w-full items-center justify-center overflow-hidden [clip-path:polygon(29.3%_0,70.7%_0,100%_29.3%,100%_70.7%,70.7%_100%,29.3%_100%,0_70.7%,0_29.3%)]"
         style={{
-          background: 'radial-gradient(circle at 50% 30%, #243044 0%, #0f1520 58%, #070a12 100%)',
+          background: 'radial-gradient(circle at 50% 30%, #2f363f 0%, #15191e 58%, #07080a 100%)',
           boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 24px ${rarity.glow}`,
         }}
       >
-        {/* inner hairline ring */}
-        <span
-          aria-hidden
-          className="absolute inset-[9px] rounded-full"
-          style={{ border: '1px solid rgba(245, 192, 74, 0.28)' }}
-        />
+        {/* inner engraved octagon + four rivets */}
+        <svg aria-hidden viewBox="0 0 100 100" className="absolute inset-[7px]">
+          <polygon points="95.3,68.8 68.8,95.3 31.2,95.3 4.7,68.8 4.7,31.2 31.2,4.7 68.8,4.7 95.3,31.2" fill="none" stroke="rgba(245, 192, 74, 0.3)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          {[
+            [50, 9],
+            [91, 50],
+            [50, 91],
+            [9, 50],
+          ].map(([cx, cy]) => (
+            <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="2.2" fill="#535c68" stroke="rgba(0, 0, 0, 0.6)" strokeWidth="0.8" />
+          ))}
+        </svg>
         {side === 'front' ? (
           <Glyph
             className="relative h-12 w-12"
@@ -396,21 +403,24 @@ function CinematicRun({ celebration, quick }: CinematicRunProps) {
             transition={{ delay: s(1.02), duration: s(0.5) }}
           />
           {[GOLD, rarity.color].map((ring, i) => (
-            <motion.div
+            <motion.svg
               key={ring + i}
-              className="absolute rounded-full"
+              aria-hidden
+              viewBox="0 0 100 100"
+              className="absolute overflow-visible"
               style={{
                 left: -50,
                 top: -50,
                 width: 100,
                 height: 100,
-                border: `1.5px solid ${ring}`,
-                boxShadow: `0 0 14px ${ring}`,
+                filter: `drop-shadow(0 0 6px ${ring})`,
               }}
               initial={{ opacity: 0, scale: 0.2 }}
               animate={{ opacity: [0.95, 0], scale: [0.2, 4.2] }}
               transition={{ delay: s(1.04 + i * 0.09), duration: s(0.8), ease: 'easeOut' }}
-            />
+            >
+              <polygon points="95.3,68.8 68.8,95.3 31.2,95.3 4.7,68.8 4.7,31.2 31.2,4.7 68.8,4.7 95.3,31.2" fill="none" stroke={ring} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+            </motion.svg>
           ))}
           {sparks.map((p, i) => (
             <motion.span
@@ -484,7 +494,7 @@ function CinematicRun({ celebration, quick }: CinematicRunProps) {
               transition={{ delay: s(1.95), duration: s(0.35) }}
             >
               <span
-                className="inline-flex h-5 items-center gap-1.5 rounded-full px-2 font-mono text-2xs font-medium uppercase tracking-[0.08em] ring-1 ring-inset"
+                className="chamfer-xs inline-flex h-5 items-center gap-1.5 px-2 font-mono text-2xs font-medium uppercase tracking-[0.08em] ring-1 ring-inset"
                 style={{
                   color: rarity.color,
                   background: withAlpha(rarity.color, 0.12),
@@ -492,14 +502,14 @@ function CinematicRun({ celebration, quick }: CinematicRunProps) {
                   ['--tw-ring-color' as string]: withAlpha(rarity.color, 0.35),
                 }}
               >
-                <span aria-hidden className="size-1.5 rounded-full" style={{ background: rarity.color }} />
+                <span aria-hidden className="size-1.5 rotate-45" style={{ background: rarity.color }} />
                 {rarity.label}
               </span>
-              <span className="inline-flex h-5 items-center rounded-full bg-surface-active px-2 font-mono text-2xs font-medium uppercase tracking-[0.08em] text-fg-muted ring-1 ring-inset ring-line-strong">
+              <span className="armor-plate chamfer-xs inline-flex h-5 items-center px-2 font-mono text-2xs font-medium uppercase tracking-[0.08em] text-fg-muted">
                 {CATEGORY_LABEL[a.category]}
               </span>
               {a.hidden && (
-                <span className="inline-flex h-5 items-center rounded-full bg-viz-3/12 px-2 font-mono text-2xs font-medium uppercase tracking-[0.08em] text-viz-3 ring-1 ring-inset ring-viz-3/30">
+                <span className="chamfer-xs inline-flex h-5 items-center bg-viz-3/12 px-2 font-mono text-2xs font-medium uppercase tracking-[0.08em] text-viz-3 ring-1 ring-inset ring-viz-3/30">
                   Secret
                 </span>
               )}
@@ -524,7 +534,7 @@ function CinematicRun({ celebration, quick }: CinematicRunProps) {
         aria-label={`Skip achievement ${a.title}`}
         title="Skip"
         onClick={() => completeCinematic(key, a)}
-        className="pointer-events-auto absolute left-1/2 top-[42%] size-32 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-transparent focus-ring"
+        className="pointer-events-auto absolute left-1/2 top-[42%] size-32 -translate-x-1/2 -translate-y-1/2 cursor-pointer bg-transparent focus-ring"
       />
     </motion.div>
   );

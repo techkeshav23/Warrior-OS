@@ -235,8 +235,9 @@ function WarCryBubblesInner() {
             >
               <div
                 className={cn(
-                  'glass-popover max-w-[260px] rounded-card px-3 py-2',
-                  cry.isSelf && 'border-accent/45 shadow-glow'
+                  // Cut war banner: top-left + bottom-right chamfers
+                  'armor-popover max-w-[260px] px-3 py-2 [--cut-bl:0px] [--cut-tr:0px] [--cut:8px]',
+                  cry.isSelf && 'ember-edge'
                 )}
               >
                 <p className="flex items-center gap-1.5 font-mono text-2xs text-fg-subtle">

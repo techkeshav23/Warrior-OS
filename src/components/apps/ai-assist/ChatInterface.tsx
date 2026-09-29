@@ -132,9 +132,9 @@ function PromptButton({ item, onPick }: { item: QuickPrompt; onPick: (prompt: st
     <button
       type="button"
       onClick={() => onPick(item.prompt)}
-      className="focus-ring group/prompt flex h-10 min-w-0 items-center gap-2.5 rounded-control border border-line bg-surface-2 pl-2.5 pr-2 text-left text-ui text-fg-muted transition-[background-color,border-color,color] duration-120 ease-out-quint hover:border-line-strong hover:bg-surface-hover hover:text-fg active:bg-surface-active"
+      className="armor-plate chamfer-sm focus-ring group/prompt flex h-10 min-w-0 items-center gap-2.5 pl-2.5 pr-2 text-left text-ui text-fg-muted transition-[filter,color,box-shadow] duration-120 ease-out-quint hover:brightness-115 hover:text-fg hover:ember-edge active:brightness-95"
     >
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-[6px] bg-ink-800 text-fg-subtle ring-1 ring-inset ring-line transition-colors duration-120 group-hover/prompt:text-accent">
+      <span className="chamfer-xs flex size-6 shrink-0 items-center justify-center bg-steel-950 text-fg-subtle shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_-1px_0_rgb(255_255_255/0.07)] transition-colors duration-120 group-hover/prompt:text-accent">
         {command ? (
           <Terminal size={13} strokeWidth={1.75} aria-hidden />
         ) : (
@@ -200,7 +200,7 @@ function AssistEmptyState({ aiStatus, conversationId }: { aiStatus: NexusAIStatu
         </div>
 
         {aiStatus === 'offline' && (
-          <div className="flex w-full items-start gap-3 rounded-card border border-warning/25 bg-warning/6 px-3.5 py-3 text-left">
+          <div className="chamfer-md flex w-full items-start gap-3 bg-warning/6 px-3.5 py-3 text-left shadow-[inset_2px_0_0_var(--color-warning),inset_0_0_0_1px_color-mix(in_oklab,var(--color-warning)_22%,transparent)]">
             <WifiOff size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-warning" aria-hidden />
             <div className="min-w-0">
               <p className="text-ui font-medium text-fg">Offline brain active</p>
@@ -426,13 +426,13 @@ function ChatInterfaceInner({ aiStatus, onToggleSidebar }: ChatInterfaceProps) {
             className="shrink-0 overflow-hidden border-b border-line bg-ink-950/40"
           >
             <div className="flex items-start gap-3 px-4 py-3">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-control bg-accent/10 text-accent ring-1 ring-inset ring-accent/25">
+              <span className="chamfer-xs flex size-7 shrink-0 items-center justify-center bg-accent/10 text-accent ring-1 ring-inset ring-accent/25">
                 <BrainCircuit size={15} strokeWidth={1.75} aria-hidden />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="hud-label text-fg-muted">What NEXUS sees</p>
                 <p className="mt-0.5 text-xs text-fg-subtle">Sent with AI questions while OS context is on.</p>
-                <pre className="scrollbar-thin mt-2 max-h-40 select-text overflow-y-auto whitespace-pre-wrap break-words rounded-control border border-line bg-ink-850 px-3 py-2 font-mono text-xs leading-5 text-fg-muted">
+                <pre className="scrollbar-thin mt-2 max-h-40 select-text overflow-y-auto whitespace-pre-wrap break-words chamfer-sm bg-steel-950 px-3 py-2 font-mono shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_6px_rgb(0_0_0/0.45),inset_0_-1px_0_rgb(255_255_255/0.07)] text-xs leading-5 text-fg-muted">
                   {contextPreview}
                 </pre>
               </div>

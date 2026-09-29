@@ -190,7 +190,7 @@ function findItalicEnd(text: string, from: number, marker: string): number {
 }
 
 const LINK_CLASS =
-  'rounded-[2px] text-accent underline decoration-accent/40 underline-offset-2 transition-[text-decoration-color] duration-120 ease-out-quint hover:decoration-accent';
+  'text-accent underline decoration-accent/40 underline-offset-2 transition-[text-decoration-color] duration-120 ease-out-quint hover:decoration-accent';
 
 function renderInline(text: string, keyBase: string): ReactNode[] {
   const out: ReactNode[] = [];
@@ -228,7 +228,7 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
         out.push(
           <code
             key={key('c')}
-            className="rounded-[5px] bg-surface-active px-1.5 py-px font-mono text-[0.86em] text-fg ring-1 ring-inset ring-line box-decoration-clone"
+            className="bg-steel-950/80 px-1.5 py-px font-mono text-[0.86em] text-fg ring-1 ring-inset ring-line box-decoration-clone"
           >
             {code}
           </code>
@@ -383,10 +383,10 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   };
 
   return (
-    <figure className="my-3 overflow-hidden rounded-card border border-line bg-ink-850 shadow-e1">
-      <figcaption className="flex h-8 items-center justify-between gap-2 border-b border-line bg-surface-2 pl-3 pr-1">
+    <figure className="chamfer-md my-3 overflow-hidden bg-linear-to-b from-steel-950 to-ink-850 shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_6px_rgb(0_0_0/0.45),inset_0_-1px_0_rgb(255_255_255/0.07)]">
+      <figcaption className="flex h-8 items-center justify-between gap-2 border-b border-line bg-steel-800/70 pl-3 pr-1.5">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="size-1.5 shrink-0 rounded-full bg-plasma-400/80" aria-hidden />
+          <span className="size-1.5 shrink-0 rotate-45 bg-plasma-400/80" aria-hidden />
           <span className="truncate font-mono text-2xs font-medium uppercase tracking-[0.12em] text-fg-subtle">
             {label}
           </span>
@@ -395,7 +395,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
           type="button"
           onClick={copy}
           className={cn(
-            'focus-ring flex h-6 items-center gap-1.5 rounded-[6px] px-2 text-xs font-medium',
+            'chamfer-xs focus-ring flex h-6 items-center gap-1.5 px-2 text-xs font-medium',
             'transition-colors duration-120 ease-out-quint',
             copyState === 'copied'
               ? 'text-success'
@@ -475,7 +475,7 @@ function renderBlock(block: Block, key: string): ReactNode {
       );
     case 'table':
       return (
-        <div key={key} className="scrollbar-thin my-1 overflow-x-auto rounded-control border border-line">
+        <div key={key} className="chamfer-sm scrollbar-thin my-1 overflow-x-auto bg-steel-950/40 shadow-[inset_0_0_0_1px_var(--color-line)]">
           <table className="w-full border-collapse text-left text-xs">
             <thead className="bg-surface-2">
               <tr>

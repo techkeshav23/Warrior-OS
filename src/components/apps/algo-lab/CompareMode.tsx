@@ -12,6 +12,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight, Flag, Lightbulb, Pause, Play, RotateCcw, Timer, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BEVEL_SUNK, ENGRAVED_LABEL, SLOT_FILL } from '@/components/ui/armor';
 import { Badge, Button, Select, Toolbar, ToolbarSeparator } from '@/components/ui';
 import { TRANSITION } from '@/styles/tokens';
 import type { AlgoSortFrame, SortAlgorithmId } from '@/types/algo';
@@ -101,19 +102,21 @@ function RaceLaneInner({
   return (
     <div
       className={cn(
-        'relative isolate flex min-h-0 min-w-0 flex-col overflow-hidden rounded-card border bg-ink-950/45 transition-[border-color,box-shadow] duration-260 ease-out-quint',
+        'chamfer-md relative isolate flex min-h-0 min-w-0 flex-col overflow-hidden [--cut:12px] [--cut-tr:4px] [--cut-bl:4px]',
+        'transition-[box-shadow] duration-260 ease-out-quint',
+        SLOT_FILL,
         outcome === 'winner'
-          ? 'border-success/45 shadow-[0_0_28px_-10px_var(--color-success)]'
+          ? 'shadow-[inset_0_0_0_1px_rgb(61_220_151/0.5),inset_0_-2px_0_var(--color-success),inset_0_-18px_22px_-16px_rgb(61_220_151/0.45)]'
           : outcome === 'tie'
-            ? 'border-accent/35'
-            : 'border-line'
+            ? 'ember-edge'
+            : BEVEL_SUNK
       )}
     >
       {outcome === 'winner' && (
         <span aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-b from-success/[0.07] to-transparent to-50%" />
       )}
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
-        <span className="hud-label shrink-0">{laneName}</span>
+      <div className="brushed flex h-11 shrink-0 items-center gap-2 bg-steel-800 px-3 shadow-[inset_0_1px_0_rgb(255_255_255/0.07),inset_0_-1px_0_rgb(0_0_0/0.7)]">
+        <span className={cn(ENGRAVED_LABEL, 'shrink-0')}>{laneName}</span>
         <div className="min-w-0 flex-1">
           <Select
             size="sm"
@@ -296,7 +299,7 @@ function CompareModeInner() {
   );
 
   const transport = (
-    <Toolbar border="top" aria-label="Race controls" className="bg-ink-950/30">
+    <Toolbar border="top" aria-label="Race controls" className="brushed bg-steel-850">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {race.status === 'running' ? (
           <Button size="sm" variant="secondary" leadingIcon={Pause} onClick={pause}>
@@ -312,7 +315,7 @@ function CompareModeInner() {
         </Button>
         <ToolbarSeparator />
         <span className="flex items-baseline gap-1.5">
-          <span className="hud-label">Race clock</span>
+          <span className={ENGRAVED_LABEL}>Race clock</span>
           <span className="tabular font-mono text-ui font-medium text-fg">{formatClock(race.elapsed)}</span>
         </span>
         <div className="ml-auto hidden items-center @xl/lab:flex">
@@ -366,8 +369,8 @@ function CompareModeInner() {
         <>
           <ComplexityCard meta={leftMeta} compact />
           <ComplexityCard meta={rightMeta} compact />
-          <section className="glass-panel rounded-card p-3" aria-label="Races worth trying">
-            <h4 className="hud-label mb-2 flex items-center gap-1.5 px-1">
+          <section className="armor-panel p-3 [--cut:10px]" aria-label="Races worth trying">
+            <h4 className={cn(ENGRAVED_LABEL, 'mb-2 flex items-center gap-1.5 px-1')}>
               <Lightbulb size={14} strokeWidth={1.75} aria-hidden />
               Races worth trying
             </h4>

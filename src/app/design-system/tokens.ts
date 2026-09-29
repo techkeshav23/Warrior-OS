@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// FORGE HUD — token tables for the /design-system page.
+// FORGED ARMOR — token tables for the /design-system page.
 // Class names are literal so Tailwind generates them; values mirror the
 // token contract in src/app/globals.css.
 // ═══════════════════════════════════════════════════════════
@@ -21,24 +21,41 @@ export interface SwatchGroup {
 
 export const COLOR_GROUPS: SwatchGroup[] = [
   {
-    title: 'Ink',
-    description: 'Deep-ink surfaces. 90% of the UI lives here.',
+    title: 'Steel',
+    description: 'Forged gunmetal. Plates, rails, slots and bevels — 90% of the UI is steel.',
     swatches: [
-      { name: 'ink-950', cls: 'bg-ink-950', value: '#04060b' },
-      { name: 'ink-900', cls: 'bg-ink-900', value: '#070a12', note: 'canvas' },
-      { name: 'ink-850', cls: 'bg-ink-850', value: '#0b1019' },
-      { name: 'ink-800', cls: 'bg-ink-800', value: '#0f1520' },
-      { name: 'ink-750', cls: 'bg-ink-750', value: '#141b28' },
-      { name: 'ink-700', cls: 'bg-ink-700', value: '#1a2332' },
-      { name: 'ink-600', cls: 'bg-ink-600', value: '#243044' },
-      { name: 'ink-500', cls: 'bg-ink-500', value: '#33415a' },
+      { name: 'steel-950', cls: 'bg-steel-950', value: '#07080a', note: 'slots' },
+      { name: 'steel-900', cls: 'bg-steel-900', value: '#0b0d10' },
+      { name: 'steel-850', cls: 'bg-steel-850', value: '#101317', note: 'window' },
+      { name: 'steel-800', cls: 'bg-steel-800', value: '#15191e' },
+      { name: 'steel-750', cls: 'bg-steel-750', value: '#1b2026' },
+      { name: 'steel-700', cls: 'bg-steel-700', value: '#232930', note: 'plate' },
+      { name: 'steel-600', cls: 'bg-steel-600', value: '#2f363f' },
+      { name: 'steel-500', cls: 'bg-steel-500', value: '#3e4651' },
+      { name: 'steel-400', cls: 'bg-steel-400', value: '#58616d' },
+      { name: 'steel-300', cls: 'bg-steel-300', value: '#7c8592', note: 'rivets' },
+      { name: 'steel-200', cls: 'bg-steel-200', value: '#a7afba', note: 'bevel' },
     ],
   },
   {
-    title: 'Plasma · accent',
-    description: 'Machine, interaction, focus, info. The accent token follows the user’s chosen accent at runtime.',
+    title: 'Ember · accent',
+    description: 'The hero accent: primary actions, focus and active edges, heat, streaks, XP. accent follows the user’s chosen accent at runtime (default ember-400).',
     swatches: [
       { name: 'accent', cls: 'bg-accent', value: 'var(--accent)', note: 'runtime' },
+      { name: 'ember-100', cls: 'bg-ember-100', value: '#fff4e0', note: 'white-hot' },
+      { name: 'ember-200', cls: 'bg-ember-200', value: '#ffd3a8' },
+      { name: 'ember-300', cls: 'bg-ember-300', value: '#ffb27a', note: 'hot core' },
+      { name: 'ember-400', cls: 'bg-ember-400', value: '#ff8a3d', note: 'default' },
+      { name: 'ember-500', cls: 'bg-ember-500', value: '#f76b15' },
+      { name: 'ember-600', cls: 'bg-ember-600', value: '#d4520b', note: 'deep' },
+      { name: 'ember-700', cls: 'bg-ember-700', value: '#a3350a' },
+      { name: 'ember-800', cls: 'bg-ember-800', value: '#5c1a06', note: 'cooling iron' },
+    ],
+  },
+  {
+    title: 'Plasma · tech',
+    description: 'Energy and technology only: NEXUS, links, data highlights, info.',
+    swatches: [
       { name: 'plasma-300', cls: 'bg-plasma-300', value: '#7ce7fb' },
       { name: 'plasma-400', cls: 'bg-plasma-400', value: '#2fd6f5' },
       { name: 'plasma-500', cls: 'bg-plasma-500', value: '#10b8d8' },
@@ -46,13 +63,13 @@ export const COLOR_GROUPS: SwatchGroup[] = [
     ],
   },
   {
-    title: 'Ember',
-    description: 'Warrior energy only: streaks, XP, fire, achievements, forge actions.',
+    title: 'Ink',
+    description: 'The canvas under the armor (wallpaper fallbacks, deep wells).',
     swatches: [
-      { name: 'ember-300', cls: 'bg-ember-300', value: '#ffb27a' },
-      { name: 'ember-400', cls: 'bg-ember-400', value: '#ff8a3d' },
-      { name: 'ember-500', cls: 'bg-ember-500', value: '#f76b15' },
-      { name: 'ember-600', cls: 'bg-ember-600', value: '#d4520b' },
+      { name: 'ink-950', cls: 'bg-ink-950', value: '#04060b' },
+      { name: 'ink-900', cls: 'bg-ink-900', value: '#070a12', note: 'canvas' },
+      { name: 'ink-800', cls: 'bg-ink-800', value: '#0f1520' },
+      { name: 'ink-700', cls: 'bg-ink-700', value: '#1a2332' },
     ],
   },
   {
@@ -120,30 +137,35 @@ export interface TypeStep {
 }
 
 export const TYPE_SCALE: TypeStep[] = [
-  { token: 'text-3xl', cls: 'text-3xl font-display font-semibold', spec: '40 / 44 · Orbitron', sample: '07:42', use: 'Hero numbers, clocks' },
-  { token: 'text-2xl', cls: 'text-2xl font-semibold tracking-tight', spec: '28 / 34', sample: 'Forge your discipline', use: 'Page heroes' },
+  { token: 'text-3xl', cls: 'text-3xl font-display font-bold', spec: '40 / 44 · Chakra Petch', sample: '07:42', use: 'Hero numbers, clocks' },
+  { token: 'text-2xl', cls: 'text-2xl font-display font-bold uppercase tracking-[0.04em]', spec: '28 / 34 · display caps', sample: 'Forge your discipline', use: 'Page heroes' },
   { token: 'text-xl', cls: 'text-xl font-semibold tracking-tight', spec: '22 / 28', sample: 'Weekly review', use: 'Section titles' },
-  { token: 'text-lg', cls: 'text-lg font-semibold', spec: '18 / 26', sample: 'Training Grounds', use: 'App header titles' },
+  { token: 'text-lg', cls: 'engraved text-lg font-display font-bold uppercase tracking-[0.05em]', spec: '18 / 26 · engraved caps', sample: 'Training Grounds', use: 'App header titles' },
   { token: 'text-base', cls: 'text-base', spec: '16 / 24', sample: 'Readable long-form copy for notes and docs.', use: 'Reading text' },
   { token: 'text-sm', cls: 'text-sm', spec: '14 / 22', sample: 'Dialog copy and card titles.', use: 'Card titles, dialogs' },
   { token: 'text-ui', cls: 'text-ui', spec: '13 / 20', sample: 'The default dense text inside windows.', use: 'Default in windows' },
   { token: 'text-xs', cls: 'text-xs', spec: '12 / 16', sample: 'Meta, hints and helper lines.', use: 'Hints, meta' },
-  { token: 'text-2xs', cls: 'hud-label', spec: '11 / 16 · mono caps .14em', sample: 'System status · online', use: 'HUD labels' },
+  { token: 'text-2xs', cls: 'engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle', spec: '11 / 16 · display caps .18em', sample: 'System status · online', use: 'Engraved labels' },
 ];
 
 export const SPACING = [4, 8, 12, 16, 20, 24, 32, 40, 48, 64];
 
-export const RADII = [
-  { name: 'rounded-control', cls: 'rounded-control', value: '8px', use: 'buttons, inputs' },
-  { name: 'rounded-card', cls: 'rounded-card', value: '12px', use: 'cards, menus' },
-  { name: 'rounded-window', cls: 'rounded-window', value: '16px', use: 'windows' },
-  { name: 'rounded-sheet', cls: 'rounded-sheet', value: '20px', use: 'dialogs, sheets' },
-  { name: 'rounded-full', cls: 'rounded-full', value: '999px', use: 'pills, avatars' },
+/** Chamfer cuts by role (clip-path; the shape of every chrome surface). */
+export const CHAMFERS = [
+  { name: 'chamfer-xs', cls: 'chamfer-xs', value: '4px', use: 'chips, badges, keys' },
+  { name: 'chamfer-sm', cls: 'chamfer-sm', value: '6px', use: 'buttons, inputs' },
+  { name: 'chamfer-md', cls: 'chamfer-md', value: '8px', use: 'cards, menus' },
+  { name: 'chamfer-lg', cls: 'chamfer-lg', value: '14px', use: 'dialogs, sheets' },
+  { name: 'chamfer-tl-br', cls: 'chamfer-tl-br', value: '14px', use: 'windows' },
+  { name: 'notch', cls: 'notch', value: '6px', use: 'title plates, tags' },
 ];
+
+
+
 
 export const ELEVATION = [
   { name: 'shadow-e1', cls: 'shadow-e1', use: 'Cards' },
   { name: 'shadow-e2', cls: 'shadow-e2', use: 'Popovers, menus' },
   { name: 'shadow-e3', cls: 'shadow-e3', use: 'Windows, dialogs' },
-  { name: 'shadow-glow', cls: 'shadow-glow', use: 'Focus / live accent' },
+  { name: 'ember-edge', cls: 'ember-edge', use: 'Focus / active heat' },
 ];

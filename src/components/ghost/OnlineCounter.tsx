@@ -46,7 +46,7 @@ function OnlineCounterInner({ onClick, className }: OnlineCounterProps) {
       title={title}
       aria-expanded={onClick ? undefined : leaderboardOpen}
       className={cn(
-        'group relative flex h-8 items-center gap-1.5 rounded-control px-2 focus-ring',
+        'chamfer-xs group relative flex h-8 items-center gap-1.5 px-2 focus-ring',
         'transition-colors duration-120 ease-out-quint',
         leaderboardOpen && !onClick
           ? 'bg-surface-active text-fg'

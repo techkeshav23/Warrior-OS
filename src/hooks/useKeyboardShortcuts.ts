@@ -15,14 +15,18 @@ const MODIFIER_KEYS: readonly string[] = ['control', 'shift', 'alt', 'meta'];
 
 /**
  * Combo string for a key event: modifiers in the order ctrl, shift, alt,
- * then the lowercased key — "ctrl+k", "ctrl+shift+m", "ctrl+.", "f11".
+ * then the lowercased key — "ctrl+k", "ctrl+shift+m", "ctrl+.", "f11",
+ * "ctrl+alt+w" (next wallpaper), "ctrl+shift+alt+w" (previous).
  * Cmd counts as ctrl, so one binding covers macOS too. App registry
  * `shortcut` values use this same format. Returns '' for a bare modifier.
  */
 export function shortcutCombo(e: KeyboardEvent): string {
   // Browser autofill can dispatch keydown events without a key.
-  const key = typeof e.key === 'string' ? e.key.toLowerCase() : '';
+  let key = typeof e.key === 'string' ? e.key.toLowerCase() : '';
   if (!key || MODIFIER_KEYS.includes(key)) return '';
+  // Alt (Option on macOS) turns letters into symbols (Option+W = "∑"), so
+  // with Alt held a letter key is named by its physical key: "ctrl+alt+w".
+  if (e.altKey && typeof e.code === 'string' && /^Key[A-Z]$/.test(e.code)) key = e.code.slice(3).toLowerCase();
   const parts: string[] = [];
   if (e.ctrlKey || e.metaKey) parts.push('ctrl');
   if (e.shiftKey) parts.push('shift');

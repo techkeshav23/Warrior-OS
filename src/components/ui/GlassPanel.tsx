@@ -2,8 +2,8 @@
 // WARRIOR OS — GlassPanel (FORGE HUD kit)
 // Generic glass surface. Prefer <Card> for content blocks; GlassPanel is
 // for custom layouts that just need the material.
-//   default → glass-panel (cards) · dark → glass-popover (menus/overlays)
-//   glow    → glass-panel + accent edge (live / focused surfaces)
+//   default → armor-panel (cards) · dark → armor-popover (menus/overlays)
+//   glow    → armor-panel + accent edge (live / focused surfaces)
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -27,17 +27,17 @@ interface GlassPanelProps extends HTMLAttributes<HTMLDivElement> {
 const paddingMap = { none: '', sm: 'p-3', md: 'p-4', lg: 'p-6' } as const;
 
 const roundedMap = {
-  sm: 'rounded-control',
-  md: 'rounded-card',
-  lg: 'rounded-card',
-  xl: 'rounded-sheet',
+  sm: 'chamfer-sm',
+  md: 'chamfer-md',
+  lg: 'chamfer-md',
+  xl: 'chamfer-lg',
   full: 'rounded-full',
 } as const;
 
 const variantMap = {
-  default: 'glass-panel',
-  dark: 'glass-popover',
-  glow: 'glass-panel ring-1 ring-accent/20',
+  default: 'armor-panel',
+  dark: 'armor-popover',
+  glow: 'armor-panel ring-1 ring-accent/20',
 } as const;
 
 export const GlassPanel = forwardRef<HTMLDivElement, GlassPanelProps>(

@@ -81,7 +81,7 @@ function DesktopIconInner({ app, index = 0, selected = false, onSelect, onLaunch
       data-selected={selected || undefined}
       className={cn(
         'group relative flex h-[100px] w-[88px] flex-col items-center gap-1.5 px-1 pt-1.5',
-        'cursor-default select-none rounded-card focus-ring-inset',
+        'cursor-default select-none chamfer-sm focus-ring-inset',
         'transition-colors duration-120 ease-out-quint',
         selected
           ? 'bg-surface-active ring-1 ring-inset ring-line-strong'

@@ -46,6 +46,7 @@ import { ToastContainer } from '@/components/os/ToastNotification';
 import { ScreenEffects } from '@/components/os/ScreenEffects';
 import { WorkspaceManager, WorkspaceDots } from '@/components/os/WorkspaceManager';
 import { WallpaperEngine } from '@/components/wallpapers/WallpaperEngine';
+import { WallpaperDirector } from '@/components/os/BackgroundPicker';
 import { AudioReactive } from '@/components/effects/AudioReactive';
 import { DesktopWidgets } from '@/components/widgets/DesktopWidgets';
 import { useDreamBootPhase } from '@/components/dream/useDreamBoot';
@@ -349,6 +350,8 @@ function WarriorOS() {
 
               {/* Shader/Canvas wallpaper behind everything (CSS-only in lite mode) */}
               <WallpaperEngine />
+              {/* Background slideshow, Ctrl+Alt+W / Ctrl+Alt+Shift+W, change plate */}
+              <WallpaperDirector />
 
               {/* CRT look (particles, scanlines, vignette) on the desktop
                   background only, below icons and windows (off in lite mode) */}

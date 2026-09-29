@@ -150,10 +150,13 @@ function RangeBar({ min, max, temp }: { min: number; max: number; temp: number }
         <ArrowDown size={12} strokeWidth={2} className="text-info" aria-hidden />
         {min}°
       </span>
-      <div className="relative h-1.5 flex-1 rounded-full bg-ink-700" aria-hidden>
-        <div className="absolute inset-0 rounded-full bg-linear-to-r from-info/70 via-accent/60 to-warning/80" />
+      <div className="relative h-2 flex-1" aria-hidden>
+        <div className="chamfer absolute inset-0 p-px [--cut:3px] bg-linear-to-b from-steel-950 to-steel-900 shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_-1px_0_rgb(255_255_255/0.07)]">
+          <div className="chamfer size-full bg-linear-to-r from-info/70 via-accent/60 to-warning/80 [--cut:2px]" />
+        </div>
+        {/* Needle: a forged pointer at the current temperature */}
         <div
-          className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-ink-900 bg-fg shadow-e1"
+          className="absolute -top-1 h-4 w-1.5 -translate-x-1/2 bg-linear-to-b from-fg to-steel-300 shadow-[0_0_0_1px_var(--color-ink-950)] [clip-path:polygon(0_0,100%_0,100%_75%,50%_100%,0_75%)]"
           style={{ left: `${at * 100}%` }}
         />
       </div>
@@ -212,7 +215,7 @@ function HourlyChart({ slots }: { slots: WeatherForecastSlot[] }) {
               <span className="tabular absolute bottom-3.5 left-1/2 -translate-x-1/2 font-mono text-xs font-medium text-fg">
                 {s.temp}°
               </span>
-              <span className="block size-2 -translate-y-1/2 rounded-full border-2 border-ink-900 bg-viz-1" />
+              <span className="block size-2 -translate-y-1/2 rotate-45 border-2 border-ink-900 bg-viz-1" />
             </div>
           ))}
         </div>
@@ -245,7 +248,7 @@ function DetailTile({
   children?: ReactNode;
 }) {
   return (
-    <div className="glass-panel flex min-w-0 flex-col gap-2 rounded-card p-3">
+    <div className="armor-panel chamfer-md flex min-w-0 flex-col gap-2 p-3">
       <span className="hud-label flex min-w-0 items-center gap-1.5">
         <Icon size={12} strokeWidth={2} className="shrink-0" aria-hidden />
         <span className="truncate">{label}</span>
@@ -265,27 +268,27 @@ function DetailTile({
 function LoadingSkeleton() {
   return (
     <div className="flex flex-col gap-4" role="status" aria-label="Loading weather">
-      <div className="glass-panel flex flex-col gap-4 rounded-card p-4">
+      <div className="armor-panel chamfer-tl-br chamfer-md flex flex-col gap-4 p-4">
         <div className="flex items-center justify-between">
-          <Skeleton className="h-3.5 w-28" />
-          <Skeleton className="h-5 w-14 rounded-full" />
+          <Skeleton className="chamfer-xs h-3.5 w-28" />
+          <Skeleton className="chamfer-xs h-5 w-14" />
         </div>
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-2.5">
-            <Skeleton className="h-14 w-32 rounded-card" />
-            <Skeleton className="h-3 w-24" />
+            <Skeleton className="chamfer-sm h-14 w-32" />
+            <Skeleton className="chamfer-xs h-3 w-24" />
           </div>
-          <Skeleton shape="circle" className="size-16" />
+          <Skeleton shape="block" className="chamfer size-16 [--cut:18px]" />
         </div>
-        <Skeleton className="h-1.5 w-full rounded-full" />
+        <Skeleton className="chamfer h-2 w-full [--cut:3px]" />
       </div>
-      <div className="glass-panel flex flex-col gap-3 rounded-card p-4">
-        <Skeleton className="h-2.5 w-24" />
-        <Skeleton className="h-20 w-full rounded-control" />
+      <div className="armor-panel chamfer-md flex flex-col gap-3 p-4">
+        <Skeleton className="chamfer-xs h-2.5 w-24" />
+        <Skeleton className="chamfer-sm h-20 w-full" />
       </div>
       <div className="grid grid-cols-2 gap-2.5 @[330px]:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <Skeleton key={i} shape="block" className={i === 2 ? 'col-span-2 h-24 @[330px]:col-span-1' : 'h-24'} />
+          <Skeleton key={i} shape="block" className={i === 2 ? 'chamfer-md col-span-2 h-24 @[330px]:col-span-1' : 'chamfer-md h-24'} />
         ))}
       </div>
       <span className="sr-only">Loading weather</span>
@@ -299,13 +302,13 @@ function KeySetupSteps() {
       {[
         <>Create a free key at openweathermap.org</>,
         <>
-          Add <code className="rounded-[4px] bg-ink-850 px-1 font-mono text-fg">{WEATHER_KEY_ENV_NAME}=…</code> to{' '}
-          <code className="rounded-[4px] bg-ink-850 px-1 font-mono text-fg">.env.local</code> (server-only, no NEXT_PUBLIC_ prefix)
+          Add <code className="chamfer-xs bg-steel-950 px-1.5 font-mono text-fg">{WEATHER_KEY_ENV_NAME}=…</code> to{' '}
+          <code className="chamfer-xs bg-steel-950 px-1.5 font-mono text-fg">.env.local</code> (server-only, no NEXT_PUBLIC_ prefix)
         </>,
         <>Restart the dev server</>,
       ].map((step, i) => (
         <li key={i} className="flex gap-2.5">
-          <span className="tabular flex size-5 shrink-0 items-center justify-center rounded-full border border-line-strong font-mono text-2xs text-fg-subtle">
+          <span className="chamfer-xs tabular flex size-5 shrink-0 items-center justify-center bg-linear-to-b from-steel-600 to-steel-800 font-display text-2xs font-semibold text-fg-muted shadow-[inset_0_1px_0_rgb(255_255_255/0.14),inset_0_-1px_0_rgb(0_0_0/0.6)]">
             {i + 1}
           </span>
           <span className="min-w-0 pt-0.5">{step}</span>
@@ -438,8 +441,10 @@ function WeatherAppInner() {
             <div
               role="alert"
               className={cn(
-                'flex items-start gap-2.5 rounded-card border px-3 py-2.5 text-xs animate-fade-in',
-                keyProblem || locationProblem ? 'border-warning/25 bg-warning/8' : 'border-danger/25 bg-danger/8'
+                'chamfer-sm flex items-start gap-2.5 px-3 py-2.5 text-xs animate-fade-in',
+                keyProblem || locationProblem
+                  ? 'bg-warning/8 shadow-[inset_2px_0_0_var(--color-warning),inset_0_0_0_1px_color-mix(in_oklab,var(--color-warning)_25%,transparent)]'
+                  : 'bg-danger/8 shadow-[inset_2px_0_0_var(--color-danger),inset_0_0_0_1px_color-mix(in_oklab,var(--color-danger)_25%,transparent)]'
               )}
             >
               <TriangleAlert
@@ -495,7 +500,7 @@ function WeatherAppInner() {
               {/* Hero */}
               <section
                 aria-label="Current conditions"
-                className="glass-panel relative isolate overflow-hidden rounded-card p-4"
+                className="armor-panel chamfer-tl-br rivets relative isolate overflow-hidden p-4"
               >
                 <span aria-hidden className="pointer-events-none absolute inset-0 -z-10" style={{ backgroundImage: conditionWash(current.icon) }} />
                 <div className="flex items-center gap-2">
@@ -526,7 +531,7 @@ function WeatherAppInner() {
                   <div className="relative flex size-20 shrink-0 items-center justify-center">
                     <span
                       aria-hidden
-                      className="absolute -inset-2 rounded-full"
+                      className="absolute -inset-2"
                       style={{ backgroundImage: conditionHalo(current.icon) }}
                     />
                     <WeatherIcon code={current.icon} className="relative size-16" strokeWidth={1.5} />
@@ -551,7 +556,7 @@ function WeatherAppInner() {
 
               {/* Next hours */}
               {current.forecast.length > 0 && (
-                <section aria-label="Next hours" className="glass-panel rounded-card px-4 pb-3 pt-3.5">
+                <section aria-label="Next hours" className="armor-panel chamfer-md px-4 pb-3 pt-3.5">
                   <div className="mb-1 flex items-center justify-between">
                     <span className="hud-label">Next {current.forecast.length * 3} hours</span>
                     <span className="tabular font-mono text-2xs text-fg-subtle">3 h steps</span>

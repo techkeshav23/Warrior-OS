@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Algo Lab palette (FORGE HUD)
+// WARRIOR OS — Algo Lab palette (FORGED ARMOR)
 // One vocabulary for every visualizer, mirrored from the design
 // tokens (src/styles/tokens.ts) because SVG attributes can't take
 // Tailwind classes:
@@ -8,10 +8,10 @@
 //   frontier / key        → violet     active / pivot → live accent
 // ═══════════════════════════════════════════════════════════
 
-import { EMBER, FG, INK, LINE, PLASMA, STATUS, VIZ } from '@/styles/tokens';
+import { EMBER, FG, INK, LINE, PLASMA, STATUS, STEEL, VIZ } from '@/styles/tokens';
 
 /** The live accent for SVG `style` props (follows Settings). */
-export const ACCENT = 'var(--accent, #2fd6f5)';
+export const ACCENT = 'var(--accent, #ff8a3d)';
 
 /** Mix a colour with transparency (CSS color-mix, works in SVG style props). */
 export function tint(color: string, percent: number): string {
@@ -23,6 +23,7 @@ export const LAB = {
   fg: FG,
   line: LINE,
   plasma: PLASMA,
+  steel: STEEL,
   ember: EMBER,
   compare: STATUS.warning,
   swap: STATUS.danger,
@@ -33,7 +34,7 @@ export const LAB = {
   rotate: EMBER[400],
   accent: ACCENT,
   /** Node / chip fill on the stage. */
-  nodeFill: INK[800],
+  nodeFill: STEEL[800],
   /** Idle edges and grid. */
   edge: 'rgba(148,170,205,0.28)',
   grid: 'rgba(148,170,205,0.06)',

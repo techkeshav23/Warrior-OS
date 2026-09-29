@@ -12,6 +12,8 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { CalendarClock, ChevronLeft, ChevronRight, CircleCheck, Trash2, Undo2 } from 'lucide-react';
 import { AppHeader, AppLayout, Button, IconButton } from '@/components/ui';
+import { BEVEL_SUNK, SLOT_FILL } from '@/components/ui/armor';
+import { cn } from '@/lib/utils';
 import { TRANSITION } from '@/styles/tokens';
 import {
   monthKeyOfDate,
@@ -157,7 +159,7 @@ function ExpenseVaultAppInner() {
                   This month
                 </Button>
               )}
-              <div className="flex items-center gap-0.5 rounded-control border border-line-strong bg-surface-2 p-0.5">
+              <div className={cn('chamfer-sm flex items-center gap-0.5 p-0.5', SLOT_FILL, BEVEL_SUNK)}>
                 <IconButton
                   icon={ChevronLeft}
                   size="sm"
@@ -233,7 +235,7 @@ function ExpenseVaultAppInner() {
       </div>
 
       {/* ─── Snackbar (undo delete / saved to another month) ─── */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-5 z-10 flex justify-center px-5">
+      <div className="armor-drop pointer-events-none absolute inset-x-0 bottom-5 z-10 flex justify-center px-5">
         <AnimatePresence>
           {snack && (
             <motion.div
@@ -243,7 +245,7 @@ function ExpenseVaultAppInner() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: reduceMotion ? 0 : 8, transition: TRANSITION.small }}
               transition={TRANSITION.panel}
-              className="glass-popover pointer-events-auto flex h-11 max-w-full items-center gap-3 rounded-card pl-3.5 pr-1.5 text-ui text-fg"
+              className="armor-popover chamfer-md pointer-events-auto flex h-11 max-w-full items-center gap-3 pl-3.5 pr-1.5 text-ui text-fg"
             >
               {snack.kind === 'deleted' ? (
                 <>

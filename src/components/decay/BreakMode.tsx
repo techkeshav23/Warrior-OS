@@ -180,7 +180,7 @@ export function BreakMode({ onComplete }: BreakModeProps) {
       />
 
       <div className="relative mb-6 text-center">
-        <p className="hud-label text-accent">{voluntary ? 'Recovery break' : 'Forced recovery'}</p>
+        <p className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-accent">{voluntary ? 'Recovery break' : 'Forced recovery'}</p>
         <p className="mx-auto mt-2 max-w-md text-sm text-fg-muted">
           {voluntary
             ? 'Good call, warrior. Rest now — the OS will repair itself when the timer ends.'
@@ -210,7 +210,7 @@ export function BreakMode({ onComplete }: BreakModeProps) {
             stroke="var(--accent)"
             strokeOpacity="0.8"
             strokeWidth="2"
-            strokeLinecap="round"
+            strokeLinecap="butt"
             strokeDasharray={RING_C}
             strokeDashoffset={RING_C * (1 - progress)}
             style={{ transition: 'stroke-dashoffset 0.25s linear' }}
@@ -232,7 +232,7 @@ export function BreakMode({ onComplete }: BreakModeProps) {
           transition={{ duration: breath.phase === 'hold' ? 0.3 : breath.left, ease: 'easeInOut' }}
         />
         <div className="relative z-10 text-center" aria-live="polite">
-          <p className="text-2xl font-semibold text-fg">{PHASE_LABEL[breath.phase]}</p>
+          <p className="font-display text-2xl font-semibold text-fg">{PHASE_LABEL[breath.phase]}</p>
           <p className="mt-1 font-mono text-sm text-fg-muted tabular">{Math.ceil(breath.left)}</p>
           <p className="mt-2 hud-label">4 · 7 · 8 — cycle {breath.cycle}</p>
         </div>
@@ -243,11 +243,11 @@ export function BreakMode({ onComplete }: BreakModeProps) {
         <p className="font-display text-4xl font-medium text-fg tabular" aria-label={`${formatClock(remainingSec)} remaining`}>
           {formatClock(remainingSec)}
         </p>
-        <p className="mt-2 hud-label">Remaining</p>
+        <p className="mt-2 engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Remaining</p>
       </div>
 
       {/* Stretch tip carousel */}
-      <div className="relative mt-8 flex h-12 w-full max-w-lg items-center justify-center rounded-card border border-line bg-surface-2 px-5 text-center">
+      <div className="armor-panel relative mt-8 flex h-12 w-full max-w-lg items-center justify-center px-5 text-center [--cut-bl:0px] [--cut-tr:0px] [--cut:10px]">
         <AnimatePresence mode="wait">
           <motion.p
             key={tipIndex}
@@ -266,7 +266,7 @@ export function BreakMode({ onComplete }: BreakModeProps) {
           <span
             key={i}
             className={cn(
-              'h-1 rounded-full transition-[width,background-color] duration-260 ease-out-quint',
+              'h-1 transition-[width,background-color] duration-260 ease-out-quint [clip-path:polygon(2px_0,100%_0,calc(100%-2px)_100%,0_100%)]',
               i === tipIndex ? 'w-4 bg-accent/70' : 'w-1 bg-fg-faint'
             )}
           />

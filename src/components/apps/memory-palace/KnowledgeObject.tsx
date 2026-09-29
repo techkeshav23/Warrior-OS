@@ -234,7 +234,7 @@ function KnowledgeObjectInner({ item, review, position, lifted = false, onOpen }
 
       {hovered && (
         <Html center position={[0, 0.62, 0]} zIndexRange={[40, 0]} style={{ pointerEvents: 'none' }}>
-          <div className="glass-popover whitespace-nowrap rounded-control px-3 py-2 text-center">
+          <div className="armor-popover whitespace-nowrap px-3.5 py-2 text-center [--cut:6px]">
             <div className="max-w-[220px] truncate text-xs font-semibold text-fg">{item.title}</div>
             <div className="mt-1 flex items-center justify-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em]">
               <span style={{ color: recencyLabelColor(review.recency) }}>{style.label}</span>

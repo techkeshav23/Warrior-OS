@@ -19,8 +19,7 @@ import {
   Wand2,
   Zap,
 } from 'lucide-react';
-import { Badge, Card, SegmentedControl, Skeleton, renderIcon, type IconLike } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { Badge, SegmentedControl, Skeleton, renderIcon, type IconLike } from '@/components/ui';
 import { useSettingsStore, type PerformanceMode } from '@/stores/useSettingsStore';
 import {
   LITE_MAX_CPU_THREADS,
@@ -30,7 +29,7 @@ import {
   type LiteModeStatus,
   type LiteSignal,
 } from '@/lib/lite-mode';
-import { SettingRow, SettingsCard, SettingsPage, SettingsSection } from './parts';
+import { ForgedPlaque, SettingRow, SettingsCard, SettingsPage, SettingsSection } from './parts';
 
 const MODES: { id: PerformanceMode; label: string; hint: string; icon: IconLike }[] = [
   { id: 'auto', label: 'Auto', hint: 'Auto decides from this device.', icon: Wand2 },
@@ -103,22 +102,17 @@ function PerformanceTabInner() {
   return (
     <SettingsPage>
       {/* Live status */}
-      <Card hud tone={status.active ? 'accent' : 'default'} role="status" aria-live="polite">
-        <div className="flex items-start gap-3.5">
-          <span
-            className={cn(
-              'flex size-10 shrink-0 items-center justify-center rounded-card border',
-              status.active ? 'border-accent/30 bg-accent/10 text-accent' : 'border-line-strong bg-ink-800 text-fg-muted'
-            )}
-          >
-            {renderIcon(statusIcon, 20)}
-          </span>
-          <div className="flex min-w-0 flex-1 flex-col gap-1 pt-0.5">
-            <p className="text-sm font-medium text-fg">{headline}</p>
-            {note && <p className="text-xs text-fg-muted">{note}</p>}
-          </div>
-        </div>
-      </Card>
+      <ForgedPlaque
+        role="status"
+        aria-live="polite"
+        icon={statusIcon}
+        tone={!device ? 'neutral' : status.active ? 'accent' : 'success'}
+        eyebrow={!device ? 'Scanning' : status.active ? 'Lite profile engaged' : 'Full effects'}
+        stamp={`MODE · ${mode.label.toUpperCase()}`}
+        title={headline}
+      >
+        {note}
+      </ForgedPlaque>
 
       {/* Mode */}
       <SettingsSection
@@ -177,7 +171,7 @@ function PerformanceTabInner() {
           <ul className="grid gap-x-6 gap-y-2.5 p-4 @xl:grid-cols-2">
             {LITE_CHANGES.map((change) => (
               <li key={change} className="flex gap-2 text-ui text-fg-muted">
-                <ChevronRight size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+                <ChevronRight size={16} strokeWidth={2} className="mt-0.5 shrink-0 text-ember-400" aria-hidden />
                 {change}
               </li>
             ))}
@@ -207,8 +201,10 @@ function DeviceRow({
 }) {
   return (
     <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
-      <span className="flex shrink-0 text-fg-subtle">{renderIcon(icon, 16)}</span>
-      <span className="min-w-0 flex-1 text-ui text-fg-muted">{label}</span>
+      <span className="flex shrink-0 text-steel-300">{renderIcon(icon, 16)}</span>
+      <span className="engraved min-w-0 flex-1 font-display text-xs font-semibold uppercase tracking-[0.12em] text-fg-muted">
+        {label}
+      </span>
       {loading ? (
         <Skeleton className="h-3.5 w-24" />
       ) : (

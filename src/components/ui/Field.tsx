@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Field shell (FORGE HUD kit)
+// WARRIOR OS — Field shell (FORGED ARMOR kit)
 // Label + control + hint/error line shared by Input, Textarea, Select,
 // SearchField and Slider. Wires aria-describedby / aria-invalid.
 // Width: fields fill their container by default. Narrow one with a
@@ -16,17 +16,26 @@ export type FieldSize = 'sm' | 'md' | 'lg';
 
 /** Control surface shared by every text-like field. */
 export const FIELD_BASE =
-  'w-full min-w-0 rounded-control border text-fg placeholder:text-fg-subtle ' +
-  'outline-none transition-[border-color,box-shadow,background-color] duration-120 ease-out-quint ' +
+  'w-full min-w-0 chamfer [--cut:6px] border-0 text-fg placeholder:text-fg-faint caret-ember-400 ' +
+  'outline-none transition-[box-shadow,background-color] duration-120 ease-out-quint ' +
   'disabled:cursor-not-allowed disabled:opacity-50';
+
+// Recessed steel slot; focus heats the bottom + side lips to ember (ember-edge).
+const SLOT =
+  'bg-linear-to-b from-[#06080b] to-[#0f1318] ' +
+  'shadow-[inset_0_1px_0_rgb(0_0_0/0.8),inset_0_2px_6px_rgb(0_0_0/0.5),inset_0_-1px_0_rgb(255_255_255/0.09),inset_1px_0_0_rgb(0_0_0/0.4),inset_-1px_0_0_rgb(255_255_255/0.04)]';
 
 export const FIELD_STATE = {
   normal:
-    'border-line-strong bg-ink-950/55 hover:border-fg-faint focus:border-accent/70 focus:ring-3 focus:ring-accent/15',
+    SLOT +
+    ' hover:shadow-[inset_0_1px_0_rgb(0_0_0/0.8),inset_0_2px_6px_rgb(0_0_0/0.5),inset_0_-1px_0_rgb(255_255_255/0.16),inset_1px_0_0_rgb(0_0_0/0.4),inset_-1px_0_0_rgb(255_255_255/0.06)]' +
+    ' focus:shadow-[inset_0_1px_0_rgb(0_0_0/0.8),inset_0_2px_6px_rgb(0_0_0/0.5),inset_0_-2px_0_var(--color-ember-400,#ff8a3d),inset_1px_0_0_color-mix(in_srgb,var(--color-ember-500,#f76b15)_45%,transparent),inset_-1px_0_0_color-mix(in_srgb,var(--color-ember-500,#f76b15)_45%,transparent)]' +
+    ' focus:from-[#0b0806] focus:to-[#16100b]',
   error:
-    'border-danger/60 bg-ink-950/55 hover:border-danger/70 focus:border-danger focus:ring-3 focus:ring-danger/15',
+    SLOT +
+    ' shadow-[inset_0_1px_0_rgb(0_0_0/0.8),inset_0_2px_6px_rgb(0_0_0/0.5),inset_0_-2px_0_var(--color-danger,#ff5470),inset_1px_0_0_color-mix(in_srgb,var(--color-danger,#ff5470)_40%,transparent),inset_-1px_0_0_color-mix(in_srgb,var(--color-danger,#ff5470)_40%,transparent)]',
   ghost:
-    'border-transparent bg-transparent hover:bg-surface-hover focus:border-line-strong focus:bg-ink-950/40',
+    'bg-transparent hover:bg-white/[0.04] focus:bg-[#07090c] focus:shadow-[inset_0_-2px_0_var(--color-ember-400,#ff8a3d)]',
 } as const;
 
 export const FIELD_SIZE: Record<FieldSize, string> = {
@@ -98,7 +107,7 @@ export function FieldShell({
       {(label || labelAside) && (
         <div className="flex items-baseline justify-between gap-3">
           {label && (
-            <label htmlFor={id} className="text-xs font-medium text-fg-muted">
+            <label htmlFor={id} className="engraved font-display text-2xs font-semibold uppercase tracking-[0.16em] text-fg-muted">
               {label}
               {required && (
                 <span className="ml-0.5 text-danger" aria-hidden>

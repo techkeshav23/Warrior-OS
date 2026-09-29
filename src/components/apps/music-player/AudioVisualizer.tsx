@@ -12,7 +12,7 @@
 import { memo, useRef, useEffect } from 'react';
 import { getFrequencyData } from '@/lib/audio-engine';
 import { getMusicSpectrum } from '@/lib/procedural-music/engine';
-import { EMBER, INK, PLASMA } from '@/styles/tokens';
+import { EMBER, INK } from '@/styles/tokens';
 
 const BAR_COUNT = 40;
 const BAR_WIDTH = 3;
@@ -23,17 +23,20 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-const WARM = hexToRgb(EMBER[400]);
-const COOL = hexToRgb(PLASMA[400]);
+/** Forge-heat ramp: cooling iron → ember → white-hot. */
+const HEAT = [EMBER[700], EMBER[500], EMBER[400], EMBER[300], EMBER[100]].map(hexToRgb);
 const IDLE = INK[600];
 
-/** Bar colour: ember for the lowest bins easing into plasma. */
-function barColor(i: number, level: number): string {
-  const t = Math.min(1, i / (BAR_COUNT * 0.3));
-  const r = Math.round(WARM[0] + (COOL[0] - WARM[0]) * t);
-  const g = Math.round(WARM[1] + (COOL[1] - WARM[1]) * t);
-  const b = Math.round(WARM[2] + (COOL[2] - WARM[2]) * t);
-  return `rgba(${r}, ${g}, ${b}, ${0.35 + level * 0.65})`;
+/** Bar colour: louder bars run hotter (the bar heats up like struck metal). */
+function barColor(level: number): string {
+  const t = Math.min(1, Math.max(0, level * 1.15)) * (HEAT.length - 1);
+  const k = Math.min(HEAT.length - 2, Math.floor(t));
+  const f = t - k;
+  const [a, b] = [HEAT[k], HEAT[k + 1]];
+  const r = Math.round(a[0] + (b[0] - a[0]) * f);
+  const g = Math.round(a[1] + (b[1] - a[1]) * f);
+  const bl = Math.round(a[2] + (b[2] - a[2]) * f);
+  return `rgba(${r}, ${g}, ${bl}, ${0.5 + level * 0.5})`;
 }
 
 interface AudioVisualizerProps {
@@ -104,11 +107,8 @@ function AudioVisualizerInner({ active = false, source = 'element' }: AudioVisua
         const barH = Math.max(2, avg * maxBar);
         const x = startX + i * (BAR_WIDTH + BAR_GAP);
         const y = (h - barH) / 2;
-        ctx.fillStyle = barColor(i, avg);
-        ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') ctx.roundRect(x, y, BAR_WIDTH, barH, 1.5);
-        else ctx.rect(x, y, BAR_WIDTH, barH);
-        ctx.fill();
+        ctx.fillStyle = barColor(avg);
+        ctx.fillRect(x, y, BAR_WIDTH, barH);
       }
 
       raf = requestAnimationFrame(draw);

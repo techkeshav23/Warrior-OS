@@ -21,17 +21,17 @@ type OptionState = 'idle' | 'picked' | 'right' | 'wrong' | 'missed' | 'dim';
 /** Row surface per state (border + fill + text). */
 const OPTION_STYLES: Record<OptionState, string> = {
   idle:
-    'border-line bg-surface-2 text-fg-muted hover:border-line-strong hover:bg-surface-hover hover:text-fg active:bg-surface-active',
-  picked: 'border-accent/55 bg-accent/10 text-fg shadow-[inset_2px_0_0_var(--accent)]',
-  right: 'border-success/40 bg-success/10 text-fg',
-  wrong: 'border-danger/40 bg-danger/10 text-fg',
-  missed: 'border-dashed border-success/45 bg-transparent text-fg-muted',
-  dim: 'border-line bg-transparent text-fg-subtle',
+    'border-t-white/10 border-x-line border-b-black/50 bg-steel-750/70 bevel text-fg-muted hover:bg-steel-700 hover:text-fg active:bg-steel-800',
+  picked: 'ember-edge bg-accent/10 text-fg',
+  right: 'border-success/45 bg-success/10 text-fg shadow-[inset_3px_0_0_var(--color-success)]',
+  wrong: 'border-danger/45 bg-danger/10 text-fg shadow-[inset_3px_0_0_var(--color-danger)]',
+  missed: 'border-dashed border-success/45 bg-steel-950/30 text-fg-muted',
+  dim: 'border-line bg-steel-950/30 text-fg-subtle',
 };
 
 /** Leading cap (letter or checkbox) per state. */
 const CAP_STYLES: Record<OptionState, string> = {
-  idle: 'border-line-strong bg-ink-850 text-fg-muted group-hover/opt:border-fg-faint group-hover/opt:text-fg',
+  idle: 'border-line-strong bg-steel-950 text-fg-muted group-hover/opt:border-fg-faint group-hover/opt:text-fg',
   picked: 'border-accent bg-accent text-accent-fg',
   right: 'border-success bg-success text-ink-950',
   wrong: 'border-danger bg-danger text-ink-950',
@@ -73,10 +73,10 @@ function Verdict({
     <div
       role="status"
       className={cn(
-        'space-y-1.5 rounded-control px-3.5 py-3 ring-1 ring-inset',
-        tone === 'success' && 'bg-success/8 ring-success/20',
-        tone === 'danger' && 'bg-danger/8 ring-danger/20',
-        tone === 'neutral' && 'bg-surface-2 ring-line'
+        'relative space-y-1.5 chamfer-sm px-3.5 py-3 ring-1 ring-inset before:absolute before:inset-y-0 before:left-0 before:w-0.5',
+        tone === 'success' && 'bg-success/8 ring-success/20 before:bg-success/70',
+        tone === 'danger' && 'bg-danger/8 ring-danger/20 before:bg-danger/70',
+        tone === 'neutral' && 'bg-steel-950/45 ring-line before:bg-steel-500'
       )}
     >
       {title != null && (
@@ -171,7 +171,7 @@ function QuestionViewInner({
                 disabled={locked}
                 aria-pressed={locked ? undefined : picked}
                 className={cn(
-                  'group/opt focus-ring flex w-full items-start gap-3 rounded-control border text-left',
+                  'group/opt focus-ring flex w-full items-start gap-3 chamfer-sm border text-left',
                   'transition-[background-color,border-color,color,box-shadow] duration-120 ease-out-quint disabled:cursor-default',
                   size === 'lg' ? 'min-h-11 px-3.5 py-2.5 text-sm' : 'min-h-10 px-3 py-2 text-ui',
                   OPTION_STYLES[state]
@@ -181,7 +181,7 @@ function QuestionViewInner({
                   aria-hidden
                   className={cn(
                     'mt-px flex size-5.5 shrink-0 items-center justify-center border font-mono text-2xs font-semibold transition-colors duration-120 ease-out-quint',
-                    multi ? 'rounded-[5px]' : 'rounded-full',
+                    multi ? 'chamfer-xs [--cut:3px]' : 'chamfer [--cut:6px]',
                     CAP_STYLES[state]
                   )}
                 >
@@ -223,8 +223,8 @@ function QuestionViewInner({
             autoFocus={autoFocus && !locked}
             aria-invalid={graded && status === 'wrong' ? true : undefined}
             className={cn(
-              'h-10 w-full min-w-0 rounded-control border bg-ink-950/55 px-3.5 font-mono text-sm text-fg tabular placeholder:font-sans placeholder:text-fg-subtle',
-              'outline-none transition-[border-color,box-shadow] duration-120 ease-out-quint focus:border-accent/70 focus:ring-3 focus:ring-accent/15 disabled:cursor-default',
+              'h-10 w-full min-w-0 chamfer-sm border bg-linear-to-b from-steel-950 to-steel-900 shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_6px_rgb(0_0_0/0.45),inset_0_-1px_0_rgb(255_255_255/0.07)] px-3.5 font-mono text-sm text-fg tabular placeholder:font-sans placeholder:text-fg-subtle',
+              'outline-none transition-[border-color,box-shadow] duration-120 ease-out-quint focus:ember-edge disabled:cursor-default',
               graded && status === 'correct'
                 ? 'border-success/50 bg-success/8'
                 : graded && status === 'wrong'

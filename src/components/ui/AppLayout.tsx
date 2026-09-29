@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — AppLayout, SidebarNav, NavItem, AppHeader (FORGE HUD kit)
+// WARRIOR OS — AppLayout, SidebarNav, NavItem, AppHeader (FORGED ARMOR kit)
 // The standard frame for app windows:
 //
 //   ┌──────────┬──────────────────────────────────────┐
@@ -22,6 +22,7 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { renderIcon, type IconLike } from './icon';
+import { ENGRAVED_LABEL } from './armor';
 
 // ─── AppLayout ────────────────────────────────────────────
 
@@ -62,7 +63,12 @@ export function AppLayout({
     <div className={cn('flex h-full min-h-0 w-full min-w-0 text-ui text-fg', className)} {...props}>
       {sidebar != null && (
         <aside
-          className="scrollbar-thin flex h-full shrink-0 flex-col overflow-y-auto border-r border-line bg-ink-950/35"
+          className={cn(
+            'scrollbar-thin relative flex h-full shrink-0 flex-col overflow-y-auto',
+            // Armor rail: darker brushed steel, beveled right edge with a groove
+            'bg-linear-to-b from-[#12161b] via-[#0d1014] to-[#0a0c0f] brushed',
+            'shadow-[inset_-1px_0_0_rgb(0_0_0/0.7),inset_-2px_0_0_rgb(255_255_255/0.05),inset_-6px_0_10px_-6px_rgb(0_0_0/0.6)]'
+          )}
           style={{ width }}
         >
           {sidebar}
@@ -99,35 +105,40 @@ export interface NavItemProps extends Omit<ButtonHTMLAttributes<HTMLButtonElemen
   badge?: ReactNode;
 }
 
-/** Sidebar navigation row: lucide icon + label; active = accent-soft + 2px indicator. */
+/** Sidebar navigation row: lucide icon + label; active = heated plate + ember notch on the rail edge. */
 export function NavItem({ icon, label, active = false, count, badge, className, type = 'button', ...props }: NavItemProps) {
   return (
     <button
       type={type}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'focus-ring group/nav relative flex h-9 w-full min-w-0 items-center gap-2.5 rounded-control px-2.5 text-left text-ui font-medium',
-        'transition-colors duration-120 ease-out-quint disabled:pointer-events-none disabled:opacity-40',
-        active ? 'bg-accent/10 text-accent' : 'text-fg-muted hover:bg-surface-hover hover:text-fg',
+        'focus-ring-inset group/nav relative flex h-9 w-full min-w-0 items-center gap-2.5 px-3 text-left text-ui font-medium',
+        '[clip-path:polygon(0_0,calc(100%-8px)_0,100%_8px,100%_100%,0_100%)]',
+        'transition-[background-color,color,box-shadow] duration-120 ease-out-quint disabled:pointer-events-none disabled:opacity-40',
+        active
+          ? 'bg-linear-to-r from-ember-500/22 via-[#2a2520] to-[#1c1f24] text-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.1),inset_0_-1px_0_rgb(0_0_0/0.6),inset_-2px_0_0_var(--color-ember-500,#f76b15)]'
+          : 'text-fg-muted hover:bg-white/[0.045] hover:text-fg hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.05)]',
         className
       )}
       {...props}
     >
+      {/* Ember notch: a molten wedge on the rail edge */}
       <span
         aria-hidden
         className={cn(
-          'absolute -left-2 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-accent transition-[opacity,transform] duration-180 ease-out-quint',
-          active ? 'scale-y-100 opacity-100 shadow-[0_0_8px_var(--accent,#2fd6f5)]' : 'scale-y-50 opacity-0'
+          'absolute left-0 top-1/2 h-5 w-1.5 -translate-y-1/2 bg-ember-400 transition-[opacity,transform] duration-180 ease-out-quint',
+          '[clip-path:polygon(0_0,100%_4px,100%_calc(100%-4px),0_100%)]',
+          active ? 'scale-y-100 opacity-100 shadow-[0_0_10px_var(--color-ember-500,#f76b15)]' : 'scale-y-50 opacity-0'
         )}
       />
       {icon != null && (
-        <span className={cn('flex shrink-0', active ? 'text-accent' : 'text-fg-subtle group-hover/nav:text-fg-muted')}>
+        <span className={cn('flex shrink-0', active ? 'text-ember-400' : 'text-fg-subtle group-hover/nav:text-fg-muted')}>
           {renderIcon(icon, 18)}
         </span>
       )}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {count != null && (
-        <span className={cn('tabular shrink-0 font-mono text-2xs', active ? 'text-accent/80' : 'text-fg-subtle')}>{count}</span>
+        <span className={cn('tabular shrink-0 font-mono text-2xs', active ? 'text-ember-300' : 'text-fg-subtle')}>{count}</span>
       )}
       {badge}
     </button>
@@ -181,10 +192,15 @@ export function SidebarNav({
   return (
     <div className={cn('flex h-full min-h-0 flex-col', className)}>
       {header != null && <div className="shrink-0 px-4 pb-2 pt-4">{header}</div>}
-      <nav className={cn('flex min-h-0 flex-1 flex-col gap-4 px-3 py-3', header != null && 'pt-1')} {...props}>
+      <nav className={cn('flex min-h-0 flex-1 flex-col gap-4 py-3 pl-0 pr-2', header != null && 'pt-1')} {...props}>
         {groups.map((group, gi) => (
           <div key={gi} className="flex flex-col gap-0.5">
-            {group.label != null && <div className="hud-label px-2.5 pb-1.5 pt-1">{group.label}</div>}
+            {group.label != null && (
+              <div className="flex items-center gap-2 px-2.5 pb-1.5 pt-1">
+                <span className={cn(ENGRAVED_LABEL, 'shrink-0')}>{group.label}</span>
+                <span aria-hidden className="h-px flex-1 bg-black/60 shadow-[0_1px_0_rgb(255_255_255/0.05)]" />
+              </div>
+            )}
             {group.items.map((item) => (
               <NavItem
                 key={item.id}
@@ -201,7 +217,9 @@ export function SidebarNav({
         ))}
         {children}
       </nav>
-      {footer != null && <div className="shrink-0 border-t border-line px-3 py-3">{footer}</div>}
+      {footer != null && (
+        <div className="shrink-0 px-3 py-3 shadow-[inset_0_1px_0_rgb(0_0_0/0.6),inset_0_2px_0_rgb(255_255_255/0.04)]">{footer}</div>
+      )}
     </div>
   );
 }
@@ -225,12 +243,19 @@ export interface AppHeaderProps extends Omit<HTMLAttributes<HTMLElement>, 'title
 /** App content header: title (text-lg semibold) + hud-label subtitle + actions. */
 export function AppHeader({ title, subtitle, leading, actions, tabs, bordered = true, className, ...props }: AppHeaderProps) {
   return (
-    <header className={cn('shrink-0', bordered && 'border-b border-line', className)} {...props}>
+    <header
+      className={cn(
+        'relative shrink-0 bg-linear-to-b from-white/[0.035] to-transparent',
+        bordered && 'shadow-[inset_0_-1px_0_rgb(0_0_0/0.65),inset_0_-2px_0_rgb(255_255_255/0.04)]',
+        className
+      )}
+      {...props}
+    >
       <div className={cn('flex min-h-15 items-center gap-3 px-5 py-3', tabs != null && 'pb-2')}>
         {leading != null && <div className="flex shrink-0 items-center">{leading}</div>}
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-semibold leading-6.5 tracking-tight text-fg">{title}</h1>
-          {subtitle != null && <div className="hud-label mt-0.5 truncate">{subtitle}</div>}
+          <h1 className="engraved truncate font-display text-lg font-bold uppercase leading-6.5 tracking-[0.05em] text-fg">{title}</h1>
+          {subtitle != null && <div className={cn(ENGRAVED_LABEL, 'mt-0.5 truncate')}>{subtitle}</div>}
         </div>
         {actions != null && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>

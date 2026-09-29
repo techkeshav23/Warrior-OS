@@ -115,7 +115,7 @@ export function ContextMenu({ items, position, onSelect, onClose }: ContextMenuP
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.12 } }}
           transition={{ duration: 0.18, ease: EASE_OUT_QUINT }}
-          className="glass-popover fixed rounded-card p-1 outline-none"
+          className="armor-popover chamfer-md fixed p-1 outline-none"
           style={{
             left: placement.x,
             top: placement.y,

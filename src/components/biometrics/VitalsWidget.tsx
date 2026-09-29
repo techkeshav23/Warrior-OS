@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — VitalsWidget (FORGE HUD)
-// Draggable glass-window HUD with 4 semantic vital bars (Energy,
+// Draggable riveted armor-window HUD with 4 semantic vital bars (Energy,
 // Focus, Fatigue, Stress). Values arrive every ~5 s from the
 // biometrics store; bars glide smoothly and pulse-glow on a >20-point
 // jump. Collapsible, remembers where you dragged it, and opens the
@@ -100,7 +100,7 @@ function VitalBar({ config, value }: { config: VitalConfig; value: number }) {
         <span className="tabular font-mono font-medium text-fg">{Math.round(value)}%</span>
       </div>
       <div
-        className="relative h-1.5 w-full rounded-full bg-ink-600/70"
+        className="relative h-2 w-full overflow-hidden bg-steel-950 shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_-1px_0_rgb(255_255_255/0.07)] [clip-path:polygon(3px_0,100%_0,calc(100%-3px)_100%,0_100%)]"
         role="meter"
         aria-label={config.label}
         aria-valuemin={0}
@@ -108,7 +108,7 @@ function VitalBar({ config, value }: { config: VitalConfig; value: number }) {
         aria-valuenow={Math.round(pct)}
       >
         <motion.div
-          className="h-full rounded-full"
+          className="h-full"
           style={{ background: `linear-gradient(90deg, color-mix(in srgb, ${config.color} 65%, transparent), ${config.color})` }}
           initial={false}
           animate={{ width: `${pct}%` }}
@@ -118,8 +118,8 @@ function VitalBar({ config, value }: { config: VitalConfig; value: number }) {
           <motion.span
             key={pulse}
             aria-hidden
-            className="pointer-events-none absolute inset-0 rounded-full"
-            style={{ boxShadow: `0 0 10px 2px color-mix(in srgb, ${config.color} 70%, transparent)` }}
+            className="pointer-events-none absolute inset-0"
+            style={{ boxShadow: `inset 0 0 8px 2px color-mix(in srgb, ${config.color} 80%, transparent)` }}
             initial={{ opacity: 1 }}
             animate={{ opacity: 0 }}
             transition={{ duration: 1.2, ease: 'easeOut' }}
@@ -188,8 +188,8 @@ function VitalsWidgetInner({ className }: { className?: string }) {
             dragElastic={0.04}
             onDragEnd={() => setOffset({ x: x.get(), y: y.get() })}
             className={cn(
-              'glass-window group pointer-events-auto absolute cursor-grab select-none rounded-window shadow-e2 active:cursor-grabbing',
-              'transition-[border-color] duration-180 ease-out-quint hover:border-fg-faint',
+              'armor-window rivets group pointer-events-auto absolute cursor-grab select-none active:cursor-grabbing [--cut:12px] [--rivet-inset:6px]',
+              'transition-[box-shadow] duration-180 ease-out-quint active:ember-edge',
               className
             )}
             style={{ top: ANCHOR_TOP, right: ANCHOR_RIGHT, width: WIDGET_WIDTH, x, y }}
@@ -199,7 +199,7 @@ function VitalsWidgetInner({ className }: { className?: string }) {
             <div className="flex h-10 items-center justify-between gap-2 pl-4 pr-1.5">
               <span className="flex min-w-0 items-center gap-2">
                 <Activity size={14} strokeWidth={1.9} aria-hidden className="shrink-0 text-accent" />
-                <span className="hud-label text-fg-muted">Vitals</span>
+                <span className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-muted">Vitals</span>
                 <Badge tone={isLive ? 'success' : 'neutral'} size="sm" dot pulse={isLive}>
                   {isLive ? 'Live' : 'Idle'}
                 </Badge>
@@ -237,7 +237,7 @@ function VitalsWidgetInner({ className }: { className?: string }) {
                   return (
                     <span
                       key={v.key}
-                      className="flex items-center justify-center gap-1 rounded-control bg-surface-2 py-1 font-mono text-xs"
+                      className="chamfer-xs bevel flex items-center justify-center gap-1 bg-steel-900 py-1 font-mono text-xs"
                       title={v.label}
                     >
                       <Icon size={12} strokeWidth={2} aria-hidden className={v.text} />

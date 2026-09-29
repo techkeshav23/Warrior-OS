@@ -3,12 +3,13 @@
 @source not "../../docs";
 
 /* ═══════════════════════════════════════════════════════════
-   WARRIOR OS: FORGE HUD design system
+   WARRIOR OS: FORGED ARMOR design system
    Tokens, custom utilities and base styles (Tailwind v4, CSS-first).
 
-   Deep-ink surfaces, Plasma for the machine (interaction, focus,
-   info), Ember for warrior energy (streaks, XP, fire). Glow is
-   reserved for focus, live status and primary moments.
+   Forged gunmetal plates with chamfered (cut) corners, bevelled
+   edges and rivets. Ember is the brand: accent, focus and heat.
+   Plasma is demoted to energy/tech (NEXUS, links, data, info).
+   Gold for XP and rank. No rounded chrome: chamfers do the shaping.
 
    Guide:       docs/design-system.md
    JS mirrors:  src/styles/tokens.ts (canvas, charts, framer-motion)
@@ -23,25 +24,38 @@
 /* `static` keeps every variable on :root, so var(--color-viz-3),
    var(--radius-card) and friends also work in inline styles and SVG. */
 @theme static {
-  /* Ink: the canvas and solid surfaces, darkest → lightest */
-  --color-ink-950: #04060b;
-  --color-ink-900: #070a12;
-  --color-ink-850: #0b1019;
-  --color-ink-800: #0f1520;
-  --color-ink-750: #141b28;
-  --color-ink-700: #1a2332;
-  --color-ink-600: #243044;
-  --color-ink-500: #33415a;
+  /* Steel: forged gunmetal, the armor plates, darkest → lightest */
+  --color-steel-950: #07080a;
+  --color-steel-900: #0b0d10;
+  --color-steel-850: #101317;
+  --color-steel-800: #15191e;
+  --color-steel-750: #1b2026;
+  --color-steel-700: #232930;
+  --color-steel-600: #2f363f;
+  --color-steel-500: #3e4651;
+  --color-steel-400: #58616d;
+  --color-steel-300: #7c8592;
+  --color-steel-200: #a7afba;
+
+  /* Ink: the canvas and solid surfaces (gunmetal-tinted), darkest → lightest */
+  --color-ink-950: #050608;
+  --color-ink-900: #090b0e;
+  --color-ink-850: #0d1014;
+  --color-ink-800: #121519;
+  --color-ink-750: #171b20;
+  --color-ink-700: #1e2329;
+  --color-ink-600: #2a3038;
+  --color-ink-500: #3a424c;
 
   /* Foreground: text and icons, strongest → faintest */
-  --color-fg: #e6edf7;
-  --color-fg-muted: #a0adc2;
-  --color-fg-subtle: #6f7d94;
-  --color-fg-faint: #4a566b;
+  --color-fg: #eceae6;
+  --color-fg-muted: #aab0b8;
+  --color-fg-subtle: #78818c;
+  --color-fg-faint: #4e5660;
 
   /* Hairlines: borders, dividers, gridlines */
-  --color-line: rgb(148 170 205 / 0.1);
-  --color-line-strong: rgb(148 170 205 / 0.18);
+  --color-line: rgb(170 180 195 / 0.1);
+  --color-line-strong: rgb(170 180 195 / 0.19);
 
   /* Surfaces (surface, the window glass, lives in the runtime block below) */
   --color-surface-2: rgb(255 255 255 / 0.025);
@@ -49,20 +63,24 @@
   --color-surface-hover: rgb(255 255 255 / 0.045);
   --color-surface-active: rgb(255 255 255 / 0.07);
 
-  /* Text/icons on an accent fill */
-  --color-accent-fg: #03131a;
+  /* Text/icons on an accent fill (ember plates) */
+  --color-accent-fg: #1a0a02;
 
-  /* Plasma: the machine */
+  /* Plasma: energy / tech only (NEXUS, links, data highlights, info) */
   --color-plasma-300: #7ce7fb;
   --color-plasma-400: #2fd6f5;
   --color-plasma-500: #10b8d8;
   --color-plasma-600: #0b8fad;
 
-  /* Ember: warrior energy */
-  --color-ember-300: #ffb27a;
-  --color-ember-400: #ff8a3d;
+  /* Ember: the brand. Accent, focus, heat, primary actions */
+  --color-ember-100: #fff4e0; /* white-hot tip */
+  --color-ember-200: #ffd3a8;
+  --color-ember-300: #ffb27a; /* hot core */
+  --color-ember-400: #ff8a3d; /* default accent */
   --color-ember-500: #f76b15;
-  --color-ember-600: #d4520b;
+  --color-ember-600: #d4520b; /* deep */
+  --color-ember-700: #a3350a;
+  --color-ember-800: #5c1a06; /* cooling iron */
 
   /* Status */
   --color-success: #3ddc97;
@@ -130,16 +148,28 @@
   --text-7xl--line-height: 5rem;
   --text-7xl--letter-spacing: -0.02em;
 
-  /* Radii: semantic names first; the t-shirt sizes follow the same ramp */
-  --radius-control: 8px; /* buttons, inputs, chips, menu items */
-  --radius-card: 12px; /* cards, panels, popovers, menus */
-  --radius-window: 16px; /* windows, desktop widgets */
-  --radius-sheet: 20px; /* dialogs, sheets, start menu, palette */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 20px;
+  /* Radii: FORGED ARMOR has no rounded chrome. The semantic radii are a
+     2px "machined" softening; the chamfer-* cuts do the shaping. The
+     t-shirt sizes stay small so stray rounded-lg/xl read as metal too.
+     Pills and circles (rounded-full) are for status dots, avatars and
+     toggle knobs only. */
+  --radius-control: 2px; /* buttons, inputs, chips, menu items */
+  --radius-card: 2px; /* cards, panels, popovers, menus */
+  --radius-window: 2px; /* windows, desktop widgets */
+  --radius-sheet: 2px; /* dialogs, sheets, start menu, palette */
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 3px;
+  --radius-2xl: 4px;
+  --radius-3xl: 4px;
+
+  /* Chamfer cuts (clip-path corner size): chips · controls · panels · windows */
+  --cut-xs: 4px;
+  --cut-sm: 6px;
+  --cut-md: 8px;
+  --cut-lg: 14px;
 
   /* Elevation (outer shadows; the glass-* materials add the top highlight) */
   --shadow-e1: 0 1px 2px 0 rgb(0 0 0 / 0.28), 0 2px 8px -2px rgb(0 0 0 / 0.3);
@@ -150,8 +180,10 @@
     0 0 0 1px rgb(0 0 0 / 0.36), 0 8px 24px -6px rgb(0 0 0 / 0.45),
     0 32px 80px -16px rgb(0 0 0 / 0.7);
 
-  /* Motion: 120ms hover · 180ms small · 260ms panels/windows */
+  /* Motion: 120ms hover · 180ms small · 260ms panels/windows.
+     Armor moves like plates locking: short, weighty, no float. */
   --ease-out-quint: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-lock: cubic-bezier(0.2, 0.9, 0.25, 1);
   --animate-fade-in: wos-fade-in 180ms var(--ease-out-quint) both;
   --animate-rise-in: wos-rise-in 260ms var(--ease-out-quint) both;
   --animate-scale-in: wos-scale-in 180ms var(--ease-out-quint) both;
@@ -201,17 +233,22 @@
 @theme inline static {
   --color-accent: var(--accent);
   --color-accent-soft: color-mix(in oklab, var(--accent) 14%, transparent);
-  /* Window glass: follows Settings → Glass Opacity (ThemeSync) */
-  --color-surface: rgb(9 13 21 / calc(var(--glass-alpha, 0.86) + var(--glass-boost, 0)));
+  /* Window steel: follows Settings → Glass Opacity (ThemeSync). Armor is
+     mostly opaque: the slider only lets a little wallpaper through. */
+  --color-surface: rgb(
+    17 20 24 / min(1, calc(var(--glass-alpha, 0.86) + 0.08 + var(--glass-boost, 0)))
+  );
 
-  /* next/font puts --font-inter / --font-jetbrains / --font-orbitron on <html> */
+  /* next/font puts --font-inter / --font-jetbrains / --font-forge on <html> */
   --font-sans:
     var(--font-inter, "Inter"), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     sans-serif;
   --font-mono:
     var(--font-jetbrains, "JetBrains Mono"), ui-monospace, "SFMono-Regular", "Cascadia Code",
     Menlo, monospace;
-  --font-display: var(--font-orbitron, "Orbitron"), var(--font-inter, "Inter"), ui-sans-serif, sans-serif;
+  /* Display: Chakra Petch, a forged face whose own letters are chamfered */
+  --font-display:
+    var(--font-forge, "Chakra Petch"), var(--font-inter, "Inter"), ui-sans-serif, sans-serif;
 
   --shadow-glow:
     0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent),
@@ -235,17 +272,82 @@
   --color-text-muted: var(--text-muted);
 }
 
+/* ─── Armor registrations ───
+   Shape and rivet variables are per element (not inherited): a chamfer
+   or rivets on a window must not leak into the plates inside it. */
+@property --cut {
+  syntax: "*";
+  inherits: false;
+}
+@property --cut-tl {
+  syntax: "*";
+  inherits: false;
+}
+@property --cut-tr {
+  syntax: "*";
+  inherits: false;
+}
+@property --cut-br {
+  syntax: "*";
+  inherits: false;
+}
+@property --cut-bl {
+  syntax: "*";
+  inherits: false;
+}
+@property --focus-offset {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 2px;
+}
+@property --rivet-hi {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+@property --rivet-body {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+@property --rivet-lo {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
 /* ─── Runtime variables + legacy aliases ─── */
 :root {
   /* Accent: ThemeSync writes the Settings / workspace accent into
      --accent-primary (inline on <html>); decay stage 3 may override it
      with !important. Components read --accent (or the accent utilities). */
-  --accent-primary: #2fd6f5;
+  --accent-primary: #ff8a3d;
   --accent: var(--accent-primary);
+  /* Legacy name for the display face (canvas text in effects-utils etc.) */
+  --font-orbitron: var(--font-forge, "Chakra Petch");
   /* Window glass opacity: ThemeSync maps Settings → Glass Opacity onto
      0.74–0.98 (default 0.86); decay stage 2 adds a boost */
   --glass-alpha: 0.86;
   --glass-boost: 0;
+
+  /* Armor surface layers (the armor-* materials and brushed paint these).
+     Sheen: the vertical light falloff of a steel plate. Brush: fine
+     horizontal streaks (stretched fractal noise), 256px tile. */
+  --armor-sheen: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 0.05),
+    rgb(255 255 255 / 0.012) 24%,
+    transparent 55%,
+    rgb(0 0 0 / 0.22)
+  );
+  --armor-sheen-plate: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 0.1),
+    rgb(255 255 255 / 0.03) 45%,
+    rgb(0 0 0 / 0.08) 55%,
+    rgb(0 0 0 / 0.28)
+  );
+  --armor-brush: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23b)'/%3E%3C/svg%3E");
 
   /* Motion durations for inline styles (utilities: duration-120 / 180 / 260) */
   --duration-hover: 120ms;
@@ -266,7 +368,7 @@
   --z-boot: 1000;
   --z-cursor: 9999;
 
-  /* ── DEPRECATED aliases: old variable → FORGE HUD token. Migrate, don't add. ── */
+  /* ── DEPRECATED aliases: old variable → design token. Migrate, don't add. ── */
   --bg-void: var(--color-ink-950);
   --bg-desktop: var(--color-ink-950);
   --bg-surface: var(--color-ink-900);
@@ -302,74 +404,686 @@
 
 /* ═══ Custom utilities ═══ */
 
-/* Materials. Each carries its elevation; add shadow-* only to change it.
-   glass-window:  windows, taskbar, desktop widgets: anything on the wallpaper
-   glass-popover: menus, popovers, tooltips, palette, toasts
-   glass-panel:   cards inside a window (no blur: it sits on glass already) */
-@utility glass-window {
+/* ── FORGED ARMOR ──
+   Shapes:    chamfer / chamfer-xs|sm|md|lg / chamfer-tl-br (clip-path, --cut)
+   Materials: armor-window · armor-popover · armor-panel · armor-plate
+              (glass-window / glass-popover / glass-panel render the same)
+   Details:   bevel · engraved · rivets · brushed · forge-heat · ember-edge ·
+              notch · armor-drop
+   Clip-path eats anything drawn outside the border box: outer shadows,
+   outlines, overflowing children. So bevels and edges are inset shadows
+   or background layers, focus rings on chamfered parts sit inside
+   (--focus-offset: -2px), and elevation for a clipped plate comes from
+   armor-drop on its parent. Layer order inside a material (top first):
+   4 rivets · 4 diagonal cut-edge lines · sheen · brushed texture. */
+
+/* chamfer: cut corners at --cut (default 8px): [--cut:10px] chamfer */
+@utility chamfer {
+    --focus-offset: -2px;
+  clip-path: polygon(
+    var(--cut-tl, var(--cut, 8px)) 0,
+    calc(100% - var(--cut-tr, var(--cut, 8px))) 0,
+    100% var(--cut-tr, var(--cut, 8px)),
+    100% calc(100% - var(--cut-br, var(--cut, 8px))),
+    calc(100% - var(--cut-br, var(--cut, 8px))) 100%,
+    var(--cut-bl, var(--cut, 8px)) 100%,
+    0 calc(100% - var(--cut-bl, var(--cut, 8px))),
+    0 var(--cut-tl, var(--cut, 8px))
+  );
+}
+
+/* chamfer-xs: chips, badges, tags (4px) */
+@utility chamfer-xs {
+  --cut: var(--cut-xs);
+  --focus-offset: -2px;
+  clip-path: polygon(
+    var(--cut-tl, var(--cut, 8px)) 0,
+    calc(100% - var(--cut-tr, var(--cut, 8px))) 0,
+    100% var(--cut-tr, var(--cut, 8px)),
+    100% calc(100% - var(--cut-br, var(--cut, 8px))),
+    calc(100% - var(--cut-br, var(--cut, 8px))) 100%,
+    var(--cut-bl, var(--cut, 8px)) 100%,
+    0 calc(100% - var(--cut-bl, var(--cut, 8px))),
+    0 var(--cut-tl, var(--cut, 8px))
+  );
+}
+
+/* chamfer-sm: buttons, inputs, controls (6px) */
+@utility chamfer-sm {
+  --cut: var(--cut-sm);
+  --focus-offset: -2px;
+  clip-path: polygon(
+    var(--cut-tl, var(--cut, 8px)) 0,
+    calc(100% - var(--cut-tr, var(--cut, 8px))) 0,
+    100% var(--cut-tr, var(--cut, 8px)),
+    100% calc(100% - var(--cut-br, var(--cut, 8px))),
+    calc(100% - var(--cut-br, var(--cut, 8px))) 100%,
+    var(--cut-bl, var(--cut, 8px)) 100%,
+    0 calc(100% - var(--cut-bl, var(--cut, 8px))),
+    0 var(--cut-tl, var(--cut, 8px))
+  );
+}
+
+/* chamfer-md: cards, panels, popovers (8px) */
+@utility chamfer-md {
+  --cut: var(--cut-md);
+  --focus-offset: -2px;
+  clip-path: polygon(
+    var(--cut-tl, var(--cut, 8px)) 0,
+    calc(100% - var(--cut-tr, var(--cut, 8px))) 0,
+    100% var(--cut-tr, var(--cut, 8px)),
+    100% calc(100% - var(--cut-br, var(--cut, 8px))),
+    calc(100% - var(--cut-br, var(--cut, 8px))) 100%,
+    var(--cut-bl, var(--cut, 8px)) 100%,
+    0 calc(100% - var(--cut-bl, var(--cut, 8px))),
+    0 var(--cut-tl, var(--cut, 8px))
+  );
+}
+
+/* chamfer-lg: windows, sheets, dialogs (14px) */
+@utility chamfer-lg {
+  --cut: var(--cut-lg);
+  --focus-offset: -2px;
+  clip-path: polygon(
+    var(--cut-tl, var(--cut, 8px)) 0,
+    calc(100% - var(--cut-tr, var(--cut, 8px))) 0,
+    100% var(--cut-tr, var(--cut, 8px)),
+    100% calc(100% - var(--cut-br, var(--cut, 8px))),
+    calc(100% - var(--cut-br, var(--cut, 8px))) 100%,
+    var(--cut-bl, var(--cut, 8px)) 100%,
+    0 calc(100% - var(--cut-bl, var(--cut, 8px))),
+    0 var(--cut-tl, var(--cut, 8px))
+  );
+}
+
+/* chamfer-tl-br: cut only top-left + bottom-right (the window silhouette).
+   Composes with a size: chamfer-tl-br chamfer-md; alone it is 14px. */
+@utility chamfer-tl-br {
+  --cut-tr: 0px;
+  --cut-bl: 0px;
+  --focus-offset: -2px;
+  clip-path: polygon(
+    var(--cut-tl, var(--cut, 14px)) 0,
+    calc(100% - var(--cut-tr, var(--cut, 14px))) 0,
+    100% var(--cut-tr, var(--cut, 14px)),
+    100% calc(100% - var(--cut-br, var(--cut, 14px))),
+    calc(100% - var(--cut-br, var(--cut, 14px))) 100%,
+    var(--cut-bl, var(--cut, 14px)) 100%,
+    0 calc(100% - var(--cut-bl, var(--cut, 14px))),
+    0 var(--cut-tl, var(--cut, 14px))
+  );
+}
+
+/* armor-window: forged window/taskbar/widget plate on the wallpaper.
+   Mostly opaque gunmetal (Settings → Glass Opacity lets a little
+   wallpaper through a light blur), brushed texture, bevelled edge,
+   top-left + bottom-right 14px cuts (resize with chamfer-* or --cut). */
+@utility armor-window {
   background-color: var(--color-surface);
-  /* 16px: cheaper on window-sized surfaces, and headless Chromium
-     (README screenshots) skips larger blur radii on big layers. */
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  backdrop-filter: blur(16px) saturate(1.4);
+  background-image:
+    radial-gradient(circle at calc(var(--cut-tl, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, 0px) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, 0px) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, 0px) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, 0px) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(220 226 235 / 0.34) 50%, rgb(220 226 235 / 0.34) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.7) 50%, rgb(0 0 0 / 0.7) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen),
+    var(--armor-brush);
+  background-size:
+    100% 100%, 100% 100%, 100% 100%, 100% 100%,
+    var(--cut-tl, var(--cut, 14px)) var(--cut-tl, var(--cut, 14px)), var(--cut-tr, 0px) var(--cut-tr, 0px), var(--cut-br, var(--cut, 14px)) var(--cut-br, var(--cut, 14px)), var(--cut-bl, 0px) var(--cut-bl, 0px),
+    100% 100%, 256px 256px;
+  background-position:
+    0 0, 0 0, 0 0, 0 0,
+    left top, right top, right bottom, left bottom,
+    0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-origin: border-box;
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  backdrop-filter: blur(12px) saturate(1.15);
   border-width: 1px;
   border-style: solid;
-  border-color: var(--color-line-strong);
-  --tw-inset-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.06);
+  border-color: rgb(190 200 215 / 0.24) rgb(0 0 0 / 0.55) rgb(0 0 0 / 0.65) rgb(190 200 215 / 0.15);
+  clip-path: polygon(
+    var(--cut-tl, var(--cut, 14px)) 0,
+    calc(100% - var(--cut-tr, 0px)) 0,
+    100% var(--cut-tr, 0px),
+    100% calc(100% - var(--cut-br, var(--cut, 14px))),
+    calc(100% - var(--cut-br, var(--cut, 14px))) 100%,
+    var(--cut-bl, 0px) 100%,
+    0 calc(100% - var(--cut-bl, 0px)),
+    0 var(--cut-tl, var(--cut, 14px))
+  );
+  --focus-offset: -2px;
+  --tw-inset-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.09), inset 1px 0 0 0 rgb(255 255 255 / 0.035), inset 0 -1px 0 0 rgb(0 0 0 / 0.55), inset -1px 0 0 0 rgb(0 0 0 / 0.3);
   --tw-shadow: var(--shadow-e3);
   box-shadow:
     var(--tw-inset-shadow), var(--tw-inset-ring-shadow, 0 0 #0000),
     var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 
   &:where([data-lite-mode] *) {
-    background-color: #090d15;
+    background-color: #111418;
+    background-image:
+      radial-gradient(circle at calc(var(--cut-tl, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, 0px) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, 0px) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, 0px) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, 0px) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(220 226 235 / 0.34) 50%, rgb(220 226 235 / 0.34) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.7) 50%, rgb(0 0 0 / 0.7) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
   @media (prefers-reduced-transparency: reduce) {
-    background-color: #090d15;
+    background-color: #111418;
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    background-color: #090d15;
+    background-color: #111418;
   }
 }
 
-@utility glass-popover {
-  background-color: var(--color-surface-3);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  backdrop-filter: blur(16px) saturate(1.4);
+/* glass-window: legacy name, renders armor-window (keep in sync). */
+@utility glass-window {
+  background-color: var(--color-surface);
+  background-image:
+    radial-gradient(circle at calc(var(--cut-tl, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, 0px) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, 0px) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, 0px) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, 0px) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(220 226 235 / 0.34) 50%, rgb(220 226 235 / 0.34) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.7) 50%, rgb(0 0 0 / 0.7) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen),
+    var(--armor-brush);
+  background-size:
+    100% 100%, 100% 100%, 100% 100%, 100% 100%,
+    var(--cut-tl, var(--cut, 14px)) var(--cut-tl, var(--cut, 14px)), var(--cut-tr, 0px) var(--cut-tr, 0px), var(--cut-br, var(--cut, 14px)) var(--cut-br, var(--cut, 14px)), var(--cut-bl, 0px) var(--cut-bl, 0px),
+    100% 100%, 256px 256px;
+  background-position:
+    0 0, 0 0, 0 0, 0 0,
+    left top, right top, right bottom, left bottom,
+    0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-origin: border-box;
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  backdrop-filter: blur(12px) saturate(1.15);
   border-width: 1px;
   border-style: solid;
-  border-color: var(--color-line-strong);
-  --tw-inset-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.05);
+  border-color: rgb(190 200 215 / 0.24) rgb(0 0 0 / 0.55) rgb(0 0 0 / 0.65) rgb(190 200 215 / 0.15);
+  clip-path: polygon(
+    var(--cut-tl, var(--cut, 14px)) 0,
+    calc(100% - var(--cut-tr, 0px)) 0,
+    100% var(--cut-tr, 0px),
+    100% calc(100% - var(--cut-br, var(--cut, 14px))),
+    calc(100% - var(--cut-br, var(--cut, 14px))) 100%,
+    var(--cut-bl, 0px) 100%,
+    0 calc(100% - var(--cut-bl, 0px)),
+    0 var(--cut-tl, var(--cut, 14px))
+  );
+  --focus-offset: -2px;
+  --tw-inset-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.09), inset 1px 0 0 0 rgb(255 255 255 / 0.035), inset 0 -1px 0 0 rgb(0 0 0 / 0.55), inset -1px 0 0 0 rgb(0 0 0 / 0.3);
+  --tw-shadow: var(--shadow-e3);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+
+  &:where([data-lite-mode] *) {
+    background-color: #111418;
+    background-image:
+      radial-gradient(circle at calc(var(--cut-tl, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, 0px) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, 0px) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 14px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, 0px) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, 0px) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(220 226 235 / 0.34) 50%, rgb(220 226 235 / 0.34) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.7) 50%, rgb(0 0 0 / 0.7) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: #111418;
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background-color: #111418;
+  }
+}
+
+/* armor-popover: menus, popovers, tooltips, palette, toasts. Near-opaque
+   steel, 6px cuts on all four corners, e2 elevation. */
+@utility armor-popover {
+  background-color: rgb(16 19 23 / 0.97);
+  background-image:
+    radial-gradient(circle at calc(var(--cut-tl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(220 226 235 / 0.32) 50%, rgb(220 226 235 / 0.32) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.7) 50%, rgb(0 0 0 / 0.7) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen),
+    var(--armor-brush);
+  background-size:
+    100% 100%, 100% 100%, 100% 100%, 100% 100%,
+    var(--cut-tl, var(--cut, 6px)) var(--cut-tl, var(--cut, 6px)), var(--cut-tr, var(--cut, 6px)) var(--cut-tr, var(--cut, 6px)), var(--cut-br, var(--cut, 6px)) var(--cut-br, var(--cut, 6px)), var(--cut-bl, var(--cut, 6px)) var(--cut-bl, var(--cut, 6px)),
+    100% 100%, 256px 256px;
+  background-position:
+    0 0, 0 0, 0 0, 0 0,
+    left top, right top, right bottom, left bottom,
+    0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-origin: border-box;
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  backdrop-filter: blur(12px) saturate(1.15);
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgb(190 200 215 / 0.26) rgb(0 0 0 / 0.5) rgb(0 0 0 / 0.6) rgb(190 200 215 / 0.16);
+  clip-path: polygon(
+    var(--cut-tl, var(--cut, 6px)) 0,
+    calc(100% - var(--cut-tr, var(--cut, 6px))) 0,
+    100% var(--cut-tr, var(--cut, 6px)),
+    100% calc(100% - var(--cut-br, var(--cut, 6px))),
+    calc(100% - var(--cut-br, var(--cut, 6px))) 100%,
+    var(--cut-bl, var(--cut, 6px)) 100%,
+    0 calc(100% - var(--cut-bl, var(--cut, 6px))),
+    0 var(--cut-tl, var(--cut, 6px))
+  );
+  --focus-offset: -2px;
+  --tw-inset-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.1), inset 1px 0 0 0 rgb(255 255 255 / 0.035), inset 0 -1px 0 0 rgb(0 0 0 / 0.55), inset -1px 0 0 0 rgb(0 0 0 / 0.3);
   --tw-shadow: var(--shadow-e2);
   box-shadow:
     var(--tw-inset-shadow), var(--tw-inset-ring-shadow, 0 0 #0000),
     var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 
   &:where([data-lite-mode] *) {
-    background-color: #0d121c;
+    background-color: #101317;
+    background-image:
+      radial-gradient(circle at calc(var(--cut-tl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(220 226 235 / 0.32) 50%, rgb(220 226 235 / 0.32) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.7) 50%, rgb(0 0 0 / 0.7) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
   @media (prefers-reduced-transparency: reduce) {
-    background-color: #0d121c;
+    background-color: #101317;
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    background-color: #0d121c;
+    background-color: #101317;
   }
 }
 
-@utility glass-panel {
-  background-color: var(--color-surface-2);
+/* glass-popover: legacy name, renders armor-popover (keep in sync). */
+@utility glass-popover {
+  background-color: rgb(16 19 23 / 0.97);
+  background-image:
+    radial-gradient(circle at calc(var(--cut-tl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(220 226 235 / 0.32) 50%, rgb(220 226 235 / 0.32) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.7) 50%, rgb(0 0 0 / 0.7) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen),
+    var(--armor-brush);
+  background-size:
+    100% 100%, 100% 100%, 100% 100%, 100% 100%,
+    var(--cut-tl, var(--cut, 6px)) var(--cut-tl, var(--cut, 6px)), var(--cut-tr, var(--cut, 6px)) var(--cut-tr, var(--cut, 6px)), var(--cut-br, var(--cut, 6px)) var(--cut-br, var(--cut, 6px)), var(--cut-bl, var(--cut, 6px)) var(--cut-bl, var(--cut, 6px)),
+    100% 100%, 256px 256px;
+  background-position:
+    0 0, 0 0, 0 0, 0 0,
+    left top, right top, right bottom, left bottom,
+    0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-origin: border-box;
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  backdrop-filter: blur(12px) saturate(1.15);
   border-width: 1px;
   border-style: solid;
-  border-color: var(--color-line);
-  --tw-inset-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.03);
+  border-color: rgb(190 200 215 / 0.26) rgb(0 0 0 / 0.5) rgb(0 0 0 / 0.6) rgb(190 200 215 / 0.16);
+  clip-path: polygon(
+    var(--cut-tl, var(--cut, 6px)) 0,
+    calc(100% - var(--cut-tr, var(--cut, 6px))) 0,
+    100% var(--cut-tr, var(--cut, 6px)),
+    100% calc(100% - var(--cut-br, var(--cut, 6px))),
+    calc(100% - var(--cut-br, var(--cut, 6px))) 100%,
+    var(--cut-bl, var(--cut, 6px)) 100%,
+    0 calc(100% - var(--cut-bl, var(--cut, 6px))),
+    0 var(--cut-tl, var(--cut, 6px))
+  );
+  --focus-offset: -2px;
+  --tw-inset-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.1), inset 1px 0 0 0 rgb(255 255 255 / 0.035), inset 0 -1px 0 0 rgb(0 0 0 / 0.55), inset -1px 0 0 0 rgb(0 0 0 / 0.3);
+  --tw-shadow: var(--shadow-e2);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+
+  &:where([data-lite-mode] *) {
+    background-color: #101317;
+    background-image:
+      radial-gradient(circle at calc(var(--cut-tl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(220 226 235 / 0.32) 50%, rgb(220 226 235 / 0.32) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.7) 50%, rgb(0 0 0 / 0.7) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: #101317;
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background-color: #101317;
+  }
+}
+
+/* armor-panel: a plate bolted inside a window (cards, sections). No blur;
+   8px cuts on all four corners; a lighter steel than the window. */
+@utility armor-panel {
+  background-color: rgb(34 40 48 / 0.5);
+  background-image:
+    radial-gradient(circle at calc(var(--cut-tl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(210 218 230 / 0.2) 50%, rgb(210 218 230 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(150 160 175 / 0.12) 50%, rgb(150 160 175 / 0.12) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.55) 50%, rgb(0 0 0 / 0.55) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(150 160 175 / 0.12) 50%, rgb(150 160 175 / 0.12) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen),
+    var(--armor-brush);
+  background-size:
+    100% 100%, 100% 100%, 100% 100%, 100% 100%,
+    var(--cut-tl, var(--cut, 8px)) var(--cut-tl, var(--cut, 8px)), var(--cut-tr, var(--cut, 8px)) var(--cut-tr, var(--cut, 8px)), var(--cut-br, var(--cut, 8px)) var(--cut-br, var(--cut, 8px)), var(--cut-bl, var(--cut, 8px)) var(--cut-bl, var(--cut, 8px)),
+    100% 100%, 256px 256px;
+  background-position:
+    0 0, 0 0, 0 0, 0 0,
+    left top, right top, right bottom, left bottom,
+    0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-origin: border-box;
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgb(180 190 205 / 0.13) rgb(0 0 0 / 0.35) rgb(0 0 0 / 0.45) rgb(180 190 205 / 0.09);
+  clip-path: polygon(
+    var(--cut-tl, var(--cut, 8px)) 0,
+    calc(100% - var(--cut-tr, var(--cut, 8px))) 0,
+    100% var(--cut-tr, var(--cut, 8px)),
+    100% calc(100% - var(--cut-br, var(--cut, 8px))),
+    calc(100% - var(--cut-br, var(--cut, 8px))) 100%,
+    var(--cut-bl, var(--cut, 8px)) 100%,
+    0 calc(100% - var(--cut-bl, var(--cut, 8px))),
+    0 var(--cut-tl, var(--cut, 8px))
+  );
+  --focus-offset: -2px;
+  --tw-inset-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.06), inset 1px 0 0 0 rgb(255 255 255 / 0.02), inset 0 -1px 0 0 rgb(0 0 0 / 0.4), inset -1px 0 0 0 rgb(0 0 0 / 0.2);
   --tw-shadow: var(--shadow-e1);
   box-shadow:
     var(--tw-inset-shadow), var(--tw-inset-ring-shadow, 0 0 #0000),
     var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+
+  &:where([data-lite-mode] *) {
+    background-color: #181c22;
+    background-image:
+      radial-gradient(circle at calc(var(--cut-tl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(210 218 230 / 0.2) 50%, rgb(210 218 230 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(150 160 175 / 0.12) 50%, rgb(150 160 175 / 0.12) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.55) 50%, rgb(0 0 0 / 0.55) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(150 160 175 / 0.12) 50%, rgb(150 160 175 / 0.12) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: #181c22;
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background-color: #181c22;
+  }
+}
+
+/* glass-panel: legacy name, renders armor-panel (keep in sync). */
+@utility glass-panel {
+  background-color: rgb(34 40 48 / 0.5);
+  background-image:
+    radial-gradient(circle at calc(var(--cut-tl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(210 218 230 / 0.2) 50%, rgb(210 218 230 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(150 160 175 / 0.12) 50%, rgb(150 160 175 / 0.12) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.55) 50%, rgb(0 0 0 / 0.55) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(150 160 175 / 0.12) 50%, rgb(150 160 175 / 0.12) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen),
+    var(--armor-brush);
+  background-size:
+    100% 100%, 100% 100%, 100% 100%, 100% 100%,
+    var(--cut-tl, var(--cut, 8px)) var(--cut-tl, var(--cut, 8px)), var(--cut-tr, var(--cut, 8px)) var(--cut-tr, var(--cut, 8px)), var(--cut-br, var(--cut, 8px)) var(--cut-br, var(--cut, 8px)), var(--cut-bl, var(--cut, 8px)) var(--cut-bl, var(--cut, 8px)),
+    100% 100%, 256px 256px;
+  background-position:
+    0 0, 0 0, 0 0, 0 0,
+    left top, right top, right bottom, left bottom,
+    0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-origin: border-box;
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgb(180 190 205 / 0.13) rgb(0 0 0 / 0.35) rgb(0 0 0 / 0.45) rgb(180 190 205 / 0.09);
+  clip-path: polygon(
+    var(--cut-tl, var(--cut, 8px)) 0,
+    calc(100% - var(--cut-tr, var(--cut, 8px))) 0,
+    100% var(--cut-tr, var(--cut, 8px)),
+    100% calc(100% - var(--cut-br, var(--cut, 8px))),
+    calc(100% - var(--cut-br, var(--cut, 8px))) 100%,
+    var(--cut-bl, var(--cut, 8px)) 100%,
+    0 calc(100% - var(--cut-bl, var(--cut, 8px))),
+    0 var(--cut-tl, var(--cut, 8px))
+  );
+  --focus-offset: -2px;
+  --tw-inset-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.06), inset 1px 0 0 0 rgb(255 255 255 / 0.02), inset 0 -1px 0 0 rgb(0 0 0 / 0.4), inset -1px 0 0 0 rgb(0 0 0 / 0.2);
+  --tw-shadow: var(--shadow-e1);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+
+  &:where([data-lite-mode] *) {
+    background-color: #181c22;
+    background-image:
+      radial-gradient(circle at calc(var(--cut-tl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, var(--cut, 8px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(210 218 230 / 0.2) 50%, rgb(210 218 230 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(150 160 175 / 0.12) 50%, rgb(150 160 175 / 0.12) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.55) 50%, rgb(0 0 0 / 0.55) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(150 160 175 / 0.12) 50%, rgb(150 160 175 / 0.12) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: #181c22;
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background-color: #181c22;
+  }
+}
+
+/* armor-plate: small raised plate for buttons, inputs, chips, tabs.
+   steel-700 with a strong bevel, 6px cuts. bg-* recolors it (the sheen
+   and texture are translucent overlays on the background color). */
+@utility armor-plate {
+  background-color: var(--color-steel-700);
+  background-image:
+    radial-gradient(circle at calc(var(--cut-tl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(230 235 242 / 0.35) 50%, rgb(230 235 242 / 0.35) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.7) 50%, rgb(0 0 0 / 0.7) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen-plate),
+    var(--armor-brush);
+  background-size:
+    100% 100%, 100% 100%, 100% 100%, 100% 100%,
+    var(--cut-tl, var(--cut, 6px)) var(--cut-tl, var(--cut, 6px)), var(--cut-tr, var(--cut, 6px)) var(--cut-tr, var(--cut, 6px)), var(--cut-br, var(--cut, 6px)) var(--cut-br, var(--cut, 6px)), var(--cut-bl, var(--cut, 6px)) var(--cut-bl, var(--cut, 6px)),
+    100% 100%, 256px 256px;
+  background-position:
+    0 0, 0 0, 0 0, 0 0,
+    left top, right top, right bottom, left bottom,
+    0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-origin: border-box;
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgb(190 200 215 / 0.22) rgb(0 0 0 / 0.5) rgb(0 0 0 / 0.6) rgb(190 200 215 / 0.14);
+  clip-path: polygon(
+    var(--cut-tl, var(--cut, 6px)) 0,
+    calc(100% - var(--cut-tr, var(--cut, 6px))) 0,
+    100% var(--cut-tr, var(--cut, 6px)),
+    100% calc(100% - var(--cut-br, var(--cut, 6px))),
+    calc(100% - var(--cut-br, var(--cut, 6px))) 100%,
+    var(--cut-bl, var(--cut, 6px)) 100%,
+    0 calc(100% - var(--cut-bl, var(--cut, 6px))),
+    0 var(--cut-tl, var(--cut, 6px))
+  );
+  --focus-offset: -2px;
+  --tw-inset-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.14), inset 1px 0 0 0 rgb(255 255 255 / 0.05), inset 0 -1px 0 0 rgb(0 0 0 / 0.6), inset -1px 0 0 0 rgb(0 0 0 / 0.35);
+  --tw-shadow: var(--shadow-e1);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+
+  &:where([data-lite-mode] *) {
+    background-color: var(--color-steel-700);
+    background-image:
+      radial-gradient(circle at calc(var(--cut-tl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)) calc(var(--cut-tl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-tr, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))) calc(var(--cut-tr, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - calc(var(--cut-br, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))) calc(100% - calc(var(--cut-br, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    radial-gradient(circle at calc(var(--cut-bl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px)) calc(100% - calc(var(--cut-bl, var(--cut, 6px)) * 0.5 + var(--rivet-inset, 6px))), var(--rivet-hi) 0 0.7px, var(--rivet-body) 1.3px 1.9px, var(--rivet-lo) 2.5px, transparent 3.1px),
+    linear-gradient(to bottom right, transparent 50%, rgb(230 235 242 / 0.35) 50%, rgb(230 235 242 / 0.35) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to bottom left, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top left, transparent 50%, rgb(0 0 0 / 0.7) 50%, rgb(0 0 0 / 0.7) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent 50%, rgb(160 170 185 / 0.2) 50%, rgb(160 170 185 / 0.2) calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    var(--armor-sheen-plate);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--color-steel-700);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background-color: var(--color-steel-700);
+  }
+}
+
+/* bevel: raised-metal edge as inset shadows (light top/left, dark
+   bottom/right), so it survives clip-path. Composes with shadow-*. */
+@utility bevel {
+  --tw-inset-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.12), inset 1px 0 0 0 rgb(255 255 255 / 0.045),
+    inset 0 -1px 0 0 rgb(0 0 0 / 0.6), inset -1px 0 0 0 rgb(0 0 0 / 0.32);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow, 0 0 #0000);
+}
+
+/* engraved: text cut into the plate (dark lip above, light lip below).
+   Pair with font-display uppercase tracking-[0.18em] for labels. */
+@utility engraved {
+  text-shadow:
+    0 -1px 0 rgb(0 0 0 / 0.75),
+    0 1px 0 rgb(255 255 255 / 0.07);
+}
+
+/* rivets: four bolt heads just inside the plate's corners (they step in
+   past chamfer cuts). Paints through the armor-* / glass-* materials'
+   rivet layers, so it needs one of those on the same element. Tune the
+   distance with [--rivet-inset:8px]. */
+@utility rivets {
+  --rivet-hi: rgb(255 244 232 / 0.6);
+  --rivet-body: #535c68;
+  --rivet-lo: rgb(0 0 0 / 0.75);
+}
+
+/* brushed: the brushed-steel sheen + fine streak texture on any surface
+   (armor-* materials already have it). Texture drops in lite mode. */
+@utility brushed {
+  background-image: var(--armor-sheen), var(--armor-brush);
+  background-size: 100% 100%, 256px 256px;
+  background-repeat: no-repeat, repeat;
+
+  &:where([data-lite-mode] *) {
+    background-image: var(--armor-sheen);
+  }
+}
+
+/* forge-heat: progress fill heating from cooling iron through ember to a
+   white-hot tip (the gradient scales with the fill, so the tip is always
+   the leading edge). */
+@utility forge-heat {
+  background-color: var(--color-ember-600);
+  background-image: linear-gradient(
+    90deg,
+    var(--color-ember-800) 0%,
+    var(--color-ember-700) 22%,
+    var(--color-ember-600) 45%,
+    var(--color-ember-500) 64%,
+    var(--color-ember-400) 80%,
+    var(--color-ember-300) 92%,
+    var(--color-ember-100) 100%
+  );
+}
+
+/* ember-edge: a molten edge for focus / active / selected plates: an
+   ember hairline, a white-hot bottom seam and heat rising from it.
+   Inset, so it survives chamfer clipping. Use as-is or with variants
+   (focus-visible:ember-edge, data-[active=true]:ember-edge). */
+@utility ember-edge {
+  border-color: var(--color-ember-500);
+  --tw-inset-ring-shadow:
+    inset 0 0 0 1px rgb(255 138 61 / 0.5), inset 0 -2px 0 0 var(--color-ember-300),
+    inset 0 -14px 16px -12px rgb(247 107 21 / 0.55);
+  box-shadow:
+    var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow, 0 0 #0000);
+}
+
+/* notch: a tab hanging from an edge (header tags, window title plates):
+   full width on top, cut in by --notch (6px) at both bottom corners. */
+@utility notch {
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    calc(100% - var(--notch, 6px)) 100%,
+    var(--notch, 6px) 100%
+  );
+}
+
+/* armor-drop: the drop shadow a clipped plate can't cast itself (clip-path
+   eats outer box-shadows). Put it on the unclipped parent of a
+   chamfered window / sheet. Off in lite mode. */
+@utility armor-drop {
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.45)) drop-shadow(0 18px 28px rgb(0 0 0 / 0.5));
+
+  &:where([data-lite-mode] *) {
+    filter: none;
+  }
 }
 
 /* HUD label: 11px mono, uppercase, tracked; fg-subtle unless recolored */
@@ -407,11 +1121,12 @@
   background-repeat: no-repeat;
 }
 
-/* Keyboard focus: 2px accent ring, 2px offset (only on :focus-visible) */
+/* Keyboard focus: 2px accent (ember) ring, 2px offset (only on :focus-visible) */
 @utility focus-ring {
   &:focus-visible {
     outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    /* -2px (inside) on chamfered parts: clip-path eats an outside ring */
+    outline-offset: var(--focus-offset, 2px);
   }
 }
 
@@ -444,7 +1159,7 @@
     background-color: rgb(148 170 205 / 0.22);
     background-clip: padding-box;
     border: 2px solid transparent;
-    border-radius: 9999px;
+    border-radius: 1px;
   }
   &::-webkit-scrollbar-thumb:hover {
     background-color: rgb(148 170 205 / 0.36);
@@ -520,7 +1235,7 @@
     background-color: rgb(148 170 205 / 0.2);
     background-clip: padding-box;
     border: 3px solid transparent;
-    border-radius: 9999px;
+    border-radius: 1px;
   }
   ::-webkit-scrollbar-thumb:hover {
     background-color: rgb(148 170 205 / 0.34);
@@ -529,7 +1244,7 @@
   /* Default keyboard focus ring. Components may restyle it, never remove it. */
   :where(:focus-visible) {
     outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline-offset: var(--focus-offset, 2px);
   }
   /* Text fields: ring hugs the field */
   :where(

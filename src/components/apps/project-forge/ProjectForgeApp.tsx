@@ -53,7 +53,7 @@ function TimerPill({ project, startedAt, onOpen, onStop }: TimerPillProps) {
   return (
     <div
       title={`Timer running${project ? ` on ${project.name}` : ''}`}
-      className="flex h-8 items-center gap-2 rounded-full border border-ember-500/30 bg-ember-500/[0.08] pl-3 pr-1"
+      className="armor-plate chamfer-sm ember-edge flex h-8 items-center gap-2 bg-ember-800/45 pl-3 pr-1"
     >
       <span
         aria-hidden
@@ -63,7 +63,7 @@ function TimerPill({ project, startedAt, onOpen, onStop }: TimerPillProps) {
         type="button"
         onClick={() => project && onOpen(project.id)}
         title={project ? `Open ${project.name}` : undefined}
-        className="focus-ring hidden max-w-[140px] truncate rounded-[4px] text-ui font-medium text-fg transition-colors duration-120 hover:text-ember-300 @3xl:inline"
+        className="focus-ring hidden max-w-[140px] truncate text-ui font-medium text-fg transition-colors duration-120 hover:text-ember-300 @3xl:inline"
       >
         {project?.name ?? 'Timer'}
       </button>
@@ -74,7 +74,6 @@ function TimerPill({ project, startedAt, onOpen, onStop }: TimerPillProps) {
         aria-label="Stop timer and log the session"
         tooltip="Stop and log"
         onClick={onStop}
-        className="rounded-full"
       />
     </div>
   );

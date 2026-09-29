@@ -59,7 +59,7 @@ function renderDonutTooltip({ active, payload }: ChartTooltipProps): ReactNode {
   const datum = payload?.[0]?.payload as DonutDatum | undefined;
   if (!active || !datum) return null;
   return (
-    <div className="glass-popover rounded-control px-3 py-2 text-xs">
+    <div className="armor-popover px-3 py-2 text-xs">
       <p className="flex items-center gap-2 font-medium text-fg">
         <span className="size-2 shrink-0 rounded-full" style={{ background: datum.fill }} />
         {datum.label}
@@ -204,6 +204,15 @@ function BudgetChartInner({ className, expenses, budget, monthName, selected, on
         {/* Donut (inner: categories, outer ring: share of the monthly budget used) */}
         <div className="flex shrink-0 flex-col items-center gap-2">
           <div className="relative size-52 shrink-0">
+            {/* Forged gauge bezel: etched ticks on the outer rim, a sunk hub in the middle */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 rounded-full bg-[repeating-conic-gradient(rgb(200_210_225/0.22)_0_0.8deg,transparent_0.8deg_7.5deg)] [mask-image:radial-gradient(closest-side,transparent_96%,black_97%)]"
+            />
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-[20%] rounded-full bg-linear-to-b from-steel-950 to-steel-900 shadow-[inset_0_2px_6px_rgb(0_0_0/0.7),inset_0_-1px_0_rgb(255_255_255/0.06),0_0_0_1px_rgb(0_0_0/0.45)]"
+            />
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Tooltip content={renderDonutTooltip} wrapperStyle={{ zIndex: 5 }} />
@@ -215,7 +224,6 @@ function BudgetChartInner({ className, expenses, budget, monthName, selected, on
                   outerRadius="94%"
                   startAngle={90}
                   endAngle={-270}
-                  cornerRadius={4}
                   stroke="none"
                   isAnimationActive={false}
                 />
@@ -229,7 +237,6 @@ function BudgetChartInner({ className, expenses, budget, monthName, selected, on
                     startAngle={90}
                     endAngle={-270}
                     paddingAngle={categoryData.length > 1 ? 2 : 0}
-                    cornerRadius={4}
                     stroke="none"
                     animationDuration={500}
                     className="cursor-pointer outline-none"
@@ -243,7 +250,7 @@ function BudgetChartInner({ className, expenses, budget, monthName, selected, on
             </ResponsiveContainer>
             {/* Centre label */}
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-              <span className="hud-label">Spent</span>
+              <span className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Spent</span>
               <span className="tabular mt-1 font-display text-lg font-semibold leading-6 text-fg">
                 {spent >= 1_000_000 ? formatINRCompact(spent) : formatINR(spent, 'never')}
               </span>
@@ -251,7 +258,7 @@ function BudgetChartInner({ className, expenses, budget, monthName, selected, on
             </div>
           </div>
           <p className="flex items-center gap-1.5 text-xs text-fg-subtle">
-            <span className="h-1.5 w-3 rounded-full" style={{ background: ringColor(usedPct) }} />
+            <span className="h-1.5 w-3" style={{ background: ringColor(usedPct) }} />
             Outer ring: <span className="tabular font-mono text-fg-muted">{Math.round(usedPct)}%</span> of the budget
           </p>
         </div>
@@ -277,8 +284,8 @@ function BudgetChartInner({ className, expenses, budget, monthName, selected, on
                       onClick={() => toggle(r.id)}
                       aria-pressed={active}
                       className={cn(
-                        'focus-ring w-full rounded-control px-2.5 py-2 text-left transition-[background-color,opacity] duration-120 ease-out-quint',
-                        active ? 'bg-surface-active ring-1 ring-inset ring-line-strong' : 'hover:bg-surface-hover',
+                        'focus-ring chamfer-sm w-full px-2.5 py-2 text-left transition-[background-color,opacity] duration-120 ease-out-quint',
+                        active ? 'ember-edge bg-accent/[0.07]' : 'hover:bg-surface-hover',
                         dimmed && 'opacity-50 hover:opacity-100'
                       )}
                     >
@@ -290,9 +297,9 @@ function BudgetChartInner({ className, expenses, budget, monthName, selected, on
                           {Math.round(r.percent)}%
                         </span>
                       </span>
-                      <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-ink-600/60">
+                      <span className="mt-1.5 block h-1 overflow-hidden bg-steel-950 shadow-[inset_0_1px_0_rgb(0_0_0/0.6)]">
                         <span
-                          className="block h-full rounded-full"
+                          className="block h-full"
                           style={{ width: `${r.percent}%`, background: r.color }}
                         />
                       </span>

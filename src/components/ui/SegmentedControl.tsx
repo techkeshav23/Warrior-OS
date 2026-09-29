@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — SegmentedControl (FORGE HUD kit)
-// 2–5 mutually exclusive options in one inset track (view modes, ranges).
+// WARRIOR OS — SegmentedControl (FORGED ARMOR kit)
+// 2–5 mutually exclusive options in one sunk steel slot; the chosen plate is raised with a heated edge (view modes, ranges).
 // Arrow keys move the selection (radiogroup pattern).
 //   <SegmentedControl aria-label="Range" value={range} onChange={setRange}
 //     options={[{ value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }]} />
@@ -64,7 +64,7 @@ export function SegmentedControl<T extends string = string>({
       aria-label={aria['aria-label']}
       onKeyDown={move}
       className={cn(
-        'inline-flex items-stretch gap-0.5 rounded-control border border-line bg-ink-950/60 p-0.5',
+        'inline-flex items-stretch gap-0.5 chamfer [--cut:6px] bg-linear-to-b from-[#05070a] to-[#10141a] p-0.5 shadow-[inset_0_1px_0_rgb(0_0_0/0.8),inset_0_2px_5px_rgb(0_0_0/0.45),inset_0_-1px_0_rgb(255_255_255/0.08)]',
         size === 'sm' ? 'h-7' : 'h-8',
         fullWidth && 'flex w-full',
         className
@@ -83,16 +83,16 @@ export function SegmentedControl<T extends string = string>({
             disabled={o.disabled}
             onClick={() => onChange(o.value)}
             className={cn(
-              'focus-ring inline-flex min-w-0 items-center justify-center gap-1.5 rounded-[6px] font-medium',
+              'focus-ring-inset relative inline-flex min-w-0 items-center justify-center gap-1.5 chamfer [--cut:4px] font-display font-semibold uppercase tracking-[0.08em]',
               'transition-[background-color,color,box-shadow] duration-120 ease-out-quint disabled:opacity-40',
-              size === 'sm' ? 'px-2 text-xs' : 'px-3 text-ui',
+              size === 'sm' ? 'px-2 text-[11px]' : 'px-3 text-xs',
               fullWidth && 'flex-1',
               selected
-                ? 'bg-surface-active text-fg shadow-e1 inset-shadow-[0_1px_0_rgb(255_255_255/0.06)]'
-                : 'text-fg-muted hover:bg-surface-hover hover:text-fg'
+                ? 'bg-linear-to-b from-[#343c47] to-[#1b2027] text-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.16),inset_0_-2px_0_var(--color-ember-400,#ff8a3d)]'
+                : 'text-fg-subtle hover:bg-white/[0.04] hover:text-fg'
             )}
           >
-            {renderIcon(o.icon, size === 'sm' ? 14 : 16, selected ? 'text-accent' : undefined)}
+            {renderIcon(o.icon, size === 'sm' ? 14 : 16, selected ? 'text-ember-400' : undefined)}
             {o.label != null && <span className="truncate">{o.label}</span>}
           </button>
         );

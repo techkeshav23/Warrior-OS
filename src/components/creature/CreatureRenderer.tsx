@@ -471,7 +471,7 @@ function CreatureRendererInner({ vitals, onClick }: CreatureRendererProps) {
       title={title}
       aria-label={title}
       className={cn(
-        'group relative block overflow-visible rounded-full origin-bottom',
+        'group relative block overflow-visible origin-bottom',
         'transition-transform duration-180 ease-out-quint hover:scale-110 active:scale-95',
         'focus-ring motion-reduce:hover:scale-100'
       )}

@@ -9,7 +9,7 @@
 
 import { memo, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LayoutDashboard, Trophy, type LucideIcon } from 'lucide-react';
+import { ChevronsUp, LayoutDashboard, Trophy, type LucideIcon } from 'lucide-react';
 import { AppHeader, Avatar, Badge, SectionHeader, Tabs } from '@/components/ui';
 import { OWNER } from '@/config/owner';
 import { getVisitorMode } from '@/lib/visitor';
@@ -74,6 +74,21 @@ function OverviewTab({ onOpenAchievements }: { onOpenAchievements: () => void })
   );
 }
 
+/** Rank plate in the header: a gold-edged cut tag with chevrons and the rank name. */
+function RankPlate({ level }: { level: number }) {
+  return (
+    <span
+      className="chamfer-sm flex h-8 items-center gap-2 bg-linear-to-b from-steel-700 to-steel-850 pl-2 pr-3 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--color-gold)_45%,transparent),inset_0_-2px_0_color-mix(in_oklab,var(--color-gold)_70%,transparent)]"
+      title={`Rank: ${levelTitle(level)} (level ${level})`}
+    >
+      <ChevronsUp size={16} strokeWidth={2} className="text-gold" aria-hidden />
+      <span className="engraved font-display text-xs font-semibold uppercase tracking-[0.14em] text-gold">
+        {levelTitle(level)}
+      </span>
+    </span>
+  );
+}
+
 function StatsCenterAppInner() {
   const [activeTab, setActiveTab] = useState<StatsTab>('overview');
   const [visitor] = useState(getVisitorMode);
@@ -91,7 +106,16 @@ function StatsCenterAppInner() {
             Level {level} · {levelTitle(level)} · @{OWNER.handle}
           </>
         }
-        actions={visitor === 'guest' ? <Badge tone="neutral" variant="outline" size="sm">Guest session</Badge> : undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            {visitor === 'guest' && (
+              <Badge tone="neutral" variant="outline" size="sm">
+                Guest session
+              </Badge>
+            )}
+            <RankPlate level={level} />
+          </div>
+        }
         tabs={
           <Tabs
             value={activeTab}

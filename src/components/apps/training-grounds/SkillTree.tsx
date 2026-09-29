@@ -397,7 +397,7 @@ function DeckConstellation({ map, active, setActive, onOpen }: DeckConstellation
       {tip && (
         <div
           role="tooltip"
-          className="glass-popover pointer-events-none absolute z-10 w-60 animate-scale-in rounded-control px-3 py-2.5 text-xs"
+          className="armor-popover chamfer-sm pointer-events-none absolute z-10 w-60 animate-scale-in px-3 py-2.5 text-xs [--cut-tr:0px] [--cut-bl:0px]"
           style={{
             left: `${tipX}%`,
             top: tipBelow ? `${((tip.y + tip.r + 12) / height) * 100}%` : undefined,
@@ -405,14 +405,14 @@ function DeckConstellation({ map, active, setActive, onOpen }: DeckConstellation
             transform: `translateX(${tipShift})`,
           }}
         >
-          <p className="hud-label truncate">{tipStats.title}</p>
+          <p className="engraved truncate font-display text-2xs font-semibold uppercase tracking-[0.16em] text-fg-subtle">{tipStats.title}</p>
           <p className="mt-1.5 flex items-baseline gap-2">
-            <span className="font-mono text-base font-semibold text-fg tabular">{toPercent(tipStats.mastery.value)}%</span>
+            <span className="font-display text-lg font-semibold leading-none text-fg tabular">{toPercent(tipStats.mastery.value)}%</span>
             <span className="text-fg-muted">mastery</span>
           </p>
-          <div className="mt-2 h-1 overflow-hidden rounded-full bg-ink-600/70">
+          <div className="mt-2 h-1.5 overflow-hidden bg-steel-950 shadow-[inset_0_1px_0_rgb(0_0_0/0.7)]">
             <div
-              className="h-full rounded-full"
+              className="h-full"
               style={{ width: `${Math.max(2, toPercent(tipStats.mastery.value))}%`, background: masteryColor(tipStats.mastery.value) }}
             />
           </div>
@@ -555,11 +555,11 @@ function SkillTreeInner({ onStart }: SkillTreeProps) {
       {maps.length > 0 && view === 'map' && (
         <>
           {/* Legend */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-fg-muted">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 chamfer-sm bg-steel-950/55 bevel px-3.5 py-2 text-xs text-fg-muted [--cut-tr:0px] [--cut-bl:0px]">
             <span className="flex items-center gap-2">
-              <span className="hud-label">Mastery</span>
+              <span className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Mastery</span>
               <span className="font-mono text-2xs text-fg-subtle">0%</span>
-              <span aria-hidden className="h-1.5 w-24 rounded-full" style={{ background: MASTERY_GRADIENT }} />
+              <span aria-hidden className="h-1.5 w-24 chamfer-xs [--cut:2px]" style={{ background: MASTERY_GRADIENT }} />
               <span className="font-mono text-2xs text-fg-subtle">100%</span>
             </span>
             <span className="flex items-center gap-1.5">
@@ -602,7 +602,7 @@ function SkillTreeInner({ onStart }: SkillTreeProps) {
                   }
                   description={deckMeta(map)}
                   actions={deckActions(map)}
-                  bodyClassName="overflow-hidden rounded-b-card border-t border-line bg-ink-950/40"
+                  bodyClassName="overflow-hidden border-t border-black/50 bg-steel-950/70 shadow-[inset_0_1px_0_rgb(255_255_255/0.04),inset_0_8px_18px_-8px_rgb(0_0_0/0.7)]"
                 >
                   {map.nodes.length === 0 ? (
                     <EmptyState size="sm" icon={Orbit} title="No topics yet" description="Add a topic to this deck to chart it." />
@@ -641,11 +641,11 @@ function SkillTreeInner({ onStart }: SkillTreeProps) {
                   <table className="w-full min-w-[30rem] text-ui">
                     <thead>
                       <tr className="border-b border-line text-left">
-                        <th className="hud-label px-4 py-2 font-medium">Topic</th>
-                        <th className="hud-label px-2 py-2 font-medium">Mastery</th>
-                        <th className="hud-label px-2 py-2 text-right font-medium">Cards</th>
-                        <th className="hud-label px-2 py-2 text-right font-medium">Mastered</th>
-                        <th className="hud-label px-2 py-2 text-right font-medium">Due</th>
+                        <th className="engraved font-display text-2xs uppercase tracking-[0.16em] text-fg-subtle px-4 py-2 font-medium">Topic</th>
+                        <th className="engraved font-display text-2xs uppercase tracking-[0.16em] text-fg-subtle px-2 py-2 font-medium">Mastery</th>
+                        <th className="engraved font-display text-2xs uppercase tracking-[0.16em] text-fg-subtle px-2 py-2 text-right font-medium">Cards</th>
+                        <th className="engraved font-display text-2xs uppercase tracking-[0.16em] text-fg-subtle px-2 py-2 text-right font-medium">Mastered</th>
+                        <th className="engraved font-display text-2xs uppercase tracking-[0.16em] text-fg-subtle px-2 py-2 text-right font-medium">Due</th>
                         <th className="px-4 py-2">
                           <span className="sr-only">Actions</span>
                         </th>
@@ -659,9 +659,9 @@ function SkillTreeInner({ onStart }: SkillTreeProps) {
                           </td>
                           <td className="px-2">
                             <span className="flex items-center gap-2.5">
-                              <span className="h-1.5 w-20 overflow-hidden rounded-full bg-ink-600/70">
+                              <span className="h-1.5 w-20 overflow-hidden bg-steel-950 shadow-[inset_0_1px_0_rgb(0_0_0/0.7)]">
                                 <span
-                                  className="block h-full rounded-full"
+                                  className="block h-full"
                                   style={{
                                     width: `${Math.max(2, toPercent(node.mastery.value))}%`,
                                     backgroundColor: masteryColor(node.mastery.value),

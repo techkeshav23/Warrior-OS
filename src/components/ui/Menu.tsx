@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Menu (FORGE HUD kit)
+// WARRIOR OS — Menu (FORGED ARMOR kit)
 // Popover action menu anchored to a trigger. Portal + fixed positioning
 // (never clipped by windows), flips above when there's no room below.
 // Keyboard: ↑/↓/Home/End move, Enter/Space select, Esc/Tab close, focus
@@ -217,7 +217,7 @@ export function Menu({
             aria-label={aria['aria-label']}
             onKeyDown={onMenuKey}
             className={cn(
-              'glass-popover fixed z-[9980] max-h-[420px] overflow-y-auto rounded-card p-1 outline-none scrollbar-thin',
+              'armor-popover chamfer-md fixed z-[9980] max-h-[420px] overflow-y-auto p-1 outline-none scrollbar-thin',
               'motion-safe:animate-scale-in',
               className
             )}
@@ -230,10 +230,10 @@ export function Menu({
             }}
           >
             {items.map((item, i) => {
-              if (item.divider) return <div key={item.id} role="separator" className="-mx-1 my-1 h-px bg-line" />;
+              if (item.divider) return <div key={item.id} role="separator" className="-mx-1 my-1 h-px bg-black/60 shadow-[0_1px_0_rgb(255_255_255/0.05)]" />;
               if (item.heading)
                 return (
-                  <div key={item.id} className="hud-label px-2.5 pb-1 pt-2">
+                  <div key={item.id} className="engraved px-2.5 pb-1 pt-2 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">
                     {item.label}
                   </div>
                 );
@@ -249,10 +249,13 @@ export function Menu({
                   onMouseEnter={() => !item.disabled && setActiveIndex(i)}
                   onClick={() => choose(item)}
                   className={cn(
-                    'flex min-h-8 cursor-pointer select-none items-center gap-2.5 rounded-[6px] px-2.5 py-1.5 text-ui outline-none',
+                    'relative flex min-h-8 cursor-pointer select-none items-center gap-2.5 chamfer [--cut:4px] px-2.5 py-1.5 text-ui outline-none',
                     item.disabled && 'cursor-not-allowed opacity-40',
                     item.danger ? 'text-danger' : 'text-fg',
-                    active && (item.danger ? 'bg-danger/12' : 'bg-surface-active')
+                    active &&
+                      (item.danger
+                        ? 'bg-danger/15 shadow-[inset_2px_0_0_var(--color-danger,#ff5470)]'
+                        : 'bg-linear-to-r from-ember-500/20 to-white/[0.03] shadow-[inset_2px_0_0_var(--color-ember-400,#ff8a3d)]')
                   )}
                 >
                   {item.icon != null && (
@@ -264,7 +267,7 @@ export function Menu({
                     <span className="truncate">{item.label}</span>
                     {item.description != null && <span className="truncate text-xs text-fg-subtle">{item.description}</span>}
                   </span>
-                  {item.checked && <Check size={14} strokeWidth={2} className="shrink-0 text-accent" aria-hidden />}
+                  {item.checked && <Check size={14} strokeWidth={2} className="shrink-0 text-ember-400" aria-hidden />}
                   {item.shortcut && <span className="shrink-0 font-mono text-2xs text-fg-subtle">{item.shortcut}</span>}
                 </div>
               );

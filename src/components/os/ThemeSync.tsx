@@ -2,7 +2,7 @@
 // WARRIOR OS — Theme Sync
 // Renders nothing. Mirrors theme settings into CSS variables on <html>:
 //   accentColor  → --accent-primary (→ --accent, bg-accent, ring-accent…)
-//   glassOpacity → --glass-alpha    (→ the window glass, bg-surface)
+//   glassOpacity → --glass-alpha    (→ the window steel, bg-surface / armor-window)
 // Workspace switches go through setAccentColor, so they flow through
 // here too. Decay stage 3 overrides --accent-primary with a stylesheet
 // !important rule, which beats this inline value while it is active.

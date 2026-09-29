@@ -9,6 +9,8 @@
 import { memo, type CSSProperties } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Card } from '@/components/ui';
+import { ENGRAVED_LABEL } from '@/components/ui/armor';
+import { cn } from '@/lib/utils';
 import { useXPStore } from '@/stores/useXPStore';
 import { MAX_LEVEL, levelInfo, levelProgress, levelTitle, xpToNextLevel } from '@/components/effects/effects-utils';
 import { LevelProgress } from './LevelProgress';
@@ -17,7 +19,6 @@ const SEGMENTS = 24;
 
 const GOLD_FRAME = {
   borderColor: 'color-mix(in oklab, var(--color-gold) 24%, transparent)',
-  '--hud-corner-color': 'color-mix(in oklab, var(--color-gold) 55%, transparent)',
 } as CSSProperties;
 
 /** Cell colour along the bar: gold at the start, ember at the end. */
@@ -35,12 +36,12 @@ function XpSegments({ progress, label }: { progress: number; label: string }) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(progress)}
-      className="flex h-2.5 gap-[3px]"
+      className="flex h-3 gap-[2px]"
     >
       {Array.from({ length: SEGMENTS }, (_, i) => {
         const cell = Math.min(Math.max(filled - i, 0), 1);
         return (
-          <span key={i} className="relative h-full flex-1 overflow-hidden rounded-[2px] bg-ink-600/70">
+          <span key={i} className="relative h-full flex-1 overflow-hidden bg-steel-900 shadow-[inset_0_1px_0_rgb(0_0_0/0.7)] [clip-path:polygon(3px_0,100%_0,calc(100%-3px)_100%,0_100%)]">
             {cell > 0 && (
               <span
                 className="absolute inset-y-0 left-0 transition-[width] duration-260 ease-out-quint"
@@ -71,13 +72,13 @@ function XPSystemInner() {
   const nextTitle = maxed ? null : levelTitle(level + 1);
 
   return (
-    <Card hud padding="lg" style={GOLD_FRAME} role="region" aria-label="Level and XP">
+    <Card rivets padding="lg" style={GOLD_FRAME} role="region" aria-label="Level and XP">
       <div className="flex items-center gap-5">
         <LevelProgress />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
             <div className="min-w-0">
-              <p className="font-mono text-2xs font-medium uppercase tracking-[0.14em] text-gold">Total XP</p>
+              <p className={cn(ENGRAVED_LABEL, 'text-gold')}>Total XP</p>
               <p className="mt-1.5 flex items-baseline gap-1.5 leading-none">
                 <motion.span
                   key={xp}

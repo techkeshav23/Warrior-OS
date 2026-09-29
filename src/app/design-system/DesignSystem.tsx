@@ -1,11 +1,10 @@
 // ═══════════════════════════════════════════════════════════
-// FORGE HUD — the Warrior OS design system (showcase page)
+// FORGED ARMOR — the Warrior OS design system (showcase page)
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import Image from 'next/image';
 import {
   Bell,
   Bold,
@@ -79,7 +78,8 @@ import {
   Tooltip,
   type Tone,
 } from '@/components/ui';
-import { WindowTitleBar } from '@/components/os/Window';
+import { ArmorRim, WindowTitleBar } from '@/components/os/Window';
+import { BrandMark } from '@/components/showcase/BrandMark';
 import { APP_REGISTRY } from '@/data/app-registry';
 import { APP_HUES, getAppIconSpec, type AppIconFamily } from '@/data/app-icons';
 import { cn } from '@/lib/utils';
@@ -87,7 +87,7 @@ import {
   COLOR_GROUPS,
   ELEVATION,
   FG_SWATCHES,
-  RADII,
+  CHAMFERS,
   SPACING,
   SURFACE_SWATCHES,
   TYPE_SCALE,
@@ -97,6 +97,7 @@ import {
 } from './tokens';
 
 const NAV = [
+  { id: 'materials', label: 'Materials' },
   { id: 'colors', label: 'Color' },
   { id: 'type', label: 'Type' },
   { id: 'layout', label: 'Layout' },
@@ -105,7 +106,7 @@ const NAV = [
   { id: 'window', label: 'Window' },
 ];
 
-const TONES: Tone[] = ['neutral', 'accent', 'ember', 'success', 'warning', 'danger', 'info', 'gold'];
+const TONES: Tone[] = ['neutral', 'accent', 'ember', 'success', 'warning', 'danger', 'info', 'gold', 'plasma'];
 
 const FAMILY_LABEL: Record<AppIconFamily, string> = {
   learn: 'Learn',
@@ -122,7 +123,7 @@ const SPEND = [42, 38, 45, 30, 33, 26, 28, 22];
 
 function Section({ id, eyebrow, title, description, children }: { id: string; eyebrow: string; title: string; description: string; children: ReactNode }) {
   return (
-    <section id={id} className="scroll-mt-20 border-t border-line py-16">
+    <section id={id} className="scroll-mt-20 py-16 shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_0_rgb(255_255_255/0.05)]">
       <SectionHeader eyebrow={eyebrow} title={title} description={description} size="lg" className="mb-10 max-w-2xl" />
       {children}
     </section>
@@ -138,13 +139,13 @@ function Specimen({ title, note, children, className }: { title: string; note?: 
 }
 
 function StateLabel({ children }: { children: ReactNode }) {
-  return <span className="hud-label w-20 shrink-0 !text-[10px]">{children}</span>;
+  return <span className="engraved w-20 shrink-0 font-display text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-subtle">{children}</span>;
 }
 
 function SwatchChip({ s, dark = false }: { s: Swatch; dark?: boolean }) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <div className={cn('h-14 rounded-control border border-line-strong', s.cls, dark && 'inset-shadow-[0_1px_0_rgb(255_255_255/0.05)]')} />
+      <div className={cn('h-14 chamfer-sm bevel', s.cls, dark && 'bevel')} />
       <div className="min-w-0">
         <div className="truncate font-mono text-xs text-fg">{s.name}</div>
         <div className="truncate font-mono text-2xs text-fg-subtle">{s.value}</div>
@@ -168,12 +169,8 @@ function SampleWindow() {
   const completed = habits.filter((h) => done[h.id]).length;
   return (
     <div className="relative mx-auto w-full max-w-[1080px]">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-window"
-        style={{ boxShadow: '0 0 0 1px color-mix(in srgb, var(--accent, #2fd6f5) 14%, transparent), 0 0 64px -18px color-mix(in srgb, var(--accent, #2fd6f5) 45%, transparent)' }}
-      />
-      <div className="glass-window relative flex h-[640px] flex-col overflow-hidden rounded-window border border-line-strong shadow-e3">
+      <ArmorRim focused maximized={false} />
+      <div className="armor-window chamfer-tl-br rivets relative flex h-[640px] flex-col overflow-hidden [--cut:14px] [--rivet-inset:5px]">
         <WindowTitleBar title="Habit Forge" appId="study-planner" focused maximized={false} />
         <div className="min-h-0 flex-1">
           <AppLayout
@@ -184,7 +181,7 @@ function SampleWindow() {
                     <AppIcon appId="study-planner" size={28} active />
                     <div className="min-w-0">
                       <div className="truncate text-ui font-semibold text-fg">Habit Forge</div>
-                      <div className="hud-label !text-[10px]">Discipline</div>
+                      <div className="engraved font-display text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-subtle">Discipline</div>
                     </div>
                   </div>
                 }
@@ -310,10 +307,10 @@ export function DesignSystem() {
 
   return (
     <div className="h-screen select-text overflow-y-auto overflow-x-hidden bg-ink-900 text-fg scrollbar-thin">
-      {/* Backdrop: faint plasma + ember wash and a grid */}
-      <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 size-[640px] rounded-full bg-accent/[0.07] blur-[120px]" />
-        <div className="absolute -right-40 top-[30%] size-[520px] rounded-full bg-ember-500/[0.05] blur-[120px]" />
+      {/* Backdrop: forge glow from below + brushed steel + a faint grid */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden brushed">
+        <div className="absolute -left-40 -top-40 size-[640px] rounded-full bg-ember-500/[0.06] blur-[120px]" />
+        <div className="absolute -bottom-60 left-1/3 size-[720px] rounded-full bg-ember-600/[0.08] blur-[140px]" />
         <div
           className="absolute inset-0 opacity-40"
           style={{
@@ -327,19 +324,19 @@ export function DesignSystem() {
       </div>
 
       {/* Top bar */}
-      <header className="glass-popover sticky top-0 z-40 border-b border-line">
+      <header className="armor-window sticky top-0 z-40 border-x-0 border-t-0" style={{ clipPath: 'none' }}>
         <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-4 px-6 lg:px-10">
-          <a href="#top" className="focus-ring flex items-center gap-2.5 rounded-control">
-            <Image src="/icons/icon-192.png" alt="" width={28} height={28} className="rounded-[8px]" />
-            <span className="font-display text-sm font-semibold tracking-[0.18em] text-fg">FORGE HUD</span>
+          <a href="#top" className="focus-ring flex items-center gap-2.5">
+            <BrandMark size={28} />
+            <span className="engraved font-display text-sm font-bold tracking-[0.22em] text-fg">FORGED ARMOR</span>
           </a>
-          <Badge tone="accent">v1.0</Badge>
+          <Badge tone="ember">v2.0</Badge>
           <nav className="ml-auto hidden items-center gap-1 md:flex" aria-label="Sections">
             {NAV.map((n) => (
               <a
                 key={n.id}
                 href={`#${n.id}`}
-                className="focus-ring rounded-control px-2.5 py-1.5 text-ui text-fg-muted transition-colors duration-120 hover:bg-surface-hover hover:text-fg"
+                className="focus-ring-inset chamfer-xs px-2.5 py-1.5 font-display text-xs font-semibold uppercase tracking-[0.12em] text-fg-muted transition-colors duration-120 hover:bg-white/[0.05] hover:text-ember-300"
               >
                 {n.label}
               </a>
@@ -355,18 +352,19 @@ export function DesignSystem() {
         {/* Hero */}
         <section className="grid items-center gap-10 py-20 lg:grid-cols-[1.15fr_1fr]">
           <div>
-            <div className="hud-label mb-5 flex items-center gap-2">
-              <span className="size-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent,#2fd6f5)]" />
-              The Warrior OS design system
+            <div className="mb-5 flex items-center gap-3">
+              <BrandMark size={44} glow />
+              <span className="engraved font-display text-2xs font-semibold uppercase tracking-[0.22em] text-ember-400">The Warrior OS design system</span>
             </div>
-            <h1 className="font-display text-[56px] font-bold leading-[1.02] tracking-[0.04em] text-fg">
-              FORGE
-              <span className="bg-linear-to-r from-plasma-300 via-accent to-ember-400 bg-clip-text text-transparent"> HUD</span>
+            <h1 className="font-display text-[64px] font-bold uppercase leading-[0.98] tracking-[0.03em] text-fg">
+              <span className="engraved">Forged</span>
+              <br />
+              <span className="bg-linear-to-r from-ember-100 via-ember-400 to-ember-600 bg-clip-text text-transparent drop-shadow-[0_0_18px_rgb(247_107_21/0.35)]">Armor</span>
             </h1>
             <p className="mt-6 max-w-xl text-base text-fg-muted">
-              A premium sci-fi command center lit by forge-fire. Cold, precise machine UI in{' '}
-              <span className="text-accent">Plasma</span>, warm warrior energy in <span className="text-ember-400">Ember</span>,
-              on calm deep-ink surfaces.
+              Not a dashboard: a warrior’s kit. Chamfered steel plates with beveled edges and rivets, engraved labels, and{' '}
+              <span className="text-ember-400">ember</span> heat on everything that is live, focused or yours to act on.{' '}
+              <span className="text-plasma-400">Plasma</span> is kept for tech: NEXUS, links and data.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Button variant="primary" size="lg" leadingIcon={Sparkles} onClick={() => document.getElementById('components')?.scrollIntoView({ behavior: 'smooth' })}>
@@ -379,19 +377,56 @@ export function DesignSystem() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { k: '01', t: 'Calm canvas, loud moments', d: 'Glow and motion only for focus, live status and wins.' },
-              { k: '02', t: 'One accent per surface', d: 'Plasma for the machine. Ember only for warrior energy.' },
-              { k: '03', t: 'Hierarchy by type', d: 'fg → muted → subtle and spacing, not nested boxes.' },
-              { k: '04', t: 'Every state designed', d: 'Empty, loading, error, focus, disabled — never raw text.' },
+              { k: '01', t: 'Cut, never rounded', d: 'Chamfered corners on every chrome surface. Circles only for dots, avatars and knobs.' },
+              { k: '02', t: 'Forged steel', d: 'Gunmetal plates, brushed grain, bevels that catch the light, rivets on big plates.' },
+              { k: '03', t: 'Ember is heat', d: 'Primary actions, focus and active edges glow molten. Plasma only for tech.' },
+              { k: '04', t: 'Engraved, not printed', d: 'Labels are cut into the metal: display caps, wide tracking, an inset lip.' },
             ].map((p) => (
-              <Card key={p.k} padding="md" hud={p.k === '01'}>
-                <div className="tabular font-mono text-2xs text-accent">{p.k}</div>
-                <div className="mt-2 text-sm font-semibold text-fg">{p.t}</div>
+              <Card key={p.k} padding="md" rivets={p.k === '01'} tone={p.k === '03' ? 'ember' : 'default'}>
+                <div className="tabular font-display text-lg font-bold text-ember-400">{p.k}</div>
+                <div className="mt-1 font-display text-sm font-bold uppercase tracking-[0.06em] text-fg">{p.t}</div>
                 <p className="mt-1 text-xs text-fg-muted">{p.d}</p>
               </Card>
             ))}
           </div>
         </section>
+
+        {/* Materials */}
+        <Section id="materials" eyebrow="00 · Materials" title="Steel, cuts & heat" description="The armor utilities in globals.css. Every chrome surface is one of four materials, shaped by a chamfer, finished with details used sparingly.">
+          <div className="grid gap-4 lg:grid-cols-4">
+            {[
+              { cls: 'armor-window chamfer-tl-br rivets', name: 'armor-window', use: 'Windows, taskbar, widgets' },
+              { cls: 'armor-panel chamfer-md rivets', name: 'armor-panel', use: 'Cards, sections' },
+              { cls: 'armor-popover chamfer-md', name: 'armor-popover', use: 'Menus, dialogs, tooltips' },
+              { cls: 'armor-plate chamfer-sm', name: 'armor-plate', use: 'Raised controls' },
+            ].map((m) => (
+              <div key={m.name} className="armor-drop">
+                <div className={cn('flex h-36 flex-col justify-end p-4', m.cls)}>
+                  <div className="font-mono text-xs text-fg">{m.name}</div>
+                  <div className="mt-0.5 text-2xs text-fg-subtle">{m.use}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-3">
+            <Specimen title="Details" note="bevel · engraved · rivets · notch">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="bevel chamfer-sm flex h-12 w-24 items-center justify-center bg-steel-700 font-mono text-2xs text-fg-muted">bevel</div>
+                <div className="engraved font-display text-lg font-bold uppercase tracking-[0.18em] text-fg-muted">Engraved</div>
+                <div className="notch flex h-8 items-center bg-linear-to-b from-steel-500 to-steel-700 px-5 font-display text-2xs font-semibold uppercase tracking-[0.16em] text-fg">notch</div>
+              </div>
+            </Specimen>
+            <Specimen title="Heat" note="forge-heat · ember-edge">
+              <div className="h-3 w-full chamfer-xs bg-steel-950">
+                <div className="forge-heat h-full w-3/4" />
+              </div>
+              <div className="ember-edge chamfer-sm flex h-10 items-center border bg-steel-900 px-3 text-ui text-fg">Focused slot — molten edge</div>
+            </Specimen>
+            <Specimen title="Brushed steel" note="brushed · lite drops the grain">
+              <div className="brushed chamfer-md h-24 bg-steel-800" />
+            </Specimen>
+          </div>
+        </Section>
 
         {/* Color */}
         <Section id="colors" eyebrow="01 · Color" title="Color tokens" description="Use the utilities (bg-ink-900, text-fg-muted, border-line, text-accent…) — never raw hex in components.">
@@ -416,7 +451,7 @@ export function DesignSystem() {
               </div>
               <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                 {FG_SWATCHES.map((s) => (
-                  <div key={s.name} className="rounded-card border border-line bg-surface-2 p-4">
+                  <div key={s.name} className="armor-panel chamfer-md p-4">
                     <div className={cn('text-xl font-semibold', s.cls)}>Aa</div>
                     <div className="mt-2 font-mono text-xs text-fg">{s.name}</div>
                     <div className="font-mono text-2xs text-fg-subtle">{s.value} · {s.note}</div>
@@ -463,17 +498,17 @@ export function DesignSystem() {
         </Section>
 
         {/* Type */}
-        <Section id="type" eyebrow="02 · Typography" title="Type scale" description="Inter for UI, JetBrains Mono for data and HUD labels, Orbitron only for big numbers, hero titles and the logo.">
+        <Section id="type" eyebrow="02 · Typography" title="Type scale" description="Chakra Petch (itself cut at the corners) for titles, numbers and engraved labels; Inter for body text; JetBrains Mono for data.">
           <div className="mb-8 grid grid-cols-3 gap-3">
             {[
               { f: 'font-sans', n: 'Inter', u: 'UI · default', s: 'Aa Bb 0123' },
               { f: 'font-mono', n: 'JetBrains Mono', u: 'Data · labels · code', s: 'Aa Bb 0123' },
-              { f: 'font-display', n: 'Orbitron', u: 'Numbers · heroes · logo', s: 'AA 0123' },
+              { f: 'font-display font-bold', n: 'Chakra Petch', u: 'Titles · numbers · engravings', s: 'AA 0147' },
             ].map((f) => (
               <Card key={f.n}>
                 <div className={cn('text-2xl text-fg', f.f)}>{f.s}</div>
                 <div className="mt-3 text-sm font-semibold text-fg">{f.n}</div>
-                <div className="hud-label mt-1">{f.u}</div>
+                <div className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle mt-1">{f.u}</div>
               </Card>
             ))}
           </div>
@@ -494,25 +529,25 @@ export function DesignSystem() {
         </Section>
 
         {/* Layout */}
-        <Section id="layout" eyebrow="03 · Layout" title="Space, shape & depth" description="4px grid. Radii by role. Four elevation steps; glow is a state, not a decoration.">
+        <Section id="layout" eyebrow="03 · Layout" title="Space, shape & depth" description="4px grid. Chamfer cuts by role instead of radii. Clipped plates cast their shadow from the parent (armor-drop).">
           <div className="grid gap-4 lg:grid-cols-3">
             <Specimen title="Spacing" note="4px grid">
               <div className="flex flex-col gap-2">
                 {SPACING.map((px) => (
                   <div key={px} className="flex items-center gap-3">
                     <span className="tabular w-10 font-mono text-2xs text-fg-subtle">{px}px</span>
-                    <span className="h-2.5 rounded-[3px] bg-accent/70" style={{ width: px * 3 }} />
+                    <span className="h-2.5 -skew-x-[24deg] bg-ember-500/70" style={{ width: px * 3 }} />
                   </div>
                 ))}
               </div>
             </Specimen>
-            <Specimen title="Radii" note="By role">
+            <Specimen title="Chamfers" note="Cuts by role">
               <div className="grid grid-cols-2 gap-3">
-                {RADII.map((r) => (
+                {CHAMFERS.map((r) => (
                   <div key={r.name} className="flex items-center gap-3">
-                    <div className={cn('size-12 shrink-0 border border-line-strong bg-linear-to-b from-ink-700 to-ink-800', r.cls)} />
+                    <div className={cn('armor-plate size-12 shrink-0', r.cls)} />
                     <div className="min-w-0">
-                      <div className="truncate font-mono text-2xs text-fg">{r.name.replace('rounded-', '')}</div>
+                      <div className="truncate font-mono text-2xs text-fg">{r.name}</div>
                       <div className="font-mono text-2xs text-fg-subtle">{r.value}</div>
                       <div className="truncate text-2xs text-fg-faint">{r.use}</div>
                     </div>
@@ -523,7 +558,7 @@ export function DesignSystem() {
             <Specimen title="Elevation" note="Shadows">
               <div className="grid grid-cols-2 gap-4 p-2">
                 {ELEVATION.map((e) => (
-                  <div key={e.name} className={cn('flex h-20 flex-col justify-end rounded-card border border-line bg-ink-800 p-3', e.cls)}>
+                  <div key={e.name} className={cn('flex h-20 flex-col justify-end bg-steel-800 p-3', e.cls)}>
                     <div className="font-mono text-2xs text-fg">{e.name}</div>
                     <div className="text-2xs text-fg-subtle">{e.use}</div>
                   </div>
@@ -599,8 +634,8 @@ export function DesignSystem() {
                   ]}
                 />
               </div>
-              <div className="glass-popover w-64 rounded-card border border-line-strong p-1 shadow-e2">
-                <div className="flex h-8 items-center gap-2.5 rounded-[6px] bg-surface-active px-2.5 text-ui text-fg">
+              <div className="armor-popover chamfer-md w-64 p-1">
+                <div className="flex h-8 items-center gap-2.5 chamfer-xs bg-linear-to-r from-ember-500/20 to-white/[0.03] px-2.5 text-ui text-fg shadow-[inset_2px_0_0_var(--color-ember-400,#ff8a3d)]">
                   <Pencil size={16} strokeWidth={1.75} className="text-fg" aria-hidden /> Rename
                   <span className="ml-auto font-mono text-2xs text-fg-subtle">F2</span>
                 </div>
@@ -744,9 +779,9 @@ export function DesignSystem() {
               </div>
             </Specimen>
 
-            <Specimen title="Stat tiles & meters" note="hud-label · tabular values" className="lg:col-span-2">
+            <Specimen title="Stat tiles & meters" note="Forged numbers · forge heat" className="lg:col-span-2">
               <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                <StatTile label="Focus today" value="3h 20m" plainValue icon={Timer} delta={12} deltaLabel="vs last week" />
+                <StatTile label="Focus today" value="3h 20m" icon={Timer} delta={12} deltaLabel="vs last week" meter={68} />
                 <StatTile label="Cards reviewed" value="1,284" icon={NotebookPen} sparkline={<Sparkline data={TREND} />} delta={8} />
                 <StatTile label="Spent · Sep" value="₹18.4k" plainValue icon={Swords} delta={-6} deltaTone="inverse" deltaLabel="under budget" sparkline={<Sparkline data={SPEND} tone="success" />} />
                 <StatTile label="Warrior level" value="7" unit="Centurion" tone="gold" icon={Trophy} sparkline={<ProgressBar value={2140} max={2500} tone="gold" aria-label="XP to next level" />} />
@@ -765,7 +800,7 @@ export function DesignSystem() {
               </div>
             </Specimen>
 
-            <Specimen title="Cards & sections" note="glass-panel · max 2 levels">
+            <Specimen title="Cards & sections" note="armor-panel · max 2 levels">
               <SectionHeader size="sm" eyebrow="This week" title="Section header" actions={<Button size="sm" variant="ghost" trailingIcon={Share2}>Share</Button>} />
               <div className="grid grid-cols-2 gap-3">
                 <Card eyebrow="Default" title="Glass card" description="Hairline edge, e1 shadow." padding="sm">
@@ -885,27 +920,27 @@ export function DesignSystem() {
         </Section>
 
         {/* App icons */}
-        <Section id="icons" eyebrow="05 · App icons" title="One tile, nineteen glyphs" description="<AppIcon appId size /> — ink tile, hairline edge, inner highlight, lucide glyph in the app’s family hue. Glow appears only when active or hovered.">
+        <Section id="icons" eyebrow="05 · App icons" title="One insignia, nineteen glyphs" description="<AppIcon appId size /> — a forged insignia plate cut top-left and bottom-right: beveled steel rim, dark steel face, rivets from 40px, lucide glyph in the app’s family hue. Active heats the rim to ember; hover heats it to the app hue.">
           <div className="grid grid-cols-4 gap-3 xl:grid-cols-5">
             {apps.map((a) => (
-              <div key={a.id} className="group flex items-center gap-3 rounded-card border border-line bg-surface-2 p-3 transition-colors duration-120 hover:border-line-strong hover:bg-surface-hover">
+              <div key={a.id} className="group armor-panel chamfer-md flex items-center gap-3 p-3 transition-[filter] duration-120 hover:brightness-125">
                 <AppIcon appId={a.id} size={56} />
                 <div className="min-w-0">
                   <div className="truncate text-ui font-semibold text-fg">{a.name}</div>
                   <div className="truncate font-mono text-2xs text-fg-subtle">{a.spec.glyph}</div>
                   <div className="mt-1 flex items-center gap-1.5">
                     <span className="size-2 rounded-full" style={{ background: APP_HUES[a.spec.hue] }} />
-                    <span className="hud-label !text-[10px]">{FAMILY_LABEL[a.spec.family]} · {a.spec.hue}</span>
+                    <span className="engraved font-display text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-subtle">{FAMILY_LABEL[a.spec.family]} · {a.spec.hue}</span>
                   </div>
                 </div>
               </div>
             ))}
-            <div className="flex items-center gap-3 rounded-card border border-dashed border-line-strong p-3">
+            <div className="flex items-center gap-3 chamfer-md bg-white/[0.02] p-3 shadow-[inset_0_0_0_1px_rgb(255_255_255/0.08)]">
               <AppIcon appId="unknown-app" size={56} />
               <div className="min-w-0">
                 <div className="truncate text-ui font-semibold text-fg">Fallback</div>
                 <div className="truncate font-mono text-2xs text-fg-subtle">AppWindow</div>
-                <div className="hud-label mt-1 !text-[10px]">Unknown ids</div>
+                <div className="engraved mt-1 font-display text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-subtle">Unknown ids</div>
               </div>
             </div>
           </div>
@@ -918,7 +953,7 @@ export function DesignSystem() {
                   ))}
                   <div className="flex flex-col items-center gap-1.5">
                     <AppIcon appId={id} size={56} active />
-                    <span className="hud-label !text-[10px]">Active</span>
+                    <span className="engraved font-display text-[10px] font-semibold uppercase tracking-[0.16em] text-ember-400">Active</span>
                   </div>
                 </div>
               ))}
@@ -931,10 +966,10 @@ export function DesignSystem() {
           <SampleWindow />
         </Section>
 
-        <footer className="flex items-center justify-between border-t border-line py-10 text-xs text-fg-subtle">
-          <span className="flex items-center gap-2">
-            <Image src="/icons/icon-192.png" alt="" width={18} height={18} className="rounded-[5px]" />
-            FORGE HUD · Warrior OS
+        <footer className="flex items-center justify-between py-10 text-xs text-fg-subtle shadow-[inset_0_1px_0_rgb(0_0_0/0.7),inset_0_2px_0_rgb(255_255_255/0.05)]">
+          <span className="flex items-center gap-2 font-display font-semibold uppercase tracking-[0.14em]">
+            <BrandMark size={18} />
+            Forged Armor · Warrior OS
           </span>
           <span className="font-mono">Tokens: src/app/globals.css · Kit: src/components/ui</span>
         </footer>

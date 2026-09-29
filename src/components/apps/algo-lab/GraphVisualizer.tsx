@@ -55,7 +55,7 @@ const EMPTY_FRAMES: AlgoGraphFrame[] = [];
 const NO_IDS: readonly string[] = [];
 
 const NODE_STYLE: Record<NodeState, NodeStyle> = {
-  idle: nodeStyle(tint(LAB.plasma[400], 45)),
+  idle: nodeStyle(LAB.steel[300]),
   frontier: nodeStyle(LAB.frontier, { width: 2 }),
   visited: nodeStyle(LAB.visited, { hot: true, width: 2.5 }),
   current: nodeStyle(LAB.compare, { hot: true, width: 3 }),
@@ -155,12 +155,12 @@ function DistanceTable({
   const previous = frame?.previous ?? null;
   const settled = new Set(frame?.visited ?? NO_IDS);
   return (
-    <div className="flex w-40 shrink-0 flex-col border-l border-line bg-ink-950/35">
-      <div className="hud-label flex h-9 shrink-0 items-center border-b border-line px-3">dist · prev</div>
+    <div className="flex w-40 shrink-0 flex-col bg-steel-900 shadow-[inset_1px_0_0_rgb(0_0_0/0.7),inset_2px_0_0_rgb(255_255_255/0.04)]">
+      <div className="engraved brushed flex h-9 shrink-0 items-center bg-steel-800 px-3 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle shadow-[inset_0_-1px_0_rgb(0_0_0/0.7)]">dist · prev</div>
       {distances && previous ? (
         <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
           <table className="w-full font-mono text-xs">
-            <thead className="sticky top-0 bg-ink-900">
+            <thead className="sticky top-0 bg-steel-900">
               <tr className="text-fg-subtle">
                 <th scope="col" className="px-3 py-1.5 text-left text-2xs font-medium uppercase tracking-[0.14em]">v</th>
                 <th scope="col" className="px-1 py-1.5 text-right text-2xs font-medium uppercase tracking-[0.14em]">dist</th>

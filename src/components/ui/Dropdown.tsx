@@ -39,7 +39,7 @@ export function Dropdown({ trigger, items, onSelect, align = 'left', className }
         <button
           type="button"
           className={cn(
-            'focus-ring inline-flex items-center gap-1.5 rounded-control px-1.5 py-1 text-ui text-fg-muted transition-colors duration-120 hover:bg-surface-hover hover:text-fg',
+            'focus-ring-inset chamfer-xs inline-flex items-center gap-1.5 px-1.5 py-1 text-ui text-fg-muted transition-colors duration-120 hover:bg-surface-hover hover:text-fg',
             className
           )}
         >

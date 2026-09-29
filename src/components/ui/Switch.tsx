@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Switch (FORGE HUD kit)
-// On/off control (role="switch"). Accent track when on. With a label it
+// WARRIOR OS — Switch (FORGED ARMOR kit)
+// On/off control (role="switch"). Mechanical slider: steel block in a sunk slot that fills with forge heat when on. With a label it
 // renders as a settings row: label + description left, switch right.
 //   <Switch checked={crt} onCheckedChange={setCrt} label="CRT scanlines" />
 // ═══════════════════════════════════════════════════════════
@@ -25,8 +25,8 @@ export interface SwitchProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
 }
 
 const DIMS = {
-  sm: { track: 'h-4 w-7', thumb: 'size-3', on: 'translate-x-3' },
-  md: { track: 'h-5 w-9', thumb: 'size-4', on: 'translate-x-4' },
+  sm: { track: 'h-4 w-8', thumb: 'h-3 w-3.5', on: 'translate-x-4' },
+  md: { track: 'h-5 w-10', thumb: 'h-4 w-4.5', on: 'translate-x-5' },
 } as const;
 
 /** Accessible toggle switch. */
@@ -60,27 +60,39 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={cn(
-        'focus-ring relative inline-flex shrink-0 cursor-pointer items-center rounded-full border p-px',
-        'transition-[background-color,border-color,box-shadow] duration-180 ease-out-quint',
+        'focus-ring group/sw relative inline-flex shrink-0 cursor-pointer items-center p-0.5',
         'disabled:cursor-not-allowed disabled:opacity-45',
         dims.track,
-        checked
-          ? tone === 'ember'
-            ? 'border-ember-500 bg-ember-500'
-            : 'border-accent bg-accent'
-          : 'border-line-strong bg-ink-700 hover:border-fg-faint',
         className
       )}
       {...props}
     >
+      {/* Sunk steel slot; fills with forge heat when on */}
       <span
         aria-hidden
         className={cn(
-          'block rounded-full shadow-[0_1px_2px_rgb(0_0_0/0.4)] transition-transform duration-180 ease-out-quint',
-          dims.thumb,
-          checked ? cn(dims.on, 'bg-white') : 'translate-x-0 bg-fg-muted'
+          'absolute inset-0 chamfer [--cut:4px] transition-[background-color,box-shadow] duration-180 ease-out-quint',
+          'shadow-[inset_0_1px_0_rgb(0_0_0/0.8),inset_0_2px_4px_rgb(0_0_0/0.5),inset_0_-1px_0_rgb(255_255_255/0.1)]',
+          checked
+            ? tone === 'ember'
+              ? 'bg-linear-to-r from-ember-600 via-ember-500 to-ember-300'
+              : 'bg-linear-to-r from-accent/45 via-accent/80 to-accent'
+            : 'bg-linear-to-b from-[#06080b] to-[#141920] group-hover/sw:shadow-[inset_0_1px_0_rgb(0_0_0/0.8),inset_0_2px_4px_rgb(0_0_0/0.5),inset_0_-1px_0_var(--color-ember-600,#d4520b)]'
         )}
       />
+      {/* Machined steel slide block with grip lines */}
+      <span
+        aria-hidden
+        className={cn(
+          'relative flex items-center justify-center gap-px chamfer [--cut:2px] transition-transform duration-180 ease-out-quint',
+          'bg-linear-to-b from-[#c9d1dc] via-[#8e98a6] to-[#5b6472] shadow-[inset_0_1px_0_rgb(255_255_255/0.7),inset_0_-1px_0_rgb(0_0_0/0.45)]',
+          dims.thumb,
+          checked ? dims.on : 'translate-x-0'
+        )}
+      >
+        <span className="h-1.5 w-px bg-black/40" />
+        <span className="h-1.5 w-px bg-black/40" />
+      </span>
     </button>
   );
 

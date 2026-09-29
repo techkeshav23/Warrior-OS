@@ -66,7 +66,7 @@ Types and targets:
 - start_quiz / start_mock_test / open_flashcards: target = one of the user's deck or topic names (the SYSTEM line lists decks=[...]), or "" for any deck. open_flashcards = spaced-repetition review of the cards due.
 - show_decks: target = "" (deck report: mastery and cards due per deck).
 - start_pomodoro: target = focus minutes (e.g. "25").
-- change_wallpaper: target = one of void, starfield, nebula, aurora, fluid, matrix, neural.
+- change_wallpaper: target = one of void (Forge Night), embers (Ember Storm), molten (Molten Core), dusk (Battlefield Dusk), steelrain (Steel Rain), starfield, nebula, aurora, fluid, matrix, neural.
 - switch_workspace: target = study, build or chill.
 - study_mode, chill_mode, show_stats, stop_pomodoro, take_break: target = "".
 - ask: target = a short follow-up question the user can send to you with one click.`;

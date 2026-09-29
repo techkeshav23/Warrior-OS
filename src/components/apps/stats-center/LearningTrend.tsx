@@ -51,7 +51,7 @@ function renderTooltip({ active, payload }: ChartTooltipProps): ReactNode {
   const row = payload?.[0]?.payload as ChartRow | undefined;
   if (!active || !row) return null;
   return (
-    <div className="glass-popover min-w-40 rounded-control px-3 py-2 font-sans text-xs">
+    <div className="armor-popover chamfer-sm min-w-40 px-3 py-2 font-sans text-xs">
       <p className="hud-label mb-1.5">{format(parseISO(row.key), 'EEE d MMM')}</p>
       <div className="space-y-1">
         <TooltipRow color={MASTERY_COLOR} label="Mastery" value={row.mastery === null ? '—' : `${row.mastery}%`} />

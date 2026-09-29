@@ -2,7 +2,7 @@
 // WARRIOR OS — Due Forecast
 // Reviews due per day for the next week: one series (viz-1), so no
 // legend; counts ride the bar caps, hairline gridlines, 11px mono
-// ticks and a glass-popover tooltip with the full date on hover/focus.
+// ticks and an armor-popover tooltip with the full date on hover/focus.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -54,10 +54,10 @@ function DueForecastInner({ counts, todayStart, newCount = 0, className }: DueFo
   const gridlines = top % 2 === 0 ? [1, 0.5] : [1];
 
   return (
-    <figure className={cn('glass-panel rounded-card p-4', className)}>
+    <figure className={cn('armor-panel chamfer-md p-4', className)}>
       <figcaption className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
         <span className="min-w-0">
-          <span className="hud-label block">Next {counts.length} days</span>
+          <span className="engraved block font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Next {counts.length} days</span>
           <span className="mt-1 block text-sm font-semibold text-fg">Reviews due</span>
         </span>
         <span className="font-mono text-xs text-fg-subtle tabular">
@@ -104,12 +104,12 @@ function DueForecastInner({ counts, todayStart, newCount = 0, className }: DueFo
                   onMouseEnter={() => setHover(i)}
                   onMouseLeave={() => setHover((h) => (h === i ? null : h))}
                 >
-                  {active && <div aria-hidden className="absolute inset-y-0 -inset-x-1 rounded-control bg-surface-hover" />}
+                  {active && <div aria-hidden className="absolute inset-y-0 -inset-x-1 chamfer-xs bg-surface-hover" />}
                   <motion.div
                     initial={reduceMotion ? false : { height: 0 }}
                     animate={{ height: `${height}%` }}
                     transition={{ duration: 0.5, delay: reduceMotion ? 0 : i * 0.035, ease: EASE_OUT_QUINT }}
-                    className="relative w-full max-w-7 rounded-t-[4px] transition-opacity duration-120"
+                    className="relative w-full max-w-7 chamfer [--cut:4px] [--cut-bl:0px] [--cut-br:0px] transition-opacity duration-120"
                     style={{
                       background: SERIES,
                       opacity: day.count === 0 ? 0 : i === 0 || active ? 1 : 0.62,
@@ -131,7 +131,7 @@ function DueForecastInner({ counts, todayStart, newCount = 0, className }: DueFo
                     <div
                       role="tooltip"
                       className={cn(
-                        'glass-popover pointer-events-none absolute bottom-full z-10 mb-2 animate-scale-in whitespace-nowrap rounded-control px-3 py-2 text-xs',
+                        'armor-popover chamfer-sm pointer-events-none absolute bottom-full z-10 mb-2 animate-scale-in whitespace-nowrap px-3 py-2 text-xs',
                         i === 0 ? 'left-0' : i === days.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'
                       )}
                     >

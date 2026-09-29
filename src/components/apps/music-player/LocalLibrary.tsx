@@ -14,6 +14,7 @@ import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { AudioLines, HardDrive, Info, ListMusic, Music2, Pause, Play, SkipBack, SkipForward, Trash2, TriangleAlert, Upload, Volume1, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, EmptyState, IconButton, ListRow, Skeleton, Slider } from '@/components/ui';
+import { BEVEL_PRESSED, BEVEL_SUNK, EMBER_PLATE, ENGRAVED_LABEL, FOCUS_EDGE, SLOT_FILL } from '@/components/ui/armor';
 import { useAudioStore } from '@/stores/useAudioStore';
 import { connectMediaElement, getFrequencyBands } from '@/lib/audio-engine';
 import { isMusicPlaying, isProceduralTrack, stopMusic } from '@/lib/procedural-music/engine';
@@ -305,18 +306,18 @@ export function LocalLibrary() {
       />
 
       {/* ── Now playing + transport ── */}
-      <section aria-label="Now playing" className="shrink-0 border-b border-line px-4 pb-3 pt-4">
+      <section aria-label="Now playing" className="brushed relative shrink-0 bg-steel-850 px-4 pb-3 pt-4 shadow-[inset_0_-1px_0_rgb(0_0_0/0.75),0_1px_0_rgb(255_255_255/0.05)]">
         <div className="flex items-center gap-3">
           <span
             className={cn(
-              'flex size-11 shrink-0 items-center justify-center rounded-card border bg-linear-to-b from-ink-750 to-ink-850 inset-shadow-[0_1px_0_rgb(255_255_255/0.06)]',
-              playing ? 'border-accent/35 text-accent' : 'border-line-strong text-fg-subtle'
+              'armor-plate flex size-11 shrink-0 items-center justify-center [--cut:8px]',
+              playing ? 'ember-edge text-accent' : 'text-fg-subtle'
             )}
           >
             {playing ? <AudioLines size={20} strokeWidth={1.75} aria-hidden /> : <Music2 size={20} strokeWidth={1.75} aria-hidden />}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="hud-label">{playing ? 'Now playing' : current ? 'Paused' : 'Nothing playing'}</div>
+            <div className={ENGRAVED_LABEL}>{playing ? 'Now playing' : current ? 'Paused' : 'Nothing playing'}</div>
             <p className="truncate text-sm font-semibold text-fg" title={current?.name}>
               {current?.name ?? 'Pick a track below'}
             </p>
@@ -326,7 +327,7 @@ export function LocalLibrary() {
           </div>
         </div>
 
-        <div className="relative mt-3 h-14 overflow-hidden rounded-control border border-line bg-ink-950/55">
+        <div className={cn('chamfer-sm relative mt-3 h-14 overflow-hidden', SLOT_FILL, BEVEL_SUNK)}>
           <AudioVisualizer active={playing} source="element" />
         </div>
 
@@ -350,12 +351,12 @@ export function LocalLibrary() {
             aria-valuenow={Math.round(progress)}
             aria-valuetext={`${formatTime(progress)} of ${formatTime(duration)}`}
           >
-            <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-ink-600 transition-[height] duration-120 group-hover:h-1.5">
-              <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+            <div className={cn('absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 transition-[height] duration-120 group-hover:h-2', SLOT_FILL, BEVEL_SUNK)}>
+              <div className="forge-heat h-full" style={{ width: `${pct}%` }} />
             </div>
             <div
               aria-hidden
-              className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-fg opacity-0 shadow-e1 transition-opacity duration-120 group-hover:opacity-100"
+              className="absolute top-1/2 h-3.5 w-2 -translate-x-1/2 -translate-y-1/2 bg-linear-to-b from-steel-200 to-steel-400 opacity-0 shadow-[inset_0_1px_0_rgb(255_255_255/0.6),0_1px_2px_rgb(0_0_0/0.6)] transition-opacity duration-120 group-hover:opacity-100"
               style={{ left: `${pct}%` }}
             />
           </div>
@@ -373,9 +374,12 @@ export function LocalLibrary() {
             disabled={tracks.length === 0}
             aria-label={playing ? 'Pause' : 'Play'}
             className={cn(
-              'focus-ring flex size-11 shrink-0 items-center justify-center rounded-full',
-              'transition-[filter,box-shadow] duration-120 ease-out-quint disabled:pointer-events-none disabled:opacity-45',
-              'bg-accent text-accent-fg inset-shadow-[0_1px_0_rgb(255_255_255/0.28)] hover:brightness-110 hover:shadow-glow active:brightness-95'
+              'chamfer flex size-11 shrink-0 items-center justify-center [--cut:11px]',
+              'transition-[filter,box-shadow,transform] duration-120 ease-out-quint active:translate-y-px disabled:pointer-events-none disabled:opacity-45',
+              FOCUS_EDGE,
+              EMBER_PLATE,
+              'hover:brightness-115 hover:saturate-125 active:brightness-95',
+              BEVEL_PRESSED
             )}
           >
             {playing ? (
@@ -468,7 +472,7 @@ export function LocalLibrary() {
       </div>
 
       {/* ── Footer ── */}
-      <div className="flex min-h-11 shrink-0 items-center justify-between gap-2 border-t border-line px-4 py-2">
+      <div className="brushed flex min-h-11 shrink-0 items-center justify-between gap-2 bg-steel-850 px-4 py-2 shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_-1px_0_rgb(0_0_0/0.7)]">
         <span
           className={cn('flex min-w-0 items-center gap-1.5 text-xs', notice ? 'text-warning' : 'text-fg-subtle')}
           role={notice ? 'status' : undefined}
@@ -504,7 +508,7 @@ export function LocalLibrary() {
 
       {/* Drop target */}
       {dragOver && (
-        <div className="pointer-events-none absolute inset-2 z-10 flex flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed border-accent/50 bg-ink-950/80 text-center animate-fade-in">
+        <div className="chamfer-lg pointer-events-none absolute inset-2 z-10 flex flex-col items-center justify-center gap-2 bg-steel-950/85 text-center outline-2 -outline-offset-[10px] outline-dashed outline-ember-500/60 animate-fade-in">
           <Upload size={22} strokeWidth={1.75} className="text-accent" aria-hidden />
           <span className="text-sm font-medium text-fg">Drop to add to your library</span>
           <span className="text-xs text-fg-subtle">Audio files only · up to 200 MB each</span>

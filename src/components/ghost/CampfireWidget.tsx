@@ -322,7 +322,7 @@ function CampfireWidgetInner() {
 
   return (
     <motion.div
-      className="glass-window pointer-events-auto fixed overflow-hidden rounded-window"
+      className="armor-window rivets pointer-events-auto fixed overflow-hidden [--cut:12px] [--rivet-inset:6px]"
       style={{
         left: 0,
         top: 0,
@@ -345,7 +345,9 @@ function CampfireWidgetInner() {
         <span className="flex min-w-0 items-center gap-1.5">
           <GripVertical size={14} strokeWidth={1.75} className="shrink-0 text-fg-faint" aria-hidden />
           <Flame size={14} strokeWidth={1.75} className="shrink-0 text-ember-400" aria-hidden />
-          <span className="truncate text-xs font-medium text-fg">{STAGE_LABEL[stage]}</span>
+          <span className="engraved truncate font-display text-2xs font-semibold uppercase tracking-[0.16em] text-fg">
+            {STAGE_LABEL[stage]}
+          </span>
           {simulated && (
             <Badge tone="warning" size="sm">
               Offline
@@ -380,7 +382,7 @@ function CampfireWidgetInner() {
 
       {!collapsed && (
         <>
-          <div className="relative flex justify-center border-y border-line bg-ink-950/40">
+          <div className="relative flex justify-center border-y border-line bg-steel-950/60 shadow-[inset_0_2px_6px_rgb(0_0_0/0.5)]">
             <canvas
               ref={canvasRef}
               width={PX_W}
@@ -402,8 +404,8 @@ function CampfireWidgetInner() {
                 <span
                   key={s}
                   className={cn(
-                    'h-1 w-2.5 rounded-full transition-colors duration-260 ease-out-quint',
-                    i <= stageIndex ? 'bg-ember-400' : 'bg-surface-active'
+                    'h-1.5 w-2.5 transition-colors duration-260 ease-out-quint [clip-path:polygon(2px_0,100%_0,calc(100%-2px)_100%,0_100%)]',
+                    i <= stageIndex ? 'bg-linear-to-r from-ember-600 to-ember-300' : 'bg-steel-700'
                   )}
                 />
               ))}

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Clock Widget (FORGE HUD)
+// WARRIOR OS — Clock Widget (FORGED ARMOR)
 // Display-font clock (seconds-aligned ticks) with the date and a
 // time-of-day greeting. Only this widget re-renders every second.
 // ═══════════════════════════════════════════════════════════

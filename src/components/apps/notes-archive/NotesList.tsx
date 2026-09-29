@@ -61,15 +61,17 @@ function NoteRow({
         onClick={() => onSelect(note.id)}
         aria-current={active ? 'true' : undefined}
         className={cn(
-          'focus-ring-inset relative flex w-full min-w-0 flex-col gap-1 rounded-control px-3 py-2.5 text-left',
-          'transition-colors duration-120 ease-out-quint',
-          active ? 'bg-accent/10' : 'hover:bg-surface-hover active:bg-surface-active'
+          'chamfer-sm focus-ring-inset relative flex w-full min-w-0 flex-col gap-1 px-3 py-2.5 text-left',
+          'transition-[background-color,box-shadow] duration-120 ease-out-quint',
+          active
+            ? 'bg-linear-to-r from-accent/[0.14] to-accent/[0.04] shadow-[inset_0_1px_0_rgb(255_255_255/0.06),inset_0_-1px_0_color-mix(in_oklab,var(--accent)_55%,transparent)]'
+            : 'hover:bg-surface-hover active:bg-surface-active'
         )}
       >
         <span
           aria-hidden
           className={cn(
-            'absolute inset-y-3 left-0 w-0.5 rounded-full bg-accent transition-opacity duration-180',
+            'absolute inset-y-2 left-0 w-[3px] bg-accent shadow-[0_0_8px_var(--accent)] transition-opacity duration-180 [clip-path:polygon(0_0,100%_3px,100%_calc(100%-3px),0_100%)]',
             active ? 'opacity-100' : 'opacity-0'
           )}
         />
@@ -107,7 +109,7 @@ function NoteRow({
       {/* Row actions: siblings of the row button (no nested buttons) */}
       <div
         className={cn(
-          'absolute right-1.5 top-1.5 flex items-center gap-0.5 rounded-control',
+          'absolute right-1.5 top-1.5 flex items-center gap-0.5',
           'opacity-0 transition-opacity duration-120 group-focus-within/note:opacity-100 group-hover/note:opacity-100'
         )}
       >

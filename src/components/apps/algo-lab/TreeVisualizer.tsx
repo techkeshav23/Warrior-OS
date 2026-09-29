@@ -40,12 +40,12 @@ import { PlaybackControls } from './PlaybackControls';
 import { CodePanel } from './CodePanel';
 import { ComplexityCard } from './ComplexityCard';
 import { LabLayout, StageLegend, Stat, StepMessage, type LegendItem } from './LabLayout';
-import { ACCENT, LAB, nodeStyle, tint, type NodeStyle } from './labTheme';
+import { ACCENT, LAB, nodeStyle, type NodeStyle } from './labTheme';
 
 type TreeNodeState = 'idle' | 'path' | 'visited' | 'current' | 'rotating' | 'found' | 'removing';
 
 const NODE_STYLE: Record<TreeNodeState, NodeStyle> = {
-  idle: nodeStyle(tint(LAB.plasma[400], 45)),
+  idle: nodeStyle(LAB.steel[300]),
   path: nodeStyle(ACCENT, { width: 2.5 }),
   visited: nodeStyle(LAB.visited, { hot: true, width: 2.5 }),
   current: nodeStyle(LAB.compare, { hot: true, width: 3 }),

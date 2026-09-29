@@ -69,7 +69,7 @@ function ModeLine({ onlineCount }: { onlineCount: number }) {
     );
   }
   return (
-    <div className="flex gap-2.5 rounded-control bg-warning/8 px-3 py-2 ring-1 ring-inset ring-warning/20">
+    <div className="chamfer-sm flex gap-2.5 bg-warning/8 px-3 py-2 ring-1 ring-inset ring-warning/20">
       <WifiOff size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-warning" aria-hidden />
       <div className="min-w-0 text-xs">
         <p className="font-medium text-warning">
@@ -122,7 +122,7 @@ function WarriorLeaderboardInner({ isOpen, onClose, anchor = 'top' }: WarriorLea
       {open && (
         <motion.div
           className={cn(
-            'glass-popover fixed right-3 flex w-[336px] flex-col rounded-card',
+            'armor-popover rivets fixed right-3 flex w-[336px] flex-col [--cut:10px] [--rivet-inset:6px]',
             anchor === 'top' ? 'top-14' : 'bottom-14'
           )}
           style={{
@@ -138,11 +138,11 @@ function WarriorLeaderboardInner({ isOpen, onClose, anchor = 'top' }: WarriorLea
         >
           {/* Header */}
           <div className="flex items-start gap-3 px-4 pb-3 pt-3.5">
-            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-control bg-gold/12 ring-1 ring-inset ring-gold/25">
+            <span className="chamfer-xs bevel mt-0.5 flex size-8 shrink-0 items-center justify-center bg-gold/12">
               <Trophy size={16} strokeWidth={1.75} className="text-gold" aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className="text-sm font-semibold text-fg">Today&apos;s top warriors</h3>
+              <h3 className="engraved font-display text-sm font-semibold uppercase tracking-[0.12em] text-fg">Today&apos;s top warriors</h3>
               <p className="hud-label mt-0.5">Focused hours · anonymous</p>
             </div>
             <IconButton icon={X} aria-label="Close leaderboard" size="sm" onClick={close} />
@@ -167,14 +167,15 @@ function WarriorLeaderboardInner({ isOpen, onClose, anchor = 'top' }: WarriorLea
                   <li
                     key={w.anonymousId}
                     className={cn(
-                      'relative flex items-center gap-3 rounded-control px-2.5 py-1.5 transition-colors duration-120 ease-out-quint',
-                      w.isSelf ? 'bg-accent/10 ring-1 ring-inset ring-accent/30' : 'hover:bg-surface-hover'
+                      'chamfer-sm relative flex items-center gap-3 px-2.5 py-1.5 transition-colors duration-120 ease-out-quint',
+                      w.isSelf ? 'ember-edge bg-accent/10' : 'hover:bg-surface-hover'
                     )}
                     aria-current={w.isSelf ? 'true' : undefined}
                   >
                     <span
                       className={cn(
-                        'flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-2xs font-semibold tabular',
+                        // Rank insignia: a small octagonal stamp
+                        'chamfer flex size-6 shrink-0 items-center justify-center font-display text-2xs font-semibold tabular [--cut:6px]',
                         i < 3 ? cn('ring-1 ring-inset', PODIUM[i]) : 'text-fg-subtle'
                       )}
                       aria-label={`Rank ${i + 1}`}
@@ -229,7 +230,7 @@ function WarriorLeaderboardInner({ isOpen, onClose, anchor = 'top' }: WarriorLea
           </div>
 
           {selfIndex >= 10 && (
-            <p className="mx-3 mb-2 flex items-center justify-between rounded-control bg-accent/8 px-3 py-1.5 text-xs ring-1 ring-inset ring-accent/25">
+            <p className="chamfer-sm mx-3 mb-2 flex items-center justify-between bg-accent/8 px-3 py-1.5 text-xs ring-1 ring-inset ring-accent/25">
               <span className="text-fg-muted">Your rank</span>
               <span className="font-mono font-medium text-accent tabular">
                 #{selfIndex + 1} of {onlineCount}

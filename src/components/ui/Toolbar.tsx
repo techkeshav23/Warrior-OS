@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Toolbar (FORGE HUD kit)
+// WARRIOR OS — Toolbar (FORGED ARMOR kit)
 // 40px action bar with hairline edge. Group controls, separate groups
 // with <ToolbarSeparator/>, push the rest right with <ToolbarSpacer/>.
 //   <Toolbar aria-label="Editor">
@@ -27,8 +27,9 @@ export function Toolbar({ border = 'bottom', density = 'default', className, chi
       className={cn(
         'flex shrink-0 items-center gap-1 px-3',
         density === 'dense' ? 'h-9' : 'h-10',
-        border === 'bottom' && 'border-b border-line',
-        border === 'top' && 'border-t border-line',
+        border === 'bottom' && 'shadow-[inset_0_-1px_0_rgb(0_0_0/0.6),inset_0_-2px_0_rgb(255_255_255/0.04)]',
+        border === 'top' && 'shadow-[inset_0_1px_0_rgb(0_0_0/0.6),inset_0_2px_0_rgb(255_255_255/0.04)]',
+        'bg-linear-to-b from-white/[0.025] to-transparent',
         className
       )}
       {...props}
@@ -43,7 +44,7 @@ export function ToolbarGroup({ className, ...props }: HTMLAttributes<HTMLDivElem
 }
 
 export function ToolbarSeparator({ className }: { className?: string }) {
-  return <div role="separator" aria-orientation="vertical" className={cn('mx-1.5 h-5 w-px bg-line-strong', className)} />;
+  return <div role="separator" aria-orientation="vertical" className={cn('mx-1.5 h-5 w-px bg-black/60 shadow-[1px_0_0_rgb(255_255_255/0.07)]', className)} />;
 }
 
 export function ToolbarSpacer() {

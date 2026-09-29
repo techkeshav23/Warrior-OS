@@ -41,6 +41,7 @@ import type { Deck } from '@/types/learning';
 import type { TrainingTab } from '../deep-link';
 import { MasteryRing } from './MasteryRing';
 import { TAB_ICONS, deckStyle, plural, type DeckSummary } from './deck-ui';
+import { DashedEdge } from '../armor-bits';
 
 interface DeckListProps {
   decks: readonly Deck[];
@@ -171,7 +172,7 @@ function DeckListInner({
                 type="button"
                 onClick={onReviewAll}
                 aria-label={`Review ${plural(due, 'due card')}`}
-                className="focus-ring absolute inset-0 rounded-card transition-colors duration-120 ease-out-quint hover:bg-surface-hover active:bg-surface-active"
+                className="focus-ring absolute inset-0 chamfer-md transition-colors duration-120 ease-out-quint hover:bg-surface-hover active:bg-surface-active"
               />
             </div>
           ) : (
@@ -208,12 +209,13 @@ function DeckListInner({
           <button
             type="button"
             onClick={onCreate}
-            className="focus-ring group/new flex min-h-32 flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line-strong px-4 py-6 text-center transition-colors duration-120 ease-out-quint hover:border-fg-faint hover:bg-surface-hover active:bg-surface-active"
+            className="focus-ring group/new relative flex min-h-32 flex-col items-center justify-center gap-2 chamfer-md bg-steel-950/40 px-4 py-6 text-center transition-colors duration-120 ease-out-quint hover:bg-ember-500/5 active:bg-surface-active"
           >
-            <span className="flex size-9 items-center justify-center rounded-card border border-line-strong bg-ink-800 text-fg-subtle transition-colors duration-120 group-hover/new:text-accent">
+            <DashedEdge className="text-steel-500 transition-colors duration-120 group-hover/new:text-ember-500/70" />
+            <span className="armor-plate chamfer-sm flex size-9 items-center justify-center text-fg-subtle transition-colors duration-120 group-hover/new:text-ember-400">
               <Plus size={18} strokeWidth={1.75} aria-hidden />
             </span>
-            <span className="text-ui font-medium text-fg-muted group-hover/new:text-fg">Forge a new deck</span>
+            <span className="engraved font-display text-xs font-semibold uppercase tracking-[0.16em] text-fg-muted group-hover/new:text-fg">Forge a new deck</span>
             <span className="text-xs text-fg-subtle">A language, a framework, an exam…</span>
           </button>
         </section>
@@ -278,7 +280,7 @@ const DeckCard = memo(function DeckCard({ deck, summary, index, onOpen, onStudy,
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...TRANSITION.panel, delay: Math.min(index, 8) * 0.03 }}
       style={deckStyle(deck.color)}
-      className="group/deck glass-panel relative isolate flex min-w-0 flex-col overflow-hidden rounded-card transition-[border-color,background-color] duration-180 ease-out-quint hover:border-line-strong hover:bg-surface-hover"
+      className="group/deck armor-panel chamfer-md relative isolate flex min-w-0 flex-col overflow-hidden [--cut-tl:14px] [--cut-br:14px] transition-[border-color,background-color,box-shadow] duration-180 ease-out-quint hover:bg-steel-750/70 has-[:focus-visible]:ember-edge"
     >
       {/* The deck's hue: a faint wash behind the ring and a hairline along the top edge. */}
       <span
@@ -287,7 +289,7 @@ const DeckCard = memo(function DeckCard({ deck, summary, index, onOpen, onStudy,
       />
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-linear-to-r from-transparent via-(--deck)/60 to-transparent"
+        className="pointer-events-none absolute inset-x-6 top-0 h-0.5 bg-linear-to-r from-transparent via-(--deck)/70 to-transparent"
       />
 
       {/* The whole card opens the deck; the actions sit above this button. */}
@@ -295,7 +297,7 @@ const DeckCard = memo(function DeckCard({ deck, summary, index, onOpen, onStudy,
         type="button"
         onClick={() => onOpen(deck.id)}
         aria-label={`Open ${deck.name}`}
-        className="focus-ring-inset absolute inset-0 rounded-card"
+        className="focus-ring-inset absolute inset-0"
       />
 
       <div className="pointer-events-none relative flex items-start gap-3.5 p-4 pb-3">

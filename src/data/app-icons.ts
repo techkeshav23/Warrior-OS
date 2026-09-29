@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — App icon map (FORGE HUD)
+// WARRIOR OS — App icon map (FORGED ARMOR insignia)
 // One distinct lucide glyph + hue per app, hue chosen by family:
 //   Learn       plasma / violet   (Training Grounds, Flashcards, Memory Palace, Algo Lab)
 //   Build       mint / lime / steel / ember (Code Lab, Terminal, Files, Project Forge)

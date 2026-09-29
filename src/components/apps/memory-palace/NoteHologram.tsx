@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Memory Palace: Hologram (spec 6.27)
 // Click a knowledge object → it lifts off the shelf → flies to you and
-// turns to face you → unfolds into a floating holographic glass panel:
+// turns to face you → unfolds into a floating forged hologram plate:
 //   • note    → the note as markdown · Mark revised · Open in Notes
 //   • card    → the prompt · Reveal answer · Forgot / Recalled (graded
 //               into Training Grounds spaced repetition) · Open deck
@@ -18,6 +18,7 @@ import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { BookOpen, CircleCheck, ExternalLink, Eye, Hammer, Layers, RotateCcw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BEVEL_SUNK, SLOT_FILL } from '@/components/ui/armor';
 import { Button, IconButton } from '@/components/ui';
 import type { PalaceItem, PalaceReview } from './palaceData';
 import { DUE_COLOR, KIND_LABELS, NEW_COLOR, RECENCY_STYLES, ShapeGeometry } from './KnowledgeObject';
@@ -32,7 +33,7 @@ function inline(text: string, keyBase: string): React.ReactNode[] {
   return parts.map((p, i) => {
     const key = `${keyBase}-${i}`;
     if (p.startsWith('**') && p.endsWith('**')) return <strong key={key} className="font-semibold text-fg">{p.slice(2, -2)}</strong>;
-    if (p.startsWith('`') && p.endsWith('`')) return <code key={key} className="rounded-[4px] bg-surface-active px-1 font-mono text-[11px] text-plasma-300">{p.slice(1, -1)}</code>;
+    if (p.startsWith('`') && p.endsWith('`')) return <code key={key} className="bg-steel-950/80 px-1 font-mono text-[11px] text-ember-200 shadow-[inset_0_1px_0_rgb(0_0_0/0.6)]">{p.slice(1, -1)}</code>;
     if (p.startsWith('[[') && p.endsWith(']]')) return <span key={key} className="text-info underline decoration-dotted underline-offset-2">{p.slice(2, -2)}</span>;
     if (p.startsWith('$') && p.endsWith('$') && p.length > 2) return <span key={key} className="font-mono italic text-gold">{p.slice(1, -1)}</span>;
     if ((p.startsWith('*') && p.endsWith('*')) || (p.startsWith('_') && p.endsWith('_'))) return <em key={key}>{p.slice(1, -1)}</em>;
@@ -57,7 +58,7 @@ export function renderNoteMarkdown(md: string): React.ReactNode[] {
       }
       i += 1;
       out.push(
-        <pre key={k} className="my-1 overflow-x-auto rounded-control border border-line bg-ink-950/70 p-2 font-mono text-[11px] leading-snug text-fg-muted">
+        <pre key={k} className={cn('chamfer-xs my-1 overflow-x-auto p-2 font-mono text-[11px] leading-snug text-fg-muted', SLOT_FILL, BEVEL_SUNK)}>
           {code.join('\n')}
         </pre>
       );
@@ -83,14 +84,14 @@ export function renderNoteMarkdown(md: string): React.ReactNode[] {
       const done = /^[-*+]\s+\[(x|X)\]/.test(trimmed);
       out.push(
         <div key={k} className="flex items-start gap-1.5 text-xs text-fg-muted">
-          <span className={cn('mt-0.5 inline-block size-2.5 shrink-0 rounded-[3px] border', done ? 'border-success bg-success/60' : 'border-fg-subtle')} />
+          <span className={cn('mt-0.5 inline-block size-2.5 shrink-0 border', done ? 'border-success bg-success/60' : 'border-fg-subtle')} />
           <span className={cn(done && 'line-through opacity-60')}>{inline(trimmed.replace(/^[-*+]\s+\[.\]\s/, ''), k)}</span>
         </div>
       );
     } else if (/^[-*+]\s/.test(trimmed)) {
       out.push(
         <div key={k} className="flex gap-1.5 pl-1 text-xs text-fg-muted">
-          <span className="text-accent">•</span>
+          <span className="text-ember-400">▪</span>
           <span>{inline(trimmed.slice(2), k)}</span>
         </div>
       );
@@ -208,7 +209,7 @@ function CardBody({ item, revealed }: { item: PalaceItem; revealed: boolean }) {
             return (
               <div
                 key={`${i}:${o}`}
-                className={cn('flex gap-1.5 rounded-[6px] px-1.5 py-0.5 text-xs', right ? 'bg-success/12 text-success' : 'text-fg-muted')}
+                className={cn('chamfer-xs flex gap-1.5 px-1.5 py-0.5 text-xs [--cut:3px]', right ? 'bg-success/12 text-success' : 'text-fg-muted')}
               >
                 <span className="font-mono text-fg-subtle">{String.fromCharCode(65 + i)}</span>
                 <span>{o}</span>
@@ -218,8 +219,8 @@ function CardBody({ item, revealed }: { item: PalaceItem; revealed: boolean }) {
         </div>
       )}
       {revealed && (
-        <div className="mt-2 rounded-control border border-success/25 bg-success/[0.07] px-2.5 py-2">
-          <div className="hud-label text-success">Answer</div>
+        <div className="chamfer-sm mt-2 bg-success/[0.08] px-2.5 py-2 shadow-[inset_0_0_0_1px_rgb(61_220_151/0.25),inset_2px_0_0_var(--color-success)]">
+          <div className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-success">Answer</div>
           <div className="mt-0.5 text-xs font-semibold text-fg">{card.answer || '—'}</div>
           {card.explanation && <div className="mt-1 text-xs leading-relaxed text-fg-muted">{card.explanation}</div>}
         </div>
@@ -246,14 +247,14 @@ function ProjectBody({ item }: { item: PalaceItem }) {
             {project.progress}%
           </span>
         </div>
-        <div className="mt-1 h-1 overflow-hidden rounded-full bg-ink-600">
-          <div className="h-full rounded-full bg-success" style={{ width: `${project.progress}%` }} />
+        <div className={cn('mt-1 h-1.5 overflow-hidden', SLOT_FILL, BEVEL_SUNK)}>
+          <div className="forge-heat h-full" style={{ width: `${project.progress}%` }} />
         </div>
       </div>
       {project.techStack.length > 0 && (
         <div className="flex flex-wrap gap-1 pt-2">
           {project.techStack.map((t) => (
-            <span key={t} className="rounded-full bg-surface-active px-2 py-0.5 font-mono text-[10px] text-fg-muted">
+            <span key={t} className="chamfer-xs bevel bg-steel-700 px-2 py-0.5 font-mono text-[10px] text-fg-muted [--cut:3px]">
               {t}
             </span>
           ))}
@@ -350,7 +351,7 @@ function NoteHologramInner({
       </mesh>
 
       <group ref={panelRef} scale={[0.35, 0.02, 1]}>
-        {/* Holographic glass slab behind the DOM panel */}
+        {/* Holographic slab behind the DOM plate */}
         <mesh position={[0, 0, -0.02]}>
           <planeGeometry args={[1.75, 1.95]} />
           <meshBasicMaterial color={color} transparent opacity={0.07} toneMapped={false} side={THREE.DoubleSide} depthWrite={false} />
@@ -358,35 +359,29 @@ function NoteHologramInner({
         {panelVisible && (
           <Html transform distanceFactor={2} zIndexRange={[60, 0]} style={{ pointerEvents: 'auto' }}>
             <div
-              className="glass-popover relative w-[340px] select-text overflow-hidden rounded-card text-left text-fg"
-              style={
-                {
-                  '--holo': color,
-                  borderColor: `color-mix(in oklab, ${color} 45%, transparent)`,
-                  boxShadow: `0 0 0 1px rgb(0 0 0 / 0.3), 0 16px 40px -8px rgb(0 0 0 / 0.6), 0 0 32px -10px ${color}`,
-                } as React.CSSProperties
-              }
+              className="armor-popover rivets relative w-[340px] select-text overflow-hidden text-left text-fg [--cut:14px] [--cut-tr:0px] [--cut-bl:0px] [--rivet-inset:3px]"
+              style={{ '--holo': color } as React.CSSProperties}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
               onWheel={(e) => e.stopPropagation()}
             >
-              <span aria-hidden className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-[var(--holo)] to-transparent opacity-70" />
+              <span aria-hidden className="notch pointer-events-none absolute left-1/2 top-0 h-1 w-28 -translate-x-1/2 bg-[var(--holo)] shadow-[0_0_10px_var(--holo)] [--notch:4px]" />
               <div className="flex items-center gap-2.5 px-3 pb-2 pt-3">
                 <span
-                  className="flex size-7 shrink-0 items-center justify-center rounded-control border border-line-strong bg-ink-800"
+                  className="armor-plate flex size-7 shrink-0 items-center justify-center [--cut:5px]"
                   style={{ color }}
                 >
                   <KindIcon kind={item.kind} color={color} />
                 </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-fg" title={item.title}>
+                <span className="min-w-0 flex-1 truncate font-display text-sm font-semibold tracking-[0.02em] text-fg" title={item.title}>
                   {item.title}
                 </span>
                 <IconButton icon={X} size="xs" aria-label="Close hologram" tooltip shortcut="X" onClick={() => onRequestClose(item.id)} />
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-3 pb-2 font-mono text-[10px] uppercase tracking-[0.1em]">
+              <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2 font-mono shadow-[inset_0_-1px_0_rgb(0_0_0/0.6),0_1px_0_rgb(255_255_255/0.04)] text-[10px] uppercase tracking-[0.1em]">
                 <span
-                  className="max-w-[180px] truncate rounded-full px-2 py-0.5"
+                  className="chamfer-xs max-w-[180px] truncate px-2 py-0.5 [--cut:3px]"
                   style={{ backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)`, color }}
                   title={item.context}
                 >
@@ -404,7 +399,7 @@ function NoteHologramInner({
                 {item.kind !== 'project' && item.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 pt-2">
                     {item.tags.map((t) => (
-                      <span key={t} className="rounded-full bg-info/12 px-2 py-0.5 text-[10px] text-info">
+                      <span key={t} className="chamfer-xs bg-info/12 px-2 py-0.5 text-[10px] text-info [--cut:3px]">
                         #{t}
                       </span>
                     ))}
@@ -412,7 +407,7 @@ function NoteHologramInner({
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5 border-t border-line bg-ink-950/30 px-3 py-2">
+              <div className="brushed flex flex-wrap items-center gap-1.5 bg-steel-900/80 px-3 py-2 shadow-[inset_0_1px_0_rgb(0_0_0/0.6),inset_0_2px_0_rgb(255_255_255/0.035)]">
                 {item.kind === 'note' &&
                   (review.revisedToday ? (
                     <span className="flex h-7 items-center gap-1.5 px-1 text-xs font-medium text-success">

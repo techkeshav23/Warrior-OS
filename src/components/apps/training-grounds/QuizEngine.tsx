@@ -476,7 +476,7 @@ function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
         ) : (
           <section className="space-y-3" aria-label="Deck">
             <div className="flex items-baseline justify-between gap-3">
-              <span className="hud-label">Deck</span>
+              <span className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Deck</span>
               {!selectedDeck && <span className="text-xs text-fg-subtle">Choose one to set up the quiz</span>}
             </div>
             <div className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
@@ -504,7 +504,7 @@ function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
 
         {selectedDeck && topics.length > 1 && (
           <section className="space-y-3" aria-label="Topic">
-            <span className="hud-label">Topic</span>
+            <span className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Topic</span>
             <div className="flex flex-wrap gap-2">
               <Chip selected={!activeTopic} onClick={() => setTopicId(null)}>
                 All topics
@@ -618,7 +618,7 @@ function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
           <span
             title={timeLeft !== null ? 'Time left' : 'Time elapsed'}
             className={cn(
-              'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-control px-2 font-mono text-ui font-medium tabular',
+              'inline-flex h-7 shrink-0 items-center gap-1.5 chamfer-xs px-2 font-mono text-ui font-medium tabular',
               timeLeft === null
                 ? 'text-fg-muted'
                 : lowTime
@@ -660,10 +660,10 @@ function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
                 transition={TRANSITION.small}
-                className="glass-panel rounded-card p-5"
+                className="armor-panel chamfer-md rivets p-5 [--cut-tl:16px] [--cut-br:16px] [--rivet-inset:5px]"
               >
                 <div className="mb-4 flex items-center gap-2">
-                  <span className="hud-label text-accent">Q{run.index + 1}</span>
+                  <span className="chamfer-xs bg-ember-500/15 px-1.5 py-0.5 font-display text-xs font-semibold tracking-[0.12em] text-accent tabular shadow-[inset_0_-1px_0_var(--color-ember-500)]">Q{run.index + 1}</span>
                   <span aria-hidden className="text-fg-faint">
                     ·
                   </span>
@@ -874,7 +874,7 @@ function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
         {/* Per-card review */}
         <section className="space-y-3" aria-label="Review">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h4 className="text-sm font-semibold text-fg">Review</h4>
+            <h4 className="engraved font-display text-xs font-semibold uppercase tracking-[0.18em] text-fg-muted">Review</h4>
             <div className="flex flex-wrap gap-2">
               <Chip selected={reviewFilter === 'all'} onClick={() => setReviewFilter('all')}>
                 All ({run.items.length})
@@ -897,7 +897,7 @@ function QuizEngineInner({ initialTarget = null }: QuizEngineProps) {
               }
             />
           ) : (
-            <div className="glass-panel divide-y divide-line overflow-hidden rounded-card">
+            <div className="armor-panel chamfer-md divide-y divide-black/40 overflow-hidden">
               {reviewed.map(({ item, i, status }) => {
                 const spent = run.spentMs[item.card.id];
                 return (

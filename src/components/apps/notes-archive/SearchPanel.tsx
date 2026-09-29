@@ -47,7 +47,7 @@ function Highlighted({ snippet }: { snippet: Snippet }) {
   return (
     <>
       {snippet.before}
-      <mark className="rounded-[3px] bg-accent/20 px-0.5 text-fg">{snippet.match}</mark>
+      <mark className="bg-accent/20 px-0.5 text-fg shadow-[inset_0_-1px_0_var(--accent)]">{snippet.match}</mark>
       {snippet.after}
     </>
   );
@@ -132,7 +132,7 @@ function SearchPanelInner({ notes, onSelect, initialQuery = '', onClose }: Props
                     <button
                       type="button"
                       onClick={() => onSelect(note.id)}
-                      className="focus-ring-inset flex w-full min-w-0 flex-col gap-0.5 rounded-control px-3 py-2 text-left transition-colors duration-120 ease-out-quint hover:bg-surface-hover active:bg-surface-active"
+                      className="chamfer-sm focus-ring-inset flex w-full min-w-0 flex-col gap-0.5 px-3 py-2 text-left transition-colors duration-120 ease-out-quint hover:bg-surface-hover active:bg-surface-active"
                     >
                       <span className="truncate text-ui font-medium text-fg">
                         {titleHit ? <Highlighted snippet={titleHit} /> : note.title || 'Untitled'}

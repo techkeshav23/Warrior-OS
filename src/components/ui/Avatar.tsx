@@ -54,7 +54,7 @@ export interface AvatarProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 export function Avatar({ name = '', src, size = 'md', shape = 'circle', status, ring = false, className, ...props }: AvatarProps) {
-  const radius = shape === 'circle' ? 'rounded-full' : 'rounded-[28%]';
+  const radius = shape === 'circle' ? 'rounded-full' : 'chamfer [--cut:22%]';
   return (
     <span className={cn('relative inline-flex shrink-0', className)} {...props}>
       <span

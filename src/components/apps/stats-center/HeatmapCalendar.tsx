@@ -20,7 +20,7 @@ import { HEATMAP_WEEKS, buildActivityCalendar, type ActivityCell } from './learn
 
 /** Plasma single-hue ramp (fixed hue: charts never follow the user accent). */
 const LEVEL_CLASS = [
-  'bg-ink-700/80',
+  'bg-steel-900 shadow-[inset_0_1px_0_rgb(0_0_0/0.6)]',
   'bg-plasma-600/35',
   'bg-plasma-500/55',
   'bg-plasma-400/80',
@@ -80,7 +80,7 @@ function HeatmapCalendarInner() {
         <div className="flex items-center gap-1.5 font-mono text-2xs text-fg-subtle" aria-hidden="true">
           <span className="mr-0.5">Less</span>
           {LEVEL_CLASS.map((cls) => (
-            <span key={cls} className={cn('size-2.5 rounded-[3px]', cls)} />
+            <span key={cls} className={cn('chamfer size-2.5 [--cut:2px]', cls)} />
           ))}
           <span className="ml-0.5">More</span>
         </div>
@@ -133,9 +133,9 @@ function WeekColumn({ week, month, todayKey }: { week: ActivityCell[]; month: st
             key={cell.key}
             title={cellTitle(cell)}
             className={cn(
-              'aspect-square w-full rounded-[3px] transition-transform duration-120 ease-out-quint hover:scale-110',
+              'chamfer aspect-square w-full transition-transform duration-120 ease-out-quint [--cut:2.5px] hover:scale-110',
               LEVEL_CLASS[cell.level],
-              cell.key === todayKey && 'ring-1 ring-fg-muted ring-offset-1 ring-offset-ink-900'
+              cell.key === todayKey && 'shadow-[inset_0_0_0_1.5px_var(--color-fg)]'
             )}
           />
         )

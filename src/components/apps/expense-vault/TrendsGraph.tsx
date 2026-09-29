@@ -60,7 +60,7 @@ function renderTrendTooltip({ active, payload }: ChartTooltipProps): ReactNode {
   if (!active || !row) return null;
   const diff = row.limit - row.spent;
   return (
-    <div className="glass-popover min-w-44 rounded-control px-3 py-2 text-xs">
+    <div className="armor-popover min-w-44 px-3 py-2 text-xs">
       <p className="hud-label mb-1.5">{format(parseISO(row.key), 'EEE, d MMM')}</p>
       <div className="flex items-center gap-2">
         <span className="size-2 rounded-full" style={{ background: SPENT_COLOR }} />
@@ -162,7 +162,7 @@ function TrendsGraphInner({ className, expenses, budgets, todayKey }: TrendsGrap
       actions={
         <div className="flex items-center gap-3 text-xs text-fg-muted">
           <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-3.5 rounded-full" style={{ background: SPENT_COLOR }} />
+            <span className="h-0.5 w-3.5" style={{ background: SPENT_COLOR }} />
             Spent
           </span>
           <span className="flex items-center gap-1.5">

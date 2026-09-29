@@ -41,7 +41,7 @@ function GhostLayerInner({ enabled = true, showFloatingCounter = true }: GhostLa
           <WarCryBubbles />
           {showFloatingCounter && (
             <div className="fixed right-3 top-2" style={{ zIndex: 'var(--z-taskbar)' }}>
-              <div className="glass-window rounded-card p-0.5 shadow-e2">
+              <div className="armor-window p-0.5 [--cut:8px]">
                 <OnlineCounter />
               </div>
             </div>

@@ -68,7 +68,7 @@ function GhostCard({ phantom, onResurrect }: GhostCardProps) {
     <motion.button
       type="button"
       onClick={() => onResurrect(phantom)}
-      className="group focus-ring pointer-events-auto absolute overflow-hidden rounded-window text-left"
+      className="group focus-ring pointer-events-auto absolute overflow-hidden chamfer-tl-br chamfer-lg text-left"
       style={{
         left: position.x,
         top: position.y,
@@ -135,7 +135,7 @@ function GhostCard({ phantom, onResurrect }: GhostCardProps) {
         }}
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center opacity-0 transition-opacity duration-180 ease-out-quint group-hover:opacity-100 group-focus-visible:opacity-100">
-        <span className="glass-popover inline-flex h-8 items-center gap-2 rounded-full pl-2.5 pr-3.5 text-xs font-medium text-fg">
+        <span className="armor-popover chamfer-sm inline-flex h-8 items-center gap-2 pl-2.5 pr-3.5 text-xs font-medium text-fg">
           <RotateCcw size={14} strokeWidth={1.75} aria-hidden style={{ color: accent }} />
           Click to resurrect
         </span>

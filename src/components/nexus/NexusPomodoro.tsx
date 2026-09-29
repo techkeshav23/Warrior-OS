@@ -137,7 +137,7 @@ function NexusPomodoroPillInner({ variant = 'hud', className }: NexusPomodoroPil
     return (
       <span
         className={cn(
-          'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2 font-mono text-2xs font-medium tabular ring-1 ring-inset',
+          'chamfer-xs inline-flex h-6 shrink-0 items-center gap-1.5 px-2 font-mono text-2xs font-medium tabular ring-1 ring-inset',
           paused
             ? 'bg-surface-active text-fg-muted ring-line-strong'
             : isBreak
@@ -169,7 +169,7 @@ function NexusPomodoroPillInner({ variant = 'hud', className }: NexusPomodoroPil
           exit={{ opacity: 0, y: 6, scale: 0.98 }}
           transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
           className={cn(
-            'glass-popover pointer-events-auto relative flex h-10 items-center gap-2.5 overflow-hidden rounded-full pl-3.5 pr-1',
+            'armor-popover chamfer-sm pointer-events-auto relative flex h-10 items-center gap-2.5 overflow-hidden pl-3.5 pr-1',
             className
           )}
           role="timer"
@@ -177,7 +177,7 @@ function NexusPomodoroPillInner({ variant = 'hud', className }: NexusPomodoroPil
         >
           <span
             className={cn(
-              'flex size-5 shrink-0 items-center justify-center rounded-full',
+              'flex size-5 shrink-0 items-center justify-center',
               paused ? 'text-fg-subtle' : isBreak ? 'text-success' : 'text-accent'
             )}
             aria-hidden

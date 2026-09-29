@@ -52,7 +52,7 @@ interface ChartTooltipEntry {
   color?: string;
 }
 
-/** glass-popover tooltip: hud-label title, swatch · name · value rows. */
+/** armor-popover tooltip: hud-label title, swatch · name · value rows. */
 function FocusTooltip({
   active,
   payload,
@@ -67,7 +67,7 @@ function FocusTooltip({
   const rows = (payload ?? []).filter((p) => p.value !== null && p.value !== undefined);
   if (!active || rows.length === 0) return null;
   return (
-    <div className="glass-popover rounded-control px-3 py-2 text-xs">
+    <div className="armor-popover px-3 py-2 text-xs [--cut:6px]">
       <div className="hud-label mb-1">{label}</div>
       {rows.map((p) => {
         const key = String(p.dataKey ?? p.name ?? '');
@@ -462,7 +462,7 @@ function BiometricHistoryInner({ className }: { className?: string }) {
           </Card>
         </>
       ) : (
-        <div className="overflow-hidden rounded-card border border-line">
+        <div className="armor-panel overflow-hidden [--cut:8px]">
           <table className="w-full text-left text-ui">
             <thead className="bg-surface-2">
               <tr>

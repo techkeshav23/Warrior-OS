@@ -168,7 +168,7 @@ function DeckDetailInner({
       title: 'Delete this card?',
       message: 'Its review progress goes with it.',
       detail: (
-        <p className="line-clamp-3 whitespace-pre-wrap rounded-control bg-surface-2 px-3 py-2 text-ui text-fg">
+        <p className="line-clamp-3 whitespace-pre-wrap chamfer-sm bg-steel-950/60 bevel px-3 py-2 text-ui text-fg">
           {card.prompt}
         </p>
       ),
@@ -309,7 +309,7 @@ function DeckDetailInner({
           animate={{ opacity: 1, y: 0 }}
           transition={TRANSITION.panel}
           aria-label="Deck overview"
-          className="glass-panel relative isolate overflow-hidden rounded-card"
+          className="armor-panel chamfer-md rivets relative isolate overflow-hidden [--cut-tl:16px] [--cut-br:16px] [--rivet-inset:5px]"
         >
           <span
             aria-hidden
@@ -317,7 +317,7 @@ function DeckDetailInner({
           />
           <span
             aria-hidden
-            className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-(--deck)/70 to-transparent"
+            className="pointer-events-none absolute inset-x-10 top-0 h-0.5 bg-linear-to-r from-transparent via-(--deck)/80 to-transparent"
           />
 
           <div className="flex flex-col gap-4 p-5 @3xl:flex-row @3xl:items-center @3xl:gap-6">
@@ -331,7 +331,7 @@ function DeckDetailInner({
                     {pct}
                     <span className="ml-0.5 text-lg text-fg-muted">%</span>
                   </span>
-                  <span className="hud-label">Mastery</span>
+                  <span className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Mastery</span>
                 </div>
                 <p className="mt-2 line-clamp-2 max-w-prose text-ui text-fg-muted">
                   {deck.description || 'No description yet. Edit the deck to say what it covers.'}
@@ -341,14 +341,14 @@ function DeckDetailInner({
             <dl className="grid shrink-0 grid-cols-3 gap-x-5 gap-y-3 border-t border-line pt-4 @lg:grid-cols-5 @3xl:border-t-0 @3xl:border-l @3xl:pl-6 @3xl:pt-0">
               {stats.map((s) => (
                 <div key={s.label} className="flex min-w-0 flex-col gap-1">
-                  <dt className="hud-label">{s.label}</dt>
-                  <dd className={cn('tabular font-mono text-sm font-medium', s.tone ?? 'text-fg')}>{s.value}</dd>
+                  <dt className="engraved font-display text-2xs font-semibold uppercase tracking-[0.16em] text-fg-subtle">{s.label}</dt>
+                  <dd className={cn('tabular font-display text-base font-semibold leading-none', s.tone ?? 'text-fg')}>{s.value}</dd>
                 </div>
               ))}
             </dl>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 border-t border-line bg-ink-950/20 p-3 @xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 border-t border-black/40 bg-steel-950/45 p-3 shadow-[inset_0_1px_0_rgb(255_255_255/0.04)] @xl:grid-cols-4">
             {launchers.map((b) => (
               <button
                 key={b.tab}
@@ -356,16 +356,16 @@ function DeckDetailInner({
                 disabled={b.disabled}
                 onClick={() => onStudy(deckTarget, b.tab)}
                 title={b.hint}
-                className="focus-ring group/launch flex min-w-0 items-center gap-3 rounded-control border border-line bg-surface-2 px-3 py-2.5 text-left transition-colors duration-120 ease-out-quint hover:border-line-strong hover:bg-surface-hover active:bg-surface-active disabled:pointer-events-none disabled:opacity-45"
+                className="focus-ring group/launch armor-plate chamfer-sm flex min-w-0 items-center gap-3 px-3 py-2.5 text-left transition-[background-color,box-shadow] duration-120 ease-out-quint hover:bg-steel-600 hover:ember-edge active:bg-steel-750 disabled:pointer-events-none disabled:opacity-45"
               >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-control border border-line bg-ink-800 text-(--deck) transition-colors duration-120 group-hover/launch:border-line-strong">
+                <span className="flex size-8 shrink-0 items-center justify-center chamfer-xs bg-steel-950/70 bevel text-(--deck) transition-colors duration-120">
                   <b.icon size={16} strokeWidth={1.75} aria-hidden />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5 text-ui font-medium text-fg">
                     {b.label}
                     {b.count !== undefined && (
-                      <span className="tabular rounded-full bg-warning/12 px-1.5 font-mono text-2xs leading-4 text-warning">
+                      <span className="tabular chamfer-xs [--cut:3px] bg-warning/15 px-1.5 font-mono text-2xs leading-4 text-warning">
                         {b.count}
                       </span>
                     )}
@@ -379,7 +379,7 @@ function DeckDetailInner({
 
         {/* Topics */}
         {deck.topics.length === 0 ? (
-          <div className="glass-panel rounded-card">
+          <div className="armor-panel chamfer-md">
             <EmptyState
               icon={Layers}
               title="This deck has no cards yet"
@@ -400,7 +400,7 @@ function DeckDetailInner({
           <section aria-label="Topics" className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <div className="flex items-baseline gap-2">
-                <h2 className="text-sm font-semibold text-fg">Topics</h2>
+                <h2 className="engraved font-display text-xs font-semibold uppercase tracking-[0.18em] text-fg-muted">Topics</h2>
                 <span className="tabular font-mono text-xs text-fg-subtle">{deck.topics.length}</span>
               </div>
               <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2">
@@ -425,7 +425,7 @@ function DeckDetailInner({
             )}
 
             {q && matchCount === 0 && (
-              <div className="glass-panel rounded-card">
+              <div className="armor-panel chamfer-md">
                 <EmptyState
                   size="sm"
                   icon={SearchX}
@@ -447,13 +447,13 @@ function DeckDetailInner({
               const visible = showAll ? cards : cards.slice(0, PAGE);
               const topicPct = Math.round(mastery.value * 100);
               return (
-                <section key={topic.id} className="glass-panel overflow-hidden rounded-card" aria-label={topic.name}>
+                <section key={topic.id} className="armor-panel chamfer-md overflow-hidden" aria-label={topic.name}>
                   <header className="flex items-center gap-1 py-1.5 pl-1.5 pr-2">
                     <button
                       type="button"
                       onClick={() => setCollapsed((c) => toggleSet(c, topic.id))}
                       aria-expanded={!isCollapsed}
-                      className="focus-ring-inset flex min-w-0 flex-1 items-center gap-2.5 rounded-control px-2 py-1.5 text-left transition-colors duration-120 ease-out-quint hover:bg-surface-hover"
+                      className="focus-ring-inset flex min-w-0 flex-1 items-center gap-2.5 chamfer-sm px-2 py-1.5 text-left transition-colors duration-120 ease-out-quint hover:bg-surface-hover"
                     >
                       <ChevronRight
                         size={16}
@@ -476,8 +476,8 @@ function DeckDetailInner({
                       </span>
                       <span className="tabular shrink-0 font-mono text-xs text-fg-subtle">{plural(topic.cards.length, 'card')}</span>
                       <span className="hidden shrink-0 items-center gap-2 @lg:flex" title={`${topicPct}% mastery`}>
-                        <span className="block h-1 w-16 overflow-hidden rounded-full bg-ink-600/70">
-                          <span className="block h-full rounded-full bg-(--deck)" style={{ width: `${topicPct}%` }} />
+                        <span className="block h-1.5 w-16 overflow-hidden bg-steel-950 shadow-[inset_0_1px_0_rgb(0_0_0/0.7)]">
+                          <span className="block h-full bg-(--deck)" style={{ width: `${topicPct}%` }} />
                         </span>
                         <span className="tabular w-8 text-right font-mono text-xs text-fg-muted">{topicPct}%</span>
                       </span>
@@ -583,14 +583,14 @@ const CardRow = memo(function CardRow({ card, strength, onEdit, onDelete }: Card
   return (
     <div className="group/card flex items-start gap-3 px-3 py-2.5 transition-colors duration-120 ease-out-quint hover:bg-surface-hover">
       <span
-        className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-control border border-line bg-ink-800 text-fg-subtle"
+        className="mt-0.5 flex size-7 shrink-0 items-center justify-center chamfer-xs bg-steel-950/70 bevel text-fg-subtle"
         title={kind.label}
       >
         <kind.icon size={14} strokeWidth={1.75} aria-hidden />
         <span className="sr-only">{kind.label}</span>
       </span>
 
-      <button type="button" onClick={onEdit} className="focus-ring-inset min-w-0 flex-1 rounded-control text-left" title="Edit card">
+      <button type="button" onClick={onEdit} className="focus-ring-inset min-w-0 flex-1 text-left" title="Edit card">
         <span className="line-clamp-2 block whitespace-pre-wrap text-ui text-fg">{card.prompt}</span>
         <span className="mt-0.5 flex min-w-0 items-start gap-1.5 text-xs text-fg-muted">
           <CornerDownRight size={12} strokeWidth={2} aria-hidden className="mt-0.5 shrink-0 text-success" />
@@ -618,9 +618,9 @@ const CardRow = memo(function CardRow({ card, strength, onEdit, onDelete }: Card
             <span className={cn('tabular font-mono text-xs', mastered ? 'text-success' : 'text-fg-muted')}>
               {strengthPct}%
             </span>
-            <span className="block h-1 w-full overflow-hidden rounded-full bg-ink-600/70" title={`Strength ${strengthPct}%`}>
+            <span className="block h-1.5 w-full overflow-hidden bg-steel-950 shadow-[inset_0_1px_0_rgb(0_0_0/0.7)]" title={`Strength ${strengthPct}%`}>
               <span
-                className={cn('block h-full rounded-full', mastered ? 'bg-success' : 'bg-(--deck)')}
+                className={cn('block h-full', mastered ? 'bg-success' : 'bg-(--deck)')}
                 style={{ width: `${strengthPct}%` }}
               />
             </span>

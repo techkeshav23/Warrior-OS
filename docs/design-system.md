@@ -1,6 +1,15 @@
-# Warrior OS design system: FORGE HUD
+# Warrior OS design system: FORGED ARMOR
 
-A premium sci-fi command center lit by forge-fire. Precise, cold machine UI (**Plasma** cyan) plus warm warrior energy (**Ember** orange) on calm **deep-ink** surfaces. The bar is the restraint and craft of Linear, Raycast and Vercel, with the HUD language of Destiny 2, Halo Infinite menus and JARVIS. It should never read as "neon everywhere".
+The OS is a warrior's armor: a forged-weapon HUD from a premium action game (Destiny 2, Halo, Monster Hunter, Elden Ring menus), not a web dashboard. Every surface is a **forged gunmetal plate** with **chamfered (cut) corners**, **bevelled edges** and, on the big plates, **rivets**. **Ember** is the hero color: brand, accent, focus and heat. **Plasma** cyan is demoted to energy/tech (NEXUS, links, data, info). Gold is XP and rank. The craft bar is still Linear/Raycast (type, spacing, states), but the silhouette must be unmistakable at a glance: no rounded cards, no glass dashboard.
+
+**The signature, visible on every surface:**
+
+1. **Shape: no rounded chrome.** Chamfers via clip-path: windows cut top-left + bottom-right (14px), panels/cards 8px, buttons/inputs 6px, chips 4px. Pills and circles only for status dots, avatars and toggle knobs.
+2. **Material: forged steel, not glass.** Dark gunmetal with a vertical sheen and a fine brushed texture; bevelled edges (light top/left, dark bottom/right) drawn inside the box so they survive the clip.
+3. **Color: steel + ember.** Default accent is `ember-400`. Focus and active edges heat up to ember (a molten line), never a cyan ring.
+4. **Details, sparingly:** rivets on the corners of big plates, engraved labels, notch tabs, forge-heat progress (cooling iron → ember → white-hot tip).
+5. **Type:** Chakra Petch (`font-display`), a face whose own letters are chamfered, for titles, numbers and engraved labels; Inter for body; JetBrains Mono for data.
+6. **Motion:** plates slide and lock (120–220ms, no overshoot, no floaty fades). Sparks only on key moments (achievements, forge actions).
 
 | Reference | Where |
 | --- | --- |
@@ -10,7 +19,7 @@ A premium sci-fi command center lit by forge-fire. Precise, cold machine UI (**P
 | Live gallery of every component and token | `/design-system` (dev server) |
 | App glyphs and hues | `src/data/app-icons.ts`, `<AppIcon />` |
 | Runtime accent and glass opacity | `src/components/os/ThemeSync.tsx` |
-| Default wallpaper ("Deep Space") | `src/components/wallpapers/VoidMinimal.tsx`, `src/styles/deep-space.css` |
+| Default wallpaper ("Forge Night", id `void`) | `src/components/wallpapers/VoidMinimal.tsx`, `src/styles/deep-space.css` |
 
 ---
 
@@ -18,14 +27,14 @@ A premium sci-fi command center lit by forge-fire. Precise, cold machine UI (**P
 
 1. **Tokens only.** Components never contain hex, `rgb()`, Tailwind palette colors (`cyan-400`, `white/10`, `gray-500`, …) or arbitrary color values (`bg-[#0a0a0f]`). Use the utilities in §4, or `var(--color-…)` when a CSS variable is unavoidable.
 2. **Calm canvas, loud moments.** About 90% of any screen is quiet ink, hairlines and legible text. Glow, gradients and motion are reserved for focus, live status, the primary action, and achievements or level-ups.
-3. **One accent per surface.** `accent` means the machine: interaction, focus, selection, info. `ember` means warrior energy only: streaks, XP, fire, achievements, "forge" actions. Never put two competing CTAs on one surface.
+3. **One accent per surface.** `accent` (Ember by default) is the brand: the primary action, focus, selection, heat. `plasma-*` means energy/tech only: NEXUS, links, data highlights, info. `gold` is XP and rank. Never put two competing CTAs on one surface.
 4. **Hierarchy comes from type, weight, color (`fg` → `fg-muted` → `fg-subtle`) and spacing,** not from nested boxes. Use at most **two levels of bordered containers** (window → card).
-5. **4px grid.** Radii: control 8, card 12, window 16, sheet 20, pill `rounded-full`. Every border is a 1px hairline.
+5. **4px grid, cut corners.** Chamfers shape everything (`chamfer-xs` 4 · `sm` 6 · `md` 8 · `lg` 14, windows `chamfer-tl-br`). All `rounded-*` radii are 2px machining; `rounded-full` only for dots, avatars and knobs. Every border is a 1px bevel or hairline.
 6. **Every screen has designed empty, loading and error states.** Use `<EmptyState>` and `<Skeleton>`. Raw "Loading…" or "No data" text is never acceptable.
 7. **Craft is required, not optional.** That means: `tabular` numbers, truncation with a `title` attribute, a visible focus ring, and hover / active / disabled styles on every interactive element. Hit targets are at least 32px (28px in dense toolbars). No layout shift.
 8. **Icons are lucide-react only** in UI chrome: 16px in controls, 18px in nav, `strokeWidth={1.75}`. Emoji appear only as user content (the emoji a user chose for a habit or deck). Apps are always shown with `<AppIcon>`.
 9. **Motion runs at 120ms (hover), 180ms (small transitions) and 260ms (panels and windows)** on `ease-out-quint`. Nothing bounces. Honor reduced motion and lite mode.
-10. **Accessibility:** body text contrast is at least 4.5:1. `fg-subtle` is only for secondary text at 12px or larger. Focus ring is 2px accent with a 2px offset. Icon-only buttons need an `aria-label`.
+10. **Accessibility:** body text contrast is at least 4.5:1. `fg-subtle` is only for secondary text at 12px or larger. Focus is a 2px accent (ember) outline: outside (+2px) on unclipped elements, inside (−2px) on chamfered ones, plus `ember-edge` where a control heats up. Icon-only buttons need an `aria-label`.
 
 ---
 
@@ -33,7 +42,7 @@ A premium sci-fi command center lit by forge-fire. Precise, cold machine UI (**P
 
 - **Default to quiet.** Start every screen with ink, `text-fg` / `text-fg-muted`, `border-line` and spacing. Add accent only where the user acts or where something is live.
 - **One primary action per surface.** It goes on the right side of the header or toolbar as `<Button variant="primary">`. Everything else is `secondary` or `ghost`.
-- **Ember is earned.** Use it for streak counters, XP gains, "Forge it" moments, achievement toasts and habit fire. A settings page has no ember. A calculator has no ember.
+- **Ember is the brand, heat is earned.** The accent (ember) marks the primary action, focus and selection everywhere. The *heat* treatments (`forge-heat`, `ember-edge` glow, sparks, ember gradients) are for streaks, XP gains, "Forge it" moments, achievements and the focused control. A calculator has an ember primary key, not a burning panel.
 - **Group without boxing.** Separate sections with 24px of space and a `SectionHeader`, not another bordered panel. Inside a card, group with spacing, `divide-y divide-line`, or an unbordered `bg-surface-2` well.
 - **Write like an instrument panel.** Use short sentence-case labels ("New deck", "Delete note") and data in mono. Uppercase only appears through `hud-label` / `Badge`.
 
@@ -43,7 +52,7 @@ A premium sci-fi command center lit by forge-fire. Precise, cold machine UI (**P
 
 All tokens are Tailwind v4 theme variables, so each one works with every color utility: `bg-*`, `text-*`, `border-*`, `ring-*`, `outline-*`, `divide-*`, `fill-*`, `stroke-*`, `from-*` / `to-*`, `placeholder-*`, `caret-*` and `accent-*`. Opacity modifiers work too (`bg-accent/15`, `border-ember-500/30`). Every value is also a CSS variable on `:root` (`var(--color-ink-900)`, `var(--radius-card)`, `var(--shadow-e2)`, …) for inline styles and SVG.
 
-For canvas, WebGL and recharts props, import the mirrors from `@/styles/tokens`: `INK`, `FG`, `LINE`, `PLASMA`, `EMBER`, `STATUS`, `VIZ`, `CHART`, `TRANSITION`, `readAccent()`.
+For canvas, WebGL and recharts props, import the mirrors from `@/styles/tokens`: `STEEL`, `INK`, `FG`, `LINE`, `PLASMA`, `EMBER`, `FORGE_HEAT`, `CUT`, `chamferPath()`, `STATUS`, `VIZ`, `CHART`, `TRANSITION`, `readAccent()`.
 
 **Kit components are styled through props, not `className` overrides.** `cn()` (`@/lib/utils`) is plain `clsx`, with no tailwind-merge. When a kit component's own `p-4` and your `p-2` both land on an element, the one that appears later *in the stylesheet* wins, not the one later in the class string, so the result is effectively random. Use the component's props (`size`, `variant`, `tone`, `padding`, `density`, `bodyClassName`, …). For anything else, wrap the component in your own element. Passing `className` is fine for things the component doesn't set itself: layout (`w-full`, `col-span-2`, `mt-6`, `min-w-0`), positioning, and `@container`.
 
@@ -51,71 +60,92 @@ For canvas, WebGL and recharts props, import the mirrors from `@/styles/tokens`:
 
 ## 4. Color
 
-### Ink: solid surfaces (darkest → lightest)
+### Steel: the armor plates (darkest → lightest)
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `ink-950` | `#04060b` | Page canvas, behind everything; text on bright fills (`text-ink-950`) |
-| `ink-900` | `#070a12` | Solid app background, lite-mode glass fallback |
-| `ink-850` | `#0b1019` | Wells: code blocks, terminal, editor gutters, input fields |
-| `ink-800` | `#0f1520` | Raised solid blocks: AppIcon tiles, avatar backs, kbd |
-| `ink-750` | `#141b28` | Hover on solid blocks |
-| `ink-700` | `#1a2332` | Tracks (progress, slider), skeleton base |
-| `ink-600` | `#243044` | Strong solid dividers, scrollbar thumbs, disabled fills |
-| `ink-500` | `#33415a` | Highest solid step: switch-off knob track, chart "rest" series |
+| `steel-950` | `#07080a` | Deepest slot: recessed wells, input troughs |
+| `steel-900` | `#0b0d10` | Slot fills, sunk tracks |
+| `steel-850` | `#101317` | Popover steel, lite-mode window steel |
+| `steel-800` | `#15191e` | Window body |
+| `steel-750` | `#1b2026` | Panel plates, hover on dark plates |
+| `steel-700` | `#232930` | Raised plates: `armor-plate` (buttons, chips, tabs) |
+| `steel-600` | `#2f363f` | Plate hover, strong dividers |
+| `steel-500` | `#3e4651` | Bevel highlight lines, disabled fills |
+| `steel-400` | `#58616d` | Rivet bodies, engraved glyphs |
+| `steel-300` | `#7c8592` | Etched marks, inactive icons on plates |
+| `steel-200` | `#a7afba` | Polished edge highlights |
+
+### Ink: solid surfaces (gunmetal-tinted, darkest → lightest)
+
+| Token | Value | Use |
+| --- | --- | --- |
+| `ink-950` | `#050608` | Page canvas, behind everything; text on bright fills (`text-ink-950`) |
+| `ink-900` | `#090b0e` | Solid app background |
+| `ink-850` | `#0d1014` | Wells: code blocks, terminal, editor gutters, input fields |
+| `ink-800` | `#121519` | Raised solid blocks: AppIcon tiles, avatar backs, kbd |
+| `ink-750` | `#171b20` | Hover on solid blocks |
+| `ink-700` | `#1e2329` | Tracks (progress, slider), skeleton base |
+| `ink-600` | `#2a3038` | Strong solid dividers, scrollbar thumbs, disabled fills |
+| `ink-500` | `#3a424c` | Highest solid step: switch-off knob track, chart "rest" series |
 
 ### Foreground
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `fg` | `#e6edf7` | Primary text, titles, values, active icons |
-| `fg-muted` | `#a0adc2` | Body copy in windows, secondary labels, inactive icons |
-| `fg-subtle` | `#6f7d94` | Meta, captions, placeholders, HUD labels (≥ 12px only; 4.7:1 on ink) |
-| `fg-faint` | `#4a566b` | Disabled text, decorative glyphs, separators like `·`. **Never for readable text.** |
+| `fg` | `#eceae6` | Primary text, titles, values, active icons (warm white, like polished steel under firelight) |
+| `fg-muted` | `#aab0b8` | Body copy in windows, secondary labels, inactive icons |
+| `fg-subtle` | `#78818c` | Meta, captions, placeholders, HUD labels (≥ 12px only; ≈4.8:1 on steel-800) |
+| `fg-faint` | `#4e5660` | Disabled text, decorative glyphs, separators like `·`. **Never for readable text.** |
 
 ### Hairlines
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `line` | `rgb(148 170 205 / .10)` | Default 1px borders, dividers, chart gridlines |
-| `line-strong` | `rgb(148 170 205 / .18)` | Window/popover edges, input borders, hover borders |
+| `line` | `rgb(170 180 195 / .10)` | Default 1px borders, dividers, chart gridlines |
+| `line-strong` | `rgb(170 180 195 / .19)` | Input borders, hover borders (materials draw their own bevelled edges) |
 
 ### Translucent surfaces
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `surface` | `rgb(9 13 21 / .86)`* | Window glass (use the `glass-window` material) |
-| `surface-2` | `rgb(255 255 255 / .025)` | Cards inside windows (use `glass-panel`), unbordered wells |
-| `surface-3` | `rgb(13 18 28 / .94)` | Menus, popovers, tooltips (use `glass-popover`) |
+| `surface` | `rgb(17 20 24 / .94)`* | Window steel (use the `armor-window` material) |
+| `surface-2` | `rgb(255 255 255 / .025)` | Unbordered wells inside a plate (cards use `armor-panel`) |
+| `surface-3` | `rgb(13 18 28 / .94)` | Legacy popover fill (use `armor-popover`) |
 | `surface-hover` | `rgb(255 255 255 / .045)` | Hover fill for rows, ghost buttons, nav items |
 | `surface-active` | `rgb(255 255 255 / .07)` | Pressed fill, neutral "on" state |
 
-\* `surface` follows **Settings → Glass Opacity**. ThemeSync maps the slider (0.3–0.9) to alpha 0.74–0.98, so the default of 0.6 gives 0.86: legible glass with the blur still reading through. Decay stage 2 adds +0.05.
+\* `surface` follows **Settings → Glass Opacity**. ThemeSync maps the slider (0.3–0.9) to `--glass-alpha` 0.74–0.98; armor adds 0.08 (capped at 1), so the default is 0.94: mostly opaque steel with a trace of wallpaper through a light blur. Decay stage 2 adds +0.05.
 
 ### Accent: the live, user-chosen color
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `accent` | `var(--accent)` (default Plasma `#2fd6f5`) | Primary buttons, focus, selection, links, active nav, live indicators |
+| `accent` | `var(--accent)` (default Ember `#ff8a3d`) | Primary buttons, focus, selection, active nav, live indicators |
 | `accent-soft` | accent at 14% | Selected/active backgrounds (nav item, chip, row) |
-| `accent-fg` | `#03131a` | Text and icons **on** an accent fill (`bg-accent text-accent-fg`) |
+| `accent-fg` | `#1a0a02` | Text and icons **on** an accent fill (`bg-accent text-accent-fg`) |
 
-- The accent comes from Settings (or the active workspace). **ThemeSync** writes it into `--accent-primary` on `<html>`, and `--accent` reads that. Decay stage 3 temporarily warms it toward ember. Never hard-code the cyan.
+- The accent comes from Settings (or the active workspace). **ThemeSync** writes it into `--accent-primary` on `<html>`, and `--accent` reads that. Decay stage 3 temporarily warms it further. Never hard-code the accent hex.
 - Tints use opacity modifiers: `bg-accent/10`, `border-accent/30`, `ring-accent/25`, `text-accent`.
 - Accent utilities resolve per element (`@theme inline`), so a subtree can be re-tinted with `style={{ '--accent': hue } as React.CSSProperties}`. Use this for **previews** (accent swatches, workspace cards, an AppIcon hue). Don't re-tint whole apps: apps use the user's accent.
-- Settings offers `ACCENT_PRESETS` from `@/styles/tokens` (the viz palette, Plasma first). Stored legacy values (`#00f0ff`, the old swatches) are mapped onto the palette by `resolveAccent()`. Use `resolveAccent(ws.accentColor)` wherever a stored accent is painted directly (workspace dots, previews).
+- Settings offers `ACCENT_PRESETS` from `@/styles/tokens` (the viz palette, Ember first). Stored legacy values (the old swatches) are mapped onto the palette by `resolveAccent()`; the old neon default `#00f0ff` maps to Ember. The settings store (v3) and workspace store (v2) migrate the old Plasma default look (Plasma + Nebula) to Ember + Forge Night; an accent a user picked is kept. Use `resolveAccent(ws.accentColor)` wherever a stored accent is painted directly (workspace dots, previews).
 
-### Plasma and Ember
+### Ember and Plasma
 
-| Plasma | Value | Ember | Value |
+| Ember | Value | Plasma | Value |
 | --- | --- | --- | --- |
-| `plasma-300` | `#7ce7fb` | `ember-300` | `#ffb27a` |
-| `plasma-400` | `#2fd6f5` | `ember-400` | `#ff8a3d` |
-| `plasma-500` | `#10b8d8` | `ember-500` | `#f76b15` |
-| `plasma-600` | `#0b8fad` | `ember-600` | `#d4520b` |
+| `ember-100` | `#fff4e0` (white-hot) | | |
+| `ember-200` | `#ffd3a8` | | |
+| `ember-300` | `#ffb27a` (hot core) | `plasma-300` | `#7ce7fb` |
+| `ember-400` | `#ff8a3d` (default accent) | `plasma-400` | `#2fd6f5` |
+| `ember-500` | `#f76b15` | `plasma-500` | `#10b8d8` |
+| `ember-600` | `#d4520b` (deep) | `plasma-600` | `#0b8fad` |
+| `ember-700` | `#a3350a` | | |
+| `ember-800` | `#5c1a06` (cooling iron) | | |
 
-- **Plasma** is the brand's machine color. In UI, prefer `accent` (it *is* Plasma by default, and it respects the user's choice). Reach for fixed `plasma-*` only where something must stay Plasma regardless of the setting (the logo, NEXUS identity, boot sequence).
-- **Ember** is warrior energy. Text and icons use `ember-400`. Fills and gradients use `ember-500` (`bg-linear-to-b from-ember-400 to-ember-500 text-ink-950`, the kit's `variant="ember"`). Soft tints use `bg-ember-500/12 border-ember-500/30`. Hover glow uses `shadow-[0_0_24px_-4px_var(--color-ember-500)]`.
+- **Ember** is the brand. In UI, prefer `accent` (it *is* Ember by default, and it respects the user's choice). Reach for fixed `ember-*` where something must stay Ember regardless of the setting: the logo, brand marks, `forge-heat`, `ember-edge`, the boot sequence.
+- **Plasma** is energy/tech only: NEXUS identity, links, data highlights in charts, info. Never plasma for chrome, focus or the primary action.
+- **Ember heat** (streaks, XP, forge actions): Text and icons use `ember-400`. Fills and gradients use `ember-500` (`bg-linear-to-b from-ember-400 to-ember-500 text-ink-950`, the kit's `variant="ember"`). Soft tints use `bg-ember-500/12 border-ember-500/30`. Hover glow uses `shadow-[0_0_24px_-4px_var(--color-ember-500)]`.
 
 ### Status
 
@@ -163,7 +193,7 @@ See §13 for chart rules.
 | --- | --- | --- |
 | `font-sans` (default) | Inter | All UI text: titles, body, buttons, inputs |
 | `font-mono` | JetBrains Mono | Data, numbers in tables, code, paths, timestamps, HUD labels, keys |
-| `font-display` | Orbitron | **Only** big numbers (clock, stat values, XP, level), hero titles, the logo. Never body text, buttons, nav or labels. |
+| `font-display` | Chakra Petch (next/font, `--font-forge`) | Big numbers (clock, stat values, XP, level), window and hero titles, the logo, and engraved labels (`engraved` + uppercase + tracking). Never body text or paragraphs. Its letters are chamfered like the plates; figures read cleanly (flat-topped 7, open 4). |
 
 ### Scale
 
@@ -180,7 +210,7 @@ See §13 for chart rules.
 | `text-3xl` | 40 / 44 | Display numbers (timer, level) |
 | `text-4xl`–`text-7xl` | 48/52 · 56/60 · 64/68 · 76/80 | Display only: lock clock, level-up, achievement moments |
 
-Sizes from `text-xl` up have slight negative tracking built in. An explicit `tracking-*` utility overrides it (Orbitron in uppercase reads best at `tracking-[0.08em]`).
+Sizes from `text-xl` up have slight negative tracking built in. An explicit `tracking-*` utility overrides it (Chakra Petch in uppercase reads best at `tracking-[0.08em]`, engraved labels at `tracking-[0.18em]`).
 
 **Weights:** 400 for body, 500 for labels, buttons and nav, 600 for titles and values. Avoid 700 or heavier outside `font-display` numbers.
 
@@ -224,43 +254,63 @@ Sizes from `text-xl` up have slight negative tracking built in. An explicit `tra
 
 ---
 
-## 7. Radii
+## 7. Shape: chamfers, not radii
 
-| Utility | Value | Use |
+FORGED ARMOR has **no rounded chrome**. Corners are cut with `clip-path` polygons; the radius tokens are a 2px machining so a stray `rounded-card` still reads as metal.
+
+| Utility | Cut | Use |
 | --- | --- | --- |
-| `rounded-control` | 8px | Buttons, inputs, selects, chips, menu items, nav items, segmented controls |
-| `rounded-card` | 12px | Cards, panels, popovers, menus, toasts, tooltips (tooltips may use `rounded-control`) |
-| `rounded-window` | 16px | Windows, desktop widgets, taskbar island |
-| `rounded-sheet` | 20px | Dialogs, sheets, start menu, command palette |
-| `rounded-full` | pill | Badges, avatars, dots, switches, progress tracks |
-| AppIcon | `rounded-[28%]` | App tiles only (built into `<AppIcon>`) |
+| `chamfer-xs` | 4px, all corners | Chips, badges, tags, kbd |
+| `chamfer-sm` | 6px, all corners | Buttons, inputs, selects, segmented controls, menu items |
+| `chamfer-md` | 8px, all corners | Cards, panels, popovers, toasts |
+| `chamfer-lg` | 14px, all corners | Dialogs, sheets, the start menu |
+| `chamfer-tl-br` | top-left + bottom-right only (14px alone, or with a size: `chamfer-tl-br chamfer-md`) | The window silhouette: windows, widgets, hero plates |
+| `chamfer` | `--cut` (default 8px) | Custom sizes: `chamfer [--cut:10px]` |
+| `notch` | a tab: full width on top, cut in by `--notch` (6px) at both bottom corners | Title tags hanging from a header, rank plates |
 
-Nested corners: inner radius = outer radius − padding. For example, an 8px control inside a 12px card with 4px padding.
+| Radius | Value | Use |
+| --- | --- | --- |
+| `rounded-control`, `rounded-card`, `rounded-window`, `rounded-sheet` | 2px | Kept for old markup; the chamfer does the shaping |
+| `rounded-sm/md` 2px · `rounded-lg/xl` 3px · `rounded-2xl/3xl` 4px | | Stray t-shirt radii stay metal-hard |
+| `rounded-full` | pill | **Only** status dots, avatars, toggle knobs, radio dots |
+
+**What clip-path costs.** Everything drawn outside the border box is cut off: outer `box-shadow`, `outline` with a positive offset, overflowing children (a non-portal dropdown). So: bevels and heated edges are inset shadows or background layers; the chamfer utilities set `--focus-offset: -2px`, which moves the base focus ring (and `focus-ring`) inside; a clipped plate's drop shadow comes from `armor-drop` on its unclipped parent; floating menus portal out (the kit's Menu, Tooltip, Dialog already do). The per-element variables (`--cut`, `--cut-tl|tr|br|bl`, rivet colors, `--focus-offset`) are registered non-inheriting, so a window's cut never leaks into the plates inside it.
 
 ---
 
 ## 8. Materials and elevation
 
-Each material carries its own elevation. Add a `shadow-*` utility only to change it. Standard `border-*`, `bg-*` and `shadow-*` utilities override a material's defaults.
+Each material carries its shape, bevel and elevation. Standard `bg-*`, `border-*`, `shadow-*` and `chamfer-*` utilities override a material's defaults (the sheen and texture are translucent overlays, so `bg-*` recolors the plate). The legacy `glass-*` names render exactly the armor materials, so existing markup turned into armor without edits.
 
-| Material | Background | Blur | Border | Shadow | Use |
+| Material (legacy name) | Fill | Blur | Shape | Edge | Use |
 | --- | --- | --- | --- | --- | --- |
-| `glass-window` | `surface` | 16px, saturate 1.4 | 1px `line-strong` | `e3` + top highlight | Windows, taskbar, desktop widgets: **anything sitting on the wallpaper** |
-| `glass-popover` | `surface-3` | 16px | 1px `line-strong` | `e2` + top highlight | Menus, popovers, tooltips, command palette, start menu, notifications, toasts |
-| `glass-panel` | `surface-2` | none | 1px `line` | `e1` + faint highlight | Cards **inside** a window (never directly on the wallpaper) |
+| `armor-window` (`glass-window`) | `surface` steel (≈0.94 alpha) + sheen + brushed texture | 12px, saturate 1.15 | `chamfer-tl-br` 14px | 1px bevel border (light top/left, dark bottom/right) + inset bevel + lit diagonal on the cuts | Windows, taskbar, desktop widgets: **anything on the wallpaper** |
+| `armor-popover` (`glass-popover`) | steel `rgb(16 19 23 / .97)` + sheen + texture | 12px | 6px, all corners | same, `e2` | Menus, popovers, tooltips, palette, start menu, notifications, toasts |
+| `armor-panel` (`glass-panel`) | lighter steel `rgb(34 40 48 / .5)` + sheen + texture | none | 8px, all corners | softer bevel, `e1` | Plates bolted **inside** a window (cards, sections) |
+| `armor-plate` | `steel-700` + strong plate sheen + texture | none | 6px, all corners | strong bevel | Buttons, inputs, chips, tabs (the kit's controls) |
+
+Layer order inside every material (top first): 4 rivet layers (transparent until `rivets`) · 4 diagonal cut-edge lines · sheen · brushed texture. A `bg-linear-*` or `hud-corners` on the same element replaces those layers (the fill color stays).
+
+| Detail | What it renders | When |
+| --- | --- | --- |
+| `bevel` | Raised-metal inset edge (light top/left, dark bottom/right) on any element; composes with `shadow-*` | Custom plates that don't use a material |
+| `rivets` | Four bolt heads (highlight, steel body, dark ring) just inside the corners, stepped in past the cuts; `[--rivet-inset:8px]` to tune. Paints through an `armor-*`/`glass-*` material on the same element | Big plates: windows, sheets, hero panels, widgets. Not on small cards or controls |
+| `engraved` | Text pressed into the plate: dark lip above, faint light lip below | Section labels, plate titles (with `font-display uppercase tracking-[0.18em]`) |
+| `brushed` | The steel sheen + brushed streak texture on any surface (materials already have it) | Custom steel surfaces |
+| `forge-heat` | Progress fill from cooling iron (`ember-800`) through ember to a white-hot tip (`ember-100`) | Progress bars, XP, streak meters |
+| `ember-edge` | Molten edge: ember border, ember hairline, white-hot bottom seam and rising heat, all inset | The focused / active / selected control (`focus-visible:ember-edge`, `data-[active=true]:ember-edge`) |
+| `armor-drop` | `drop-shadow` filter for the unclipped parent of a chamfered plate (off in lite mode) | Windows, sheets, dragged plates |
 
 | Shadow | Use |
 | --- | --- |
-| `shadow-e1` | Cards, raised tiles |
-| `shadow-e2` | Popovers, menus, toasts, dragged items |
-| `shadow-e3` | Windows, dialogs |
-| `shadow-glow` | The focused or active accent thing: primary button hover, the focused window's edge, a live indicator. At most one per surface. |
+| `shadow-e1`, `shadow-e2`, `shadow-e3` | Elevation on unclipped elements (clipped plates use `armor-drop` on the parent) |
+| `shadow-glow` | Accent glow for the focused or live thing, on an unclipped element. At most one per surface. |
 
-**Stacking:** wallpaper → `glass-window` → `glass-panel` → content. A third bordered level is a smell: use spacing, `divide-line` or an unbordered `bg-surface-2` well instead.
+**Stacking:** wallpaper → `armor-window` → `armor-panel` → content. A third bordered level is a smell: use spacing, `divide-line` or an unbordered `bg-surface-2` well instead.
 
-**Lite mode** (`html[data-lite-mode]`: low-end devices, reduced motion, or chosen in Settings) turns off backdrop blur everywhere. The glass materials switch to solid ink automatically. For custom surfaces, use the `lite:` variant: `lite:bg-ink-900`. The same solid fallback applies under `prefers-reduced-transparency` and in browsers without `backdrop-filter`.
+**Lite mode** (`html[data-lite-mode]`) drops the brushed texture and the backdrop blur (plates go solid steel) and `armor-drop`; shape, bevel and rivets stay (they're cheap). Solid steel also applies under `prefers-reduced-transparency` and without `backdrop-filter`. For custom surfaces, use the `lite:` variant: `lite:bg-steel-850`.
 
-Never stack blurs (a blurred panel inside a blurred window). `glass-panel` has no blur on purpose.
+Never stack blurs. `armor-panel` and `armor-plate` have no blur on purpose.
 
 ---
 
@@ -272,7 +322,7 @@ Never stack blurs (a blurred panel inside a blurred window). `glass-panel` has n
 | 180ms | `duration-180` | Small transitions: toggles, tabs, tooltips, menus, list reorders |
 | 260ms | `duration-260` | Panels, windows, dialogs, sheets, page switches |
 
-- **Easing:** `ease-out-quint` (`cubic-bezier(0.16, 1, 0.3, 1)`) for everything that enters or moves. Exits are faster (120–180ms). No spring overshoot or bounce in chrome.
+- **Easing:** `ease-out-quint` (`cubic-bezier(0.16, 1, 0.3, 1)`) for everything that enters or moves; `--ease-lock` (`cubic-bezier(0.2, 0.9, 0.25, 1)`) for plates sliding and locking into place. Armor is heavy: short (120–220ms), mechanical, no spring overshoot, no floaty glass fades. Ember sparks only on key moments (achievements, forge actions).
 - **Transition specific properties,** for example `transition-colors duration-120 ease-out-quint` or `transition-[opacity,transform] duration-180 ease-out-quint`. Never `transition-all duration-300`.
 - **framer-motion:** `import { TRANSITION, EASE_OUT_QUINT } from '@/styles/tokens'`, then `transition={TRANSITION.panel}`. The standard entrance is `initial={{ opacity: 0, y: 6 }}` (or `scale: 0.97`) → `animate={{ opacity: 1, y: 0 }}`.
 - **CSS entrances:** `animate-fade-in` (180ms), `animate-rise-in` (260ms, 6px up), `animate-scale-in` (180ms from 0.97). Loading uses `animate-shimmer` (skeletons) and `animate-spin` (spinners). A live status dot uses `animate-pulse-soft`.
@@ -284,7 +334,7 @@ Never stack blurs (a blurred panel inside a blurred window). `glass-panel` has n
 
 ## 10. Focus, states and accessibility
 
-- **Focus ring:** every focusable element gets a 2px accent outline with a 2px offset on `:focus-visible` automatically (base layer). Text fields get a hugging ring. Use `focus-ring` on custom focusables (`div role="button"`, cards with `tabIndex={0}`) and `focus-ring-inset` inside `overflow-hidden` containers (rows, tabs in a scroller). Never write `outline-none` without a replacement. Script-focused containers (`tabIndex={-1}`) don't show a ring.
+- **Focus ring:** every focusable element gets a 2px accent (ember) outline on `:focus-visible` automatically (base layer), offset by `--focus-offset`: +2px normally, −2px (inside) on chamfered elements, which set it themselves. Controls that heat up add `focus-visible:ember-edge`. Text fields get a hugging ring. Use `focus-ring` on custom focusables (`div role="button"`, cards with `tabIndex={0}`) and `focus-ring-inset` inside `overflow-hidden` containers (rows, tabs in a scroller). Never write `outline-none` without a replacement. Script-focused containers (`tabIndex={-1}`) don't show a ring.
 - **Interactive states** (every clickable thing):
 
 | State | Treatment |
@@ -354,9 +404,11 @@ import { NotebookPen, Star, Trash2, Plus } from 'lucide-react';
 
 ### Cards and sections
 
-- `<Card eyebrow="This week" title="Focus time" actions={…}>`: `glass-panel rounded-card p-4`. Use `tone="ember"` only for warrior-energy cards and `hud` for corner brackets (sparingly: one hero card per screen).
+- `<Card eyebrow="This week" title="Focus time" actions={…}>`: `armor-panel chamfer-md p-4`. Use `tone="ember"` only for warrior-energy cards and `hud` (or `rivets`) for rivets (sparingly: one hero card per screen).
 - `<SectionHeader title="Recent decks" description="…" actions={…} />` above a group of cards. Don't wrap sections in bordered panels.
 - Clickable cards: `interactive` (hover lift is a border/fill change, not a scale jump) and a real `<button>`/`<a>`, or `role="button"` with `tabIndex={0}` plus `focus-ring`.
+- Status labels: `<Badge tone>` takes `neutral`, `accent`, `ember`, `success`, `warning`, `danger`, `info`, `gold` or `plasma`. Keep `plasma` for NEXUS and tech signals (the notification center uses it for NEXUS messages).
+- Dashed drop zones and "add" plates on chamfered cards: `<CutFrame cut={8} />` (`@/components/ui/CutFrame`) draws an outline that follows the cut corners, since a CSS border is clipped away at the cuts.
 
 ### Stat tiles
 
@@ -381,10 +433,10 @@ The value `tone` is `default`, `accent`, `ember` or `gold` for hero tiles. When 
 
 ### Dialogs, menus, popovers, tooltips
 
-- `<Dialog open onClose title description footer size>`: a `glass-window`-weight sheet with `rounded-sheet`, a dimmed backdrop and trapped focus. The footer is right-aligned: `secondary` Cancel, then the primary. Destructive actions use `<ConfirmDialog tone="danger" … />` and name the consequence ("Its 48 cards go too.").
+- `<Dialog open onClose title description footer size>`: an `armor-window`-weight sheet with `chamfer-lg`, a dimmed backdrop and trapped focus. The footer is right-aligned: `secondary` Cancel, then the primary. Destructive actions use `<ConfirmDialog tone="danger" … />` and name the consequence ("Its 48 cards go too.").
 - `<Menu trigger={…} items={[…]} />` for overflow and context actions. Items can have an icon, a `shortcut`, `danger`, `divider` and `heading`.
 - `<Tooltip content="Rename" shortcut="F2">` for icon buttons and truncated text. Keep tooltips to one line.
-- Custom popovers use `glass-popover rounded-card p-2` + `animate-scale-in`.
+- Custom popovers use `armor-popover chamfer-md p-2` + `animate-scale-in`.
 
 ### Empty, loading and error states
 
@@ -415,11 +467,11 @@ Each state is one lucide icon, a title, one line of text and at most one or two 
 
 ### Shell surfaces (taskbar, start menu, palette, notifications, widgets)
 
-- The taskbar and desktop widgets are `glass-window`. The start menu and command palette are `glass-popover rounded-sheet`. Notifications and toasts are `glass-popover rounded-card`.
+- The taskbar and desktop widgets are `armor-window` (`glass-window`). The start menu and command palette are `armor-popover` with `chamfer-lg`. Notifications and toasts are `armor-popover`.
 - Desktop icons are `<AppIcon size={48…56}>` with a `text-xs text-fg` label under a subtle text shadow for legibility over the wallpaper. Selection is a `bg-surface-active` tile.
 - Clocks and counters use `tabular`. Big clocks use `font-display`.
 - **Celebrations must not hijack the OS.** Common and uncommon achievements show the compact **achievement toast**: a medallion, "Achievement unlocked", the title, the rarity and the XP in gold on `glass-popover`. It sits bottom-center above the workspace pill in the toast layer and dismisses itself after 5 s. Rare, epic and legendary achievements get the full-screen cinematic, and level-ups keep their effect. The cinematic and its confetti sit below the start menu, palette, menus, notifications and dialogs, and never take a click except on the medallion (click it or press Esc to skip). Every unlock is still filed in the notification center.
-- The default wallpaper is **Deep Space** (CSS-only; id `void`). It is what lite mode, no-GPU and headless visitors see. Keep shell surfaces legible on it and on the shader wallpapers.
+- The default wallpaper is **Forge Night** (CSS-only; id `void`): a gunmetal night sky, a jagged ridge rim-lit by the ember glow of a forge, rising sparks. It is what new, lite-mode, no-GPU and headless visitors see. Keep shell surfaces legible on it and on the shader wallpapers.
 
 ---
 
@@ -429,7 +481,7 @@ Each state is one lucide icon, a title, one line of text and at most one or two 
 - **Series identity is never color alone.** With 2+ series, show a legend and direct-label up to four of them. Keep a 2px surface gap between touching fills (stacked segments, adjacent bars, donut slices).
 - **Gridlines** are horizontal only, 1px `line` (`CHART.grid`). No vertical grid and no chart border box.
 - **Axes** have no axis lines and no tick marks. Tick labels are 11px mono `fg-subtle` (`CHART.tick`). Wrap the chart in a `font-mono` element so SVG text inherits JetBrains Mono.
-- **Tooltips** use `glass-popover rounded-control px-3 py-2 text-xs`: a `hud-label` title, rows of 8px swatch · name (`fg-muted`) · value (`tabular text-fg`).
+- **Tooltips** use `armor-popover chamfer-sm px-3 py-2 text-xs`: a `hud-label` title, rows of 8px swatch · name (`fg-muted`) · value (`tabular text-fg`).
 - **Marks:** lines are 2px with round joins, and dots are hidden until hover (`activeDot` r=4, stroke `INK[950]` 2px). Areas fill from the series color at `CHART.areaOpacity` (0.22) to 0. Bars get 4px top radius, max 28px width, with a 25–40% category gap.
 - **Legends** only appear for 2+ series: top-right, `text-xs text-fg-muted`, 8px round swatches.
 - **Empty or loading** charts use `<EmptyState size="sm">` or a `Skeleton shape="block"` at the chart's height (no layout shift).
@@ -443,7 +495,7 @@ import { VIZ, CHART, INK } from '@/styles/tokens';
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="glass-popover rounded-control px-3 py-2 text-xs">
+    <div className="armor-popover chamfer-sm px-3 py-2 text-xs">
       <div className="hud-label mb-1">{label}</div>
       {payload.map((p) => (
         <div key={p.dataKey} className="flex items-center gap-2">
@@ -489,13 +541,17 @@ export function FocusChart({ data }: { data: { day: string; minutes: number }[] 
 
 | Flourish | How | When |
 | --- | --- | --- |
+| Rivets | `rivets` on an `armor-*` plate | Windows, sheets, hero plates: the big pieces of armor |
+| Engraving | `engraved` + `font-display uppercase tracking-[0.18em]` | Section labels, plate titles |
+| Notch tab | `notch` | A title tag hanging from a header edge |
+| Forge heat | `forge-heat` | Progress, XP and streak fills |
 | Corner brackets | `hud-corners` (tune with `--hud-corner-color`, `--hud-corner-size`, `--hud-corner-inset`) | One hero element per screen: the active stat panel, a boss card, a live session |
 | HUD label | `hud-label` | Eyebrows, table heads, stat labels |
 | Accent glow | `shadow-glow` | The one focused/primary/live thing |
 | Ember gradient | Button `variant="ember"`, `Card tone="ember"` | Streaks, XP, forge actions |
 | Grid texture | `EmptyState` (built in) | Empty states only |
 
-`hud-corners` paints background layers. It composes with `glass-*` and `bg-*` colors, but not with `bg-linear-*` images on the same element (wrap it instead).
+`hud-corners` paints background layers: on an `armor-*` element it replaces the material's rivet/texture layers (the steel fill stays). Wrap it instead when you need both.
 
 ---
 
@@ -503,7 +559,11 @@ export function FocusChart({ data }: { data: { day: string; minutes: number }[] 
 
 | Utility / variant | What it does |
 | --- | --- |
-| `glass-window`, `glass-popover`, `glass-panel` | Materials (§8) with lite-mode, reduced-transparency and no-blur fallbacks |
+| `armor-window`, `armor-popover`, `armor-panel`, `armor-plate` | Materials (§8) with lite-mode, reduced-transparency and no-blur fallbacks |
+| `glass-window`, `glass-popover`, `glass-panel` | Legacy names: render `armor-window` / `armor-popover` / `armor-panel` |
+| `chamfer`, `chamfer-xs|sm|md|lg`, `chamfer-tl-br`, `notch` | Shapes (§7) |
+| `bevel`, `engraved`, `rivets`, `brushed`, `forge-heat`, `ember-edge`, `armor-drop` | Armor details (§8) |
+| `bg-steel-*` … (`steel-950`…`steel-200`) | The steel scale (§4) |
 | `hud-label` | 11px mono, uppercase, 0.14em tracking, `fg-subtle` |
 | `hud-corners` | Four 10px accent L-brackets, 40% alpha, 6px inside the edge |
 | `focus-ring` / `focus-ring-inset` | 2px accent outline on `:focus-visible`, offset +2px / −2px |
@@ -513,10 +573,10 @@ export function FocusChart({ data }: { data: { day: string; minutes: number }[] 
 | `ease-out-quint`, `duration-120`, `duration-180`, `duration-260` | Motion tokens |
 | `animate-fade-in`, `animate-rise-in`, `animate-scale-in`, `animate-shimmer`, `animate-pulse-soft` | Theme animations |
 | `shadow-e1`, `shadow-e2`, `shadow-e3`, `shadow-glow` | Elevation (§8) |
-| `rounded-control`, `rounded-card`, `rounded-window`, `rounded-sheet` | Radii (§7) |
+| `rounded-control`, `rounded-card`, `rounded-window`, `rounded-sheet` | 2px (§7): chamfers do the shaping |
 | `text-2xs`, `text-ui` | Added sizes (§5) |
 
-CSS variables for inline styles: `--accent`, every `--color-*`, `--radius-*`, `--shadow-*`, `--ease-out-quint`, `--duration-hover|small|panel`, `--font-sans|mono|display`, and the z-index scale (`--z-wallpaper` 0, `--z-desktop` 10, `--z-window` 100, `--z-taskbar` 500, `--z-dynamic-island` 600, `--z-start-menu` 700, `--z-command-palette` 800, `--z-context-menu` 850, `--z-notification` 900, `--z-modal` 950, `--z-boot` 1000, `--z-cursor` 9999). Use the z scale; never write `z-[9999]`.
+CSS variables for inline styles: `--accent`, every `--color-*`, `--radius-*`, `--cut-xs|sm|md|lg`, `--shadow-*`, `--ease-out-quint`, `--ease-lock`, `--armor-sheen`, `--armor-brush`, `--duration-hover|small|panel`, `--font-sans|mono|display`, and the z-index scale (`--z-wallpaper` 0, `--z-desktop` 10, `--z-window` 100, `--z-taskbar` 500, `--z-dynamic-island` 600, `--z-start-menu` 700, `--z-command-palette` 800, `--z-context-menu` 850, `--z-notification` 900, `--z-modal` 950, `--z-boot` 1000, `--z-cursor` 9999). Use the z scale; never write `z-[9999]`.
 
 ---
 
@@ -524,10 +584,15 @@ CSS variables for inline styles: `--accent`, every `--color-*`, `--radius-*`, `-
 
 | Do | Don't |
 | --- | --- |
-| `bg-accent text-accent-fg` for the one primary action | Cyan text on cyan fills, or two glowing CTAs side by side |
+| Chamfered plates: `armor-*` materials, `chamfer-*` shapes | Rounded cards, rounded buttons, pill-shaped chrome (`rounded-xl`, `rounded-full` on anything but dots, avatars and knobs) |
+| Ember for brand, the primary action, focus and heat | Cyan focus rings, plasma buttons, plasma as decoration |
+| Plasma for NEXUS, links, data highlights, info | Ember on info notices or chart data by default |
+| Bevel, rivets and engraving on the big plates | Rivets on every chip, engraving on body text, texture on texture |
+| `forge-heat` on progress, `ember-edge` on the focused control | Flat accent bars, outer glows on clipped plates (they get cut off) |
+| `bg-accent text-accent-fg` for the one primary action | Two glowing CTAs side by side |
 | Spacing and `divide-line` to group | A bordered box inside a bordered box inside a window |
 | `text-fg-muted` body, `text-fg` titles | `text-white` everywhere, or grey-on-grey below 4.5:1 |
-| `hud-label` for eyebrows | `font-display` / Orbitron for labels, buttons or paragraphs |
+| `hud-label` or engraved `font-display` for eyebrows | `font-display` for paragraphs or body copy |
 | lucide icons at 16/18px, stroke 1.75 | Emoji in nav, tabs, buttons or headings |
 | `<AppIcon appId>` | Letter tiles, emoji tiles, or per-app hand-drawn icons |
 | `EmptyState` / `Skeleton` / error `EmptyState` | "Loading…", "No data", blank panes |
@@ -540,7 +605,7 @@ CSS variables for inline styles: `--accent`, every `--color-*`, `--radius-*`, `-
 
 ---
 
-## 17. Migration guide (legacy → FORGE HUD)
+## 17. Migration guide (legacy → design tokens)
 
 The old variables and classes still work as deprecated aliases (on-palette), so nothing breaks mid-migration. Replace them whenever you touch a file.
 
@@ -551,8 +616,8 @@ The old variables and classes still work as deprecated aliases (on-palette), so 
 | `#00f0ff`, `rgba(0,240,255,…)`, `text-cyan-*`, `border-cyan-*`, `text-accent-primary` | `text-accent`, `border-accent/30`, `bg-accent/15`, `ring-accent` |
 | `bg-accent-primary/10`, `bg-cyan-500/10` | `bg-accent/10` or `bg-accent-soft` (selected states) |
 | `#0a0a0f`, `#050508`, `#020204`, `#111118`, `bg-black`, `bg-[#0a0a0f]`-style page/app backgrounds | `bg-ink-950` (canvas) · `bg-ink-900` (solid app) · `bg-ink-850` (wells) |
-| `bg-black/40…80` panels, `rgba(15,15,25,.85)` window glass | `glass-window` / `glass-popover` materials |
-| `bg-white/5`, `bg-white/[0.03]` card fills | `glass-panel` (card) or `bg-surface-2` (unbordered well) |
+| `bg-black/40…80` panels, `rgba(15,15,25,.85)` window glass | `armor-window` / `armor-popover` materials |
+| `bg-white/5`, `bg-white/[0.03]` card fills | `armor-panel chamfer-md` (card) or `bg-surface-2` (unbordered well) |
 | `hover:bg-white/10`, `bg-white/10` pressed | `hover:bg-surface-hover`, `active:bg-surface-active` |
 | `text-white`, `text-text-primary` | `text-fg` |
 | `text-white/60–80`, `text-gray-300/400`, `text-text-secondary` | `text-fg-muted` |
@@ -567,17 +632,17 @@ The old variables and classes still work as deprecated aliases (on-palette), so 
 | `text-orange-*`, streak/fire colors | `text-ember-400` (fills `bg-ember-500`, tints `bg-ember-500/12`) |
 | `text-blue-*`, `text-sky-*` | `text-info` (or `text-accent` when it's interactive) |
 | `text-purple-*`, `text-violet-*`, `#7b61ff`, `accent-secondary` | `viz-3` in charts; elsewhere drop it (one accent per surface) |
-| Orbitron / `font-display` on body, buttons, labels, nav | `font-sans`; labels → `hud-label` |
+| `font-display` on body copy or paragraphs | `font-sans`; labels → `hud-label` or engraved `font-display` |
 | `font-mono` on prose | `font-sans` (keep mono for data, code, labels) |
 | `text-[10px]`, `text-[11px]` | `text-2xs` (as a label: `hud-label`) |
 | `text-[13px]` | `text-ui` |
 | `text-xs uppercase tracking-widest text-white/40` | `hud-label` |
-| `rounded-md`, `rounded-lg`, `rounded-[var(--radius-sm)]`, `rounded-[var(--radius-md)]` on controls | `rounded-control` |
+| `rounded-md`, `rounded-lg`, `rounded-[var(--radius-sm)]`, `rounded-[var(--radius-md)]` on controls | `chamfer-sm` (the kit controls already carry it) |
 | `rounded-lg`, `rounded-xl`, `rounded-[var(--radius-lg)]` on cards | `rounded-card` |
 | `rounded-xl` / `rounded-2xl` on windows, widgets, dialogs | `rounded-window` / `rounded-sheet` |
 | `shadow-lg`, `shadow-xl`, `shadow-2xl` | `shadow-e1` / `shadow-e2` / `shadow-e3` |
 | `shadow-[0_0_30px_rgba(0,240,255,0.3)]`, `.neon-border`, `.glass-glow` | `shadow-glow` on the one focused thing, or nothing |
-| `.glass`, `.glass-dark`, `.glass-border`, `<GlassPanel>` | `glass-window` / `glass-popover` / `glass-panel`, `<Card>` |
+| `.glass`, `.glass-dark`, `.glass-border`, `<GlassPanel>` | `armor-window` / `armor-popover` / `armor-panel`, `<Card>` |
 | `.text-glow`, `.text-glow-sm`, `drop-shadow-[0_0_12px_currentColor]` on text | Remove (big display numbers may keep a subtle `text-glow-sm`) |
 | `animate-pulse-glow`, `animate-breathe`, `animate-float`, `animate-hologram-flicker` on chrome | Remove; `animate-pulse-soft` for a live dot only |
 | `transition-all duration-300` | `transition-colors duration-120 ease-out-quint` / specific properties |
@@ -606,7 +671,7 @@ The old variables and classes still work as deprecated aliases (on-palette), so 
 | `--transition-fast`, `--transition-normal`, `--transition-slow` | 120 / 180 / 260ms quint | `duration-*` + `ease-out-quint` |
 | `--font-inter`, `--font-jetbrains`, `--font-orbitron` | raw next/font families | `font-sans`, `font-mono`, `font-display` |
 
-**Values that moved** (they apply to untouched markup too): `text-sm` is now 14/22, `text-lg` 18/26, `text-xl` 22/28, `text-2xl` 28/34, `text-3xl` 40/44, and `text-4xl`–`7xl` are larger. `rounded-md` is now 8px, `rounded-lg` 12px, `rounded-xl` 16px and `rounded-2xl` 20px. The legacy utilities `bg-accent-primary`, `text-text-*`, `bg-void` and friends now render FORGE HUD colors.
+**Values that moved** (they apply to untouched markup too): `text-sm` is now 14/22, `text-lg` 18/26, `text-xl` 22/28, `text-2xl` 28/34, `text-3xl` 40/44, and `text-4xl`–`7xl` are larger. All radii are now 2–4px (FORGED ARMOR: chamfers shape the chrome). The legacy utilities `bg-accent-primary`, `text-text-*`, `bg-void` and friends render the current palette.
 
 ---
 
@@ -617,7 +682,9 @@ The old variables and classes still work as deprecated aliases (on-palette), so 
 - [ ] At most two levels of bordered containers.
 - [ ] Empty, loading and error states are designed (EmptyState / Skeleton).
 - [ ] Icons are lucide at 16/18px, stroke 1.75. No emoji in chrome. Apps use `<AppIcon>`.
-- [ ] Orbitron appears only on big numbers, hero titles and the logo.
+- [ ] No rounded chrome: plates are chamfered, `rounded-full` only on dots, avatars and knobs.
+- [ ] Ember for brand/focus/primary, plasma only for tech/info.
+- [ ] `font-display` (Chakra Petch) only on numbers, titles, the logo and engraved labels.
 - [ ] Numbers are `tabular`. Truncated text has a `title`.
 - [ ] Every interactive element has hover, active, focus-visible and disabled states. Icon buttons have `aria-label`.
 - [ ] Transitions use 120/180/260ms with `ease-out-quint`, and nothing bounces. It still works with reduced motion and in lite mode (`--lite` screenshot).

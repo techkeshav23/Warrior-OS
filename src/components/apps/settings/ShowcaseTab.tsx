@@ -7,15 +7,15 @@
 
 'use client';
 
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useState, type ReactNode } from 'react';
 import { CircleCheck, Compass, Database, Eye, RotateCcw, ShieldCheck, UserRound } from 'lucide-react';
 import { OWNER } from '@/config/owner';
 import { getVisitorMode, type VisitorMode } from '@/lib/visitor';
 import type { DemoSeedArea, DemoSeedReport } from '@/lib/demo-seed';
 import { useTourStore } from '@/stores/useTourStore';
-import { Badge, Button, Card, ConfirmDialog, renderIcon, type IconLike } from '@/components/ui';
+import { Badge, Button, ConfirmDialog, type IconLike } from '@/components/ui';
 import { OwnerCard } from '@/components/showcase/OwnerCard';
-import { SettingRow, SettingsCard, SettingsPage, SettingsSection } from './parts';
+import { EngravedHeader, ForgedPlaque, SettingRow, SettingsCard, SettingsPage, SettingsSection } from './parts';
 
 const SESSION_COPY: Record<VisitorMode | 'unknown', { icon: IconLike; title: string; body: string }> = {
   guest: {
@@ -101,7 +101,25 @@ function replayTour(): void {
   useTourStore.getState().startTour();
 }
 
-const DANGER_EDGE = { borderColor: 'color-mix(in oklab, var(--color-danger) 28%, transparent)' };
+/** The danger zone: a scorched plate behind hazard stripes, soot and a danger-hot edge. */
+function ScorchedPlate({ children }: { children: ReactNode }) {
+  return (
+    <div className="armor-panel chamfer-tl-br chamfer-md relative isolate flex flex-col pt-2">
+      {/* Soot and heat rising from the bottom-right, like metal that has been in the fire */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(90%_140%_at_100%_100%,color-mix(in_oklab,var(--color-danger)_16%,transparent),transparent_60%),radial-gradient(70%_120%_at_0%_100%,rgb(0_0_0/0.35),transparent_70%)]"
+      />
+      {/* Hazard stripes along the top edge */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-[repeating-linear-gradient(-45deg,color-mix(in_oklab,var(--color-danger)_70%,transparent)_0_7px,rgb(0_0_0/0.55)_7px_14px)] shadow-[0_1px_0_rgb(0_0_0/0.6)]"
+      />
+      <span aria-hidden className="pointer-events-none absolute inset-y-3 left-0 w-0.5 bg-danger/70" />
+      {children}
+    </div>
+  );
+}
 
 function ShowcaseTabInner() {
   // Settings only renders client-side, so the stored mode is read once here.
@@ -126,17 +144,15 @@ function ShowcaseTabInner() {
   return (
     <SettingsPage>
       {/* Session */}
-      <Card hud>
-        <div className="flex items-start gap-3.5">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-card border border-accent/30 bg-accent/10 text-accent">
-            {renderIcon(session.icon, 20)}
-          </span>
-          <div className="flex min-w-0 flex-1 flex-col gap-1 pt-0.5">
-            <p className="text-sm font-medium text-fg">{session.title}</p>
-            <p className="text-xs text-fg-muted">{session.body}</p>
-          </div>
-        </div>
-      </Card>
+      <ForgedPlaque
+        icon={session.icon}
+        tone={mode ? 'accent' : 'neutral'}
+        eyebrow="Session"
+        stamp={mode === 'owner' ? 'OWNER' : mode === 'guest' ? 'GUEST' : '—'}
+        title={session.title}
+      >
+        {session.body}
+      </ForgedPlaque>
 
       {/* Tour + demo data */}
       <SettingsSection title="Explore" description="Show Warrior OS off, or get your bearings again.">
@@ -181,8 +197,9 @@ function ShowcaseTabInner() {
       </SettingsSection>
 
       {/* Reset */}
-      <SettingsSection title="Danger zone">
-        <SettingsCard style={DANGER_EDGE}>
+      <section aria-label="Danger zone" className="flex flex-col gap-3">
+        <EngravedHeader title="Danger zone" tone="danger" />
+        <ScorchedPlate>
           <SettingRow
             label="Reset this browser's Warrior OS"
             description="Erase everything Warrior OS keeps in this browser and start over from the first boot."
@@ -192,8 +209,8 @@ function ShowcaseTabInner() {
               </Button>
             }
           />
-        </SettingsCard>
-      </SettingsSection>
+        </ScorchedPlate>
+      </section>
 
       {/* Creator */}
       <OwnerCard />

@@ -11,6 +11,7 @@ import { useState, useCallback, memo } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { BookOpen, Check, Moon, Sunrise, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BEVEL_SUNK, EMBER_PLATE, SLOT_FILL } from '@/components/ui/armor';
 import { Card, ProgressBar } from '@/components/ui';
 import { checkStudyStreak } from '@/components/achievements/study-streak';
 import type { RoutineItem } from './HabitForgeApp';
@@ -114,7 +115,7 @@ function RoutineChecklistInner({ routines, onProgress }: Props) {
                   {catDone}/{items.length}
                 </span>
               </header>
-              <div className="overflow-hidden rounded-card border border-line bg-surface-2">
+              <div className="armor-panel chamfer-md overflow-hidden">
                 <ul className="divide-y divide-line">
                   {items.map((item, i) => {
                     const done = completed.has(item.id);
@@ -135,10 +136,10 @@ function RoutineChecklistInner({ routines, onProgress }: Props) {
                           <span
                             aria-hidden
                             className={cn(
-                              'flex size-[18px] shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color] duration-180 ease-out-quint',
+                              'chamfer-xs flex size-[18px] shrink-0 items-center justify-center transition-[background-color,box-shadow] duration-180 ease-out-quint',
                               done
-                                ? 'border-ember-500 bg-linear-to-b from-ember-400 to-ember-500 text-ink-950'
-                                : 'border-fg-faint group-hover/row:border-ember-400/70'
+                                ? EMBER_PLATE
+                                : cn(SLOT_FILL, BEVEL_SUNK, 'group-hover/row:shadow-[inset_0_0_0_1px_var(--color-ember-500)]')
                             )}
                           >
                             {done && <Check size={11} strokeWidth={3} />}

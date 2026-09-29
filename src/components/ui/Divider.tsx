@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Divider + Skeleton (FORGE HUD kit)
+// WARRIOR OS — Divider + Skeleton (FORGED ARMOR kit)
 //   <Divider />  <Divider label="Or" />  <Divider orientation="vertical" />
 //   <Skeleton className="h-4 w-40" />  <Skeleton lines={3} />
 // ═══════════════════════════════════════════════════════════
@@ -51,7 +51,7 @@ export function Skeleton({ shape = 'line', lines, className, style, ...props }: 
     return (
       <div className={cn('flex flex-col gap-2', className)} aria-hidden {...props}>
         {Array.from({ length: lines }, (_, i) => (
-          <div key={i} className={cn(SHIMMER, 'h-3 rounded-[4px]', i === lines - 1 ? 'w-3/5' : 'w-full')} />
+          <div key={i} className={cn(SHIMMER, 'h-3 chamfer-xs', i === lines - 1 ? 'w-3/5' : 'w-full')} />
         ))}
       </div>
     );
@@ -64,7 +64,7 @@ export function Skeleton({ shape = 'line', lines, className, style, ...props }: 
         // Defaults only when the caller didn't size/round it (cn doesn't merge).
         !/(^|\s)(h|size)-/.test(className ?? '') && shape === 'line' && 'h-3',
         !/(^|\s)rounded/.test(className ?? '') &&
-          (shape === 'circle' ? 'rounded-full' : shape === 'block' ? 'rounded-card' : 'rounded-[4px]'),
+          (shape === 'circle' ? 'rounded-full' : shape === 'block' ? 'chamfer-md' : 'chamfer-xs'),
         className
       )}
       style={style}

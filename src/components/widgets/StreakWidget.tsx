@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Streak Widget (FORGE HUD)
+// WARRIOR OS — Streak Widget (FORGED ARMOR)
 // Ember flame + current habit streak in days, computed from Habit
 // Forge (Stats Center shows the same number as its habit streak), and
 // a segmented meter toward the next streak badge. The flame's glow
@@ -42,15 +42,15 @@ function StreakWidgetInner({ current, longest, doneToday }: StreakWidgetProps) {
       <div className="flex items-center gap-3">
         <div
           className={cn(
-            'relative flex size-10 shrink-0 items-center justify-center rounded-card border',
-            lit ? 'border-ember-500/35 bg-ember-500/10 text-ember-400' : 'border-line-strong bg-ink-850 text-fg-faint'
+            'chamfer-sm bevel relative flex size-10 shrink-0 items-center justify-center',
+            lit ? 'bg-ember-500/12 text-ember-400' : 'bg-steel-900 text-fg-faint'
           )}
         >
           {lit && !reduceMotion && (
             <motion.span
               aria-hidden="true"
-              className="absolute inset-0 rounded-card"
-              style={{ boxShadow: '0 0 18px -2px var(--color-ember-500)' }}
+              className="absolute inset-0"
+              style={{ boxShadow: 'inset 0 -14px 16px -8px var(--color-ember-500), inset 0 0 0 1px rgb(255 138 61 / 0.45)' }}
               animate={{ opacity: [0.25, 0.7, 0.25] }}
               transition={{ duration: pulseSeconds(current), repeat: Infinity, ease: 'easeInOut' }}
             />
@@ -82,8 +82,8 @@ function StreakWidgetInner({ current, longest, doneToday }: StreakWidgetProps) {
         </div>
 
         <div className="shrink-0 text-right">
-          <p className="hud-label">Best</p>
-          <p className="tabular mt-1 font-mono text-xs text-fg-muted">{longest}d</p>
+          <p className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Best</p>
+          <p className="tabular mt-1 font-display text-sm font-semibold text-fg-muted">{longest}d</p>
         </div>
       </div>
 

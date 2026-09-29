@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Taskbar Component (FORGE HUD)
-// Bottom glass bar: Start (BrandMark), the command-palette search,
+// Bottom armor bar: Start (BrandMark), the command-palette search,
 // the active workspace's window list (memoized AppIcon buttons with
 // primitive props) and the system tray: workspaces, study timer,
 // install, notifications, sound, network LED, lock, clock and a
@@ -163,11 +163,11 @@ function TaskbarWindowButtonInner({ windowId, appId, title, isFocused, isMinimiz
       aria-pressed={active}
       title={isMinimized ? `Restore ${title}` : active ? `Minimize ${title}` : `Show ${title}`}
       className={cn(
-        'group relative flex h-9 min-w-11 max-w-48 shrink items-center gap-2 rounded-control pl-2 pr-3',
+        'group relative flex h-9 min-w-11 max-w-48 shrink items-center gap-2 chamfer [--cut:7px] pl-2 pr-3',
         'text-ui transition-colors duration-120 ease-out-quint focus-ring-inset',
         active
-          ? 'bg-surface-active text-fg'
-          : 'text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active'
+          ? 'bg-linear-to-b from-[#343c47] to-[#1b2027] text-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.14),inset_0_-1px_0_rgb(0_0_0/0.6)]'
+          : 'text-fg-muted hover:bg-white/[0.05] hover:text-fg active:bg-white/[0.08]'
       )}
     >
       <AppIcon appId={appId} size={20} active={active} className={cn(isMinimized && 'opacity-60')} />
@@ -176,9 +176,9 @@ function TaskbarWindowButtonInner({ windowId, appId, title, isFocused, isMinimiz
       <span
         aria-hidden
         className={cn(
-          'absolute bottom-0.5 left-1/2 h-0.5 -translate-x-1/2 rounded-full transition-[width,background-color] duration-180 ease-out-quint',
+          'absolute bottom-0 left-1/2 h-0.5 -translate-x-1/2 transition-[width,background-color] duration-180 ease-out-quint',
           active
-            ? 'w-5 bg-accent shadow-[0_0_8px_var(--accent)]'
+            ? 'w-3/4 bg-linear-to-r from-ember-600 via-ember-300 to-ember-600 shadow-[0_0_8px_var(--color-ember-500,#f76b15)]'
             : isMinimized
               ? 'w-1 bg-fg-faint'
               : 'w-2 bg-fg-subtle group-hover:bg-fg-muted'
@@ -326,13 +326,18 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
       initial={{ y: 48 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.26, ease: EASE }}
-      className="glass-window fixed inset-x-0 bottom-0 flex h-12 items-center gap-1 rounded-none border-x-0 border-b-0 pl-2"
-      style={{ zIndex: 'var(--z-taskbar)' }}
+      className="armor-window fixed inset-x-0 bottom-0 flex h-12 items-center gap-1 border-x-0 border-b-0 pl-2"
+      // A full-width bar: no cuts, and no clip (tray popovers rise above it).
+      style={{ zIndex: 'var(--z-taskbar)', clipPath: 'none', ['--cut' as string]: '0px' }}
     >
-      {/* Forge hairline along the top edge */}
+      {/* Forged top edge: a steel lip with an ember seam under the Start plate */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-accent/25 to-transparent"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-white/5 via-white/20 to-white/5"
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-0 top-0 h-0.5 w-40 bg-linear-to-r from-ember-400 via-ember-500/60 to-transparent"
       />
 
       {/* ─── Start ─── */}
@@ -348,23 +353,15 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
         aria-expanded={startOpen}
         aria-haspopup="dialog"
         className={cn(
-          'group flex h-9 shrink-0 items-center gap-2.5 rounded-control pl-1 pr-3',
-          'transition-colors duration-120 ease-out-quint focus-ring',
-          startOpen ? 'bg-surface-active' : 'hover:bg-surface-hover active:bg-surface-active'
+          'group flex h-9 shrink-0 items-center gap-2 pl-1.5 pr-3.5 [clip-path:polygon(0_0,calc(100%-10px)_0,100%_10px,100%_100%,0_100%)]',
+          'bg-linear-to-b transition-[background-color,box-shadow] duration-120 ease-out-quint focus-ring-inset',
+          startOpen
+            ? 'from-[#3a2a1f] to-[#1d1712] shadow-[inset_0_1px_0_rgb(255_200_160/0.2),inset_0_-2px_0_var(--color-ember-400,#ff8a3d)]'
+            : 'from-[#2b323c] to-[#171b21] shadow-[inset_0_1px_0_rgb(255_255_255/0.13),inset_0_-1px_0_rgb(0_0_0/0.6)] hover:from-[#353d48] hover:to-[#1c2128] hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.13),inset_0_-2px_0_var(--color-ember-500,#f76b15)] active:translate-y-px'
         )}
       >
-        <span
-          className={cn(
-            'flex size-7 items-center justify-center rounded-[28%] border bg-linear-to-b from-ink-700 to-ink-900',
-            'inset-shadow-[0_1px_0_rgb(255_255_255/0.08)] transition-[border-color,box-shadow] duration-180 ease-out-quint',
-            startOpen
-              ? 'border-accent/60 shadow-glow'
-              : 'border-line-strong group-hover:border-accent/50 group-hover:shadow-[0_0_14px_-4px_var(--accent)]'
-          )}
-        >
-          <BrandMark size={20} />
-        </span>
-        <span className="hidden font-display text-[11px] font-bold tracking-[0.24em] text-fg sm:block">WARRIOR</span>
+        <BrandMark size={24} className={cn('transition-[filter] duration-180', startOpen && 'drop-shadow-[0_0_6px_var(--color-ember-500,#f76b15)]')} />
+        <span className="engraved hidden font-display text-[11px] font-bold tracking-[0.24em] text-fg sm:block">WARRIOR</span>
       </button>
 
       {/* ─── Search / command palette ─── */}
@@ -376,9 +373,10 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
         aria-keyshortcuts="Control+K"
         title={`Search apps and commands (${mod} K)`}
         className={cn(
-          'group flex size-9 shrink-0 items-center justify-center gap-2 rounded-control text-fg-subtle',
-          'transition-colors duration-120 ease-out-quint hover:bg-surface-hover hover:text-fg focus-ring',
-          'xl:h-8 xl:w-60 xl:justify-start xl:border xl:border-line xl:bg-ink-950/40 xl:pl-2.5 xl:pr-1.5 xl:hover:border-line-strong xl:hover:bg-surface-hover'
+          'group flex size-9 shrink-0 items-center justify-center gap-2 chamfer [--cut:6px] text-fg-subtle',
+          'transition-[background-color,color,box-shadow] duration-120 ease-out-quint hover:bg-white/[0.05] hover:text-fg focus-ring-inset',
+          'xl:h-8 xl:w-60 xl:justify-start xl:bg-linear-to-b xl:from-[#06080b] xl:to-[#0f1318] xl:pl-2.5 xl:pr-1.5',
+          'xl:shadow-[inset_0_1px_0_rgb(0_0_0/0.8),inset_0_2px_6px_rgb(0_0_0/0.5),inset_0_-1px_0_rgb(255_255_255/0.09)] xl:hover:shadow-[inset_0_1px_0_rgb(0_0_0/0.8),inset_0_2px_6px_rgb(0_0_0/0.5),inset_0_-1px_0_var(--color-ember-500,#f76b15)]'
         )}
       >
         <Search size={16} strokeWidth={1.75} aria-hidden className="shrink-0" />
@@ -415,7 +413,7 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
       <div className="flex shrink-0 items-center gap-0.5 pl-1">
         {/* Workspaces (each in its own accent; a tick marks workspaces with windows) */}
         <div
-          className="mr-1 flex items-center gap-0.5 rounded-control border border-line bg-ink-950/40 p-0.5"
+          className="mr-1 flex items-center gap-0.5 chamfer [--cut:6px] bg-linear-to-b from-[#05070a] to-[#10141a] p-0.5 shadow-[inset_0_1px_0_rgb(0_0_0/0.8),inset_0_-1px_0_rgb(255_255_255/0.08)]"
           role="group"
           aria-label="Workspaces"
         >
@@ -436,9 +434,11 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
                   aria-label={`${ws.name} workspace${count ? `, ${count} window${count === 1 ? '' : 's'}` : ''}`}
                   aria-current={isActive ? 'true' : undefined}
                   className={cn(
-                    'relative flex size-7 items-center justify-center rounded-[6px]',
-                    'transition-colors duration-120 ease-out-quint focus-ring',
-                    isActive ? 'bg-accent/15 text-accent' : 'text-fg-subtle hover:bg-surface-hover hover:text-fg'
+                    'relative flex size-7 items-center justify-center chamfer [--cut:4px]',
+                    'transition-colors duration-120 ease-out-quint focus-ring-inset',
+                    isActive
+                      ? 'bg-linear-to-b from-[#343c47] to-[#1b2027] text-accent shadow-[inset_0_1px_0_rgb(255_255_255/0.14)]'
+                      : 'text-fg-subtle hover:bg-white/[0.05] hover:text-fg'
                   )}
                   style={{ '--accent': resolveAccent(ws.accentColor) } as CSSProperties}
                 >
@@ -447,7 +447,7 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
                     <span
                       aria-hidden
                       className={cn(
-                        'absolute bottom-[3px] left-1/2 h-0.5 -translate-x-1/2 rounded-full',
+                        'absolute bottom-0.5 left-1/2 h-0.5 -translate-x-1/2',
                         isActive ? 'w-2.5 bg-accent' : 'w-1 bg-fg-muted'
                       )}
                     />
@@ -535,7 +535,7 @@ function TaskbarInner({ onStartClick, onNotificationClick }: TaskbarProps) {
         <button
           type="button"
           onClick={showDesktop}
-          className="group flex h-12 w-2.5 items-center justify-center border-l border-line transition-colors duration-120 ease-out-quint hover:bg-surface-hover focus-ring-inset"
+          className="group flex h-12 w-2.5 items-center justify-center shadow-[inset_1px_0_0_rgb(0_0_0/0.6),inset_2px_0_0_rgb(255_255_255/0.05)] transition-colors duration-120 ease-out-quint hover:bg-surface-hover focus-ring-inset"
           aria-label="Show desktop"
           title="Show desktop"
         >

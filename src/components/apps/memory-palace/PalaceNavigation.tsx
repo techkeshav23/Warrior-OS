@@ -13,6 +13,7 @@
 import { memo, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, DoorOpen, Map as MapIcon, Navigation } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BEVEL_SUNK, ENGRAVED_LABEL, SLOT_FILL } from '@/components/ui/armor';
 import { Button, IconButton } from '@/components/ui';
 import { LINE } from '@/styles/tokens';
 import { PALACE } from './palaceTheme';
@@ -86,9 +87,9 @@ function PalaceNavigationInner({
   return (
     <>
       {/* ── Minimap (top-right) ── */}
-      <div className="glass-popover pointer-events-auto absolute right-3 top-3 z-20 rounded-card p-2">
+      <div className="armor-popover rivets pointer-events-auto absolute right-3 top-3 z-20 p-2 [--cut:12px] [--cut-tl:0px] [--cut-br:0px] [--rivet-inset:1px]">
         <div className="flex items-center justify-between gap-2 pl-1">
-          <span className="hud-label flex items-center gap-1.5">
+          <span className={cn(ENGRAVED_LABEL, 'flex items-center gap-1.5')}>
             <MapIcon size={14} strokeWidth={1.75} aria-hidden /> Palace map
           </span>
           <IconButton
@@ -101,7 +102,7 @@ function PalaceNavigationInner({
         </div>
         {!collapsed && (
           <div
-            className="relative mt-2 rounded-control bg-ink-950/60 ring-1 ring-inset ring-line"
+            className={cn('chamfer-sm relative mt-2', SLOT_FILL, BEVEL_SUNK)}
             style={{ width: w * scale, height: mapH }}
           >
             <svg width={w * scale} height={mapH} className="absolute inset-0" aria-hidden>
@@ -114,7 +115,7 @@ function PalaceNavigationInner({
                     y={y0}
                     width={12 * scale}
                     height={10 * scale}
-                    rx={2}
+                    rx={0}
                     fill={LINE.base}
                     stroke={LINE.strong}
                     strokeWidth={1}
@@ -138,7 +139,7 @@ function PalaceNavigationInner({
                       y={y0}
                       width={layout.hall.size * scale}
                       height={layout.hall.size * scale}
-                      rx={3}
+                      rx={0}
                       fill={`color-mix(in oklab, ${PALACE.hall} 10%, transparent)`}
                       stroke={`color-mix(in oklab, ${PALACE.hall} 55%, transparent)`}
                       strokeDasharray={building.has('hall') ? '3 2' : undefined}
@@ -161,7 +162,7 @@ function PalaceNavigationInner({
                   title={`${r.label} · ${r.objectCount} object${r.objectCount === 1 ? '' : 's'}${r.dueCount ? ` · ${r.dueCount} due` : ''}`}
                   aria-label={`Fly to ${r.label}`}
                   className={cn(
-                    'focus-ring absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[3px] border font-mono text-[7px] font-semibold leading-none',
+                    'focus-ring absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center border font-mono text-[7px] font-semibold leading-none',
                     'transition-[transform,background-color] duration-120 ease-out-quint disabled:cursor-default',
                     !flying && !underConstruction && 'hover:z-10 hover:scale-110',
                     underConstruction && 'border-dashed motion-safe:animate-pulse-soft'
@@ -179,7 +180,7 @@ function PalaceNavigationInner({
                 >
                   {roomPx > 16 ? r.short : ''}
                   {r.dueCount > 0 && (
-                    <span className="absolute -right-1 -top-1 size-2 rounded-full bg-danger ring-2 ring-ink-900" aria-hidden />
+                    <span className="absolute -right-1 -top-1 size-2 rounded-full bg-danger ring-2 ring-steel-950" aria-hidden />
                   )}
                 </button>
               );
@@ -190,7 +191,7 @@ function PalaceNavigationInner({
               className="pointer-events-none absolute"
               style={{ left: px, top: py, transform: `translate(-50%, -50%) rotate(${(-heading * 180) / Math.PI - 45}deg)` }}
             >
-              <Navigation size={12} strokeWidth={2} className="fill-accent text-accent drop-shadow-[0_0_4px_var(--accent)]" aria-hidden />
+              <Navigation size={12} strokeWidth={2} className="fill-ember-400 text-ember-300 drop-shadow-[0_0_4px_var(--color-ember-500)]" aria-hidden />
             </div>
           </div>
         )}
@@ -207,9 +208,9 @@ function PalaceNavigationInner({
       {breadcrumbs.length > 0 && (
         <nav
           aria-label="Rooms visited"
-          className="glass-popover pointer-events-auto absolute bottom-3 left-3 z-20 flex max-w-[55%] flex-wrap items-center gap-0.5 rounded-control px-2 py-1"
+          className="armor-popover pointer-events-auto absolute bottom-3 left-3 z-20 flex max-w-[55%] flex-wrap items-center gap-0.5 py-1 pl-3 pr-2 [--cut:8px] [--cut-tr:0px] [--cut-bl:0px]"
         >
-          <span className="hud-label mr-1.5">Trail</span>
+          <span className={cn(ENGRAVED_LABEL, 'mr-1.5')}>Trail</span>
           {breadcrumbs.map((b, i) => {
             const here = b.key === currentRoomKey;
             return (
@@ -220,12 +221,12 @@ function PalaceNavigationInner({
                   disabled={flying || here}
                   aria-current={here ? 'location' : undefined}
                   className={cn(
-                    'focus-ring flex h-6 max-w-40 items-center gap-1.5 rounded-[6px] px-1.5 text-xs transition-colors duration-120 ease-out-quint',
-                    here ? 'cursor-default text-fg' : 'text-fg-muted hover:bg-surface-hover hover:text-fg disabled:opacity-60'
+                    'focus-ring-inset chamfer-xs flex h-6 max-w-40 items-center gap-1.5 px-1.5 text-xs transition-colors duration-120 ease-out-quint',
+                    here ? 'cursor-default bg-steel-700 text-fg shadow-[inset_0_-2px_0_var(--color-ember-500)]' : 'text-fg-muted hover:bg-steel-700 hover:text-ember-200 disabled:opacity-60'
                   )}
                   title={b.label}
                 >
-                  <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: b.accent }} aria-hidden />
+                  <span className="size-1.5 shrink-0 rotate-45" style={{ backgroundColor: b.accent }} aria-hidden />
                   <span className="truncate">{b.label}</span>
                 </button>
                 {i < breadcrumbs.length - 1 && (

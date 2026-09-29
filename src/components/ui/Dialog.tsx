@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Dialog + ConfirmDialog (FORGE HUD kit)
+// WARRIOR OS — Dialog + ConfirmDialog (FORGED ARMOR kit)
 // Modal sheet in a portal on <body>: dimmed backdrop, focus trapped
 // inside, Escape / backdrop click close it, focus returns to whatever
 // opened it. Title + description are wired to aria-labelledby/-describedby.
@@ -63,10 +63,10 @@ export interface DialogProps {
 }
 
 const ICON_TONE = {
-  accent: 'text-accent border-accent/30 bg-accent/10',
-  ember: 'text-ember-400 border-ember-500/30 bg-ember-500/10',
-  danger: 'text-danger border-danger/30 bg-danger/10',
-  neutral: 'text-fg-muted border-line-strong bg-ink-800',
+  accent: 'text-accent bg-accent/12 shadow-[inset_0_-2px_0_var(--accent)]',
+  ember: 'text-ember-400 bg-ember-500/12 shadow-[inset_0_-2px_0_var(--color-ember-400,#ff8a3d)]',
+  danger: 'text-danger bg-danger/12 shadow-[inset_0_-2px_0_var(--color-danger,#ff5470)]',
+  neutral: 'text-fg-muted bg-linear-to-b from-[#2b323c] to-[#161a20] shadow-[inset_0_1px_0_rgb(255_255_255/0.13),inset_0_-1px_0_rgb(0_0_0/0.6)]',
 } as const;
 
 /** Accessible modal dialog. */
@@ -177,22 +177,22 @@ export function Dialog({
             exit={{ opacity: 0, scale: 0.98, y: 4 }}
             transition={{ duration: 0.26, ease: EASE }}
             className={cn(
-              'glass-popover relative flex w-full flex-col overflow-hidden rounded-sheet shadow-e3 outline-none',
+              'armor-popover chamfer-lg rivets relative flex w-full flex-col overflow-hidden outline-none',
               SIZE[size],
               className
             )}
           >
-            <span aria-hidden className="pointer-events-none absolute inset-x-10 top-0 h-px bg-linear-to-r from-transparent via-accent/50 to-transparent" />
+            <span aria-hidden className="pointer-events-none absolute left-6 right-16 top-0 h-0.5 bg-linear-to-r from-ember-600 via-ember-400 to-transparent" />
             {(title || showClose) && (
               <div className="flex items-start gap-3 px-5 pb-1 pt-5">
                 {icon != null && (
-                  <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-card border', ICON_TONE[iconTone])}>
+                  <span className={cn('flex size-9 shrink-0 items-center justify-center chamfer [--cut:6px]', ICON_TONE[iconTone])}>
                     {renderIcon(icon, 18)}
                   </span>
                 )}
                 <div className="min-w-0 flex-1 pt-0.5">
                   {title && (
-                    <h2 id={titleId} className="text-base font-semibold text-fg">
+                    <h2 id={titleId} className="engraved font-display text-base font-bold uppercase tracking-[0.06em] text-fg">
                       {title}
                     </h2>
                   )}
@@ -211,7 +211,7 @@ export function Dialog({
               </div>
             )}
             {footer != null && (
-              <div data-dialog-footer className={cn('flex items-center justify-end gap-2 border-t border-line bg-ink-950/30 px-5 py-3', children == null && 'mt-4')}>
+              <div data-dialog-footer className={cn('flex items-center justify-end gap-2 bg-black/25 px-5 py-3 shadow-[inset_0_1px_0_rgb(0_0_0/0.6),inset_0_2px_0_rgb(255_255_255/0.04)]', children == null && 'mt-4')}>
                 {footer}
               </div>
             )}

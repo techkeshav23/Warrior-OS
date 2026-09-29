@@ -93,7 +93,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         {lead != null && (
           <span
             className={cn(
-              'pointer-events-none absolute top-1/2 flex -translate-y-1/2 text-fg-subtle',
+              'pointer-events-none absolute z-[1] top-1/2 flex -translate-y-1/2 text-fg-subtle',
               FIELD_ICON_POS[size]
             )}
           >

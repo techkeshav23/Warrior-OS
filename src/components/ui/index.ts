@@ -62,6 +62,10 @@ export type { DialogProps, ConfirmDialogProps, DialogSize } from './Dialog';
 export { Tooltip } from './Tooltip';
 export type { TooltipProps, TooltipSide } from './Tooltip';
 
+// ─── Shapes ───
+export { CutFrame } from './CutFrame';
+export type { CutFrameProps } from './CutFrame';
+
 // ─── Helpers ───
 export { renderIcon } from './icon';
 export type { IconLike } from './icon';

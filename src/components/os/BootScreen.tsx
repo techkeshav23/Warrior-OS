@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — BootScreen Component
-// FORGE HUD boot: a plasma point powers on → "WARRIOR" assembles from
-// plasma particles and ember sparks → the shield mark, a mono boot log
-// with status tags and a segmented progress bar → a soft plasma bloom
-// hands over to the lock screen. ≈5.4 s end to end (was ≈6 s).
+// FORGED ARMOR boot: an ember point strikes → "WARRIOR" assembles from
+// particles and ember sparks → the shield mark, a mono boot log on a
+// riveted forged plate with cut status tags and a slanted, heating
+// segment bar → a soft bloom hands over to the lock screen. ≈5.4 s end to end (was ≈6 s).
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -57,6 +57,8 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 type BootPhase = 'void' | 'particle' | 'log' | 'flash' | 'done';
 
 /** Status tag colours: OK = healthy, VERIFIED = the owner (ember), READY = the machine. */
+const ENGRAVED = 'engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle';
+
 const STATUS_TONE: Record<string, string> = {
   OK: 'text-success ring-success/30 bg-success/8',
   VERIFIED: 'text-ember-300 ring-ember-500/40 bg-ember-500/12',
@@ -75,7 +77,7 @@ const GRID: CSSProperties = {
 };
 
 const CORE_GLOW =
-  'radial-gradient(ellipse 45% 38% at 50% 50%, color-mix(in oklab, var(--color-plasma-500) 10%, transparent), transparent 70%)';
+  'radial-gradient(ellipse 45% 38% at 50% 50%, color-mix(in oklab, var(--color-ember-600) 9%, transparent), transparent 70%)';
 
 const LOG_MASK: CSSProperties = {
   maskImage: 'linear-gradient(to bottom, transparent 0, black 28px, black 100%)',
@@ -168,7 +170,7 @@ export function BootScreen({ onComplete }: BootScreenProps) {
             <p className="absolute right-6 top-5 hud-label tabular">
               T+{current ? current.time : '0.000'}s
             </p>
-            <p className="absolute bottom-5 left-6 hud-label text-fg-faint">Forge HUD · v4.0</p>
+            <p className="absolute bottom-5 left-6 hud-label text-fg-faint">Forged armor · v4.0</p>
             <p className="absolute bottom-5 right-6 hud-label text-fg-faint">
               {OWNER.shortName}&apos;s system
             </p>
@@ -176,13 +178,13 @@ export function BootScreen({ onComplete }: BootScreenProps) {
         )}
       </AnimatePresence>
 
-      {/* ─── Void: a plasma point powers on into a hairline ─── */}
+      {/* ─── Void: an ember point strikes into a hairline ─── */}
       <AnimatePresence>
         {phase === 'void' && (
           <motion.div key="void" className="absolute inset-0" exit={{ opacity: 0, transition: { duration: 0.2 } }}>
             <motion.div
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-plasma-300"
-              style={{ boxShadow: '0 0 18px 2px color-mix(in oklab, var(--color-plasma-400) 70%, transparent)' }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-ember-200"
+              style={{ boxShadow: '0 0 18px 2px color-mix(in oklab, var(--color-ember-400) 75%, transparent)' }}
               initial={{ width: 2, height: 2, opacity: 0 }}
               animate={{ width: [2, 4, 4, 220], height: [2, 4, 4, 1], opacity: [0, 1, 1, 0.9] }}
               transition={{ duration: 0.42, times: [0, 0.3, 0.6, 1], ease: 'easeOut' }}
@@ -227,13 +229,14 @@ export function BootScreen({ onComplete }: BootScreenProps) {
               <p className="mt-4 font-display text-2xl font-semibold tracking-[0.34em] text-fg">
                 WARRIOR<span className="ml-[0.5em] text-accent">OS</span>
               </p>
-              <p className="mt-2 hud-label">v4.0 · The Living World</p>
+              <p className={cn('mt-2', ENGRAVED)}>v4.0 · The Living World</p>
             </div>
 
             {/* System log */}
-            <div className="rounded-card glass-panel px-4 py-3">
+            <div className="armor-drop">
+            <div className="armor-panel rivets chamfer-tl-br px-5 py-3 [--cut:12px] [--rivet-inset:7px]">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-2">
-                <span className="hud-label">System log</span>
+                <span className={ENGRAVED}>System log</span>
                 <span className="font-mono text-2xs text-fg-subtle tabular">
                   {String(Math.min(logIndex, BOOT_LOG.length)).padStart(2, '0')}/{BOOT_LOG.length}
                 </span>
@@ -259,7 +262,7 @@ export function BootScreen({ onComplete }: BootScreenProps) {
                         </span>
                         <span
                           className={cn(
-                            'inline-flex h-4 shrink-0 items-center rounded-[4px] px-1.5 text-[10px] font-medium tracking-[0.08em] ring-1 ring-inset',
+                            'chamfer-xs inline-flex h-4 shrink-0 items-center px-1.5 text-[10px] font-medium tracking-[0.08em] ring-1 ring-inset [--cut:3px]',
                             STATUS_TONE[msg.status] ?? STATUS_TONE.OK
                           )}
                         >
@@ -271,12 +274,13 @@ export function BootScreen({ onComplete }: BootScreenProps) {
                 </div>
               </div>
             </div>
+            </div>
 
             {/* Segmented progress */}
             <div className="mt-5">
               <div className="mb-2 flex items-center justify-between">
-                <span className="hud-label">{ready ? 'Systems online' : 'Initializing systems'}</span>
-                <span className="font-mono text-xs font-medium text-fg tabular">{progress}%</span>
+                <span className={ENGRAVED}>{ready ? 'Systems online' : 'Initializing systems'}</span>
+                <span className="font-display text-sm font-semibold text-fg tabular">{progress}%</span>
               </div>
               <div
                 className="flex gap-[3px]"
@@ -293,12 +297,19 @@ export function BootScreen({ onComplete }: BootScreenProps) {
                     <span
                       key={i}
                       className={cn(
-                        'h-1.5 flex-1 rounded-[1.5px] transition-colors duration-180 ease-out-quint',
-                        on ? (ready ? 'bg-accent' : 'bg-accent/80') : 'bg-line-strong'
+                        // Slanted forged segments; lit ones show their slice of
+                        // the forge-heat gradient (iron → ember → white-hot).
+                        'h-2 flex-1 transition-[opacity,filter] duration-180 ease-out-quint',
+                        '[clip-path:polygon(3px_0,100%_0,calc(100%-3px)_100%,0_100%)]',
+                        on ? 'forge-heat' : 'bg-steel-700',
+                        edge && 'brightness-125'
                       )}
                       style={
-                        edge || (ready && i === SEGMENTS - 1)
-                          ? { boxShadow: '0 0 10px color-mix(in oklab, var(--accent) 80%, transparent)' }
+                        on
+                          ? {
+                              backgroundSize: `${SEGMENTS * 100}% 100%`,
+                              backgroundPosition: `${(i / (SEGMENTS - 1)) * 100}% 0`,
+                            }
                           : undefined
                       }
                     />
@@ -339,7 +350,7 @@ export function BootScreen({ onComplete }: BootScreenProps) {
             className="pointer-events-none absolute inset-0"
             style={{
               background:
-                'radial-gradient(circle at 50% 50%, var(--color-fg) 0%, color-mix(in oklab, var(--color-plasma-300) 70%, transparent) 30%, color-mix(in oklab, var(--color-ink-950) 90%, transparent) 75%)',
+                'radial-gradient(circle at 50% 50%, var(--color-fg) 0%, color-mix(in oklab, var(--color-ember-300) 70%, transparent) 30%, color-mix(in oklab, var(--color-ink-950) 90%, transparent) 75%)',
             }}
             initial={{ opacity: 0 }}
             animate={{ opacity: [0, 0.85, 0] }}

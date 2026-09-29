@@ -34,17 +34,19 @@ interface ConfirmButtonProps {
 }
 
 const BASE =
-  'focus-ring inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium ' +
+  'focus-ring chamfer-sm inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap font-medium ' +
   'transition-[background-color,border-color,color,filter] duration-120 ease-out-quint';
 
 const IDLE = {
   ghost: 'text-fg-subtle hover:bg-danger/12 hover:text-danger active:bg-danger/20',
-  secondary:
-    'border border-line-strong bg-surface-2 text-fg-muted hover:border-danger/40 hover:bg-danger/8 hover:text-danger active:bg-danger/15',
-  danger: 'border border-danger/30 bg-danger/10 text-danger hover:border-danger/50 hover:bg-danger/18 active:bg-danger/25',
+  secondary: 'armor-plate text-fg-muted hover:bg-steel-600 hover:text-danger active:brightness-90',
+  danger:
+    'armor-plate bg-danger/15 text-danger shadow-[inset_0_-2px_0_rgb(255_84_112/0.45)] hover:bg-danger/25 active:brightness-90',
 } as const;
 
-const ARMED = 'border border-transparent bg-danger font-semibold text-ink-950 hover:brightness-110 active:brightness-95';
+// Armed: the plate goes red-hot (solid danger with a raised bevel).
+const ARMED =
+  'bg-danger font-semibold text-ink-950 shadow-[inset_0_1px_0_rgb(255_220_228/0.6),inset_0_-1px_0_rgb(80_0_16/0.6)] hover:brightness-110 active:brightness-95';
 
 const HEIGHT: Record<ConfirmSize, string> = { xs: 'h-6', sm: 'h-7', md: 'h-8' };
 const SQUARE: Record<ConfirmSize, string> = { xs: 'size-6', sm: 'size-7', md: 'size-8' };

@@ -1,9 +1,10 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Memory Palace palette (FORGE HUD)
+// WARRIOR OS — Memory Palace palette (FORGED ARMOR)
 // Scene colours for three.js materials, lights and fog, mirrored from
-// the design tokens (src/styles/tokens.ts): cool deep-ink stone, plasma
-// for live knowledge and machine light, ember for warm lamps and
-// ageing knowledge, status colours for review state. Pure data, no
+// the design tokens (src/styles/tokens.ts): gunmetal stone lit like a
+// forge (ember key light, molten seams along the corridors, warm
+// lamps), plasma only for live knowledge (recency), status colours for
+// review state. Colours only: no extra lights or passes, so FPS holds. Pure data, no
 // three.js import, so the HUD and the data layer can share it.
 // ═══════════════════════════════════════════════════════════
 
@@ -11,16 +12,16 @@ import { EMBER, FG, INK, PLASMA, STATUS, VIZ } from '@/styles/tokens';
 
 export const PALACE = {
   /** Clear colour + fog (the void beyond the torches). */
-  void: '#05070d',
+  void: '#060708',
   fogNear: 14,
   fogFar: 70,
-  /** Hemisphere light: cool plasma-grey sky, warm ember-dark ground. */
-  sky: '#a8bfdc',
+  /** Hemisphere light: steel-grey sky, warm ember-dark ground. */
+  sky: '#b9bec6',
   ground: '#1c1410',
   /** Entrance-hall key light. */
-  keyLight: PLASMA[400],
-  /** Emissive strips along corridors and the entrance. */
-  glow: PLASMA[400],
+  keyLight: EMBER[300],
+  /** Emissive strips along corridors and the entrance (molten seams). */
+  glow: EMBER[400],
   /** Lamps / sconces. */
   lamp: EMBER[300],
   /** Wing archways. */
@@ -29,13 +30,13 @@ export const PALACE = {
   hall: STATUS.gold,
   /** Archive (unfiled) steel. */
   archive: FG.muted,
-  /** Stone ramp: walls, pillars, floors, ceilings (cool ink). */
-  stone: '#353c4b',
-  stoneLight: '#465064',
-  floor: '#1e2430',
-  floorVestibule: '#232a37',
-  ceiling: '#10141d',
-  ceilingVestibule: '#131824',
+  /** Stone ramp: walls, pillars, floors, ceilings (forged gunmetal). */
+  stone: '#3a3f46',
+  stoneLight: '#4c525b',
+  floor: '#1d2024',
+  floorVestibule: '#23272c',
+  ceiling: '#101215',
+  ceilingVestibule: '#14171b',
   trimWood: '#3b2f25',
   carpet: '#3a1a16',
   hallStone: '#4f4a45',

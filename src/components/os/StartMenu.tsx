@@ -106,7 +106,7 @@ function XpMeter({ pct }: { pct: number }) {
         const t = XP_CELLS > 1 ? i / (XP_CELLS - 1) : 1;
         const color = `color-mix(in oklab, var(--color-ember-500) ${Math.round((1 - t) * 100)}%, var(--color-gold))`;
         return (
-          <span key={i} className="relative h-full flex-1 overflow-hidden rounded-[1.5px] bg-ink-600/70">
+          <span key={i} className="relative h-full flex-1 -skew-x-[24deg] overflow-hidden bg-white/[0.06] shadow-[inset_0_1px_0_rgb(0_0_0/0.6)]">
             {cell > 0 && (
               <span
                 className="absolute inset-y-0 left-0"
@@ -229,146 +229,152 @@ export function StartMenu({ isOpen, onClose }: StartMenuProps) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.99, transition: { duration: 0.14, ease: EASE } }}
           transition={{ duration: 0.26, ease: EASE }}
-          className="glass-popover fixed bottom-14 left-2 flex h-[min(700px,calc(100vh-72px))] w-[460px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-sheet shadow-e3"
+          // Unclipped wrapper casts the plate's shadow (clip-path eats box-shadows).
+          className="armor-drop fixed bottom-14 left-2 h-[min(700px,calc(100vh-72px))] w-[460px] max-w-[calc(100vw-16px)]"
           style={{ zIndex: 'var(--z-start-menu)', transformOrigin: 'bottom left' }}
         >
-          {/* Forge hairline */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-12 top-0 h-px bg-linear-to-r from-transparent via-ember-400/50 to-transparent"
-          />
-
-          {/* ─── Brand strip ─── */}
-          <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-5">
-            <BrandMark size={18} />
-            <span className="font-display text-[10px] font-semibold tracking-[0.28em] text-fg-muted">WARRIOR OS</span>
-            <Badge tone={isGuest ? 'neutral' : 'accent'} size="sm" className="ml-auto">
-              {isGuest ? 'Guest session' : 'Owner'}
-            </Badge>
-          </div>
-
-          {/* ─── Identity + XP ─── */}
-          <div className="shrink-0 px-5 pb-4 pt-3">
-            <button
-              type="button"
-              onClick={() => handleLaunch('warrior-profile')}
-              className="group -mx-2 flex w-[calc(100%+16px)] items-center gap-3 rounded-card px-2 py-1.5 text-left transition-colors duration-120 ease-out-quint hover:bg-surface-hover active:bg-surface-active focus-ring"
-              aria-label={`${displayName}, level ${level} ${levelTitle}. Open profile`}
-            >
-              <Avatar name={displayName} size="lg" ring status="online" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-fg">{displayName}</span>
-                <span className="mt-0.5 flex items-center gap-1.5 text-xs text-fg-muted">
-                  <span className="tabular">Level {level}</span>
-                  <span aria-hidden className="text-fg-faint">
-                    ·
-                  </span>
-                  <span className="truncate font-medium text-gold">{levelTitle}</span>
-                </span>
-              </span>
-              <ChevronRight
-                size={16}
-                strokeWidth={1.75}
-                aria-hidden
-                className="shrink-0 text-fg-faint transition-[color,transform] duration-120 group-hover:translate-x-0.5 group-hover:text-fg-muted"
-              />
-            </button>
-
-            <div className="mt-3">
-              <div className="mb-1.5 flex items-baseline justify-between gap-3">
-                <span className="hud-label">{maxed ? 'Max level' : `XP to level ${level + 1}`}</span>
-                <span className="tabular font-mono text-2xs text-fg-subtle">
-                  {maxed ? (
-                    <span className="text-gold">{formatXP(xp)} XP</span>
-                  ) : (
-                    <>
-                      <span className="text-gold">{formatXP(into)}</span> / {formatXP(span)}
-                    </>
-                  )}
-                </span>
-              </div>
-              <XpMeter pct={levelProgress} />
-            </div>
-          </div>
-
-          {/* ─── Search ─── */}
-          <div className="shrink-0 px-5 pb-3">
-            <SearchField
-              value={query}
-              onValueChange={setQuery}
-              placeholder="Search apps"
-              aria-label="Search apps"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  if (apps[0]) handleLaunch(apps[0].id);
-                  else if (query.trim()) searchEverywhere();
-                }
-              }}
+          <div
+            className="armor-popover chamfer-tl-br rivets relative flex h-full w-full flex-col overflow-hidden"
+            style={{ ['--cut' as string]: '16px' }}
+          >
+            {/* Forge hairline */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute left-4 right-24 top-0 h-0.5 bg-linear-to-r from-ember-600 via-ember-400 to-transparent"
             />
-          </div>
 
-          {/* ─── App grid ─── */}
-          <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-            <div className="flex items-center justify-between px-2 pb-1.5">
-              <span className="hud-label">{query.trim() ? 'Results' : 'All apps'}</span>
-              <span className="tabular font-mono text-2xs text-fg-faint">{apps.length}</span>
+            {/* ─── Brand strip ─── */}
+            <div className="flex h-10 shrink-0 items-center gap-2 bg-linear-to-b from-white/[0.04] to-black/20 px-5 shadow-[inset_0_-1px_0_rgb(0_0_0/0.65),inset_0_-2px_0_rgb(255_255_255/0.04)]">
+              <BrandMark size={20} />
+              <span className="engraved font-display text-[11px] font-bold tracking-[0.28em] text-fg-muted">WARRIOR OS</span>
+              <Badge tone={isGuest ? 'neutral' : 'accent'} size="sm" className="ml-auto">
+                {isGuest ? 'Guest session' : 'Owner'}
+              </Badge>
             </div>
 
-            {apps.length === 0 ? (
-              <EmptyState
-                size="sm"
-                icon={SearchX}
-                title="No apps match"
-                description={`Nothing called “${query.trim()}”. The command palette searches notes, decks and actions too.`}
-                actions={
-                  <Button size="sm" variant="secondary" leadingIcon={Sparkles} onClick={searchEverywhere}>
-                    Search everywhere
-                  </Button>
-                }
-              />
-            ) : (
-              <div className="grid grid-cols-5 gap-1">
-                {apps.map((app, index) => (
-                  <button
-                    key={app.id}
-                    type="button"
-                    onClick={() => handleLaunch(app.id)}
-                    title={app.description ?? app.name}
-                    className={cn(
-                      'group flex min-w-0 flex-col items-center gap-2 rounded-card px-1 pb-2.5 pt-3 text-center',
-                      'transition-colors duration-120 ease-out-quint hover:bg-surface-hover active:bg-surface-active focus-ring',
-                      index === 0 && query.trim() && 'bg-surface-hover',
-                      !reduceMotion && 'animate-rise-in'
-                    )}
-                    style={reduceMotion ? undefined : ({ animationDelay: `${Math.min(index, 24) * 10}ms` } as CSSProperties)}
-                  >
-                    <AppIcon appId={app.id} size={40} />
-                    <span className="line-clamp-2 min-h-8 w-full text-xs leading-4 text-fg-muted transition-colors duration-120 group-hover:text-fg">
-                      {app.name}
+            {/* ─── Identity + XP ─── */}
+            <div className="shrink-0 px-5 pb-4 pt-3">
+              <button
+                type="button"
+                onClick={() => handleLaunch('warrior-profile')}
+                className="group -mx-2 flex w-[calc(100%+16px)] items-center gap-3 chamfer [--cut:8px] px-2 py-1.5 text-left transition-colors duration-120 ease-out-quint hover:bg-white/[0.05] active:bg-white/[0.08] focus-ring-inset"
+                aria-label={`${displayName}, level ${level} ${levelTitle}. Open profile`}
+              >
+                <Avatar name={displayName} size="lg" ring status="online" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-display text-sm font-bold uppercase tracking-[0.06em] text-fg">{displayName}</span>
+                  <span className="mt-0.5 flex items-center gap-1.5 text-xs text-fg-muted">
+                    <span className="tabular">Level {level}</span>
+                    <span aria-hidden className="text-fg-faint">
+                      ·
                     </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+                    <span className="truncate font-medium text-gold">{levelTitle}</span>
+                  </span>
+                </span>
+                <ChevronRight
+                  size={16}
+                  strokeWidth={1.75}
+                  aria-hidden
+                  className="shrink-0 text-fg-faint transition-[color,transform] duration-120 group-hover:translate-x-0.5 group-hover:text-fg-muted"
+                />
+              </button>
 
-          {/* ─── Footer ─── */}
-          <div className="flex shrink-0 items-center gap-2 border-t border-line bg-ink-950/30 px-3 py-2.5">
-            <Button variant="ghost" leadingIcon={Settings} onClick={() => handleLaunch('settings')}>
-              Settings
-            </Button>
-            <Button
-              variant="ghost"
-              leadingIcon={Lock}
-              onClick={lockScreen}
-              className="ml-auto"
-              aria-label="Lock screen"
-              trailingIcon={<Kbd size="sm" keys={['Ctrl', 'L']} className="ml-1" />}
-            >
-              Lock
-            </Button>
+              <div className="mt-3">
+                <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                  <span className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">{maxed ? 'Max level' : `XP to level ${level + 1}`}</span>
+                  <span className="tabular font-mono text-2xs text-fg-subtle">
+                    {maxed ? (
+                      <span className="text-gold">{formatXP(xp)} XP</span>
+                    ) : (
+                      <>
+                        <span className="text-gold">{formatXP(into)}</span> / {formatXP(span)}
+                      </>
+                    )}
+                  </span>
+                </div>
+                <XpMeter pct={levelProgress} />
+              </div>
+            </div>
+
+            {/* ─── Search ─── */}
+            <div className="shrink-0 px-5 pb-3">
+              <SearchField
+                value={query}
+                onValueChange={setQuery}
+                placeholder="Search apps"
+                aria-label="Search apps"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    if (apps[0]) handleLaunch(apps[0].id);
+                    else if (query.trim()) searchEverywhere();
+                  }
+                }}
+              />
+            </div>
+
+            {/* ─── App grid ─── */}
+            <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+              <div className="flex items-center justify-between px-2 pb-1.5">
+                <span className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">{query.trim() ? 'Results' : 'All apps'}</span>
+                <span className="tabular font-mono text-2xs text-fg-faint">{apps.length}</span>
+              </div>
+
+              {apps.length === 0 ? (
+                <EmptyState
+                  size="sm"
+                  icon={SearchX}
+                  title="No apps match"
+                  description={`Nothing called “${query.trim()}”. The command palette searches notes, decks and actions too.`}
+                  actions={
+                    <Button size="sm" variant="secondary" leadingIcon={Sparkles} onClick={searchEverywhere}>
+                      Search everywhere
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="grid grid-cols-5 gap-1">
+                  {apps.map((app, index) => (
+                    <button
+                      key={app.id}
+                      type="button"
+                      onClick={() => handleLaunch(app.id)}
+                      title={app.description ?? app.name}
+                      className={cn(
+                        'group flex min-w-0 flex-col items-center gap-2 chamfer [--cut:8px] px-1 pb-2.5 pt-3 text-center',
+                        'transition-colors duration-120 ease-out-quint hover:bg-white/[0.05] active:bg-white/[0.08] focus-ring-inset',
+                        index === 0 && query.trim() && 'bg-white/[0.06] shadow-[inset_0_-2px_0_var(--color-ember-400,#ff8a3d)]',
+                        !reduceMotion && 'animate-rise-in'
+                      )}
+                      style={reduceMotion ? undefined : ({ animationDelay: `${Math.min(index, 24) * 10}ms` } as CSSProperties)}
+                    >
+                      <AppIcon appId={app.id} size={40} />
+                      <span className="line-clamp-2 min-h-8 w-full text-xs leading-4 text-fg-muted transition-colors duration-120 group-hover:text-fg">
+                        {app.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ─── Footer ─── */}
+            <div className="flex shrink-0 items-center gap-2 bg-black/25 px-3 py-2.5 shadow-[inset_0_1px_0_rgb(0_0_0/0.65),inset_0_2px_0_rgb(255_255_255/0.04)]">
+              <Button variant="ghost" leadingIcon={Settings} onClick={() => handleLaunch('settings')}>
+                Settings
+              </Button>
+              <Button
+                variant="ghost"
+                leadingIcon={Lock}
+                onClick={lockScreen}
+                className="ml-auto"
+                aria-label="Lock screen"
+                trailingIcon={<Kbd size="sm" keys={['Ctrl', 'L']} className="ml-1" />}
+              >
+                Lock
+              </Button>
+            </div>
           </div>
         </motion.div>
       )}

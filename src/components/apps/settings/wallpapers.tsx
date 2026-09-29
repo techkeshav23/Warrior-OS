@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Wallpaper catalog + mini previews (Settings)
 // Exactly the wallpapers WallpaperEngine can draw (its component map);
-// any other saved id renders as Deep Space there, so it shows as Deep
-// Space here. Each preview is a small CSS + SVG painting of the real
+// any other saved id renders as Forge Night there, so it shows as Forge
+// Night here. Each preview is a small CSS + SVG painting of the real
 // wallpaper, drawn only with theme tokens (no GPU, no canvas).
 // ═══════════════════════════════════════════════════════════
 
@@ -11,7 +11,18 @@
 import { memo, type CSSProperties, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-export type WallpaperId = 'void' | 'nebula' | 'aurora' | 'fluid' | 'starfield' | 'matrix' | 'neural';
+export type WallpaperId =
+  | 'void'
+  | 'embers'
+  | 'molten'
+  | 'dusk'
+  | 'steelrain'
+  | 'nebula'
+  | 'aurora'
+  | 'fluid'
+  | 'starfield'
+  | 'matrix'
+  | 'neural';
 
 export interface WallpaperOption {
   id: WallpaperId;
@@ -20,7 +31,11 @@ export interface WallpaperOption {
 }
 
 export const WALLPAPERS: readonly WallpaperOption[] = [
-  { id: 'void', label: 'Deep Space', hint: 'CSS · lightest' },
+  { id: 'void', label: 'Forge Night', hint: 'CSS · lightest' },
+  { id: 'embers', label: 'Ember Storm', hint: 'Canvas · pointer' },
+  { id: 'molten', label: 'Molten Core', hint: 'Shader' },
+  { id: 'dusk', label: 'Battlefield Dusk', hint: 'Canvas · depth' },
+  { id: 'steelrain', label: 'Steel Rain', hint: 'Canvas' },
   { id: 'nebula', label: 'Nebula', hint: 'Shader' },
   { id: 'aurora', label: 'Aurora', hint: 'Shader' },
   { id: 'fluid', label: 'Fluid', hint: 'Shader · interactive' },
@@ -41,7 +56,7 @@ export function resolveWallpaper(id: string): WallpaperId {
 }
 
 export function wallpaperLabel(id: string): string {
-  return WALLPAPERS.find((w) => w.id === resolveWallpaper(id))?.label ?? 'Deep Space';
+  return WALLPAPERS.find((w) => w.id === resolveWallpaper(id))?.label ?? 'Forge Night';
 }
 
 // ─── Painting helpers ───
@@ -116,6 +131,59 @@ const NEURAL = (() => {
 })();
 
 const STARS_DEEP = makeStars(3, 26, 70);
+
+// Ember Storm: short rising streaks, hotter (whiter) near the forge bed.
+const SPARKS = (() => {
+  const rand = seeded(313);
+  return Array.from({ length: 46 }, () => {
+    const bell = (rand() + rand() + rand()) / 3 - 0.5;
+    const x = 80 + bell * 190;
+    const y = 8 + Math.pow(rand(), 0.6) * 92;
+    const len = 1.6 + rand() * 3.2;
+    const lean = (rand() - 0.5) * 1.6;
+    const tone = y > 70 ? 'stroke-ember-200' : y > 40 ? 'stroke-ember-300' : 'stroke-ember-500';
+    return { x, y, len, lean, tone, o: 0.35 + (y / 100) * 0.6, big: rand() > 0.88 };
+  });
+})();
+
+// Molten Core: a crack network (jittered lattice edges) over dark rock.
+const CRACKS = (() => {
+  const rand = seeded(59);
+  const pts: { x: number; y: number }[][] = [];
+  for (let gy = 0; gy < 5; gy++) {
+    const row: { x: number; y: number }[] = [];
+    for (let gx = 0; gx < 7; gx++) row.push({ x: -8 + gx * 29 + (rand() - 0.5) * 24, y: -6 + gy * 28 + (rand() - 0.5) * 22 });
+    pts.push(row);
+  }
+  const d: string[] = [];
+  const seg = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    const mx = (a.x + b.x) / 2 + (rand() - 0.5) * 12;
+    const my = (a.y + b.y) / 2 + (rand() - 0.5) * 12;
+    d.push(`M${a.x.toFixed(1)} ${a.y.toFixed(1)}L${mx.toFixed(1)} ${my.toFixed(1)}L${b.x.toFixed(1)} ${b.y.toFixed(1)}`);
+  };
+  pts.forEach((row, y) =>
+    row.forEach((p, x) => {
+      if (x + 1 < row.length) seg(p, row[x + 1]);
+      if (y + 1 < pts.length) seg(p, pts[y + 1][(x + (y % 2)) % row.length]);
+    })
+  );
+  return d.join('');
+})();
+
+// Steel Rain: slanted streaks and sliding drops with wet trails.
+const RAIN = (() => {
+  const rand = seeded(808);
+  const streaks = Array.from({ length: 34 }, () => ({ x: rand() * 170 - 5, y: rand() * 100, len: 4 + rand() * 6, o: 0.15 + rand() * 0.3 }));
+  const drops = Array.from({ length: 12 }, () => ({ x: 6 + rand() * 148, y: 10 + rand() * 84, trail: 8 + rand() * 26, r: 0.7 + rand() * 0.7 }));
+  const rivets = [34, 78].flatMap((y) => Array.from({ length: 9 }, (_, i) => ({ x: 8 + i * 18, y: y - 3 })));
+  return { streaks, drops, rivets };
+})();
+
+/** Ridge silhouettes for the Battlefield Dusk preview (160×100 box). */
+const DUSK_FAR = 'M0 62 L10 55 L18 58 L28 47 L36 53 L46 44 L56 52 L66 49 L76 56 L86 50 L98 57 L110 51 L122 58 L134 52 L146 57 L160 53 V100 H0Z';
+const DUSK_MID =
+  'M0 74 L20 71 L34 73 L40 72 V60 h1.5 v-1.5 h1.5 v1.5 h1.5 v-1.5 h1.5 v1.5 h1.5 V64 H54 V52 h2 v-2 h2 v2 h2 v-2 h2 v2 h2 V64 H70 V58 h1.5 v-1.5 h1.5 v1.5 h1.5 v-1.5 h1.5 V64 H80 V61 h1.5 v-1.5 h1.5 v1.5 h1.5 V72 L100 74 L126 71 L160 75 V100 H0Z';
+const DUSK_NEAR = 'M0 86 L18 83 L36 85 L60 82 L84 86 L110 84 L134 87 L160 83 V100 H0Z';
 const STARS_NEBULA = makeStars(11, 18);
 const STARS_AURORA = makeStars(23, 22, 45);
 const STARS_FIELD = makeStars(97, 64, 100, 1.1);
@@ -130,6 +198,126 @@ interface Painting {
 }
 
 const PAINTINGS: Record<WallpaperId, Painting> = {
+  embers: {
+    base: [
+      `radial-gradient(70% 55% at 46% 108%, ${tint('ember-400', 55)}, ${tint('ember-700', 28)} 45%, transparent 75%)`,
+      `radial-gradient(40% 40% at 12% -5%, ${tint('steel-400', 16)}, transparent 70%)`,
+      `linear-gradient(180deg, ${INK}, var(--color-steel-900) 50%, var(--color-steel-850))`,
+    ].join(','),
+    haze: [
+      `radial-gradient(40% 22% at 30% 62%, ${tint('steel-500', 22)}, transparent 70%)`,
+      `radial-gradient(45% 20% at 74% 48%, ${tint('steel-500', 16)}, transparent 70%)`,
+    ].join(','),
+    svg: (
+      <g strokeLinecap="round">
+        {SPARKS.map((s, i) => (
+          <g key={i} opacity={s.o}>
+            {s.big && <circle cx={s.x} cy={s.y} r={2.4} className="fill-ember-400" opacity={0.25} />}
+            <line
+              x1={s.x - s.lean}
+              y1={s.y + s.len}
+              x2={s.x}
+              y2={s.y}
+              strokeWidth={s.big ? 0.9 : 0.55}
+              className={s.tone}
+            />
+          </g>
+        ))}
+      </g>
+    ),
+  },
+  molten: {
+    base: [
+      `radial-gradient(55% 60% at 30% 80%, ${tint('ember-700', 45)}, transparent 72%)`,
+      `radial-gradient(35% 40% at 82% 30%, ${tint('ember-800', 40)}, transparent 72%)`,
+      `linear-gradient(160deg, var(--color-steel-800), var(--color-steel-950))`,
+    ].join(','),
+    svg: (
+      <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <path d={CRACKS} strokeWidth={4} opacity={0.18} className="stroke-ember-600" />
+        <path d={CRACKS} strokeWidth={1.4} opacity={0.7} className="stroke-ember-500" />
+        <path d={CRACKS} strokeWidth={0.6} opacity={0.9} className="stroke-ember-200" />
+      </g>
+    ),
+  },
+  dusk: {
+    base: [
+      `radial-gradient(45% 45% at 64% 60%, ${tint('ember-300', 60)}, ${tint('ember-500', 30)} 30%, transparent 70%)`,
+      `linear-gradient(180deg, ${INK}, var(--color-steel-900) 22%, var(--color-ember-800) 52%, var(--color-ember-700) 62%, var(--color-ember-600) 70%, var(--color-ember-800))`,
+    ].join(','),
+    svg: (
+      <>
+        <g className="fill-steel-900" opacity={0.55}>
+          <ellipse cx={60} cy={38} rx={60} ry={1.4} />
+          <ellipse cx={112} cy={47} rx={44} ry={1.2} />
+          <ellipse cx={40} cy={52} rx={36} ry={1} />
+        </g>
+        <circle cx={102} cy={60} r={6.5} className="fill-ember-100" />
+        <circle cx={102} cy={60} r={6.5} fill="none" strokeWidth={1} opacity={0.6} className="stroke-ember-300" />
+        <path d={DUSK_FAR} className="fill-ember-800" />
+        <path d={DUSK_MID} className="fill-steel-950" opacity={0.92} />
+        <g className="fill-ember-400">
+          <rect x={57} y={56} width={0.8} height={1.6} />
+          <rect x={60.5} y={56} width={0.8} height={1.6} />
+          <rect x={73} y={60} width={0.8} height={1.6} />
+        </g>
+        <path d={DUSK_NEAR} className="fill-ink-950" />
+        <g className="stroke-ink-950" strokeWidth={0.8}>
+          <line x1={18} y1={84} x2={18} y2={50} />
+          <line x1={140} y1={86} x2={140} y2={56} />
+        </g>
+        <path d="M18 51 h9 v14 l-2 -2.5 l-2.5 3.5 l-4.5 -3 Z" className="fill-ember-800" />
+        <path d="M140 57 h8 v12 l-2 -2 l-2 3 l-4 -2.5 Z" className="fill-ember-800" />
+        <path d="M18 51 h9 v14 l-2 -2.5" fill="none" strokeWidth={0.4} opacity={0.7} className="stroke-ember-400" />
+      </>
+    ),
+  },
+  steelrain: {
+    base: [
+      `radial-gradient(45% 45% at 4% 104%, ${tint('ember-600', 26)}, transparent 70%)`,
+      `linear-gradient(180deg, transparent 20%, ${tint('steel-200', 7)} 42%, transparent 60%)`,
+      `repeating-linear-gradient(180deg, ${tint('steel-200', 5)} 0 1px, transparent 1px 3px)`,
+      `linear-gradient(160deg, var(--color-steel-600), var(--color-steel-750) 45%, var(--color-steel-900))`,
+    ].join(','),
+    svg: (
+      <>
+        <g strokeWidth={0.7}>
+          <line x1={0} y1={34} x2={160} y2={34} className="stroke-ink-950" opacity={0.8} />
+          <line x1={0} y1={35} x2={160} y2={35} className="stroke-steel-300" opacity={0.25} />
+          <line x1={0} y1={78} x2={160} y2={78} className="stroke-ink-950" opacity={0.8} />
+          <line x1={0} y1={79} x2={160} y2={79} className="stroke-steel-300" opacity={0.25} />
+          <line x1={44} y1={0} x2={44} y2={34} className="stroke-ink-950" opacity={0.8} />
+          <line x1={112} y1={34} x2={112} y2={78} className="stroke-ink-950" opacity={0.8} />
+        </g>
+        <g className="fill-steel-300" opacity={0.55}>
+          {RAIN.rivets.map((r, i) => (
+            <circle key={i} cx={r.x} cy={r.y} r={0.8} />
+          ))}
+        </g>
+        <path
+          d="M96 -2 L92 12 L98 16 L90 32 L96 36 L86 58"
+          fill="none"
+          strokeWidth={0.7}
+          strokeLinejoin="round"
+          opacity={0.55}
+          className="stroke-plasma-300"
+        />
+        <g className="stroke-steel-200" strokeLinecap="round">
+          {RAIN.drops.map((d, i) => (
+            <line key={i} x1={d.x} y1={d.y - d.trail} x2={d.x} y2={d.y} strokeWidth={d.r} opacity={0.18} />
+          ))}
+          {RAIN.streaks.map((s, i) => (
+            <line key={`s${i}`} x1={s.x - s.len * 0.16} y1={s.y - s.len} x2={s.x} y2={s.y} strokeWidth={0.35} opacity={s.o} />
+          ))}
+        </g>
+        <g className="fill-fg">
+          {RAIN.drops.map((d, i) => (
+            <circle key={i} cx={d.x} cy={d.y} r={d.r * 0.9} opacity={0.75} />
+          ))}
+        </g>
+      </>
+    ),
+  },
   void: {
     base: [
       `radial-gradient(50% 40% at 84% 98%, ${tint('ember-500', 26)}, transparent 70%)`,

@@ -87,11 +87,11 @@ function AddHabitDialogInner({ open, onClose, existingNames, onAdd }: AddHabitDi
                   disabled={added}
                   onClick={() => addPreset(preset)}
                   className={cn(
-                    'focus-ring flex h-10 min-w-0 items-center gap-2.5 rounded-control border px-2.5 text-left text-ui',
-                    'transition-colors duration-120 ease-out-quint',
+                    'armor-plate chamfer-sm focus-ring flex h-10 min-w-0 items-center gap-2.5 px-2.5 text-left text-ui',
+                    'transition-[filter,box-shadow] duration-120 ease-out-quint',
                     added
-                      ? 'cursor-default border-line text-fg-subtle'
-                      : 'border-line-strong bg-surface-2 text-fg hover:border-ember-500/40 hover:bg-ember-500/[0.06] active:bg-ember-500/10'
+                      ? 'cursor-default bg-steel-850 text-fg-subtle'
+                      : 'text-fg hover:brightness-115 hover:ember-edge active:brightness-95'
                   )}
                 >
                   <span className="text-base leading-none" aria-hidden>
@@ -140,11 +140,9 @@ function AddHabitDialogInner({ open, onClose, existingNames, onAdd }: AddHabitDi
                     aria-label={`Emoji ${choice}`}
                     onClick={() => setIcon(choice)}
                     className={cn(
-                      'focus-ring flex size-9 items-center justify-center rounded-control border text-lg leading-none',
-                      'transition-[background-color,border-color] duration-120 ease-out-quint',
-                      active
-                        ? 'border-ember-500/60 bg-ember-500/12'
-                        : 'border-line bg-surface-2 hover:border-line-strong hover:bg-surface-hover'
+                      'armor-plate chamfer-sm focus-ring flex size-9 items-center justify-center text-lg leading-none',
+                      'transition-[filter,box-shadow] duration-120 ease-out-quint',
+                      active ? 'ember-edge bg-ember-700/40' : 'hover:brightness-125'
                     )}
                   >
                     {choice}

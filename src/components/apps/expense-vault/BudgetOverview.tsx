@@ -12,6 +12,7 @@ import { CalendarClock, Check, Coins, IndianRupee, Lock, Pencil, PiggyBank, Rece
 import { getDaysInMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge, IconButton, Input, StatTile } from '@/components/ui';
+import { BEVEL_SUNK, ENGRAVED_LABEL, SLOT_FILL } from '@/components/ui/armor';
 import { MAX_MONTHLY_BUDGET } from '@/stores/useExpenseStore';
 import type { ExpenseMonthBudget } from '@/types/expense';
 import { formatINR, monthStart, parseAmountInput, shortMonthLabel } from './expense-utils';
@@ -41,10 +42,11 @@ const TONE_TEXT: Record<UsageTone, string> = {
   danger: 'text-danger',
 };
 
+// Spending heats the bar: cooling iron → ember → white-hot tip. Over budget burns red.
 const TONE_FILL: Record<UsageTone, string> = {
-  success: 'from-success/60 to-success',
-  warning: 'from-warning/60 to-warning',
-  danger: 'from-danger/60 to-danger',
+  success: 'forge-heat',
+  warning: 'forge-heat',
+  danger: 'bg-linear-to-r from-ember-800 via-danger/80 to-danger',
 };
 
 function budgetSourceText(budget: ExpenseMonthBudget): string {
@@ -133,9 +135,10 @@ function BudgetOverviewInner({
         />
 
         {/* Budget: same anatomy as StatTile, with an inline editor */}
-        <div className="glass-panel relative flex min-w-0 flex-col gap-3 rounded-card p-4">
+        <div className="armor-panel chamfer-md relative flex min-w-0 flex-col gap-3 p-4 pl-5">
+          <span aria-hidden className="absolute left-0 top-4 h-4 w-1 bg-ember-500 shadow-[0_0_8px_var(--color-ember-500)]" />
           <div className="flex h-4 items-center justify-between gap-2">
-            <label htmlFor={inputId} className="hud-label truncate">
+            <label htmlFor={inputId} className={cn(ENGRAVED_LABEL, 'truncate')}>
               Budget
             </label>
             {canEditBudget && !editing && (
@@ -226,9 +229,9 @@ function BudgetOverviewInner({
       </div>
 
       {/* Pace: hatched zone = where an even pace would be by today; tick = today */}
-      <div className="glass-panel rounded-card px-4 pb-3.5 pt-3">
+      <div className="armor-panel chamfer-md px-4 pb-3.5 pt-3">
         <div className="flex items-center justify-between gap-3">
-          <span className="hud-label">Budget pace</span>
+          <span className={ENGRAVED_LABEL}>Budget pace</span>
           <span className="tabular font-mono text-xs text-fg-muted">
             <span className={TONE_TEXT[tone]}>{Math.round(usedPct)}%</span> used
             {isCurrentMonth && ` · day ${dayOfMonth} of ${daysInMonth}`}
@@ -236,7 +239,7 @@ function BudgetOverviewInner({
         </div>
         <div className="relative mt-3">
           <div
-            className="relative h-2 overflow-hidden rounded-full bg-ink-600/70"
+            className={cn('chamfer relative h-2.5 overflow-hidden [--cut:3px]', SLOT_FILL, BEVEL_SUNK)}
             role="progressbar"
             aria-label="Budget used"
             aria-valuemin={0}
@@ -252,16 +255,21 @@ function BudgetOverviewInner({
             )}
             <div
               className={cn(
-                'relative h-full rounded-full bg-linear-to-r transition-[width] duration-260 ease-out-quint',
+                'relative h-full shadow-[inset_0_1px_0_rgb(255_240_220/0.35)] transition-[width] duration-260 ease-out-quint',
                 TONE_FILL[tone]
               )}
               style={{ width: `${Math.min(usedPct, 100)}%` }}
+            />
+            {/* Segment marks every 10%, cut into the bar */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0_calc(10%-1px),rgb(0_0_0/0.55)_calc(10%-1px)_10%)]"
             />
           </div>
           {isCurrentMonth && (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -top-1 h-4 w-0.5 -translate-x-1/2 rounded-full bg-fg shadow-[0_0_0_2px_var(--color-ink-900)]"
+              className="pointer-events-none absolute -top-1 h-[18px] w-0.5 -translate-x-1/2 bg-fg shadow-[0_0_0_2px_var(--color-ink-900)]"
               style={{ left: `${pacePct}%` }}
             />
           )}
@@ -292,7 +300,7 @@ function BudgetOverviewInner({
           </p>
           {isCurrentMonth && (
             <span className="flex shrink-0 items-center gap-1.5 text-fg-subtle">
-              <span aria-hidden className="h-3 w-0.5 rounded-full bg-fg" /> Even pace today
+              <span aria-hidden className="h-3 w-0.5 bg-fg" /> Even pace today
             </span>
           )}
         </div>

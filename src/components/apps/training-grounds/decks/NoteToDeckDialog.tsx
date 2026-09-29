@@ -217,11 +217,11 @@ export function NoteToDeckDialog({ open = true, onClose, onCreated }: NoteToDeck
               {parsed.topics.map((topic) => (
                 <section key={topic.name} className="flex flex-col gap-2" aria-label={topic.name}>
                   <h4 className="flex items-center gap-2">
-                    <span className="hud-label text-fg-muted">{topic.name}</span>
+                    <span className="engraved font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-muted">{topic.name}</span>
                     <span className="tabular font-mono text-2xs text-fg-subtle">{topic.cards.length}</span>
                     <span aria-hidden className="h-px flex-1 bg-line" />
                   </h4>
-                  <div className="divide-y divide-line overflow-hidden rounded-card border border-line">
+                  <div className="armor-panel chamfer-md divide-y divide-black/40 overflow-hidden">
                     {topic.cards.map((card) => {
                       const on = !excluded.has(card.id);
                       return (
@@ -298,7 +298,7 @@ export function NoteToDeckDialog({ open = true, onClose, onCreated }: NoteToDeck
               }
             />
           ) : (
-            <div className="scrollbar-thin max-h-80 divide-y divide-line overflow-y-auto rounded-card border border-line">
+            <div className="scrollbar-thin armor-panel chamfer-md max-h-80 divide-y divide-black/40 overflow-y-auto">
               {visible.map((n) => {
                 const found = counts.get(n.id) ?? 0;
                 return (
@@ -308,7 +308,7 @@ export function NoteToDeckDialog({ open = true, onClose, onCreated }: NoteToDeck
                     onClick={() => pick(n)}
                     className="focus-ring-inset group/note flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors duration-120 ease-out-quint hover:bg-surface-hover active:bg-surface-active"
                   >
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-control border border-line bg-ink-800 text-fg-subtle">
+                    <span className="flex size-8 shrink-0 items-center justify-center chamfer-xs bg-steel-950/70 bevel text-fg-subtle">
                       <FileText size={16} strokeWidth={1.75} aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -334,8 +334,8 @@ export function NoteToDeckDialog({ open = true, onClose, onCreated }: NoteToDeck
               })}
             </div>
           )}
-          <details className="group/help rounded-card border border-line">
-            <summary className="focus-ring-inset flex cursor-pointer select-none list-none items-center gap-2 rounded-card px-3 py-2.5 text-ui text-fg-muted transition-colors duration-120 ease-out-quint hover:bg-surface-hover hover:text-fg [&::-webkit-details-marker]:hidden">
+          <details className="group/help armor-panel chamfer-md">
+            <summary className="focus-ring-inset flex cursor-pointer select-none list-none items-center gap-2 px-3 py-2.5 text-ui text-fg-muted transition-colors duration-120 ease-out-quint hover:bg-surface-hover hover:text-fg [&::-webkit-details-marker]:hidden">
               <ChevronRight
                 size={16}
                 strokeWidth={1.75}
@@ -359,7 +359,7 @@ function PatternList() {
     <ul className="flex flex-col gap-1.5">
       {PATTERNS.map((p) => (
         <li key={p.example} className="flex items-baseline gap-3 text-xs">
-          <code className="min-w-0 flex-1 truncate rounded-[6px] bg-ink-850 px-2 py-1 font-mono text-fg-muted" title={p.example}>
+          <code className="min-w-0 flex-1 truncate chamfer-xs bg-steel-950 px-2 py-1 font-mono text-fg-muted" title={p.example}>
             {p.example}
           </code>
           <span className="shrink-0 text-fg-subtle">→ {p.becomes}</span>

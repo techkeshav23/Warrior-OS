@@ -97,11 +97,11 @@ export function DeckForm({ deck, open = true, onClose, onSaved }: DeckFormProps)
         {/* Preview */}
         <div
           style={deckStyle(color)}
-          className="glass-panel relative isolate flex items-center gap-3.5 overflow-hidden rounded-card p-4"
+          className="armor-panel chamfer-md relative isolate flex items-center gap-3.5 overflow-hidden p-4 [--cut-tl:14px] [--cut-br:14px]"
           aria-hidden
         >
           <span className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(110%_100%_at_0%_0%,color-mix(in_srgb,var(--deck)_16%,transparent),transparent_60%)]" />
-          <span className="pointer-events-none absolute inset-x-6 top-0 h-px bg-linear-to-r from-transparent via-(--deck)/60 to-transparent" />
+          <span className="pointer-events-none absolute inset-x-6 top-0 h-0.5 bg-linear-to-r from-transparent via-(--deck)/70 to-transparent" />
           <MasteryRing value={0.62} color={color} size={52}>
             <span className="text-xl leading-none">{icon || DECK_ICON_CHOICES[0]}</span>
           </MasteryRing>
@@ -111,7 +111,7 @@ export function DeckForm({ deck, open = true, onClose, onSaved }: DeckFormProps)
               {description.trim() || 'What will this deck make you unstoppable at?'}
             </p>
           </div>
-          <span className="hud-label ml-auto shrink-0 self-start">Preview</span>
+          <span className="engraved ml-auto shrink-0 self-start font-display text-2xs font-semibold uppercase tracking-[0.18em] text-fg-subtle">Preview</span>
         </div>
 
         <Input
@@ -153,10 +153,10 @@ export function DeckForm({ deck, open = true, onClose, onSaved }: DeckFormProps)
                     aria-pressed={selected}
                     onClick={() => setIcon(choice)}
                     className={cn(
-                      'focus-ring flex h-9 items-center justify-center rounded-control text-lg transition-colors duration-120 ease-out-quint',
+                      'focus-ring flex h-9 items-center justify-center chamfer-sm text-lg transition-[background-color,box-shadow] duration-120 ease-out-quint',
                       selected
-                        ? 'bg-accent/12 ring-1 ring-inset ring-accent/40'
-                        : 'bg-surface-2 hover:bg-surface-hover active:bg-surface-active'
+                        ? 'ember-edge bg-accent/12'
+                        : 'bg-steel-950/50 bevel hover:bg-steel-750 active:bg-steel-800'
                     )}
                   >
                     {choice}
@@ -196,10 +196,10 @@ export function DeckForm({ deck, open = true, onClose, onSaved }: DeckFormProps)
                   onClick={() => setColor(choice)}
                   style={{ background: choice }}
                   className={cn(
-                    'focus-ring flex size-7 items-center justify-center rounded-full transition-[box-shadow,transform] duration-120 ease-out-quint hover:scale-105',
+                    'focus-ring flex size-7 items-center justify-center chamfer-sm transition-[box-shadow,transform] duration-120 ease-out-quint hover:scale-105',
                     selected
-                      ? 'ring-2 ring-fg ring-offset-2 ring-offset-ink-900'
-                      : 'ring-1 ring-inset ring-ink-950/30'
+                      ? 'shadow-[inset_0_0_0_2px_var(--color-fg),inset_0_0_0_3px_rgb(0_0_0/0.5)]'
+                      : 'shadow-[inset_0_1px_0_rgb(255_255_255/0.3),inset_0_-1px_0_rgb(0_0_0/0.4)]'
                   )}
                 >
                   {selected && <Check size={14} strokeWidth={2.5} aria-hidden className="text-ink-950" />}
@@ -209,14 +209,14 @@ export function DeckForm({ deck, open = true, onClose, onSaved }: DeckFormProps)
             <span aria-hidden className="mx-1 h-5 w-px bg-line-strong" />
             <label
               className={cn(
-                'relative flex h-7 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-xs transition-colors duration-120 ease-out-quint has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent',
+                'armor-plate chamfer-sm relative flex h-7 cursor-pointer items-center gap-1.5 px-2.5 text-xs transition-colors duration-120 ease-out-quint has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-2 has-[:focus-visible]:outline-accent',
                 isPreset
-                  ? 'border-line-strong text-fg-muted hover:border-fg-faint hover:bg-surface-hover hover:text-fg'
-                  : 'border-accent/40 bg-accent/12 text-accent'
+                  ? 'text-fg-muted hover:bg-steel-600 hover:text-fg'
+                  : 'ember-edge bg-accent/12 text-accent'
               )}
               title="Custom colour"
             >
-              <span className="size-3.5 rounded-full ring-1 ring-inset ring-ink-950/30" style={{ background: deckHue(color) }} />
+              <span className="size-3.5 chamfer-xs [--cut:2px]" style={{ background: deckHue(color) }} />
               <Pipette size={14} strokeWidth={1.75} aria-hidden />
               Custom
               <input

@@ -12,7 +12,14 @@ import { useAchievementProgressStore } from './progress-store';
 import { sendPendingEvent } from './pending-events';
 
 /** The global shortcuts page.tsx binds, in useKeyboardShortcuts' combo format. */
-export const GLOBAL_SHORTCUTS: readonly string[] = ['ctrl+k', 'ctrl+1', 'ctrl+2', 'ctrl+3'];
+export const GLOBAL_SHORTCUTS: readonly string[] = [
+  'ctrl+k',
+  'ctrl+1',
+  'ctrl+2',
+  'ctrl+3',
+  'ctrl+alt+w', // next wallpaper
+  'ctrl+shift+alt+w', // previous wallpaper
+];
 
 const COMMAND_PALETTE_COMBO = 'ctrl+k';
 
@@ -42,7 +49,10 @@ function comboFromEvent(e: KeyboardEvent): string {
   if (e.ctrlKey || e.metaKey) parts.push('ctrl');
   if (e.shiftKey) parts.push('shift');
   if (e.altKey) parts.push('alt');
-  const key = keyOf(e);
+  let key = keyOf(e);
+  // With Alt held a letter is named by its physical key (Option+W = "∑"
+  // on macOS), as in useKeyboardShortcuts: "ctrl+alt+w".
+  if (e.altKey && typeof e.code === 'string' && /^Key[A-Z]$/.test(e.code)) key = e.code.slice(3).toLowerCase();
   if (!MODIFIER_KEYS.includes(key)) parts.push(key);
   return parts.join('+');
 }

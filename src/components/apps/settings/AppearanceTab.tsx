@@ -1,17 +1,25 @@
 // ═══════════════════════════════════════════════════════════
-// WARRIOR OS — Appearance Tab
-// Wallpaper (painted previews), accent color (palette + custom), window
-// glass, CRT scanlines and cursor trail. Wallpaper and accent are saved
-// to the active workspace, which re-applies them whenever you return.
+// WARRIOR OS — Appearance Tab (FORGED ARMOR)
+// Wallpaper (painted previews in bevelled frames), background slideshow
+// + shortcuts, accent color (cut swatches + custom), window glass, CRT
+// scanlines and cursor trail. Wallpaper and accent are saved to the
+// active workspace, which re-applies them whenever you return.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
 import { memo, type CSSProperties } from 'react';
 import { ArrowRight, Check, Feather, Plus } from 'lucide-react';
-import { Badge, Button, Slider } from '@/components/ui';
+import { Badge, Button, Kbd, SegmentedControl, Slider } from '@/components/ui';
+import { BEVEL_RAISED, ENGRAVED_LABEL, STEEL_PLATE } from '@/components/ui/armor';
 import { cn } from '@/lib/utils';
-import { useSettingsStore } from '@/stores/useSettingsStore';
+import { SLIDESHOW_INTERVALS, useSettingsStore, type SlideshowInterval, type SlideshowOrder } from '@/stores/useSettingsStore';
+import {
+  NEXT_WALLPAPER_KEYS,
+  PREV_WALLPAPER_KEYS,
+  slideshowLabel,
+  useSlideshowBlocker,
+} from '@/hooks/useWallpaperSlideshow';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
 import { useLiteMode } from '@/lib/lite-mode';
 import { ACCENT_PRESETS, resolveAccent } from '@/styles/tokens';
@@ -37,6 +45,17 @@ function toColorInputValue(hex: string): string {
 
 const accentVar = (value: string) => ({ '--accent': value }) as CSSProperties;
 
+const INTERVAL_OPTIONS = SLIDESHOW_INTERVALS.map((m) => ({
+  value: String(m),
+  label: m === 0 ? 'Off' : m === 60 ? '1 h' : `${m} min`,
+  'aria-label': slideshowLabel(m),
+}));
+
+const ORDER_OPTIONS: { value: SlideshowOrder; label: string }[] = [
+  { value: 'order', label: 'In order' },
+  { value: 'shuffle', label: 'Shuffle' },
+];
+
 function AppearanceTabInner({ onOpenTab }: { onOpenTab?: OpenSettingsTab }) {
   const wallpaper = useSettingsStore((s) => s.wallpaper);
   const accentColor = useSettingsStore((s) => s.accentColor);
@@ -44,6 +63,9 @@ function AppearanceTabInner({ onOpenTab }: { onOpenTab?: OpenSettingsTab }) {
   const crtEffect = useSettingsStore((s) => s.crtEffect);
   const cursorTrail = useSettingsStore((s) => s.cursorTrail);
   const adaptiveWallpaper = useSettingsStore((s) => s.adaptiveWallpaper);
+  const slideshowInterval = useSettingsStore((s) => s.slideshowInterval);
+  const slideshowOrder = useSettingsStore((s) => s.slideshowOrder);
+  const slideshowBlocker = useSlideshowBlocker();
   const workspaceName = useWorkspaceStore(
     (s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId)?.name ?? 'current'
   );
@@ -82,7 +104,7 @@ function AppearanceTabInner({ onOpenTab }: { onOpenTab?: OpenSettingsTab }) {
             )
           }
         >
-          The wallpaper stays a still Deep Space background, and CRT scanlines and the cursor trail stay off.
+          The wallpaper stays a still Forge Night background, and CRT scanlines and the cursor trail stay off.
           Your choices below are kept for when lite mode is off.
         </Callout>
       )}
@@ -106,9 +128,65 @@ function AppearanceTabInner({ onOpenTab }: { onOpenTab?: OpenSettingsTab }) {
           <SwitchRow
             label="Adaptive wallpaper"
             ariaLabel="Adaptive Wallpaper"
-            description="Follows the time of day: Starfield at dawn, Nebula, Fluid and Aurora through the day, Deep Space at night and Matrix Rain after midnight."
+            description="Follows the time of day: Starfield at dawn, Nebula, Fluid and Aurora through the day, Forge Night at night and Matrix Rain after midnight."
             checked={adaptiveWallpaper}
             onCheckedChange={() => settings().toggleAdaptiveWallpaper()}
+          />
+          <SettingRow
+            label="Background slideshow"
+            labelId="appearance-slideshow-label"
+            disabled={slideshowBlocker !== null}
+            description={
+              slideshowBlocker === 'adaptive'
+                ? 'Paused while adaptive wallpaper is on: it already changes the background by time of day. Turn adaptive off to use the slideshow.'
+                : slideshowBlocker === 'lite'
+                  ? 'Paused in lite mode: the desktop keeps the still Forge Night background.'
+                  : slideshowInterval === 0
+                    ? 'Rotate through the wallpapers on a timer. Each change is saved to this workspace.'
+                    : `${slideshowLabel(slideshowInterval)}, ${slideshowOrder === 'shuffle' ? 'shuffled' : 'in order'}. Each change is saved to this workspace.`
+            }
+            control={
+              <SegmentedControl
+                size="sm"
+                aria-label="Slideshow interval"
+                value={String(slideshowInterval)}
+                onChange={(v) => settings().setSlideshowInterval(Number(v) as SlideshowInterval)}
+                options={INTERVAL_OPTIONS.map((o) => ({ ...o, disabled: slideshowBlocker !== null }))}
+              />
+            }
+          />
+          <SettingRow
+            label="Slideshow order"
+            disabled={slideshowBlocker !== null || slideshowInterval === 0}
+            description="Step through the list, or jump to a random wallpaper each time."
+            control={
+              <SegmentedControl
+                size="sm"
+                aria-label="Slideshow order"
+                value={slideshowOrder}
+                onChange={(v) => settings().setSlideshowOrder(v)}
+                options={ORDER_OPTIONS.map((o) => ({
+                  ...o,
+                  disabled: slideshowBlocker !== null || slideshowInterval === 0,
+                }))}
+              />
+            }
+          />
+          <SettingRow
+            label="Shortcuts"
+            description="Anywhere on the desktop. Right-click the desktop and choose Change background… to browse them all."
+            control={
+              <div className="flex flex-col items-end gap-1.5">
+                <span className="flex items-center gap-2">
+                  <span className={ENGRAVED_LABEL}>Next</span>
+                  <Kbd keys={NEXT_WALLPAPER_KEYS} size="sm" />
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className={ENGRAVED_LABEL}>Previous</span>
+                  <Kbd keys={PREV_WALLPAPER_KEYS} size="sm" />
+                </span>
+              </div>
+            }
           />
         </SettingsCard>
       </SettingsSection>
@@ -123,7 +201,7 @@ function AppearanceTabInner({ onOpenTab }: { onOpenTab?: OpenSettingsTab }) {
             <div className="flex min-w-0 items-center gap-3">
               <span
                 aria-hidden
-                className="size-9 shrink-0 rounded-control bg-accent shadow-glow ring-1 ring-inset ring-fg/20"
+                className="size-9 shrink-0 chamfer-sm bg-accent shadow-[inset_0_1px_0_rgb(255_255_255/0.4),inset_0_-2px_0_rgb(0_0_0/0.35)]"
               />
               <div className="min-w-0">
                 <p className="truncate text-ui font-medium text-fg">{preset ? preset.label : 'Custom color'}</p>
@@ -143,16 +221,19 @@ function AppearanceTabInner({ onOpenTab }: { onOpenTab?: OpenSettingsTab }) {
                     onClick={() => pickAccent(p.value)}
                     style={accentVar(p.value)}
                     className={cn(
-                      'focus-ring flex size-8 items-center justify-center rounded-full bg-accent',
-                      'ring-offset-2 ring-offset-ink-900 transition-shadow duration-180 ease-out-quint',
-                      selected ? 'ring-2 ring-accent' : 'hover:ring-2 hover:ring-line-strong'
+                      'flex size-8 items-center justify-center chamfer [--cut:6px] bg-accent',
+                      'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-fg',
+                      'transition-[box-shadow,filter] duration-180 ease-out-quint',
+                      selected
+                        ? 'shadow-[inset_0_0_0_2px_var(--color-ink-950),inset_0_0_0_3.5px_var(--color-fg)]'
+                        : 'shadow-[inset_0_1px_0_rgb(255_255_255/0.35),inset_0_-2px_0_rgb(0_0_0/0.35)] hover:brightness-115'
                     )}
                   >
                     {selected && <Check size={14} strokeWidth={2.75} className="text-accent-fg" aria-hidden />}
                   </button>
                 );
               })}
-              <span aria-hidden className="mx-0.5 h-6 w-px bg-line" />
+              <span aria-hidden className="mx-0.5 h-6 w-px bg-black/60 shadow-[1px_0_0_rgb(255_255_255/0.05)]" />
               <CustomSwatch value={accent} active={!preset} onChange={pickAccent} />
             </div>
           </div>
@@ -218,28 +299,36 @@ function WallpaperTile({
       onClick={onSelect}
       title={`${option.label} · ${option.hint}`}
       className={cn(
-        'group focus-ring relative flex min-w-0 flex-col overflow-hidden rounded-card border bg-surface-2 text-left',
-        'transition-[border-color,background-color,box-shadow] duration-180 ease-out-quint',
-        selected
-          ? 'border-accent/80 shadow-glow'
-          : 'border-line hover:border-line-strong hover:bg-surface-hover active:bg-surface-active'
+        'group relative flex min-w-0 flex-col chamfer-md p-1 text-left',
+        STEEL_PLATE,
+        BEVEL_RAISED,
+        'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
+        'transition-[filter] duration-180 ease-out-quint hover:brightness-110'
       )}
     >
-      <span className="relative block overflow-hidden">
+      <span className="relative block chamfer-sm overflow-hidden">
         <WallpaperThumb
           id={option.id}
-          className="transition-transform duration-260 ease-out-quint group-hover:scale-[1.04]"
+          className={cn(
+            'transition-[transform,filter] duration-260 ease-out-quint group-hover:scale-[1.04]',
+            !selected && 'brightness-[0.85] group-hover:brightness-100'
+          )}
         />
         {selected && (
-          <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-accent text-accent-fg shadow-e1">
-            <Check size={12} strokeWidth={2.75} aria-hidden />
+          <span className="absolute right-0 top-0 flex h-5 items-center gap-1 bg-linear-to-b from-ember-300 to-ember-500 pl-2 pr-1.5 font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-950 chamfer [--cut:0px] [--cut-bl:6px]">
+            <Check size={11} strokeWidth={3} aria-hidden />
+            Active
           </span>
         )}
       </span>
-      <span className="flex min-w-0 flex-col border-t border-line px-3 py-2">
-        <span className="truncate text-ui font-medium text-fg">{option.label}</span>
-        <span className="truncate text-xs text-fg-subtle">{option.hint}</span>
+      <span className="flex min-w-0 flex-col px-2 pb-1 pt-1.5">
+        <span className={cn('truncate text-ui font-medium', selected ? 'text-fg' : 'text-fg-muted group-hover:text-fg')}>
+          {option.label}
+        </span>
+        <span className="truncate font-mono text-2xs uppercase tracking-wide text-fg-subtle">{option.hint}</span>
       </span>
+      {/* Molten edge on the current wallpaper, drawn over the art. */}
+      {selected && <span aria-hidden className="ember-edge pointer-events-none absolute inset-0" />}
     </button>
   );
 }
@@ -251,16 +340,18 @@ function CustomSwatch({ value, active, onChange }: { value: string; active: bool
       title="Custom color"
       style={active ? accentVar(value) : undefined}
       className={cn(
-        'relative flex size-8 cursor-pointer items-center justify-center rounded-full ring-offset-2 ring-offset-ink-900',
-        'transition-shadow duration-180 ease-out-quint',
-        'has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-accent',
-        active ? 'bg-accent ring-2 ring-accent' : 'hover:ring-2 hover:ring-line-strong'
+        'relative flex size-8 cursor-pointer items-center justify-center chamfer [--cut:6px]',
+        'transition-[box-shadow,filter] duration-180 ease-out-quint',
+        'has-[input:focus-visible]:outline-2 has-[input:focus-visible]:-outline-offset-2 has-[input:focus-visible]:outline-fg',
+        active
+          ? 'bg-accent shadow-[inset_0_0_0_2px_var(--color-ink-950),inset_0_0_0_3.5px_var(--color-fg)]'
+          : 'hover:brightness-115'
       )}
     >
       {!active && (
         <span
           aria-hidden
-          className="absolute inset-0 rounded-full"
+          className="absolute inset-0"
           style={{
             backgroundImage:
               'conic-gradient(var(--color-viz-1), var(--color-viz-6), var(--color-viz-3), var(--color-viz-5), var(--color-viz-2), var(--color-viz-7), var(--color-viz-8), var(--color-viz-4), var(--color-viz-1))',
@@ -270,8 +361,8 @@ function CustomSwatch({ value, active, onChange }: { value: string; active: bool
       <span
         aria-hidden
         className={cn(
-          'relative flex items-center justify-center rounded-full',
-          active ? 'text-accent-fg' : 'size-6 bg-ink-900 text-fg-muted'
+          'relative flex items-center justify-center',
+          active ? 'text-accent-fg' : 'size-6 chamfer [--cut:4px] bg-ink-900 text-fg-muted'
         )}
       >
         {active ? <Check size={14} strokeWidth={2.75} /> : <Plus size={14} strokeWidth={2} />}
@@ -281,7 +372,7 @@ function CustomSwatch({ value, active, onChange }: { value: string; active: bool
         aria-label="Custom accent color"
         value={toColorInputValue(value)}
         onChange={(e) => onChange(e.target.value)}
-        className="absolute inset-0 size-full cursor-pointer rounded-full opacity-0"
+        className="absolute inset-0 size-full cursor-pointer opacity-0"
       />
     </label>
   );

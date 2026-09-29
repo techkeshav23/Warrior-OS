@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono, Orbitron } from 'next/font/google';
+import { Chakra_Petch, Inter, JetBrains_Mono } from 'next/font/google';
 import { OWNER } from '@/config/owner';
 import './globals.css';
 import '@/styles/animations.css';
@@ -24,11 +24,14 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
-const orbitron = Orbitron({
+// Display face (font-display): Chakra Petch. Its letters are chamfered
+// like the armor plates, and its figures stay open and unambiguous
+// (flat-topped 7, no bracket-like 1) for clocks, stats and levels.
+const chakraPetch = Chakra_Petch({
   subsets: ['latin'],
-  variable: '--font-orbitron',
+  variable: '--font-forge',
   display: 'swap',
-  weight: ['400', '500', '600', '700', '800', '900'],
+  weight: ['400', '500', '600', '700'],
 });
 
 // ─── Metadata ───
@@ -130,9 +133,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable} ${orbitron.variable} dark`}
+      className={`${inter.variable} ${jetbrainsMono.variable} ${chakraPetch.variable} dark`}
     >
-      <body className="antialiased" style={{ backgroundColor: '#04060b' }}>
+      <body className="antialiased" style={{ backgroundColor: '#050608' }}>
         {children}
       </body>
     </html>

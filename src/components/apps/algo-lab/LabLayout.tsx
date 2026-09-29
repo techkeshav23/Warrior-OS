@@ -14,6 +14,7 @@
 import { createContext, memo, useContext, type KeyboardEvent, type ReactNode } from 'react';
 import { ChevronRight, GitFork, Swords, ChartColumn, Waypoints } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BEVEL_SUNK, ENGRAVED_LABEL, FOCUS_EDGE, SLOT_FILL } from '@/components/ui/armor';
 import { AppHeader, Badge, Kbd, Toolbar } from '@/components/ui';
 import type { AlgoCategory, AlgoLabView } from '@/types/algo';
 import { ALGO_LAB_SECTIONS } from '@/data/algorithms';
@@ -65,7 +66,7 @@ const METRIC_TONE: Record<MetricTone, string> = {
 export function Stat({ label, value, tone = 'default' }: { label: string; value: ReactNode; tone?: MetricTone }) {
   return (
     <span className="flex items-baseline gap-1.5 whitespace-nowrap">
-      <span className="hud-label">{label}</span>
+      <span className={ENGRAVED_LABEL}>{label}</span>
       <span className={cn('tabular font-mono text-ui font-medium', METRIC_TONE[tone])}>{value}</span>
     </span>
   );
@@ -74,7 +75,8 @@ export function Stat({ label, value, tone = 'default' }: { label: string; value:
 /** One-line narration of the current step plus optional counters. */
 export function StepMessage({ message, children }: { message: string; children?: ReactNode }) {
   return (
-    <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-card bg-surface-2 px-3 py-2">
+    <div className="chamfer-sm bevel brushed relative flex min-h-11 shrink-0 flex-wrap items-center gap-x-5 gap-y-1.5 bg-steel-800 py-2 pl-4 pr-3">
+      <span aria-hidden className="absolute inset-y-2 left-0 w-0.5 bg-linear-to-b from-ember-300 to-ember-600 shadow-[0_0_8px_var(--color-ember-500)]" />
       <p className="flex min-w-0 flex-1 items-start gap-2 text-ui text-fg-muted" aria-live="polite">
         <ChevronRight size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-accent" aria-hidden />
         <span className="min-w-0 select-text">{message}</span>
@@ -102,7 +104,7 @@ export function StageLegend({ items, note }: { items: LegendItem[]; note?: React
         <span key={item.label} className="flex items-center gap-1.5">
           <span
             aria-hidden
-            className={cn('size-2.5 shrink-0', item.ring ? 'rounded-full border-2' : 'rounded-[3px]')}
+            className={cn('size-2.5 shrink-0', item.ring && 'rounded-full border-2')}
             style={
               item.ring
                 ? { borderColor: item.color, borderStyle: item.dashed ? 'dashed' : 'solid' }
@@ -206,8 +208,9 @@ function LabLayoutInner({
               tabIndex={0}
               aria-label={stageLabel}
               className={cn(
-                '@container/stage focus-ring relative flex min-h-[14rem] min-w-0 flex-1 flex-col overflow-hidden rounded-card',
-                !bareStage && 'hud-corners border border-line bg-ink-950/45 inset-shadow-[0_1px_0_rgb(255_255_255/0.03)]'
+                '@container/stage relative flex min-h-[14rem] min-w-0 flex-1 flex-col overflow-hidden',
+                FOCUS_EDGE,
+                !bareStage && cn('chamfer-md [--cut:12px] [--cut-tr:4px] [--cut-bl:4px]', SLOT_FILL, BEVEL_SUNK)
               )}
             >
               {stage}
