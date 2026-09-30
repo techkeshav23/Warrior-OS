@@ -1,10 +1,12 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — NEXUS Speech Helpers
-// Web Speech API feature detection, SpeechSynthesis output,
+// Web Speech API feature detection, speech output (the owner's cloud
+// voice when the server has one, else SpeechSynthesis),
 // wake-phrase matching and markdown → speakable text.
 // Every browser access happens inside functions (SSR-safe).
 // ═══════════════════════════════════════════════════════════
 
+import { cloudVoiceReady, isCloudSpeaking, speakCloud, stopCloudSpeech } from '@/lib/jarvis/voice';
 import { useNexusStore } from '@/stores/useNexusStore';
 import { useNexusVoiceStore } from './voice-store';
 
@@ -138,11 +140,26 @@ function pickVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null 
  * `force` is set (an explicit replay click). Returns whether speech started.
  */
 export function speakNexus(text: string, options: { force?: boolean } = {}): boolean {
-  if (!isSpeechSynthesisSupported()) return false;
   if (!options.force && !useNexusStore.getState().voiceReplies) return false;
   const clean = toSpeakableText(text);
   if (!clean) return false;
 
+  // Owner with a server voice: natural speech, browser voice as fallback.
+  if (cloudVoiceReady()) {
+    stopSpeaking();
+    const setSpeaking = (speaking: boolean) => useNexusVoiceStore.getState().patch({ speaking });
+    setSpeaking(true);
+    void speakCloud(clean, () => setSpeaking(false)).then((started) => {
+      if (!started && !speakBrowser(clean)) setSpeaking(false);
+    });
+    return true;
+  }
+  return speakBrowser(clean);
+}
+
+/** The browser's built-in voice (SpeechSynthesis). */
+function speakBrowser(clean: string): boolean {
+  if (!isSpeechSynthesisSupported()) return false;
   const synth = window.speechSynthesis;
   synth.cancel();
   const utterance = new SpeechSynthesisUtterance(clean);
@@ -161,11 +178,11 @@ export function speakNexus(text: string, options: { force?: boolean } = {}): boo
 }
 
 export function stopSpeaking(): void {
-  if (!isSpeechSynthesisSupported()) return;
-  window.speechSynthesis.cancel();
+  stopCloudSpeech();
+  if (isSpeechSynthesisSupported()) window.speechSynthesis.cancel();
   useNexusVoiceStore.getState().patch({ speaking: false });
 }
 
 export function isSpeaking(): boolean {
-  return isSpeechSynthesisSupported() && window.speechSynthesis.speaking;
+  return isCloudSpeaking() || (isSpeechSynthesisSupported() && window.speechSynthesis.speaking);
 }

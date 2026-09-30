@@ -25,6 +25,7 @@ const INITIAL_VOICE: NexusVoiceState = {
   interim: '',
   lastHeard: '',
   lastReply: '',
+  conversing: false,
   error: null,
 };
 

@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Nexus AI Tab
 // NEXUS status (offline brain or Gemini link), who it is talking to,
-// and its preferences: OS context, proactive suggestions, voice replies.
+// and its preferences: OS context, proactive suggestions, voice replies,
+// conversation mode.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -21,6 +22,7 @@ function NexusTabInner() {
   const contextEnabled = useNexusStore((s) => s.contextEnabled);
   const suggestionsEnabled = useNexusStore((s) => s.suggestionsEnabled);
   const voiceReplies = useNexusStore((s) => s.voiceReplies);
+  const conversationMode = useNexusStore((s) => s.conversationMode);
   // Settings only renders client-side, so the stored mode is read once here.
   const [visitor] = useState(getVisitorMode);
   const [link, setLink] = useState<LinkState>({ kind: 'checking' });
@@ -112,6 +114,12 @@ function NexusTabInner() {
             description="Read replies to voice commands aloud."
             checked={voiceReplies}
             onCheckedChange={() => nexus().setVoiceReplies(!voiceReplies)}
+          />
+          <SwitchRow
+            label="Conversation mode"
+            description="Keep listening after NEXUS answers, so follow-ups need no wake phrase. Say “bas” or “that’s all” to end."
+            checked={conversationMode}
+            onCheckedChange={() => nexus().setConversationMode(!conversationMode)}
           />
         </SettingsCard>
       </SettingsSection>

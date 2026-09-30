@@ -9,6 +9,12 @@
 // The recognition session lives in a module-level controller so
 // it survives the AI Assist window being minimised or closed;
 // NexusLayer shuts it down when the desktop unmounts.
+//
+// Conversation mode (preference, default on): once a spoken reply to
+// a voice command ends, a hands-free follow-up capture opens for ~8 s
+// without the wake phrase; silence returns to the previous mode and
+// "bas" / "that's all" / "thank you" ends the conversation. Capture
+// never starts while NEXUS is still speaking.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -27,6 +33,7 @@ import {
   isSpeechSynthesisSupported,
   matchWakePhrase,
   NEXUS_SPEECH_LANG,
+  speakNexus,
   stopSpeaking,
   type NexusRecognition,
 } from '@/lib/nexus/speech';
@@ -40,12 +47,33 @@ export const NEXUS_VOICE_UNSUPPORTED =
 
 const WAKE_CAPTURE_MS = 8000;
 const LAST_REPLY_MS = 9000;
+/** Conversation mode: silence that closes a follow-up capture. */
+const FOLLOW_SILENCE_MS = 8000;
+/** The spoken reply must begin within this long, or no follow-up opens. */
+const FOLLOW_REPLY_GRACE_MS = 6000;
+/** Quiet gap after speech ends before the mic opens (lets the room settle). */
+const FOLLOW_ECHO_GAP_MS = 350;
+const FOLLOW_POLL_MS = 120;
+
+/** Whole-utterance phrases that end a conversation ("bas", "that's all", …). */
+const END_CONVERSATION_RE =
+  /^(?:(?:ok|okay|achha|acha|theek hai|thik hai)\s+)?(?:bas(?:\s+(?:karo|kar|kar do|ho gaya|itna hi|itna))?|stop(?:\s+listening)?|that'?s all|that is all|that'?s it|thank you|thanks|thank u|shukriya|dhanyavaad|bye|bye bye|good ?bye)(?:\s+(?:nexus|warrior|jarvis|bhai|yaar|dost|sir))?$/i;
+
+export function isEndOfConversation(text: string): boolean {
+  const clean = text
+    .toLowerCase()
+    .replace(/[’]/g, "'")
+    .replace(/[.,!?।;:]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return clean.length > 0 && END_CONVERSATION_RE.test(clean);
+}
 
 // ─── Controller (module singleton; only touched from handlers/callbacks) ───
 
 interface VoiceController {
   recognition: NexusRecognition | null;
-  mode: 'push' | 'wake' | null;
+  mode: 'push' | 'wake' | 'follow' | null;
   wakeWanted: boolean;
   awaitingUntil: number;
   startedAt: number;
@@ -54,6 +82,14 @@ interface VoiceController {
   restartTimer: number | null;
   captureTimer: number | null;
   replyTimer: number | null;
+  /** Conversation mode: silence timer of the open follow-up capture */
+  followTimer: number | null;
+  /** Conversation mode: watches the spoken reply, then opens the follow-up */
+  followPoll: number | null;
+  followGotFinal: boolean;
+  /** Bumped per voice turn and on cancel, so a cancelled turn neither speaks on nor follows up */
+  turn: number;
+  cancelledTurn: number;
 }
 
 const ctl: VoiceController = {
@@ -67,13 +103,18 @@ const ctl: VoiceController = {
   restartTimer: null,
   captureTimer: null,
   replyTimer: null,
+  followTimer: null,
+  followPoll: null,
+  followGotFinal: false,
+  turn: 0,
+  cancelledTurn: 0,
 };
 
 function patch(partial: Partial<NexusVoiceState>): void {
   useNexusVoiceStore.getState().patch(partial);
 }
 
-function clearTimer(name: 'restartTimer' | 'captureTimer' | 'replyTimer'): void {
+function clearTimer(name: 'restartTimer' | 'captureTimer' | 'replyTimer' | 'followTimer'): void {
   const id = ctl[name];
   if (id !== null) window.clearTimeout(id);
   ctl[name] = null;
@@ -107,6 +148,7 @@ async function handleVoiceCommand(raw: string): Promise<void> {
   if (!text) return;
   unlockNexusAchievement(NEXUS_ACHIEVEMENTS.firstVoice);
   clearTimer('replyTimer');
+  const turnId = ++ctl.turn;
   patch({ processing: true, lastHeard: text, lastReply: '', capturing: false, interim: '', error: null });
   try {
     const turn = await sendToNexus(text, { via: 'voice' });
@@ -118,6 +160,188 @@ async function handleVoiceCommand(raw: string): Promise<void> {
   } finally {
     patch({ processing: false });
   }
+  if (ctl.cancelledTurn === turnId) {
+    // Cancelled (orb / Escape) while thinking: the answer stays in chat, unspoken.
+    stopSpeaking();
+    return;
+  }
+  if (turnId !== ctl.turn) return; // a newer voice turn owns the follow-up
+  if (useNexusStore.getState().conversationMode) armFollowUp();
+  else if (useNexusVoiceStore.getState().conversing) patch({ conversing: false });
+}
+
+// ─── Conversation mode (hands-free follow-ups) ───
+
+function stopFollowPoll(): void {
+  if (ctl.followPoll !== null) window.clearInterval(ctl.followPoll);
+  ctl.followPoll = null;
+}
+
+function synthBusy(): boolean {
+  return isSpeaking() || (isSpeechSynthesisSupported() && window.speechSynthesis.pending);
+}
+
+/**
+ * After a voice turn: wait for the spoken reply to start and finish, then
+ * open a follow-up capture. A turn that was not answered by speech (voice
+ * replies muted, no voice) ends the conversation instead.
+ */
+function armFollowUp(): void {
+  stopFollowPoll();
+  const armedAt = Date.now();
+  let heardReply = false;
+  let quietSince = 0;
+  ctl.followPoll = window.setInterval(() => {
+    const talking = useNexusVoiceStore.getState().speaking || synthBusy();
+    if (talking) {
+      heardReply = true;
+      quietSince = 0;
+      return;
+    }
+    if (!heardReply) {
+      if (Date.now() - armedAt > FOLLOW_REPLY_GRACE_MS) {
+        stopFollowPoll();
+        patch({ conversing: false });
+      }
+      return;
+    }
+    if (!quietSince) {
+      quietSince = Date.now();
+      return;
+    }
+    if (Date.now() - quietSince >= FOLLOW_ECHO_GAP_MS) {
+      stopFollowPoll();
+      startFollowUp();
+    }
+  }, FOLLOW_POLL_MS);
+}
+
+function resetFollowSilence(): void {
+  clearTimer('followTimer');
+  ctl.followTimer = window.setTimeout(() => {
+    ctl.followTimer = null;
+    if (ctl.mode === 'follow') closeFollowCapture(false);
+  }, FOLLOW_SILENCE_MS);
+}
+
+/** End the follow-up capture and go back to wake listening (or off). */
+function closeFollowCapture(keepConversing: boolean): void {
+  clearTimer('followTimer');
+  if (ctl.mode === 'follow') teardownRecognition();
+  patch({
+    mode: ctl.wakeWanted ? 'wake' : 'off',
+    capturing: false,
+    interim: '',
+    ...(keepConversing ? {} : { conversing: false }),
+  });
+  if (ctl.wakeWanted) scheduleWakeRestart(400);
+}
+
+/** "bas" / "that's all": close the chain with a short acknowledgement. */
+function finishConversation(heard: string): void {
+  stopFollowPoll();
+  closeFollowCapture(false);
+  patch({ lastHeard: heard });
+  speakNexus('Theek hai.');
+}
+
+function startFollowUp(): void {
+  const Ctor = getRecognitionCtor();
+  if (
+    !Ctor ||
+    !useNexusStore.getState().conversationMode ||
+    ctl.mode === 'push' || // the user already took over with push-to-talk
+    document.visibilityState === 'hidden'
+  ) {
+    patch({ conversing: false });
+    return;
+  }
+  if (synthBusy()) {
+    armFollowUp(); // never capture while NEXUS is speaking
+    return;
+  }
+
+  // Pauses wake listening (and drops anything it buffered of our own voice).
+  ctl.awaitingUntil = 0;
+  clearTimer('captureTimer');
+  clearTimer('restartTimer');
+  teardownRecognition();
+
+  const rec = new Ctor();
+  rec.lang = NEXUS_SPEECH_LANG;
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+  ctl.followGotFinal = false;
+
+  rec.onresult = (event) => {
+    if (ctl.followGotFinal || isSpeaking()) return;
+    let interim = '';
+    let finalText = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const result = event.results[i];
+      const transcript = result[0]?.transcript ?? '';
+      if (result.isFinal) finalText += transcript;
+      else interim += transcript;
+    }
+    if (interim.trim()) {
+      patch({ interim: interim.trim() });
+      resetFollowSilence();
+    }
+    let command = finalText.trim();
+    if (!command) return;
+    const wake = matchWakePhrase(command);
+    if (wake.matched) {
+      if (!wake.command) {
+        patch({ interim: '' });
+        resetFollowSilence();
+        return;
+      }
+      command = wake.command;
+    }
+    ctl.followGotFinal = true;
+    if (isEndOfConversation(command)) {
+      finishConversation(command);
+      return;
+    }
+    closeFollowCapture(true);
+    void handleVoiceCommand(command);
+  };
+
+  rec.onerror = (event) => {
+    if (event.error === 'no-speech' || event.error === 'aborted') return;
+    patch({ error: describeRecognitionError(event.error) });
+  };
+
+  rec.onend = () => {
+    if (ctl.recognition !== rec) return;
+    ctl.recognition = null;
+    ctl.mode = null;
+    closeFollowCapture(false);
+  };
+
+  ctl.recognition = rec;
+  ctl.mode = 'follow';
+  patch({ supported: true, mode: 'follow', micActive: true, capturing: true, conversing: true, interim: '', error: null });
+  try {
+    rec.start();
+  } catch {
+    detach(rec);
+    ctl.recognition = null;
+    ctl.mode = null;
+    closeFollowCapture(false);
+    return;
+  }
+  playNexusChime('wake');
+  resetFollowSilence();
+}
+
+/** Stop the conversation chain (poll + follow-up capture), keep other modes. */
+function stopConversation(): void {
+  stopFollowPoll();
+  if (ctl.mode === 'follow') closeFollowCapture(false);
+  else clearTimer('followTimer');
+  if (useNexusVoiceStore.getState().conversing) patch({ conversing: false });
 }
 
 function scheduleWakeRestart(delayMs: number): void {
@@ -252,6 +476,7 @@ export function startPushToTalk(): void {
   }
 
   stopSpeaking();
+  stopConversation();
   teardownRecognition(); // pauses wake listening while push-to-talk runs
 
   const rec = new Ctor();
@@ -332,7 +557,37 @@ export function disableWakeMode(): void {
   clearTimer('captureTimer');
   clearTimer('restartTimer');
   if (ctl.mode === 'wake') teardownRecognition();
-  patch({ wakeEnabled: false, capturing: false, mode: ctl.mode === 'push' ? 'push' : 'off' });
+  if (ctl.mode === 'follow') patch({ wakeEnabled: false, mode: 'follow' });
+  else patch({ wakeEnabled: false, capturing: false, mode: ctl.mode === 'push' ? 'push' : 'off' });
+}
+
+/**
+ * Orb click / Escape: stop the spoken reply, cancel any capture
+ * (push-to-talk, wake command window, follow-up) and end the conversation.
+ * Wake listening itself stays on.
+ */
+export function cancelNexusVoice(): void {
+  if (useNexusVoiceStore.getState().processing) {
+    ctl.cancelledTurn = ctl.turn;
+    patch({ processing: false });
+  }
+  stopConversation();
+  stopSpeaking();
+  ctl.awaitingUntil = 0;
+  clearTimer('captureTimer');
+  if (ctl.mode === 'push') {
+    teardownRecognition();
+    patch({ mode: ctl.wakeWanted ? 'wake' : 'off' });
+    if (ctl.wakeWanted) scheduleWakeRestart(400);
+  }
+  patch({ capturing: false, interim: '' });
+}
+
+/** Stop the spoken reply without opening a follow-up (HUD stop button). */
+export function stopNexusReply(): void {
+  stopFollowPoll();
+  stopSpeaking();
+  if (useNexusVoiceStore.getState().conversing && ctl.mode !== 'follow') patch({ conversing: false });
 }
 
 /** Resume wake listening after the tab becomes visible again. */
@@ -344,8 +599,10 @@ export function resumeWakeIfWanted(): void {
 export function shutdownNexusVoice(): void {
   ctl.wakeWanted = false;
   ctl.awaitingUntil = 0;
+  stopFollowPoll();
   clearTimer('captureTimer');
   clearTimer('replyTimer');
+  clearTimer('followTimer');
   teardownRecognition();
   stopSpeaking();
   useNexusVoiceStore.getState().reset();
@@ -510,8 +767,8 @@ function NexusVoiceIndicatorInner() {
     detail = lastReply ? truncate(lastReply, 80) : '';
   } else if (capturing) {
     tone = 'live';
-    label = 'Listening for your command';
-    detail = interim ? `“${truncate(interim, 60)}”` : '';
+    label = mode === 'follow' ? 'Listening… go on' : 'Listening for your command';
+    detail = interim ? `“${truncate(interim, 60)}”` : mode === 'follow' ? 'Say “bas” to end the conversation' : '';
   } else if (mode === 'push' && micActive) {
     tone = 'live';
     label = 'Listening…';
@@ -566,7 +823,7 @@ function NexusVoiceIndicatorInner() {
 
           {processing && <LoaderCircle size={14} strokeWidth={2} className="shrink-0 animate-spin text-accent" aria-hidden />}
           {!processing && speaking && <Volume2 size={14} strokeWidth={1.75} className="shrink-0 text-accent" aria-hidden />}
-          {!processing && !speaking && (mode === 'push' || capturing) && micActive && (
+          {!processing && !speaking && (mode === 'push' || mode === 'follow' || capturing) && micActive && (
             <Mic size={14} strokeWidth={1.75} className="shrink-0 text-danger" aria-hidden />
           )}
 
@@ -576,9 +833,12 @@ function NexusVoiceIndicatorInner() {
           </div>
 
           <span className="flex shrink-0 items-center">
-            {speaking && <IconButton icon={Square} iconSize={12} size="xs" onClick={stopSpeaking} aria-label="Stop speaking" tooltip />}
+            {speaking && <IconButton icon={Square} iconSize={12} size="xs" onClick={stopNexusReply} aria-label="Stop speaking" tooltip />}
             {micActive && mode === 'push' && (
               <IconButton icon={MicOff} iconSize={13} size="xs" onClick={startPushToTalk} aria-label="Stop listening" tooltip />
+            )}
+            {micActive && mode === 'follow' && (
+              <IconButton icon={MicOff} iconSize={13} size="xs" onClick={cancelNexusVoice} aria-label="Stop listening" tooltip />
             )}
             {wakeEnabled && (
               <IconButton

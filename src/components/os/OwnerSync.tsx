@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import { getVisitorMode } from '@/lib/visitor';
 import { getSyncToken, syncNow } from '@/lib/sync/client';
 import { refreshKeys } from '@/lib/sync/rehydrate';
+import { primeCloudVoice } from '@/lib/jarvis/voice';
 
 const INTERVAL_MS = 60_000;
 
@@ -24,6 +25,8 @@ export function runOwnerSync(): Promise<void> {
 
 export function OwnerSync() {
   useEffect(() => {
+    // Ask early whether the server has a natural voice, so the first reply uses it.
+    if (getVisitorMode() === 'owner') primeCloudVoice();
     void runOwnerSync();
     const timer = window.setInterval(() => void runOwnerSync(), INTERVAL_MS);
     const onVisibility = () => void runOwnerSync();

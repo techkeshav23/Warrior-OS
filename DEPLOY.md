@@ -70,6 +70,7 @@ The same list, with comments, is in [`.env.example`](.env.example).
 | `VERTEX_LOCATION` | Server only | Vertex region, default `global` |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Server only | Service-account key for Vertex (raw JSON or base64). Unset → the VM's own service account |
 | `JARVIS_MODEL` | Server only | Gemini model for JARVIS, default `gemini-2.5-flash` |
+| `JARVIS_VOICE` | Server only | Text-to-Speech voice for spoken replies (Vertex setup), default `en-IN-Neural2-B`; `off` keeps the browser voice |
 | `WARRIOR_DATA_DIR` | Server only | Folder for `sync.json`. Defaults to `./.data` locally; the Docker image sets `/data` |
 | `NEXT_PUBLIC_SITE_URL` | Public, build time | Your public origin, e.g. `https://warrior-os.vercel.app` (used for link previews; defaults to the Vercel production domain). **Required when hosting anywhere other than Vercel** (Docker: pass it as a build arg) |
 
@@ -126,6 +127,8 @@ Pick one door to Gemini:
    - **Or the VM's own service account:** grant it `roles/aiplatform.user` and give the VM the `cloud-platform` access scope (changing scopes requires stopping the VM, which stops every app on it). Leave `GOOGLE_SERVICE_ACCOUNT_JSON` unset; the app then asks the metadata server for tokens.
 3. Set `VERTEX_PROJECT=<PROJECT_ID>` (and optionally `VERTEX_LOCATION`, default `global`; `JARVIS_MODEL`, default `gemini-2.5-flash`) and redeploy.
 4. Set a **budget alert** in Google Cloud Billing (e.g. a small monthly amount) so a runaway loop can never surprise you.
+
+**Natural voice (optional, Vertex setup only).** With `VERTEX_PROJECT` set, spoken NEXUS replies for the owner use Google Cloud Text-to-Speech (`/api/voice`) instead of the browser's robotic voice. Enable the API once: `gcloud services enable texttospeech.googleapis.com --project <PROJECT_ID>` (the same service account is used; if speech requests are refused with 403, also grant it `roles/serviceusage.serviceUsageConsumer`). Pick the voice with `JARVIS_VOICE` (default `en-IN-Neural2-B`; any name from the Cloud Text-to-Speech voice list, e.g. an `en-IN` Chirp HD voice), or set `JARVIS_VOICE=off` to keep the browser voice. If a request fails, the browser voice takes over.
 
 **B. Gemini API key.** Without `VERTEX_PROJECT`, JARVIS uses `GEMINI_API_KEY` (the same key regular NEXUS uses).
 

@@ -69,6 +69,8 @@ interface NexusStore {
   voiceReplies: boolean;
   /** Proactive NEXUS suggestions (nudges) */
   suggestionsEnabled: boolean;
+  /** Keep listening (no wake phrase) after a spoken reply to a voice command */
+  conversationMode: boolean;
 
   // ── Pomodoro (persisted) ──
   pomodoro: NexusPomodoroState;
@@ -106,6 +108,7 @@ interface NexusStore {
   toggleVoiceReplies: () => void;
   setSuggestionsEnabled: (enabled: boolean) => void;
   toggleSuggestions: () => void;
+  setConversationMode: (enabled: boolean) => void;
 
   // ── Pomodoro actions ──
   startPomodoro: (focusMinutes?: number, breakMinutes?: number) => void;
@@ -261,6 +264,7 @@ type PersistedNexus = Pick<
   | 'contextEnabled'
   | 'voiceReplies'
   | 'suggestionsEnabled'
+  | 'conversationMode'
   | 'pomodoro'
   | 'lastSuggestionAt'
   | 'lastSuggestionId'
@@ -284,6 +288,7 @@ function sanitizePersisted(raw: unknown): Partial<PersistedNexus> {
   if (typeof p.contextEnabled === 'boolean') out.contextEnabled = p.contextEnabled;
   if (typeof p.voiceReplies === 'boolean') out.voiceReplies = p.voiceReplies;
   if (typeof p.suggestionsEnabled === 'boolean') out.suggestionsEnabled = p.suggestionsEnabled;
+  if (typeof p.conversationMode === 'boolean') out.conversationMode = p.conversationMode;
   if (typeof p.lastSuggestionAt === 'number') out.lastSuggestionAt = p.lastSuggestionAt;
   if (typeof p.lastSuggestionId === 'string') out.lastSuggestionId = p.lastSuggestionId;
   if (p.ruleLastFired && typeof p.ruleLastFired === 'object' && !Array.isArray(p.ruleLastFired)) {
@@ -341,6 +346,7 @@ export const useNexusStore = create<NexusStore>()(
         contextEnabled: true,
         voiceReplies: true,
         suggestionsEnabled: true,
+        conversationMode: true,
         pomodoro: freshPomodoro(),
         lastSuggestionAt: null,
         lastSuggestionId: null,
@@ -537,6 +543,10 @@ export const useNexusStore = create<NexusStore>()(
           set((state) => {
             state.suggestionsEnabled = !state.suggestionsEnabled;
           }),
+        setConversationMode: (enabled) =>
+          set((state) => {
+            state.conversationMode = enabled;
+          }),
 
         // ── Pomodoro ──
         startPomodoro: (focusMinutes, breakMinutes) => {
@@ -667,6 +677,7 @@ export const useNexusStore = create<NexusStore>()(
         contextEnabled: state.contextEnabled,
         voiceReplies: state.voiceReplies,
         suggestionsEnabled: state.suggestionsEnabled,
+        conversationMode: state.conversationMode,
         pomodoro: state.pomodoro,
         lastSuggestionAt: state.lastSuggestionAt,
         lastSuggestionId: state.lastSuggestionId,

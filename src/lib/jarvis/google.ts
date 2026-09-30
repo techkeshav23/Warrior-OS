@@ -30,6 +30,10 @@ export function jarvisModel(): string {
   return env('JARVIS_MODEL') ?? DEFAULT_JARVIS_MODEL;
 }
 
+export function vertexProject(): string | null {
+  return env('VERTEX_PROJECT') ?? env('GOOGLE_CLOUD_PROJECT');
+}
+
 export function jarvisProvider(): JarvisProvider | null {
   if (env('VERTEX_PROJECT') ?? env('GOOGLE_CLOUD_PROJECT')) return 'vertex';
   if (env('GEMINI_API_KEY')) return 'gemini-api';
@@ -88,7 +92,8 @@ async function tokenFromMetadata(): Promise<{ token: string; expiresIn: number }
   return { token: data.access_token, expiresIn: data.expires_in ?? 300 };
 }
 
-async function vertexToken(): Promise<string> {
+/** OAuth token for Google Cloud APIs (Vertex AI, Text-to-Speech). */
+export async function googleAccessToken(): Promise<string> {
   if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) return cachedToken.value;
   const sa = serviceAccount();
   const { token, expiresIn } = sa ? await tokenFromServiceAccount(sa) : await tokenFromMetadata();
@@ -115,7 +120,7 @@ async function endpoint(model: string): Promise<{ url: string; headers: Record<s
     const host = location === 'global' ? 'aiplatform.googleapis.com' : `${location}-aiplatform.googleapis.com`;
     return {
       url: `https://${host}/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`,
-      headers: { Authorization: `Bearer ${await vertexToken()}` },
+      headers: { Authorization: `Bearer ${await googleAccessToken()}` },
     };
   }
   if (provider === 'gemini-api') {

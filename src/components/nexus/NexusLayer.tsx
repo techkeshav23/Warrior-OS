@@ -3,7 +3,8 @@
 // Mount once in the desktop phase. Hosts the suggestion engine +
 // 'warrior:nexus-say' listener, the pomodoro driver, and the HUD
 // (voice listening indicator + pomodoro pill, bottom-left above
-// the taskbar). Leaving the desktop shuts the microphone down.
+// the taskbar) and the JARVIS orb (bottom-center, while voice is
+// engaged). Leaving the desktop shuts the microphone down.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -12,6 +13,7 @@ import { memo, useEffect } from 'react';
 import { NexusSuggestions } from './NexusSuggestions';
 import { NexusPomodoroEngine, NexusPomodoroPill } from './NexusPomodoro';
 import { NexusVoiceIndicator, resumeWakeIfWanted, shutdownNexusVoice } from './NexusVoice';
+import { JarvisOrb } from './JarvisOrb';
 
 function NexusLayerInner() {
   useEffect(() => {
@@ -36,6 +38,13 @@ function NexusLayerInner() {
       >
         <NexusVoiceIndicator />
         <NexusPomodoroPill variant="hud" />
+      </div>
+      {/* Above the workspace dots (bottom-14); over achievement toasts while voice is live */}
+      <div
+        className="pointer-events-none fixed inset-x-0 bottom-26 flex justify-center max-sm:bottom-40"
+        style={{ zIndex: 'calc(var(--z-notification) + 1)' }}
+      >
+        <JarvisOrb />
       </div>
     </>
   );
