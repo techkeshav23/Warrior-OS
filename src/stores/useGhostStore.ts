@@ -1,8 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Ghost Warriors Store
-// Anonymous multiplayer presence + war cries. The data source is
-// Firebase Realtime Database when configured, otherwise the offline
-// local campfire (other open tabs + SIM-labelled warriors; see `mode`).
+// Anonymous multiplayer presence + war cries. The data source is the
+// offline local campfire (other open tabs + SIM-labelled warriors; see `mode`).
 // ═══════════════════════════════════════════════════════════
 
 import { create } from 'zustand';

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Ghost Warriors Types
-// Anonymous multiplayer presence: Firebase Realtime Database when
-// configured, an explicitly-labelled local simulation otherwise.
+// Anonymous multiplayer presence: the local campfire (this browser's
+// other tabs) plus an explicitly-labelled simulation.
 // ═══════════════════════════════════════════════════════════
 
 /**
@@ -59,9 +59,9 @@ export interface WarCryPreset {
 /**
  * Where presence data comes from right now.
  *  - disabled:   Ghost Warriors switched off in Settings
- *  - connecting: Firebase RTDB configured, connection in progress
- *  - realtime:   live Firebase RTDB presence (real people)
- *  - local:      no database configured (or unreachable) → offline campfire:
+ *  - connecting: reserved for a live presence server, connection in progress
+ *  - realtime:   reserved for live presence from other people
+ *  - local:      offline campfire (the only source today):
  *                real presence of this browser's other open tabs (via
  *                BroadcastChannel) + deterministic, SIM-labelled warriors
  */

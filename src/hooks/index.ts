@@ -6,7 +6,6 @@ export { useClock } from './useClock';
 export { useParallax } from './useParallax';
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';
 export { useContextMenu } from './useContextMenu';
-export { useAuth } from './useAuth';
 export { useAdaptiveWallpaper } from './useAdaptiveWallpaper';
 export { useAudioAnalyzer } from './useAudioAnalyzer';
 export { useGhostPresence } from './useGhostPresence';

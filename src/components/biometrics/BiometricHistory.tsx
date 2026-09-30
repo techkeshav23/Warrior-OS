@@ -32,7 +32,6 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { StatTile } from '@/components/ui/StatTile';
 import { recordHistoryCheck } from './achievements';
-import { isBiometricCloudSyncAvailable } from './cloudSync';
 import type { BiometricSnapshot, BiometricState } from '@/types/biometrics';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -493,9 +492,8 @@ function BiometricHistoryInner({ className }: { className?: string }) {
         <p className="flex min-w-0 items-start gap-2 text-xs text-fg-subtle">
           <ShieldCheck size={14} strokeWidth={1.75} aria-hidden className="mt-px shrink-0 text-success" />
           <span>
-            {isBiometricCloudSyncAvailable()
-              ? 'Hourly averages of typing timing — no keys or text. Kept on this device and mirrored to your cloud account when signed in.'
-              : 'Stored on this device only as hourly averages of typing timing — no keys or text.'}
+            Hourly averages of typing timing — no keys or text. Kept on this device (and on your own server when
+            owner sync is on).
           </span>
         </p>
         {history.length > 0 &&

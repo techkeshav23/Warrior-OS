@@ -1,7 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Ghost presence: offline "local campfire" transport
-// Active when no Firebase Realtime Database is configured (or it is
-// unreachable). Two sources, merged:
+// The presence source. Two sources, merged:
 //   1. REAL presence of this browser's other open Warrior OS tabs,
 //      exchanged over a BroadcastChannel (hello / presence heartbeat /
 //      bye). Closing a tab removes it within one heartbeat (bye), or

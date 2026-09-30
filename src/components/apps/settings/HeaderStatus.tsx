@@ -6,13 +6,12 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { Bot } from 'lucide-react';
 import { Badge, Button, type Tone } from '@/components/ui';
 import { useLiteModeStatus } from '@/lib/lite-mode';
 import { getVisitorMode } from '@/lib/visitor';
-import { isFirebaseConfigured } from '@/lib/auth';
-import { useAuthStore } from '@/stores/useAuthStore';
+import { getServerSyncStatus, getSyncStatus, getSyncToken, subscribeSyncStatus } from '@/lib/sync/client';
 import { useDecayStore } from '@/stores/useDecayStore';
 import { useNexusStore } from '@/stores/useNexusStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
@@ -66,16 +65,15 @@ function WorkspaceStatus() {
 }
 
 function AccountStatus() {
-  const signedIn = useAuthStore((s) => s.isAuthenticated && s.user !== null);
   const [mode] = useState(getVisitorMode);
-  // No Firebase config, or not the owner session: there is nothing to sign in to.
-  if (!isFirebaseConfigured() || mode !== 'owner') return <Badge>Local only</Badge>;
-  return signedIn ? (
+  // Re-renders on every sync status change, so connect/disconnect show at once.
+  const sync = useSyncExternalStore(subscribeSyncStatus, getSyncStatus, getServerSyncStatus);
+  if (mode !== 'owner' || getSyncToken() === null) return <Badge>Local only</Badge>;
+  if (sync.state === 'error') return <Badge tone="warning" dot>Sync paused</Badge>;
+  return (
     <Badge tone="success" dot>
-      Signed in
+      Syncing
     </Badge>
-  ) : (
-    <Badge>Not signed in</Badge>
   );
 }
 

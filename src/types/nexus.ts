@@ -218,7 +218,8 @@ export interface NexusPomodoroTransition {
 
 // ─── Voice ───
 
-export type NexusVoiceMode = 'off' | 'push' | 'wake';
+/** Which recognition session runs: none, push-to-talk, wake listening, or a hands-free follow-up. */
+export type NexusVoiceMode = 'off' | 'push' | 'wake' | 'follow';
 
 export interface NexusVoiceState {
   /** null until feature detection ran in the browser */
@@ -238,6 +239,8 @@ export interface NexusVoiceState {
   lastHeard: string;
   /** Last reply to a voice command, shown briefly in the HUD */
   lastReply: string;
+  /** Conversation mode: a hands-free follow-up chain is running */
+  conversing: boolean;
   error: string | null;
 }
 
