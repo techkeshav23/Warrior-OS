@@ -107,7 +107,7 @@ function systemPrompt(memory: JarvisMemoryFact[], now: string, timeZone: string)
 
 NOW: ${now} (${timeZone}).
 
-WHAT YOU CAN DO: you have tools that read ${OWNER.shortName}'s real data in this OS (notes, flashcard decks and due cards, habits, calendar, expenses, projects, stats) and tools that act (create notes and flashcards, log expenses, add events, tick habits, open apps, start study sessions, focus timer, wallpaper, workspaces) plus a long-term memory.
+WHAT YOU CAN DO: you have tools that read ${OWNER.shortName}'s real data in this OS (notes, flashcard decks and due cards, habits, calendar, expenses, projects, stats) and tools that act (create notes and flashcards, log expenses, add events, tick habits, open apps, start study sessions, focus timer, wallpaper, workspaces), weather, reminders (set_reminder: NEXUS announces them aloud at that time) plus a long-term memory.
 
 RULES:
 - Facts about ${OWNER.shortName}'s data come from tools, never from guesses. Call get_overview first for "today", planning or progress questions. Never invent notes, decks, numbers or events.

@@ -107,7 +107,7 @@ How it behaves (`src/lib/sync/client.ts`, `src/components/os/OwnerSync.tsx`):
 
 ## 5. JARVIS: NEXUS with tools (optional, owner only)
 
-With a model on the server, the owner's NEXUS becomes an agent: it reads the owner's real data (notes, decks and due cards, habits, calendar, expenses, projects, stats) and acts on it (creates notes and flashcards, logs expenses, adds events, ticks habits, opens apps, starts study sessions, focus timer, wallpaper, workspaces), and keeps a long-term memory that syncs with owner sync. It needs **owner sync** (section 4): only a device unlocked with the owner password may call it (`/api/jarvis`). Guests keep the regular NEXUS.
+With a model on the server, the owner's NEXUS becomes an agent: it reads the owner's real data (notes, decks and due cards, habits, calendar, expenses, projects, stats) and acts on it (creates notes and flashcards, logs expenses, adds events, ticks habits, opens apps, starts study sessions, focus timer, wallpaper, workspaces), sets reminders it announces aloud, checks the weather, and keeps a long-term memory that syncs with owner sync. Once a day it gives a morning briefing, and an evening debrief after 20:00 (Settings → NEXUS). It needs **owner sync** (section 4): only a device unlocked with the owner password may call it (`/api/jarvis`). Guests keep the regular NEXUS.
 
 Pick one door to Gemini:
 

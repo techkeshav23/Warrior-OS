@@ -96,6 +96,10 @@ function doneLine(name: string, args: Record<string, unknown>, result: Record<st
       return `Wallpaper: ${a('wallpaper')}`;
     case 'switch_workspace':
       return `Workspace: ${a('workspace')}`;
+    case 'set_reminder':
+      return typeof result.at === 'string' ? `Reminder set for ${result.at.replace('T', ' ')}` : 'Reminder set';
+    case 'cancel_reminder':
+      return 'Reminder cancelled';
     case 'remember':
       return 'Remembered';
     case 'forget':

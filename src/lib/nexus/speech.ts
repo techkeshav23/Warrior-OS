@@ -139,9 +139,9 @@ function pickVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null 
  * Speak a NEXUS reply. Respects the "voice replies" preference unless
  * `force` is set (an explicit replay click). Returns whether speech started.
  */
-export function speakNexus(text: string, options: { force?: boolean } = {}): boolean {
+export function speakNexus(text: string, options: { force?: boolean; maxChars?: number } = {}): boolean {
   if (!options.force && !useNexusStore.getState().voiceReplies) return false;
-  const clean = toSpeakableText(text);
+  const clean = toSpeakableText(text, options.maxChars);
   if (!clean) return false;
 
   // Owner with a server voice: natural speech, browser voice as fallback.

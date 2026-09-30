@@ -11,6 +11,8 @@
 
 'use client';
 
+import { getLastKnownWeather, getLocalWeather } from '@/lib/weather';
+import { useReminderStore, type Reminder } from '@/stores/useReminderStore';
 import { JARVIS_TOOL_NAMES } from './tools';
 import { useAppStore } from '@/stores/useAppStore';
 import { useWorkspaceStore } from '@/stores/useWorkspaceStore';
@@ -25,7 +27,7 @@ import {
   normalizeCardInput,
   useLearningStore,
 } from '@/stores/useLearningStore';
-import { CALENDAR_CATEGORY_COLORS, useCalendarStore } from '@/stores/useCalendarStore';
+import { CALENDAR_CATEGORY_COLORS, REMINDER_OPTIONS, useCalendarStore } from '@/stores/useCalendarStore';
 import {
   MAX_EXPENSE_AMOUNT,
   MAX_EXPENSE_NOTE_LENGTH,
@@ -643,6 +645,13 @@ function calendarCategory(raw: string): CalendarEventCategory {
   return CALENDAR_CATEGORY_ALIASES[key] ?? 'personal';
 }
 
+/** The calendar offers fixed lead times; snap to the closest (0 → none). */
+function nearestReminderOption(minutes: number): number | null {
+  if (minutes <= 0) return null;
+  const options = REMINDER_OPTIONS.filter((m) => m > 0);
+  return options.reduce((best, m) => (Math.abs(m - minutes) < Math.abs(best - minutes) ? m : best), options[0]);
+}
+
 function addEvent(args: ToolArgs): ToolResult {
   const title = argStr(args, 'title', 80).replace(/\s+/g, ' ');
   const date = argStr(args, 'date', 10);
@@ -666,7 +675,8 @@ function addEvent(args: ToolArgs): ToolResult {
     color: CALENDAR_CATEGORY_COLORS[category],
     recurrence: 'none',
     recurUntil: null,
-    reminderMinutes: null,
+    // Timed events get a heads-up (default 10 min) from the calendar's own reminders.
+    reminderMinutes: start ? nearestReminderOption(argInt(args, 'remind_minutes_before', 10, 0, 1440)) : null,
     notes,
   });
   try {
@@ -1158,7 +1168,89 @@ function forget(args: ToolArgs): ToolResult {
 // Dispatch
 // ═══════════════════════════════════════════════════════════
 
-const EXECUTORS: Readonly<Record<string, (args: ToolArgs) => ToolResult>> = {
+// ─── Weather and reminders ───
+
+async function getWeather(): Promise<ToolResult> {
+  try {
+    const { data, source } = await getLocalWeather({ forecast: true, signal: AbortSignal.timeout(8000) });
+    return ok({
+      city: data.city,
+      source,
+      now: { tempC: Math.round(data.temp), feelsLikeC: Math.round(data.feelsLike), condition: data.description || data.condition },
+      todayMinC: Math.round(data.min),
+      todayMaxC: Math.round(data.max),
+      humidity: data.humidity,
+      windKph: Math.round(data.windKph),
+      next: data.forecast.slice(0, 4).map((f) => ({ ...f })),
+    });
+  } catch {
+    const last = getLastKnownWeather();
+    if (last) {
+      return ok({
+        city: last.city,
+        stale: true,
+        now: { tempC: Math.round(last.temp), condition: last.description || last.condition },
+        observedAt: new Date(last.observedAt).toISOString(),
+      });
+    }
+    return fail('Weather is unavailable right now.');
+  }
+}
+
+function reminderView(r: Reminder): ToolResult {
+  return { id: r.id, text: r.text, at: localIsoWithOffset(new Date(r.dueAt)).slice(0, 16) };
+}
+
+function setReminder(args: ToolArgs): ToolResult {
+  const text = argStr(args, 'text', 200);
+  if (!text) return fail('Say what to remind about.');
+  let dueAt: number | null = null;
+  const minutes = argNum(args, 'in_minutes');
+  const at = argStr(args, 'at', 25);
+  if (minutes !== null) {
+    if (minutes < 1 || minutes > 60 * 24 * 60) return fail('in_minutes must be between 1 and 86400.');
+    dueAt = Date.now() + Math.round(minutes) * 60_000;
+  } else if (at) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})$/.exec(at);
+    if (!match) return fail('Use at as YYYY-MM-DDTHH:MM (local time).');
+    const [, y, mo, d, h, mi] = match.map(Number);
+    const date = new Date(y, mo - 1, d, h, mi);
+    if (Number.isNaN(date.getTime())) return fail('That date-time is not valid.');
+    dueAt = date.getTime();
+  } else {
+    return fail('Give in_minutes or at.');
+  }
+  if (dueAt < Date.now() - 60_000) return fail('That time is already past.');
+  const reminder = useReminderStore.getState().addReminder(text, dueAt);
+  if (!reminder) return fail('Could not save the reminder (too many pending?).');
+  try {
+    // Lets reminders show as system notifications while the tab is hidden.
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') void Notification.requestPermission();
+  } catch {
+    // Not supported: in-OS toasts only.
+  }
+  return ok(reminderView(reminder));
+}
+
+function listReminders(): ToolResult {
+  const pending = useReminderStore
+    .getState()
+    .reminders.filter((r) => r.firedAt === undefined)
+    .sort((a, b) => a.dueAt - b.dueAt);
+  return ok({ total: pending.length, reminders: pending.slice(0, LIST_CAP).map(reminderView) });
+}
+
+function cancelReminder(args: ToolArgs): ToolResult {
+  const id = argStr(args, 'id', 60);
+  if (!id) return fail('Give the reminder id (see list_reminders).');
+  return useReminderStore.getState().cancelReminder(id) ? ok({ id }) : fail(`No upcoming reminder with id "${id}".`);
+}
+
+const EXECUTORS: Readonly<Record<string, (args: ToolArgs) => ToolResult | Promise<ToolResult>>> = {
+  get_weather: getWeather,
+  set_reminder: setReminder,
+  list_reminders: listReminders,
+  cancel_reminder: cancelReminder,
   get_overview: getOverview,
   search_notes: searchNotes,
   read_note: readNote,
@@ -1197,7 +1289,7 @@ export async function executeJarvisTool(name: string, args: Record<string, unkno
   if (!run) return fail(`Unknown tool "${String(name).slice(0, 60)}".`);
   const safeArgs: ToolArgs = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
   try {
-    return run(safeArgs);
+    return await run(safeArgs);
   } catch (err) {
     const reason = err instanceof Error && err.message ? `: ${clip(err.message, 120)}` : '';
     return fail(`Something went wrong running ${name}${reason}.`);

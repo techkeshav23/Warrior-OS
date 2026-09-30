@@ -4,7 +4,8 @@
 // 'warrior:nexus-say' listener, the pomodoro driver, and the HUD
 // (voice listening indicator + pomodoro pill, bottom-left above
 // the taskbar) and the JARVIS orb (bottom-center, while voice is
-// engaged). Leaving the desktop shuts the microphone down.
+// engaged), plus the owner's daily briefing card (top-center).
+// Leaving the desktop shuts the microphone down.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -14,6 +15,7 @@ import { NexusSuggestions } from './NexusSuggestions';
 import { NexusPomodoroEngine, NexusPomodoroPill } from './NexusPomodoro';
 import { NexusVoiceIndicator, resumeWakeIfWanted, shutdownNexusVoice } from './NexusVoice';
 import { JarvisOrb } from './JarvisOrb';
+import { DailyBriefing } from './DailyBriefing';
 
 function NexusLayerInner() {
   useEffect(() => {
@@ -32,6 +34,7 @@ function NexusLayerInner() {
     <>
       <NexusSuggestions />
       <NexusPomodoroEngine />
+      <DailyBriefing />
       <div
         className="pointer-events-none fixed bottom-15 left-3 flex flex-col items-start gap-2"
         style={{ zIndex: 'var(--z-dynamic-island)' }}

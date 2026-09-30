@@ -26,6 +26,7 @@ import {
   type QuizInsights,
 } from './context';
 import { getVisitorMode, type VisitorMode } from '@/lib/visitor';
+import { morningBriefingRanToday } from './briefing';
 import { OWNER } from '@/config/owner';
 import type { NexusActionButton, NexusCommand, NexusTone } from '@/types/nexus';
 
@@ -57,6 +58,8 @@ export interface SuggestionSnapshot {
   /** Minutes the desktop has had zero windows (0 when windows are open) */
   desktopEmptyMinutes: number;
   decay: { enabled: boolean; minutes: number; onBreak: boolean; breakDuration: number };
+  /** The daily briefing already ran this morning (skip the morning-plan nudge). */
+  briefedToday?: boolean;
   /** null when typing biometrics are disabled in Settings */
   bio: BiometricInsights | null;
   pomodoroRunning: boolean;
@@ -116,6 +119,7 @@ export function collectSuggestionSnapshot(now: number, runtime: SuggestionRuntim
     },
     bio: useSettingsStore.getState().biometricsEnabled ? getBiometricInsights(now) : null,
     pomodoroRunning: pomodoro.phase !== 'idle',
+    briefedToday: morningBriefingRanToday(now),
     focusMinutesToday: pomodoro.dayKey === nexusDayKey(now) ? pomodoro.focusMinutesToday : 0,
     apps: useAppStore.getState().registeredApps,
   };
@@ -308,7 +312,15 @@ const RULES: Rule[] = [
 
   // Morning: nothing done yet.
   (s) => {
-    if (!ownerOnly(s) || s.hour < 5 || s.hour >= 11 || s.sessionMinutes > 30 || s.focusMinutesToday > 0 || s.pomodoroRunning) {
+    if (
+      !ownerOnly(s) ||
+      s.briefedToday ||
+      s.hour < 5 ||
+      s.hour >= 11 ||
+      s.sessionMinutes > 30 ||
+      s.focusMinutesToday > 0 ||
+      s.pomodoroRunning
+    ) {
       return null;
     }
     return {

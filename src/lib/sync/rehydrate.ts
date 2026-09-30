@@ -27,6 +27,7 @@ import { useBiometricsStore } from '@/stores/useBiometricsStore';
 import { useQuizHistoryStore } from '@/stores/useQuizHistoryStore';
 import { useDecayStore } from '@/stores/useDecayStore';
 import { useJarvisStore } from '@/stores/useJarvisStore';
+import { useReminderStore, REMINDER_STORAGE_KEY } from '@/stores/useReminderStore';
 import { useEffectsStore } from '@/components/effects/useEffectsStore';
 import { useAchievementProgressStore } from '@/components/achievements/progress-store';
 import {
@@ -62,6 +63,7 @@ const STORES: Record<string, Rehydratable> = {
   'warrior-os-algo-lab': useAlgoLabStore,
   'warrior-os-achievement-events': useAchievementEventsStore,
   'warrior-os-jarvis': useJarvisStore,
+  [REMINDER_STORAGE_KEY]: useReminderStore,
 };
 
 /** Make the running app pick up keys a pull just rewrote. */

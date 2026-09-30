@@ -7,14 +7,21 @@
 
 'use client';
 
-import { memo, useEffect, useState } from 'react';
-import { Bot, BrainCircuit, HardDrive, TerminalSquare, UserRound } from 'lucide-react';
-import { Card, Kbd, Skeleton, TONE_TEXT, type Tone } from '@/components/ui';
+import { memo, useEffect, useState, useSyncExternalStore } from 'react';
+import { Bot, BrainCircuit, HardDrive, Sunrise, TerminalSquare, UserRound } from 'lucide-react';
+import { Button, Card, Kbd, Skeleton, TONE_TEXT, type Tone } from '@/components/ui';
 import { OWNER } from '@/config/owner';
 import { getVisitorMode } from '@/lib/visitor';
 import { useNexusStore } from '@/stores/useNexusStore';
 import { fetchNexusAIStatus, type NexusAIStatus } from '@/lib/nexus/ai-client';
-import { ForgedPlaque, SettingsCard, SettingsPage, SettingsSection, SpecItem, SwitchRow } from './parts';
+import {
+  BRIEFING_NOW_EVENT,
+  getServerBriefingState,
+  readBriefingState,
+  subscribeBriefingState,
+  updateBriefingState,
+} from '@/lib/nexus/briefing';
+import { ForgedPlaque, SettingRow, SettingsCard, SettingsPage, SettingsSection, SpecItem, SwitchRow } from './parts';
 
 type LinkState = { kind: 'checking' } | { kind: 'unknown' } | { kind: 'ready'; status: NexusAIStatus };
 
@@ -26,6 +33,7 @@ function NexusTabInner() {
   // Settings only renders client-side, so the stored mode is read once here.
   const [visitor] = useState(getVisitorMode);
   const [link, setLink] = useState<LinkState>({ kind: 'checking' });
+  const briefing = useSyncExternalStore(subscribeBriefingState, readBriefingState, getServerBriefingState);
 
   useEffect(() => {
     let cancelled = false;
@@ -123,6 +131,42 @@ function NexusTabInner() {
           />
         </SettingsCard>
       </SettingsSection>
+
+      {/* Daily briefing (owner only: it reads the owner's own data) */}
+      {visitor === 'owner' && (
+        <SettingsSection
+          title="Daily briefing"
+          description="A short plan for the day on the first visit, and a debrief after 8 PM. Once a day, on any of your devices."
+        >
+          <SettingsCard>
+            <SwitchRow
+              label="Morning briefing"
+              description="Weather, calendar, cards due, habits, spending and one priority for the day."
+              checked={briefing.morningEnabled}
+              onCheckedChange={() => updateBriefingState({ morningEnabled: !briefing.morningEnabled })}
+            />
+            <SwitchRow
+              label="Evening debrief"
+              description="What got done today, what is still pending, and tomorrow's first task."
+              checked={briefing.eveningEnabled}
+              onCheckedChange={() => updateBriefingState({ eveningEnabled: !briefing.eveningEnabled })}
+            />
+            <SettingRow
+              label="Brief me now"
+              description="Show today's briefing again (the debrief from 5 PM)."
+              control={
+                <Button
+                  size="sm"
+                  leadingIcon={Sunrise}
+                  onClick={() => window.dispatchEvent(new CustomEvent(BRIEFING_NOW_EVENT))}
+                >
+                  Brief me now
+                </Button>
+              }
+            />
+          </SettingsCard>
+        </SettingsSection>
+      )}
     </SettingsPage>
   );
 }

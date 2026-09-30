@@ -64,6 +64,7 @@ import { SmallScreenGuard } from '@/components/showcase/SmallScreenGuard';
 // Settings accent / glass opacity → CSS variables on <html>
 import { ThemeSync } from '@/components/os/ThemeSync';
 import { OwnerSync } from '@/components/os/OwnerSync';
+import { ReminderEngine } from '@/components/nexus/ReminderEngine';
 
 // Notification store for toasts
 import { useNotificationStore } from '@/stores/useNotificationStore';
@@ -444,6 +445,10 @@ function WarriorOS() {
               {/* Calendar reminders while the Calendar window is closed */}
               <LayerBoundary name="Calendar reminders">
                 <CalendarReminders />
+              </LayerBoundary>
+              {/* Reminders set through NEXUS (owner session) */}
+              <LayerBoundary name="Reminders">
+                <ReminderEngine />
               </LayerBoundary>
               {/* Window close disintegration (off by default; skipped in lite mode) */}
               {!lite && (

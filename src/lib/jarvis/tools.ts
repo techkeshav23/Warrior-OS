@@ -134,6 +134,7 @@ export const JARVIS_TOOLS: readonly JarvisToolDeclaration[] = [
         start_time: str('HH:MM 24h (omit for all-day)'),
         end_time: str('HH:MM 24h (optional)'),
         category: str('study, work, personal, health or other (optional)'),
+        remind_minutes_before: int('Reminder lead time for timed events (default 10; 0 = none)'),
         note: str('Details (optional)'),
       },
       required: ['title', 'date'],
@@ -219,6 +220,35 @@ export const JARVIS_TOOLS: readonly JarvisToolDeclaration[] = [
     parameters: { type: 'OBJECT', properties: { workspace: str('study, build or chill') }, required: ['workspace'] },
   },
 
+  // ─── Weather and reminders ───
+  {
+    name: 'get_weather',
+    description: 'Current weather and the next few hours for the owner\'s saved city (or current location).',
+  },
+  {
+    name: 'set_reminder',
+    description:
+      'Set a reminder NEXUS will announce (spoken + notification). Give either in_minutes, or at as local date-time YYYY-MM-DDTHH:MM.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        text: str('What to remind about, short'),
+        in_minutes: int('Minutes from now'),
+        at: str('Local date-time YYYY-MM-DDTHH:MM'),
+      },
+      required: ['text'],
+    },
+  },
+  {
+    name: 'list_reminders',
+    description: 'Upcoming reminders with ids and times.',
+  },
+  {
+    name: 'cancel_reminder',
+    description: 'Cancel an upcoming reminder by id.',
+    parameters: { type: 'OBJECT', properties: { id: str('Reminder id') }, required: ['id'] },
+  },
+
   // ─── Long-term memory ───
   {
     name: 'remember',
@@ -249,6 +279,8 @@ export const JARVIS_ACTION_TOOLS = new Set([
   'pomodoro',
   'set_wallpaper',
   'switch_workspace',
+  'set_reminder',
+  'cancel_reminder',
   'remember',
   'forget',
 ]);
