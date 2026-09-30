@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Ghost presence: transport registry + war cry sending
-// The presence engine registers the active transport (Firebase RTDB
-// or the offline local campfire); UI code sends war cries through here.
+// The presence engine registers the active transport (the offline
+// local campfire); UI code sends war cries through here.
 // ═══════════════════════════════════════════════════════════
 
 import { useGhostStore, WARCRY_MAX_LENGTH } from '@/stores/useGhostStore';

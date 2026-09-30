@@ -10,7 +10,7 @@ export const BOOT_MESSAGES = [
   { time: '0.012', message: 'Memory: 16384 MB detected', status: 'OK' },
   { time: '0.034', message: 'Neural core v4.0 loading', status: 'OK' },
   { time: '0.089', message: 'Quantum state resolver', status: 'OK' },
-  { time: '0.142', message: 'Firebase neural sync', status: 'OK' },
+  { time: '0.142', message: 'Owner sync link', status: 'OK' },
   { time: '0.201', message: 'Mounting knowledge drives', status: 'OK' },
   { time: '0.256', message: 'Sound engine initialization', status: 'OK' },
   { time: '0.312', message: 'Shader pipeline compilation', status: 'OK' },

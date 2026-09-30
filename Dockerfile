@@ -33,6 +33,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+# Owner sync data (src/lib/sync). Mount a persistent volume at /data,
+# or the synced copy is lost on every redeploy.
+ENV WARRIOR_DATA_DIR=/data
+RUN mkdir -p /data && chown nextjs:nodejs /data
 # Standalone server + assets only.
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

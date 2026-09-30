@@ -63,7 +63,7 @@ import { LayerBoundary, SystemErrorBoundary } from '@/components/showcase/AppErr
 import { SmallScreenGuard } from '@/components/showcase/SmallScreenGuard';
 // Settings accent / glass opacity → CSS variables on <html>
 import { ThemeSync } from '@/components/os/ThemeSync';
-import { AuthSync } from '@/components/os/AuthSync';
+import { OwnerSync } from '@/components/os/OwnerSync';
 
 // Notification store for toasts
 import { useNotificationStore } from '@/stores/useNotificationStore';
@@ -431,8 +431,8 @@ function WarriorOS() {
               <LayerBoundary name="Achievement triggers">
                 <AchievementTriggers />
               </LayerBoundary>
-              {/* Firebase auth listener (no-op without NEXT_PUBLIC_FIREBASE_* config; owner session only) */}
-              <AuthSync />
+              {/* Owner sync with this site's server (owner session + saved token only) */}
+              <OwnerSync />
               {/* Typing biometrics tracker + vitals HUD + optional cloud sync */}
               <LayerBoundary name="Biometrics">
                 <BiometricsLayer />

@@ -1,34 +1,28 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Account Tab
-// User profile and auth status, plus what this browser keeps.
-// Sign-in (Google or email) exists only when the deployment ships the
-// Firebase web config (isFirebaseConfigured) and only in an owner
-// session: a guest session holds demo data, so it stays local. AuthSync
-// (src/components/os/AuthSync.tsx) feeds the signed-in user into
-// useAuthStore; biometric cloud sync is the one thing that uses it.
+// Who unlocked this browser, what it keeps, and owner sync: the owner's
+// saved data mirrored between their devices through this site's own
+// server (src/lib/sync, /api/sync). Sync needs OWNER_SYNC_TOKEN on the
+// server and the same token entered here; guest sessions never sync.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { memo, useState, useSyncExternalStore, type FormEvent } from 'react';
-import { Check, CloudOff, Copy, HardDrive, KeyRound, LogIn, LogOut, Mail, RefreshCw, UserPlus, UserRound } from 'lucide-react';
-import { Avatar, Badge, Button, Card, EmptyState, IconButton, Input } from '@/components/ui';
-import { useAuthStore } from '@/stores/useAuthStore';
-import { useSettingsStore } from '@/stores/useSettingsStore';
+import { memo, useEffect, useState, useSyncExternalStore, type FormEvent } from 'react';
+import { CloudOff, HardDrive, KeyRound, Link2, RefreshCw, Unlink, UserRound } from 'lucide-react';
+import { Badge, Button, Card, EmptyState, IconButton, Input } from '@/components/ui';
 import { getVisitorMode } from '@/lib/visitor';
 import {
-  describeAuthError,
-  isFirebaseConfigured,
-  signInWithEmail,
-  signInWithGoogle,
-  signOut,
-  signUpWithEmail,
-} from '@/lib/auth';
-import {
-  getCloudSyncStatus,
-  subscribeCloudSyncStatus,
-  syncBiometricHistory,
-} from '@/components/biometrics/cloudSync';
+  checkSyncToken,
+  fetchSyncConfigured,
+  getServerSyncStatus,
+  getSyncStatus,
+  getSyncToken,
+  resetSyncState,
+  setSyncToken,
+  subscribeSyncStatus,
+} from '@/lib/sync/client';
+import { runOwnerSync } from '@/components/os/OwnerSync';
 import { OWNER } from '@/config/owner';
 import { SettingRow, SettingsCard, SettingsPage, SettingsSection } from './parts';
 
@@ -58,256 +52,196 @@ function formatBytes(bytes: number): string {
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
 
-/** Cloud copy state for the signed-in owner (typing-vitals hourly averages). */
-function CloudSyncRow() {
-  const biometrics = useSettingsStore((s) => s.biometricsEnabled);
-  const sync = useSyncExternalStore(subscribeCloudSyncStatus, getCloudSyncStatus, getCloudSyncStatus);
+const SYNC_ERRORS: Record<string, string> = {
+  wrong_token: 'The server rejected the sync token. Disconnect and enter it again.',
+  unreachable: 'Could not reach the server. Changes stay here and sync when it is back.',
+};
+
+/** Connected: status, Sync now, Disconnect. */
+function SyncStatusCard({ onDisconnect }: { onDisconnect: () => void }) {
+  const sync = useSyncExternalStore(subscribeSyncStatus, getSyncStatus, getServerSyncStatus);
 
   let badge;
-  if (!biometrics) badge = <Badge>Typing vitals off</Badge>;
-  else if (sync.state === 'syncing') badge = <Badge tone="accent" dot>Syncing</Badge>;
-  else if (sync.state === 'paused') badge = <Badge tone="warning" dot>Paused</Badge>;
-  else if (sync.lastSyncAt !== null)
+  if (sync.state === 'syncing') badge = <Badge tone="accent" dot>Syncing</Badge>;
+  else if (sync.state === 'error') badge = <Badge tone="warning" dot>Paused</Badge>;
+  else if (sync.lastSync !== null)
     badge = (
       <Badge tone="success" dot>
-        Synced {timeFormat.format(sync.lastSyncAt)}
+        Synced {timeFormat.format(sync.lastSync)}
       </Badge>
     );
   else badge = <Badge tone="info">Waiting</Badge>;
 
+  const error = sync.state === 'error' ? SYNC_ERRORS[sync.error ?? ''] ?? `Sync failed (${sync.error}).` : null;
+
   return (
-    <SettingRow
-      label="Cloud sync"
-      description={
-        sync.state === 'paused'
-          ? 'The last upload failed (offline, or the Firestore rules refused it). Local data is untouched.'
-          : 'Typing-vitals hourly averages are mirrored to your account every 15 minutes. Everything else stays in this browser.'
-      }
-      control={
-        <>
-          {badge}
-          <IconButton
-            icon={RefreshCw}
-            aria-label="Sync now"
-            size="sm"
-            tooltip
-            disabled={!biometrics || sync.state === 'syncing'}
-            onClick={() => void syncBiometricHistory(true)}
-          />
-        </>
-      }
-    />
+    <SettingsCard>
+      <SettingRow
+        label="Sync"
+        description={
+          error ??
+          'Notes, decks, habits, projects, expenses, progress and settings follow you to every device you connect. Syncs every minute and when you switch tabs.'
+        }
+        control={
+          <>
+            {badge}
+            <IconButton
+              icon={RefreshCw}
+              aria-label="Sync now"
+              size="sm"
+              tooltip
+              disabled={sync.state === 'syncing'}
+              onClick={() => void runOwnerSync()}
+            />
+          </>
+        }
+      />
+      <SettingRow
+        label="This device"
+        description="Disconnecting stops syncing here. Data already on this device and on the server stays."
+        control={
+          <Button size="sm" variant="ghost" leadingIcon={Unlink} onClick={onDisconnect}>
+            Disconnect
+          </Button>
+        }
+      />
+    </SettingsCard>
   );
 }
 
-/** Google + email/password sign-in (owner session, Firebase configured). */
-function SignInPanel() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState<'google' | 'email' | 'create' | null>(null);
+/** Not connected yet: enter the server's OWNER_SYNC_TOKEN. */
+function ConnectCard({ onConnected }: { onConnected: () => void }) {
+  const [token, setToken] = useState('');
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const run = async (kind: 'google' | 'email' | 'create', action: () => Promise<unknown>) => {
-    setBusy(kind);
-    setError(null);
-    try {
-      await action();
-      // AuthSync's listener picks the user up and this panel unmounts.
-    } catch (e) {
-      setError(describeAuthError(e));
-      setBusy(null);
-    }
-  };
-
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password) {
-      setError('Enter your email and password.');
+    const value = token.trim();
+    if (!value) {
+      setError('Enter the sync token set on the server.');
       return;
     }
-    void run('email', () => signInWithEmail(email.trim(), password));
-  };
-
-  const create = () => {
-    if (!email.trim() || !password) {
-      setError('Enter an email and a password (6+ characters) for the new account.');
-      return;
+    setBusy(true);
+    setError(null);
+    const result = await checkSyncToken(value);
+    setBusy(false);
+    if (result === 'ok') {
+      setSyncToken(value);
+      setToken('');
+      onConnected();
+      void runOwnerSync();
+    } else {
+      setError(
+        result === 'wrong'
+          ? 'That token does not match the server.'
+          : 'Could not reach the server. Try again in a moment.'
+      );
     }
-    void run('create', () => signUpWithEmail(email.trim(), password, ''));
   };
 
   return (
-    <SettingsSection
-      title="Cloud sync"
-      description="Sign in to mirror your typing-vitals history to your own cloud account. Everything else stays in this browser."
-    >
-      <SettingsCard>
-        <SettingRow
-          label="Google"
-          description="Sign in with a Google account in a pop-up."
-          control={
-            <Button
-              variant="primary"
-              leadingIcon={LogIn}
-              loading={busy === 'google'}
-              disabled={busy !== null}
-              onClick={() => void run('google', signInWithGoogle)}
-            >
-              Sign in with Google
-            </Button>
-          }
+    <SettingsCard>
+      <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-3 px-4 py-3.5" aria-label="Connect sync">
+        <Input
+          label="Sync token"
+          type="password"
+          autoComplete="off"
+          leadingIcon={KeyRound}
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          disabled={busy}
         />
-        <form onSubmit={submit} className="flex flex-col gap-3 px-4 py-3.5" aria-label="Email sign-in">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input
-              label="Email"
-              type="email"
-              autoComplete="email"
-              leadingIcon={Mail}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={busy !== null}
-            />
-            <Input
-              label="Password"
-              type="password"
-              autoComplete="current-password"
-              leadingIcon={KeyRound}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={busy !== null}
-            />
-          </div>
-          {error && (
-            <p role="alert" className="text-ui text-danger">
-              {error}
-            </p>
-          )}
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="ghost" leadingIcon={UserPlus} loading={busy === 'create'} disabled={busy !== null} onClick={create}>
-              Create account
-            </Button>
-            <Button type="submit" leadingIcon={LogIn} loading={busy === 'email'} disabled={busy !== null}>
-              Sign in
-            </Button>
-          </div>
-        </form>
-      </SettingsCard>
+        <p className="text-ui text-fg-muted">
+          On the first connect, anything the server already holds replaces this device&apos;s copy; everything
+          else here is uploaded.
+        </p>
+        {error && (
+          <p role="alert" className="text-ui text-danger">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end">
+          <Button type="submit" variant="primary" leadingIcon={Link2} loading={busy}>
+            Connect this device
+          </Button>
+        </div>
+      </form>
+    </SettingsCard>
+  );
+}
+
+function SyncSection({ mode }: { mode: ReturnType<typeof getVisitorMode> }) {
+  const [configured, setConfigured] = useState<boolean | null>(null);
+  const [connected, setConnected] = useState(() => getSyncToken() !== null);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchSyncConfigured().then((value) => {
+      if (alive) setConfigured(value);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const disconnect = () => {
+    setSyncToken(null);
+    resetSyncState();
+    setConnected(false);
+  };
+
+  if (mode !== 'owner') {
+    return (
+      <Card padding="none">
+        <EmptyState
+          icon={UserRound}
+          title="Local session"
+          description="Sync is for the owner session. This session keeps everything in this browser."
+        />
+      </Card>
+    );
+  }
+  if (configured === false) {
+    return (
+      <Card padding="none">
+        <EmptyState
+          icon={CloudOff}
+          title="Sync is off on this server"
+          description="Everything stays in this browser. To sync between devices, set OWNER_SYNC_TOKEN (16+ characters) on the server and give it a persistent data folder (see DEPLOY.md)."
+        />
+      </Card>
+    );
+  }
+  if (configured === null) {
+    return (
+      <Card padding="none">
+        <EmptyState icon={RefreshCw} title="Checking sync" description="Asking the server whether sync is on." />
+      </Card>
+    );
+  }
+  return (
+    <SettingsSection
+      title="Sync"
+      description="Your data, mirrored between your devices through this site's own server. No third-party account."
+    >
+      {connected ? <SyncStatusCard onDisconnect={disconnect} /> : <ConnectCard onConnected={() => setConnected(true)} />}
     </SettingsSection>
   );
 }
 
 function AccountTabInner() {
-  const { user, isAuthenticated, isLoading } = useAuthStore();
   // Settings only renders client-side, so these are read once here.
   const [mode] = useState(getVisitorMode);
   const [local] = useState(measureLocalData);
-  const [copied, setCopied] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
-  const configured = isFirebaseConfigured();
-
-  const doSignOut = () => {
-    setSigningOut(true);
-    signOut()
-      .catch(() => {})
-      .finally(() => setSigningOut(false));
-  };
-
-  const copyUid = () => {
-    if (!user?.uid) return;
-    void navigator.clipboard?.writeText(user.uid).then(
-      () => {
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1600);
-      },
-      () => {}
-    );
-  };
 
   const sessionLabel = mode === 'guest' ? 'Guest' : mode === 'owner' ? `${OWNER.shortName} (owner)` : 'Not remembered';
 
   return (
     <SettingsPage>
-      {isAuthenticated && user ? (
-        <SettingsSection title="Profile">
-          <Card hud className="chamfer-tl-br">
-            <p className="engraved mb-3 font-display text-2xs font-semibold uppercase tracking-[0.18em] text-accent/85">
-              Warrior profile
-            </p>
-            <div className="flex min-w-0 items-center gap-4">
-              <Avatar name={user.displayName || user.email || 'Warrior'} size="xl" status="online" ring />
-              <div className="min-w-0 flex-1">
-                <p
-                  className="truncate font-display text-base font-semibold uppercase tracking-[0.06em] text-fg"
-                  title={user.displayName || 'Warrior'}
-                >
-                  {user.displayName || 'Warrior'}
-                </p>
-                <p className="truncate text-ui text-fg-muted" title={user.email ?? undefined}>
-                  {user.email}
-                </p>
-              </div>
-            </div>
-          </Card>
-          <SettingsCard>
-            <SettingRow
-              label="Status"
-              description="Signed in on this device."
-              control={
-                <>
-                  <span className="text-ui text-success">Authenticated</span>
-                  <Button size="sm" leadingIcon={LogOut} loading={signingOut} onClick={doSignOut}>
-                    Sign out
-                  </Button>
-                </>
-              }
-            />
-            <SettingRow
-              label="UID"
-              description="Your account id."
-              control={
-                <>
-                  <span className="tabular font-mono text-xs text-fg-muted" title={user.uid}>
-                    {user.uid?.slice(0, 16)}...
-                  </span>
-                  <IconButton
-                    icon={copied ? Check : Copy}
-                    aria-label={copied ? 'Copied' : 'Copy UID'}
-                    size="sm"
-                    tooltip
-                    onClick={copyUid}
-                  />
-                </>
-              }
-            />
-            <CloudSyncRow />
-          </SettingsCard>
-        </SettingsSection>
-      ) : !configured ? (
-        <Card padding="none">
-          <EmptyState
-            icon={CloudOff}
-            title="Cloud sync is off"
-            description="This deployment has no sign-in: everything stays in this browser. The site owner can turn on accounts and sync by adding the Firebase web config (NEXT_PUBLIC_FIREBASE_* variables)."
-          />
-        </Card>
-      ) : mode !== 'owner' ? (
-        <Card padding="none">
-          <EmptyState
-            icon={UserRound}
-            title="Local session"
-            description="Sign-in and cloud sync are for the owner session. This session keeps everything in this browser."
-          />
-        </Card>
-      ) : isLoading ? (
-        <Card padding="none">
-          <EmptyState icon={UserRound} title="Checking sign-in" description="Looking for a saved account on this device." />
-        </Card>
-      ) : (
-        <SignInPanel />
-      )}
+      <SyncSection mode={mode} />
 
-      <SettingsSection title="This browser" description="Warrior OS is offline-first: your data lives here, not on a server.">
+      <SettingsSection title="This browser" description="Warrior OS is offline-first: your data lives here first; sync only mirrors it.">
         <SettingsCard>
           <SettingRow label="Session" description="Who unlocked Warrior OS in this browser." control={<span className="text-ui text-fg">{sessionLabel}</span>} />
           <SettingRow

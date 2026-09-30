@@ -1,7 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Ghost presence: engine
-// Chooses the data source (Firebase RTDB when configured, else the
-// offline local campfire: other open tabs via BroadcastChannel +
+// Runs the local campfire (other open tabs via BroadcastChannel +
 // SIM-labelled deterministic warriors), keeps the ghost store in sync, refreshes the
 // local warrior's own stats every minute (no network write), counts
 // minutes spent with other real warriors and unlocks the Ghost Warrior
@@ -11,10 +10,8 @@
 import { useGhostStore } from '@/stores/useGhostStore';
 import type { GhostWarrior } from '@/types/ghost';
 import { onAchievementsSeeded, unlockPhase6Achievement } from '@/components/creature/osBridge';
-import { isRealtimePresenceConfigured } from './config';
 import { getSessionWarriorId } from './identity';
 import { computeSelfStats } from './selfStats';
-import { connectRealtimePresence } from './realtime';
 import { startLocalPresence } from './local';
 import { setGhostTransport, type GhostTransport } from './transport';
 
@@ -106,34 +103,7 @@ export function startGhostPresence(): () => void {
     setGhostTransport(transport);
   };
 
-  if (isRealtimePresenceConfigured()) {
-    store().setMode('connecting', null);
-    connectRealtimePresence({
-      selfId,
-      getSelfStats: computeSelfStats,
-      onWarriors,
-      onWarCry: (cry) => store().addWarCry(cry),
-      onStatus: (connected, error) => {
-        if (stopped) return;
-        store().setMode(connected ? 'realtime' : 'connecting', error);
-        if (connected) evaluateLiveAchievements();
-      },
-    })
-      .then((t) => {
-        if (stopped) {
-          t.stop();
-          return;
-        }
-        transport = t;
-        setGhostTransport(t);
-      })
-      .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : 'unknown error';
-        startLocal(`Firebase Realtime Database unreachable (${msg}).`);
-      });
-  } else {
-    startLocal(null);
-  }
+  startLocal(null);
 
   // Local refresh + lifetime counters (no network writes here).
   const ticker = setInterval(() => {

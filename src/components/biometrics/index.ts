@@ -9,4 +9,3 @@ export { BiometricsLayer } from './BiometricsLayer';
 export { TypingTracker } from './TypingTracker';
 export { VitalsWidget } from './VitalsWidget';
 export { BiometricHistory } from './BiometricHistory';
-export { syncBiometricHistory, isBiometricCloudSyncAvailable } from './cloudSync';

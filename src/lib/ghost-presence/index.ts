@@ -2,12 +2,6 @@
 // WARRIOR OS — Ghost presence barrel
 // ═══════════════════════════════════════════════════════════
 
-export {
-  getGhostDatabaseUrl,
-  isRealtimePresenceConfigured,
-  PRESENCE_UPDATE_MS,
-  PRESENCE_STALE_MS,
-} from './config';
 export { getSessionWarriorId, WARRIOR_ID_PATTERN } from './identity';
 export { computeSelfStats } from './selfStats';
 export { sendWarCry, sanitizeWarCry, getGhostTransport, setGhostTransport } from './transport';

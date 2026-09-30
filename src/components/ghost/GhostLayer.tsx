@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Ghost Layer
 // Single desktop overlay wiring up Ghost Warriors: the presence engine
-// (Firebase RTDB, or a labelled simulation), walking ghost avatars,
+// (local campfire + a labelled simulation), walking ghost avatars,
 // the campfire, war-cry bubbles, an online counter and the leaderboard.
 //
 // Drop <GhostLayer enabled={ghostWarriors} /> once in the desktop phase.

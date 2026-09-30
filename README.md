@@ -37,7 +37,7 @@ Most "OS in a browser" projects stop at windows. These systems make this one fee
 
 - **Warrior Creature.** A digital pet that hatches from an egg on day three, feeds on the XP I earn and evolves (baby, teen, adult, legendary, mythic) into a Scholar Phoenix, Code Serpent or Warrior Dragon depending on whether I mostly study or code. It falls asleep after two idle hours.
 - **Memory Palace.** A walkable 3D palace (React Three Fiber) where notes become glowing objects in themed rooms. It grows with the notes: a new room every 10, a longer corridor every 50, a new wing every 100, a Grand Hall at 500.
-- **Ghost Warriors.** Anonymous live presence over Firebase Realtime Database: a pixel-art campfire that grows with the number of people online, a leaderboard, and 50-character war cries. Without a database it becomes a local campfire across open tabs.
+- **Ghost Warriors.** A pixel-art campfire that grows with the warriors around it, a leaderboard and 50-character war cries. For now it is local: the other open tabs of the same browser plus SIM-labelled warriors.
 - **Reality Decay.** Work two hours without a break and the OS starts to decay: a warm colour shift, then softness, a red vignette and a heartbeat. At four hours cracks run across the screen and it forces a break, after which it repairs itself.
 - **Procedural music.** Tone.js composes endless music for the moment (morning, deep study, night) and switches to a typing-rhythm mode that plays along with my keystrokes.
 - **Phantom windows.** A closed window lingers as a drifting ghost for eight seconds; click it to resurrect the app with its scroll position and form input intact.
@@ -64,7 +64,7 @@ Most "OS in a browser" projects stop at windows. These systems make this one fee
 | | **Expense Vault** | Expense log, monthly budget and spending trends. |
 | | **Files** | File explorer. |
 | | **Calculator** | Scientific calculator. |
-| | **Settings** | Appearance, sounds, NEXUS, workspaces, living-world toggles, performance (lite mode) and showcase (replay the tour, re-seed the demo data). |
+| | **Settings** | Appearance, sounds, NEXUS, account (owner sync), workspaces, living-world toggles, performance (lite mode) and showcase (replay the tour, re-seed the demo data). |
 | Chill | **WarBeats** | Music player with a local library, procedural music and an audio visualizer. |
 | | **Weather** | Current weather and forecast. |
 | | **Profile** | Level, XP, streaks, stats and the achievement gallery. |
@@ -78,8 +78,8 @@ Most "OS in a browser" projects stop at windows. These systems make this one fee
 | 3D and graphics | three.js, React Three Fiber, drei, GLSL shader wallpapers, Canvas 2D |
 | Audio | Tone.js (procedural music), Howler, Web Audio, Web Speech API |
 | State | zustand 5 + immer, persisted to localStorage; IndexedDB for the music library |
-| Backend (optional) | Firebase Auth, Firestore, Realtime Database; Gemini API; OpenWeatherMap or keyless Open-Meteo |
-| Quality and delivery | ESLint, Playwright end-to-end smoke test, GitHub Actions CI, Vercel |
+| Backend (optional) | Next.js route handlers: owner sync (`/api/sync`, a JSON file on the server's disk), Gemini API, OpenWeatherMap or keyless Open-Meteo |
+| Quality and delivery | ESLint, Playwright end-to-end smoke test, GitHub Actions CI, Docker (Node 22 standalone) on Coolify, Vercel |
 
 ## Design system — FORGED ARMOR
 
@@ -110,6 +110,7 @@ src/app/page.tsx  phase machine: dream | boot -> lock -> desktop
   Living-world layers: Creature . Ghosts . Decay . Phantoms . Biometrics . Music . NEXUS
 src/app/api/ai       Edge route: Gemini proxy (persona server-side, validated JSON actions)
 src/app/api/weather  Node route: weather proxy with cache and keyless fallback
+src/app/api/sync     Node route: owner sync between devices (token-locked, JSON file on disk)
 ```
 
 - **OS kernel.** A phase store drives boot, lock and desktop. The window manager (`useWindowStore`) owns z-order, focus, minimize and maximize, and cascade placement; the app registry (`src/data/app-registry.ts`) and `useAppStore` launch apps and enforce singletons; `useWorkspaceStore` gives each workspace its own windows, accent and wallpaper.
@@ -129,7 +130,7 @@ src/
     creature/ ghost/ decay/ phantom/ biometrics/ dream/ music/ nexus/
     effects/ wallpapers/ widgets/ achievements/ ui/
   stores/       zustand stores
-  lib/          engines: procedural music, ghost presence, NEXUS, algorithms
+  lib/          engines: procedural music, ghost presence, owner sync, NEXUS, algorithms
   data/         app registry, decks, achievements, NEXUS personality
 tests/e2e/      Playwright smoke test
 ```
@@ -153,7 +154,7 @@ npm run dev                  # http://localhost:3000
 | `npm run lint` | ESLint |
 | `npm run test:e2e` | Playwright smoke test (run `npm run build` first) |
 
-Without any keys everything runs locally: NEXUS answers with its offline brain, weather comes from Open-Meteo, Ghost Warriors is a local campfire. [DEPLOY.md](DEPLOY.md) covers Vercel, Firebase and every environment variable. Hosting anywhere other than Vercel? Set `NEXT_PUBLIC_SITE_URL` to your public origin before building, or link previews point at `localhost`.
+Without any keys everything runs locally: NEXUS answers with its offline brain, weather comes from Open-Meteo, Ghost Warriors is a local campfire. Set `OWNER_SYNC_TOKEN` on the server to turn on **owner sync**: connect each of your devices in Settings → Account with that token and your data follows you between them. [DEPLOY.md](DEPLOY.md) covers Docker / Coolify, Vercel, owner sync and every environment variable. Hosting anywhere other than Vercel? Set `NEXT_PUBLIC_SITE_URL` to your public origin before building, or link previews point at `localhost`.
 
 ## Keyboard shortcuts
 
@@ -192,7 +193,7 @@ Captured from a guest session (demo data) at 1600×1000.
 
 ## Privacy
 
-Typing biometrics look only at keystroke timing (never which key, never any text), ignore password and payment fields entirely, and store nothing but hourly averages. Ghost Warriors shares an anonymous `Warrior#1234` id and three numbers (hours studied today, quizzes today, streak). Everything else stays in the browser unless you connect your own Firebase project.
+Typing biometrics look only at keystroke timing (never which key, never any text), ignore password and payment fields entirely, and store nothing but hourly averages. Ghost Warriors is local to your own browser for now. Everything stays in the browser unless you turn on owner sync, which copies the owner's data only to the server you deploy yourself, locked by your own token.
 
 ## Credits
 
