@@ -1,7 +1,10 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Warrior model probe
 //
-//   GET /api/warrior-model → { exists: true | false | null, draco?, bytes?, updatedAt? }
+//   GET /api/warrior-model → { exists: true | false | null, draco?, bytes?, updatedAt?, extras? }
+//
+// extras: separate animation files next to it (warrior-<action>.glb,
+// e.g. warrior-punch.glb), sharing the main model's rig.
 //
 // Tells the 3D avatar whether public/models/warrior.glb is present
 // without a 404 request in the browser console. null = the server can't
@@ -10,7 +13,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { NextResponse } from 'next/server';
-import { stat } from 'node:fs/promises';
+import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 export const runtime = 'nodejs';
@@ -29,10 +32,35 @@ export async function GET() {
     (d) => d.isFile(),
     () => false
   );
+  const modelsDir = path.join(publicDir, 'models');
   try {
-    const s = await stat(path.join(publicDir, 'models', 'warrior.glb'));
-    return NextResponse.json({ exists: s.isFile() && s.size > 0, draco, bytes: s.size, updatedAt: s.mtime.toISOString() }, { headers });
+    const s = await stat(path.join(modelsDir, 'warrior.glb'));
+    const extras = await listAnimationFiles(modelsDir);
+    return NextResponse.json(
+      { exists: s.isFile() && s.size > 0, draco, bytes: s.size, updatedAt: s.mtime.toISOString(), extras },
+      { headers }
+    );
   } catch {
     return NextResponse.json({ exists: false, draco }, { headers });
   }
+}
+
+/** Non-empty warrior-<name>.glb files in public/models (sorted). */
+async function listAnimationFiles(dir: string): Promise<string[]> {
+  let names: string[];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return [];
+  }
+  const files = names.filter((n) => /^warrior-[a-z0-9_-]+\.glb$/i.test(n)).sort();
+  const sizes = await Promise.all(
+    files.map((n) =>
+      stat(path.join(dir, n)).then(
+        (s) => s.isFile() && s.size > 0,
+        () => false
+      )
+    )
+  );
+  return files.filter((_, i) => sizes[i]).slice(0, 24);
 }

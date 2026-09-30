@@ -181,7 +181,7 @@ export const JARVIS_TOOLS: readonly JarvisToolDeclaration[] = [
   {
     name: 'open_app',
     description:
-      'Open (or bring forward) an app. Ids: training-grounds, study-planner (habits), flashcards, notes, memory-palace, code-editor, project-tracker, algo-lab, resume-builder, terminal, nexus-ai, settings, file-manager, calculator, calendar, expense-vault, music-player, weather, warrior-profile (stats).',
+      'Open (or bring forward) an app. Ids: training-grounds, study-planner (habits), flashcards, notes, memory-palace, code-editor, project-tracker, algo-lab, resume-builder, terminal, nexus-ai, settings, file-manager, calculator, calendar, expense-vault, music-player, weather, warrior-profile (stats), warrior-hall (3D warrior avatar).',
     parameters: { type: 'OBJECT', properties: { app: str('App id or name') }, required: ['app'] },
   },
   {
@@ -213,6 +213,18 @@ export const JARVIS_TOOLS: readonly JarvisToolDeclaration[] = [
     description:
       'Change the desktop background. Ids: void, embers, molten, dusk, steelrain, starfield, nebula, aurora, fluid, matrix, neural, or "next" / "random".',
     parameters: { type: 'OBJECT', properties: { wallpaper: str('Wallpaper id') }, required: ['wallpaper'] },
+  },
+  {
+    name: 'warrior_action',
+    description:
+      'Make the owner\'s 3D warrior avatar perform a move (opens Warrior Hall if no warrior is on screen). "warrior se punch karwao" → punch.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        action: str('The move', { enum: ['punch', 'powerup', 'victory', 'hurt', 'stance', 'idle'] }),
+      },
+      required: ['action'],
+    },
   },
   {
     name: 'switch_workspace',
@@ -278,6 +290,7 @@ export const JARVIS_ACTION_TOOLS = new Set([
   'start_training',
   'pomodoro',
   'set_wallpaper',
+  'warrior_action',
   'switch_workspace',
   'set_reminder',
   'cancel_reminder',

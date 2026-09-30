@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { useLiteMode } from '@/lib/lite-mode';
 import { lookForProgress, useWarriorProgress, type WarriorProgressOverrides } from './progress';
 import { WarriorFallback } from './WarriorFallback';
+import { useWarriorActionStore } from './store';
 import type { WarriorBaseAction, WarriorProgress, WarriorVariant } from './types';
 
 const WarriorCanvas = dynamic(() => import('./WarriorCanvas'), { ssr: false, loading: () => null });
@@ -112,6 +113,9 @@ export function WarriorStage({
   const [onScreen, setOnScreen] = useState(true);
   const [contextLost, setContextLost] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+
+  // A stage that goes away stops counting as live for playWarriorAction callers.
+  useEffect(() => () => useWarriorActionStore.getState().forget(id), [id]);
 
   useEffect(() => {
     const el = box.current;

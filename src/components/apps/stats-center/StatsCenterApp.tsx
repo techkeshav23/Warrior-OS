@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Stats Center App
-// The warrior's profile: identity header, then XP and level, study
+// The warrior's profile: identity header, then the 3D warrior avatar
+// (→ Warrior Hall) beside XP and level, study
 // streak, achievements, the activity heatmap and the learning section
 // (today's load, deck mastery, trend) — plus the achievement gallery
 // ═══════════════════════════════════════════════════════════
@@ -16,6 +17,7 @@ import { getVisitorMode } from '@/lib/visitor';
 import { useXPStore } from '@/stores/useXPStore';
 import { levelTitle } from '@/components/effects/effects-utils';
 import { XPSystem } from './XPSystem';
+import { WarriorAvatarCard } from './WarriorAvatarCard';
 import { StreakBoard } from './StreakBoard';
 import { HeatmapCalendar } from './HeatmapCalendar';
 import { RadarChart } from './RadarChart';
@@ -43,8 +45,11 @@ function OverviewTab({ onOpenAchievements }: { onOpenAchievements: () => void })
       aria-labelledby="stats-center-tab-overview"
       className="@container scrollbar-thin h-full space-y-6 overflow-y-auto p-5"
     >
-      {/* Level + XP */}
-      <XPSystem />
+      {/* Warrior avatar (opens Warrior Hall) + level and XP */}
+      <div className="grid grid-cols-1 gap-4 @md:grid-cols-[128px_minmax(0,1fr)] @2xl:grid-cols-[168px_minmax(0,1fr)]">
+        <WarriorAvatarCard />
+        <XPSystem />
+      </div>
 
       {/* Streak + achievements at a glance */}
       <div className="grid grid-cols-1 gap-4 @2xl:grid-cols-2">

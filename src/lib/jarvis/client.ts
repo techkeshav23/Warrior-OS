@@ -96,6 +96,8 @@ function doneLine(name: string, args: Record<string, unknown>, result: Record<st
       return `Wallpaper: ${a('wallpaper')}`;
     case 'switch_workspace':
       return `Workspace: ${a('workspace')}`;
+    case 'warrior_action':
+      return `Warrior: ${typeof result.label === 'string' ? result.label : a('action')}`;
     case 'set_reminder':
       return typeof result.at === 'string' ? `Reminder set for ${result.at.replace('T', ' ')}` : 'Reminder set';
     case 'cancel_reminder':

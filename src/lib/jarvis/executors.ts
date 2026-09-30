@@ -68,6 +68,8 @@ import type { ExpenseCategory } from '@/types/expense';
 import type { ForgeStage } from '@/types/project-forge';
 import type { NexusTrainingMode } from '@/types/nexus';
 import type { WorkspaceId } from '@/types/workspace';
+import { playWarriorAction, useWarriorActionStore } from '@/components/warrior3d/store';
+import type { WarriorAction } from '@/components/warrior3d/types';
 
 type ToolArgs = Record<string, unknown>;
 type ToolResult = Record<string, unknown>;
@@ -982,6 +984,11 @@ const APP_ALIASES: Readonly<Record<string, string>> = {
   stats: 'warrior-profile',
   profile: 'warrior-profile',
   progress: 'warrior-profile',
+  'warrior hall': 'warrior-hall',
+  hall: 'warrior-hall',
+  avatar: 'warrior-hall',
+  warrior: 'warrior-hall',
+  armor: 'warrior-hall',
   expenses: 'expense-vault',
   expense: 'expense-vault',
   budget: 'expense-vault',
@@ -1119,6 +1126,74 @@ function setWallpaper(args: ToolArgs): ToolResult {
     workspace: useWorkspaceStore.getState().activeWorkspaceId,
     ...(settings.adaptiveWallpaper ? { note: 'Adaptive wallpaper is on and may change it later.' } : {}),
   });
+}
+
+// ─── 3D warrior ───
+
+const WARRIOR_MOVES: Readonly<Record<string, WarriorAction>> = {
+  punch: 'punch',
+  jab: 'punch',
+  attack: 'punch',
+  strike: 'punch',
+  mukka: 'punch',
+  powerup: 'powerup',
+  'power up': 'powerup',
+  power: 'powerup',
+  charge: 'powerup',
+  victory: 'victory',
+  win: 'victory',
+  celebrate: 'victory',
+  hurt: 'hurt',
+  hit: 'hurt',
+  damage: 'hurt',
+  stance: 'stance',
+  guard: 'stance',
+  fight: 'stance',
+  idle: 'idle',
+  rest: 'idle',
+};
+const WARRIOR_MOVE_LABEL: Readonly<Record<WarriorAction, string>> = {
+  punch: 'punch',
+  powerup: 'power up',
+  victory: 'victory',
+  hurt: 'hurt',
+  stance: 'stance',
+  idle: 'idle',
+};
+/** Must match WARRIOR_HALL_STAGE in the Warrior Hall app. */
+const HALL_STAGE = 'warrior-hall';
+const HALL_READY_TIMEOUT_MS = 12_000;
+
+/** Play on the hall stage once it has mounted its warrior (3D only; lite mode never reports). */
+function playWhenHallReady(action: WarriorAction): void {
+  if (useWarriorActionStore.getState().current[HALL_STAGE]) {
+    playWarriorAction(action, HALL_STAGE);
+    return;
+  }
+  let timer = 0;
+  const unsub = useWarriorActionStore.subscribe((s) => {
+    if (!s.current[HALL_STAGE]) return;
+    unsub();
+    window.clearTimeout(timer);
+    // One frame so the figure's action subscription is attached.
+    window.setTimeout(() => playWarriorAction(action, HALL_STAGE), 50);
+  });
+  timer = window.setTimeout(unsub, HALL_READY_TIMEOUT_MS);
+}
+
+function warriorAction(args: ToolArgs): ToolResult {
+  const raw = norm(argStr(args, 'action', 30)).replace(/[_-]+/g, ' ');
+  const action = WARRIOR_MOVES[raw] ?? WARRIOR_MOVES[raw.replace(/\s+/g, '')];
+  if (!action) return fail('action must be punch, powerup, victory, hurt, stance or idle.');
+  const label = WARRIOR_MOVE_LABEL[action];
+  if (document.querySelector('[data-warrior-stage]')) {
+    playWarriorAction(action);
+    return ok({ action, label });
+  }
+  const opened = openOrFocusApp('warrior-hall');
+  if (!opened) return fail('Warrior Hall is not available.');
+  playWhenHallReady(action);
+  return ok({ action, label, opened: 'warrior-hall' });
 }
 
 function switchWorkspace(args: ToolArgs): ToolResult {
@@ -1271,6 +1346,7 @@ const EXECUTORS: Readonly<Record<string, (args: ToolArgs) => ToolResult | Promis
   start_training: startTraining,
   pomodoro,
   set_wallpaper: setWallpaper,
+  warrior_action: warriorAction,
   switch_workspace: switchWorkspace,
   remember,
   forget,

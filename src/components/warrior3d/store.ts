@@ -23,6 +23,8 @@ interface WarriorActionStore {
   current: Record<string, WarriorAction>;
   play: (action: WarriorAction, target?: string) => void;
   report: (stageId: string, action: WarriorAction) => void;
+  /** Drop a stage's readout when it unmounts (so "has it reported?" means "is it live?"). */
+  forget: (stageId: string) => void;
 }
 
 export const useWarriorActionStore = create<WarriorActionStore>()((set) => ({
@@ -34,6 +36,13 @@ export const useWarriorActionStore = create<WarriorActionStore>()((set) => ({
     })),
   report: (stageId, action) =>
     set((s) => (s.current[stageId] === action ? s : { current: { ...s.current, [stageId]: action } })),
+  forget: (stageId) =>
+    set((s) => {
+      if (!(stageId in s.current)) return s;
+      const current = { ...s.current };
+      delete current[stageId];
+      return { current };
+    }),
 }));
 
 /** Make the warrior(s) perform an action. `target` = a stageId to address one stage only. */

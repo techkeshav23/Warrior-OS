@@ -5,12 +5,14 @@
 // the base loop, and fills gaps procedurally: a missing clip becomes a
 // whole-body move (lunge / recoil / rise / hop-spin) on a wrapper
 // group, and a model without an idle clip still breathes. Emissive
-// materials take the tier colour + decay flicker.
+// materials take the tier colour + decay flicker; seams found in the
+// colour map (model.ts) stay ember. A small glowing "W" emblem rides the
+// chest bone just above the arc reactor.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -18,10 +20,63 @@ import { actionFx } from './pose';
 import { flicker, glitchJolt } from './flicker';
 import { useWarriorActionStore } from './store';
 import { isOneShot, type WarriorAction, type WarriorBaseAction } from './types';
-import type { WarriorModelAsset } from './model';
+import { GLB_SEAM_EMBER, useWarriorModelStore, type WarriorModelAsset } from './model';
 import type { WarriorFigureProps } from './PlaceholderWarrior';
 
 const FADE = 0.28;
+/** Glowing "W" on the chest plate (GLB only). Flip off if it fights the model's own detail. */
+const GLB_CHEST_EMBLEM = true;
+/** Emblem plate size (model units; the warrior is ~1.8 tall). */
+const EMBLEM_W = 0.092;
+const EMBLEM_H = 0.068;
+/** Seam glow relative to the tier glow — subtle. */
+const SEAM_GLOW = 0.6;
+const EMBER = new THREE.Color(GLB_SEAM_EMBER);
+const HIT_RED = new THREE.Color('#ff3040');
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+
+/** White, soft-edged angular "W" on transparent (tinted by the material). */
+function emblemTexture(): THREE.CanvasTexture {
+  const w = 160;
+  const h = 120;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const glyph = () => {
+      ctx.beginPath();
+      ctx.moveTo(22, 26);
+      ctx.lineTo(50, 96);
+      ctx.lineTo(80, 48);
+      ctx.lineTo(110, 96);
+      ctx.lineTo(138, 26);
+    };
+    ctx.lineJoin = 'miter';
+    ctx.lineCap = 'square';
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.shadowColor = 'rgba(255,255,255,0.9)';
+    ctx.shadowBlur = 14;
+    ctx.lineWidth = 14;
+    glyph();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,1)';
+    ctx.lineWidth = 8;
+    glyph();
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+interface ChestEmblem {
+  mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  anchor: THREE.Object3D;
+  /** Chest-bone origin: the emblem faces away from it. */
+  center: THREE.Object3D;
+}
 /** Procedural one-shot lengths when the GLB lacks the clip. */
 const FALLBACK_DURATION: Record<WarriorAction, number> = {
   idle: 0,
@@ -45,6 +100,7 @@ interface GlbRuntime {
   procedural: boolean;
   shockFired: boolean;
   materials: THREE.Material[];
+  emblem: ChestEmblem | null;
 }
 
 function baseClip(rt: GlbRuntime, base: WarriorBaseAction): THREE.AnimationAction | null {
@@ -56,6 +112,7 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
   const rtRef = useRef<GlbRuntime | null>(null);
   const baseRef = useRef(baseAction);
   const report = useWarriorActionStore((s) => s.report);
+  const tmpV = useMemo(() => new THREE.Vector3(), []);
 
   useLayoutEffect(() => {
     const group = wrapper.current;
@@ -80,15 +137,7 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
 
     const mixer = new THREE.AnimationMixer(model);
     const actions: GlbRuntime['actions'] = {};
-    for (const [key, clip] of Object.entries(asset.clips)) {
-      if (!clip) continue;
-      const action = mixer.clipAction(clip);
-      if (isOneShot(key as WarriorAction)) {
-        action.setLoop(THREE.LoopOnce, 1);
-        action.clampWhenFinished = true;
-      }
-      actions[key as WarriorAction] = action;
-    }
+    syncActions(mixer, actions, asset);
     const rt: GlbRuntime = {
       model,
       mixer,
@@ -101,6 +150,7 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
       procedural: false,
       shockFired: false,
       materials,
+      emblem: null,
     };
     const start = baseClip(rt, rt.base);
     if (start) {
@@ -129,6 +179,28 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
       model.add(reactorAnchor, center);
     }
     anchorRef.current = { anchor: reactorAnchor, center };
+
+    // Chest emblem: follows its own anchor on the chest bone (see useFrame).
+    if (GLB_CHEST_EMBLEM && bone && asset.emblemLocal) {
+      const anchor = new THREE.Object3D();
+      anchor.position.copy(asset.emblemLocal);
+      bone.add(anchor);
+      const mat = new THREE.MeshBasicMaterial({
+        map: emblemTexture(),
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+      });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(EMBLEM_W, EMBLEM_H), mat);
+      mesh.name = 'WarriorChestEmblem';
+      mesh.renderOrder = 2;
+      mesh.frustumCulled = false;
+      group.add(mesh);
+      rt.emblem = { mesh, anchor, center };
+    }
     report(stageId, rt.action);
 
     return () => {
@@ -139,6 +211,15 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
       materials.forEach((m) => m.dispose());
       reactorAnchor.removeFromParent();
       center.removeFromParent();
+      if (rt.emblem) {
+        const { mesh, anchor } = rt.emblem;
+        mesh.removeFromParent();
+        anchor.removeFromParent();
+        mesh.geometry.dispose();
+        mesh.material.map?.dispose();
+        mesh.material.dispose();
+        rt.emblem = null;
+      }
       anchorRef.current = null;
       if (rtRef.current === rt) rtRef.current = null;
     };
@@ -154,6 +235,19 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
       report(stageId, r.action);
     }
   }, [asset, stageId, report, anchorRef]);
+
+  // Clips from separate animation files arrive after the model: add them
+  // to the running mixer and move onto a better base loop if one came in.
+  const clipsVersion = useWarriorModelStore((s) => s.clipsVersion);
+  useEffect(() => {
+    const rt = rtRef.current;
+    if (!rt || clipsVersion === 0) return;
+    if (!syncActions(rt.mixer, rt.actions, asset)) return;
+    if (!isOneShot(rt.action)) {
+      const next = baseClip(rt, rt.base);
+      if (next && next !== rt.current) play(rt, rt.base, performance.now() / 1000);
+    }
+  }, [asset, clipsVersion]);
 
   useEffect(() => {
     baseRef.current = baseAction;
@@ -246,13 +340,47 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
     // Emissives: tier tint × glow × flicker × surge.
     const fl = flicker(t, look.damage, look.critical, 2);
     for (const m of rt.emissive) {
-      m.emissive.set(look.trim);
-      m.emissiveIntensity = look.glow * fl * (1 + f.surge * 1.5) * 1.5;
-      if (f.hit > 0) m.emissive.lerp(new THREE.Color('#ff3040'), f.hit * 0.8);
+      const seam = m.userData.warriorSeam === true;
+      if (seam) m.emissive.copy(EMBER);
+      else m.emissive.set(look.trim);
+      m.emissiveIntensity = look.glow * fl * (1 + f.surge * 1.5) * (seam ? SEAM_GLOW : 1.5);
+      if (f.hit > 0) m.emissive.lerp(HIT_RED, f.hit * 0.8);
+    }
+
+    // Chest emblem: sit on the anchor (in the wrapper's space), face out of the chest.
+    const em = rt.emblem;
+    if (em) {
+      const pos = em.mesh.position;
+      em.anchor.getWorldPosition(pos);
+      group.worldToLocal(pos);
+      em.center.getWorldPosition(tmpV);
+      group.worldToLocal(tmpV);
+      tmpV.subVectors(pos, tmpV).setY(0);
+      if (tmpV.lengthSq() > 1e-8) em.mesh.quaternion.setFromUnitVectors(Z_AXIS, tmpV.normalize());
+      const mat = em.mesh.material;
+      mat.color.set(look.trim).multiplyScalar(1.5 * look.glow * fl * (1 + f.surge * 1.2));
+      if (f.hit > 0) mat.color.lerp(HIT_RED, f.hit * 0.7);
     }
   });
 
   return <group ref={wrapper} />;
+}
+
+/** Create / refresh mixer actions for asset.clips. Returns true when anything changed. */
+function syncActions(mixer: THREE.AnimationMixer, actions: GlbRuntime['actions'], asset: WarriorModelAsset): boolean {
+  let changed = false;
+  for (const [key, clip] of Object.entries(asset.clips)) {
+    const name = key as WarriorAction;
+    if (!clip || actions[name]?.getClip() === clip) continue;
+    const action = mixer.clipAction(clip);
+    if (isOneShot(name)) {
+      action.setLoop(THREE.LoopOnce, 1);
+      action.clampWhenFinished = true;
+    }
+    actions[name] = action;
+    changed = true;
+  }
+  return changed;
 }
 
 function play(rt: GlbRuntime, action: WarriorAction, now: number): void {

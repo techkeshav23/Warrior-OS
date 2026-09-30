@@ -3,7 +3,7 @@
 // One distinct lucide glyph + hue per app, hue chosen by family:
 //   Learn       plasma / violet   (Training Grounds, Flashcards, Memory Palace, Algo Lab)
 //   Build       mint / lime / steel / ember (Code Lab, Terminal, Files, Project Forge)
-//   Discipline  ember / amber / gold (Habit Forge, Calendar, Profile)
+//   Discipline  ember / amber / gold (Habit Forge, Calendar, Profile, Warrior Hall)
 //   Life        lavender / azure / rose (Notes + Expense Vault, Weather + Resume, WarBeats)
 //   System      plasma / steel (NEXUS AI, Settings) + Calculator (lime)
 // Render with <AppIcon appId size /> (src/components/ui/AppIcon.tsx) —
@@ -28,6 +28,7 @@ import {
   NotebookPen,
   Settings,
   ShieldUser,
+  Swords,
   SquareTerminal,
   Target,
   Vault,
@@ -91,6 +92,7 @@ export const APP_ICONS: Readonly<Record<string, AppIconSpec>> = {
   'study-planner': { icon: Flame, glyph: 'Flame', hue: 'ember', family: 'discipline' },
   'warrior-profile': { icon: ShieldUser, glyph: 'ShieldUser', hue: 'gold', family: 'discipline' },
   calendar: { icon: CalendarDays, glyph: 'CalendarDays', hue: 'amber', family: 'discipline' },
+  'warrior-hall': { icon: Swords, glyph: 'Swords', hue: 'ember', family: 'discipline' },
   // Life
   notes: { icon: NotebookPen, glyph: 'NotebookPen', hue: 'lavender', family: 'life' },
   'expense-vault': { icon: Vault, glyph: 'Vault', hue: 'lavender', family: 'life' },

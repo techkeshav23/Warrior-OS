@@ -65,6 +65,8 @@ import { SmallScreenGuard } from '@/components/showcase/SmallScreenGuard';
 import { ThemeSync } from '@/components/os/ThemeSync';
 import { OwnerSync } from '@/components/os/OwnerSync';
 import { ReminderEngine } from '@/components/nexus/ReminderEngine';
+// Level-up / achievement / decay → 3D warrior actions (tiny: the action bus only)
+import { WarriorEventsBridge } from '@/components/warrior3d/WarriorEventsBridge';
 
 // Notification store for toasts
 import { useNotificationStore } from '@/stores/useNotificationStore';
@@ -460,6 +462,8 @@ function WarriorOS() {
               <LayerBoundary name="Reality Decay">
                 <RealityDecay />
               </LayerBoundary>
+              {/* 3D warrior reacts to level-ups, achievements and decay */}
+              <WarriorEventsBridge />
               {/* Phantom Windows — ghosts of closed apps (skipped in lite mode) */}
               {phantomWindows && !lite && (
                 <LayerBoundary name="Phantom Windows">
