@@ -26,7 +26,7 @@ The `Dockerfile` builds a Node 22 image from Next.js's `output: 'standalone'` bu
 
 1. **New Resource → Public/Private Repository** → `techkeshav23/Warrior-OS`, branch `master`, Build Pack **Dockerfile**.
 2. **Ports Exposes:** `3000`. Attach your domain; Coolify's proxy terminates HTTPS.
-3. **Environment Variables:** add `NEXT_PUBLIC_SITE_URL` (your public origin, e.g. `https://os.example.com`) and tick **Build Variable**: it is a `NEXT_PUBLIC_*` value, baked into the bundle at build time through the Dockerfile's `ARG NEXT_PUBLIC_SITE_URL`. Add the server-only values (`OWNER_PASSWORD`, `GEMINI_API_KEY`, `WEATHER_API_KEY`) as normal runtime variables.
+3. **Environment Variables:** add `NEXT_PUBLIC_SITE_URL` (your public origin, e.g. `https://os.example.com`) and tick **Build Variable**: it is a `NEXT_PUBLIC_*` value, baked into the bundle at build time through the Dockerfile's `ARG NEXT_PUBLIC_SITE_URL`. Add the server-only values (`OWNER_PASSWORD`, `VERTEX_PROJECT` and friends, `GEMINI_API_KEY`, `WEATHER_API_KEY`) as normal runtime variables.
 4. **Persistent Storage:** add a volume mounted at `/data` (see section 4). Without it, owner sync data is lost on every redeploy.
 5. **Deploy.** Enable the GitHub webhook / auto deploy if pushes to `master` should redeploy.
 
@@ -66,6 +66,10 @@ The same list, with comments, is in [`.env.example`](.env.example).
 | `GEMINI_API_KEY` | Server only | [Google AI Studio](https://aistudio.google.com/apikey) → Create API key |
 | `WEATHER_API_KEY` | Server only | [OpenWeatherMap](https://home.openweathermap.org/api_keys) (new keys can take a couple of hours to activate) |
 | `OWNER_PASSWORD` | Server only | Temporary owner password (8+ characters) for the first sign-in, which then asks for your own password (section 4). Unset → sync off, any owner password unlocks locally |
+| `VERTEX_PROJECT` | Server only | Google Cloud project id for JARVIS on Vertex AI (section 5). Unset → JARVIS uses `GEMINI_API_KEY` if set |
+| `VERTEX_LOCATION` | Server only | Vertex region, default `global` |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Server only | Service-account key for Vertex (raw JSON or base64). Unset → the VM's own service account |
+| `JARVIS_MODEL` | Server only | Gemini model for JARVIS, default `gemini-2.5-flash` |
 | `WARRIOR_DATA_DIR` | Server only | Folder for `sync.json`. Defaults to `./.data` locally; the Docker image sets `/data` |
 | `NEXT_PUBLIC_SITE_URL` | Public, build time | Your public origin, e.g. `https://warrior-os.vercel.app` (used for link previews; defaults to the Vercel production domain). **Required when hosting anywhere other than Vercel** (Docker: pass it as a build arg) |
 
@@ -100,7 +104,36 @@ How it behaves (`src/lib/sync/client.ts`, `src/components/os/OwnerSync.tsx`):
 - **Forgot the password?** Delete `owner.json` from the data folder (e.g. `docker exec <container> rm /data/owner.json`) and restart the app: the `OWNER_PASSWORD` temporary password works again and asks for a new one. Synced data in `sync.json` is kept.
 - Without a persistent `/data` volume, `owner.json` is lost on redeploy too, so the temporary password becomes active again.
 
-## 5. Run the CI checks locally
+## 5. JARVIS: NEXUS with tools (optional, owner only)
+
+With a model on the server, the owner's NEXUS becomes an agent: it reads the owner's real data (notes, decks and due cards, habits, calendar, expenses, projects, stats) and acts on it (creates notes and flashcards, logs expenses, adds events, ticks habits, opens apps, starts study sessions, focus timer, wallpaper, workspaces), and keeps a long-term memory that syncs with owner sync. It needs **owner sync** (section 4): only a device unlocked with the owner password may call it (`/api/jarvis`). Guests keep the regular NEXUS.
+
+Pick one door to Gemini:
+
+**A. Vertex AI (recommended on Google Cloud).** Billing goes to your GCP project; no API key in the app.
+
+1. Enable the API: `gcloud services enable aiplatform.googleapis.com --project <PROJECT_ID>`
+2. Give the app an identity, either:
+   - **Service-account key (simplest, no VM restart):**
+     ```bash
+     gcloud iam service-accounts create warrior-jarvis --display-name "Warrior OS JARVIS" --project <PROJECT_ID>
+     gcloud projects add-iam-policy-binding <PROJECT_ID> \
+       --member serviceAccount:warrior-jarvis@<PROJECT_ID>.iam.gserviceaccount.com --role roles/aiplatform.user
+     gcloud iam service-accounts keys create key.json \
+       --iam-account warrior-jarvis@<PROJECT_ID>.iam.gserviceaccount.com
+     base64 -w0 key.json   # paste the output into GOOGLE_SERVICE_ACCOUNT_JSON, then delete key.json
+     ```
+   - **Or the VM's own service account:** grant it `roles/aiplatform.user` and give the VM the `cloud-platform` access scope (changing scopes requires stopping the VM, which stops every app on it). Leave `GOOGLE_SERVICE_ACCOUNT_JSON` unset; the app then asks the metadata server for tokens.
+3. Set `VERTEX_PROJECT=<PROJECT_ID>` (and optionally `VERTEX_LOCATION`, default `global`; `JARVIS_MODEL`, default `gemini-2.5-flash`) and redeploy.
+4. Set a **budget alert** in Google Cloud Billing (e.g. a small monthly amount) so a runaway loop can never surprise you.
+
+**B. Gemini API key.** Without `VERTEX_PROJECT`, JARVIS uses `GEMINI_API_KEY` (the same key regular NEXUS uses).
+
+Check: `GET /api/jarvis` returns `{ "configured": true, "provider": "vertex" | "gemini-api", "model": ... }`. Then unlock as the owner and ask NEXUS something like "aaj ka plan bana" or "mere DBMS notes se 3 flashcards bana do".
+
+Notes: each message may take several model calls (one per tool round, at most 8). The route is rate limited per IP and refuses anything without the owner credential. Model names change over time; set `JARVIS_MODEL` to any Gemini model your project can use.
+
+## 6. Run the CI checks locally
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull request with Node 22. To reproduce it:
 

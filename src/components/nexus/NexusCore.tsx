@@ -51,6 +51,7 @@ import {
   pomodoroRemainingMs,
 } from '@/lib/nexus/context';
 import { fetchNexusAIStatus, requestNexusAI } from '@/lib/nexus/ai-client';
+import { isJarvisAvailable, runJarvis } from '@/lib/jarvis/client';
 import { extractTopicQuery } from '@/lib/nexus/offline-brain';
 import { getVisitorMode } from '@/lib/visitor';
 import { checkHabitToday, listHabits, logExpense } from '@/lib/nexus/quick-actions';
@@ -767,6 +768,17 @@ export async function processNexusInput(
 ): Promise<NexusTurnResult> {
   const message = text.trim().slice(0, NEXUS_LIMITS.messageChars);
   if (!message) return { reply: NEXUS_LINES.empty, source: 'local', actions: [] };
+
+  // Owner with a server model: JARVIS answers everything, with tools over
+  // the owner's real data. Falls through to the regular path when not set up.
+  if (await isJarvisAvailable()) {
+    const jarvis = await runJarvis(message, options.history ?? []);
+    if (jarvis.reply !== null) {
+      if (!jarvis.error) brainMode = 'ai';
+      const done = jarvis.done.length ? `\n\n> ${jarvis.done.join(' · ')}` : '';
+      return { reply: `${jarvis.reply}${done}`, source: jarvis.error ? 'error' : 'ai', actions: [] };
+    }
+  }
 
   const apps = useAppStore.getState().registeredApps;
   const intent = localIntentFor(message);

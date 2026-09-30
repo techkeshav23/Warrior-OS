@@ -43,7 +43,7 @@ Most "OS in a browser" projects stop at windows. These systems make this one fee
 - **Phantom windows.** A closed window lingers as a drifting ghost for eight seconds; click it to resurrect the app with its scroll position and form input intact.
 - **Typing biometrics.** Keystroke timing (never keys, never text) becomes live energy, focus, fatigue and stress readings with an hourly history.
 - **Dreams.** When I come back, NEXUS dreams about yesterday: a short cinematic built from my quizzes, notes, habits and projects, played before the lock screen.
-- **NEXUS.** The assistant behind it all. Gemini when a key is configured, a rule-based offline brain when not. It runs the OS from natural language in English and Hinglish ("study mode", "add expense 120 chai", "close terminal"), listens for voice, runs pomodoros and suggests what to do next.
+- **NEXUS.** The assistant behind it all. Gemini when a key is configured, a rule-based offline brain when not. It runs the OS from natural language in English and Hinglish ("study mode", "add expense 120 chai", "close terminal"), listens for voice, runs pomodoros and suggests what to do next. For the owner, with a model on the server (Vertex AI or a Gemini key), it becomes **JARVIS mode**: an agent with tools over my real notes, decks, habits, calendar, expenses and projects that can plan my day, quiz me from due cards, write notes and flashcards, log expenses and remember what matters (see DEPLOY.md, section 5).
 
 ## Apps
 
