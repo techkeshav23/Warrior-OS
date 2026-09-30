@@ -110,7 +110,7 @@ src/app/page.tsx  phase machine: dream | boot -> lock -> desktop
   Living-world layers: Creature . Ghosts . Decay . Phantoms . Biometrics . Music . NEXUS
 src/app/api/ai       Edge route: Gemini proxy (persona server-side, validated JSON actions)
 src/app/api/weather  Node route: weather proxy with cache and keyless fallback
-src/app/api/sync     Node route: owner sync between devices (token-locked, JSON file on disk)
+src/app/api/sync     Node route: owner sync between devices (owner-password locked, JSON file on disk)
 ```
 
 - **OS kernel.** A phase store drives boot, lock and desktop. The window manager (`useWindowStore`) owns z-order, focus, minimize and maximize, and cascade placement; the app registry (`src/data/app-registry.ts`) and `useAppStore` launch apps and enforce singletons; `useWorkspaceStore` gives each workspace its own windows, accent and wallpaper.
@@ -154,7 +154,7 @@ npm run dev                  # http://localhost:3000
 | `npm run lint` | ESLint |
 | `npm run test:e2e` | Playwright smoke test (run `npm run build` first) |
 
-Without any keys everything runs locally: NEXUS answers with its offline brain, weather comes from Open-Meteo, Ghost Warriors is a local campfire. Set `OWNER_SYNC_TOKEN` on the server to turn on **owner sync**: connect each of your devices in Settings → Account with that token and your data follows you between them. [DEPLOY.md](DEPLOY.md) covers Docker / Coolify, Vercel, owner sync and every environment variable. Hosting anywhere other than Vercel? Set `NEXT_PUBLIC_SITE_URL` to your public origin before building, or link previews point at `localhost`.
+Without any keys everything runs locally: NEXUS answers with its offline brain, weather comes from Open-Meteo, Ghost Warriors is a local campfire. Set a temporary `OWNER_PASSWORD` on the server to turn on **owner sync**: the first sign-in asks you to choose your own password, and unlocking any device with it brings your data along. [DEPLOY.md](DEPLOY.md) covers Docker / Coolify, Vercel, owner sync and every environment variable. Hosting anywhere other than Vercel? Set `NEXT_PUBLIC_SITE_URL` to your public origin before building, or link previews point at `localhost`.
 
 ## Keyboard shortcuts
 
@@ -193,7 +193,7 @@ Captured from a guest session (demo data) at 1600×1000.
 
 ## Privacy
 
-Typing biometrics look only at keystroke timing (never which key, never any text), ignore password and payment fields entirely, and store nothing but hourly averages. Ghost Warriors is local to your own browser for now. Everything stays in the browser unless you turn on owner sync, which copies the owner's data only to the server you deploy yourself, locked by your own token.
+Typing biometrics look only at keystroke timing (never which key, never any text), ignore password and payment fields entirely, and store nothing but hourly averages. Ghost Warriors is local to your own browser for now. Everything stays in the browser unless you turn on owner sync, which copies the owner's data only to the server you deploy yourself, locked by your own owner password.
 
 ## Credits
 

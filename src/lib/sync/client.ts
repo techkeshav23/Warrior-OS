@@ -27,6 +27,7 @@ const META_KEY = 'warrior-os-sync-meta';
 const DEVICE_ONLY = new Set([
   TOKEN_KEY,
   META_KEY,
+  'warrior-os-owner-verifier',
   'warrior-os-visitor-mode',
   'warrior-os-owner-history',
   'warrior-os-demo-seeded',
@@ -100,29 +101,161 @@ export function setSyncToken(token: string | null): void {
   }
 }
 
-/** Does this server have sync switched on (OWNER_SYNC_TOKEN set)? */
-export async function fetchSyncConfigured(): Promise<boolean> {
+/** Does this server have sync switched on (OWNER_PASSWORD set)? */
+export async function fetchSyncConfigured(timeoutMs = 4000): Promise<boolean> {
+  const ctrl = new AbortController();
+  const timer = window.setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch('/api/sync?status=1', { cache: 'no-store' });
+    const res = await fetch('/api/sync?status=1', { cache: 'no-store', signal: ctrl.signal });
     if (!res.ok) return false;
     return ((await res.json()) as { configured?: unknown }).configured === true;
   } catch {
     return false;
+  } finally {
+    window.clearTimeout(timer);
   }
 }
 
-/** Check a token against the server: 'ok', 'wrong' or 'unreachable'. */
-export async function checkSyncToken(token: string): Promise<'ok' | 'wrong' | 'unreachable'> {
+// ─── Owner password ───
+//
+// The lock screen sends the password to POST /api/owner, which answers
+// with a device credential (or asks for a new password when the
+// temporary one was used). This device also keeps a salted hash of the
+// password (VERIFIER_KEY) so the owner can still unlock offline.
+
+const VERIFIER_KEY = 'warrior-os-owner-verifier';
+
+async function sha256Hex(text: string): Promise<string | null> {
+  if (typeof crypto === 'undefined' || !crypto.subtle) return null;
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function saveVerifier(password: string): Promise<void> {
+  const salt = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+  const hash = await sha256Hex(`${salt}:${password}`);
   try {
-    const res = await fetch('/api/sync?since=0&probe=1', {
-      cache: 'no-store',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) return 'ok';
-    return res.status === 401 || res.status === 429 ? 'wrong' : 'unreachable';
+    if (hash) localStorage.setItem(VERIFIER_KEY, JSON.stringify({ salt, hash }));
   } catch {
-    return 'unreachable';
+    // No offline unlock on this device; online unlock still works.
   }
+}
+
+async function matchesVerifier(password: string): Promise<boolean | null> {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VERIFIER_KEY) ?? 'null') as { salt?: string; hash?: string } | null;
+    if (!saved?.salt || !saved.hash) return null;
+    return (await sha256Hex(`${saved.salt}:${password}`)) === saved.hash;
+  } catch {
+    return null;
+  }
+}
+
+function forgetOwnerOnDevice(): void {
+  setSyncToken(null);
+  resetSyncState();
+  try {
+    localStorage.removeItem(VERIFIER_KEY);
+  } catch {
+    // Nothing stored.
+  }
+}
+
+type OwnerApiResult =
+  | { kind: 'ok'; credential: string }
+  | { kind: 'must-change' }
+  | { kind: 'wrong' | 'limited' | 'weak' | 'same' | 'off' | 'unreachable' };
+
+async function ownerApi(body: Record<string, string>): Promise<OwnerApiResult> {
+  try {
+    const res = await fetch('/api/owner', {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401) return { kind: 'wrong' };
+    if (res.status === 429) return { kind: 'limited' };
+    const data = (await res.json().catch(() => ({}))) as {
+      configured?: unknown;
+      credential?: unknown;
+      mustChange?: unknown;
+      error?: unknown;
+    };
+    if (data.configured === false) return { kind: 'off' };
+    if (res.status === 400 && data.error === 'weak_password') return { kind: 'weak' };
+    if (res.status === 400 && data.error === 'same_password') return { kind: 'same' };
+    if (!res.ok) return { kind: 'unreachable' };
+    if (data.mustChange === true) return { kind: 'must-change' };
+    return typeof data.credential === 'string' ? { kind: 'ok', credential: data.credential } : { kind: 'unreachable' };
+  } catch {
+    return { kind: 'unreachable' };
+  }
+}
+
+export type OwnerSignInResult = 'ok' | 'must-change' | 'wrong' | 'limited' | 'local';
+
+/**
+ * Owner unlock on the lock screen.
+ *   'ok'          → owner, device connected to sync
+ *   'must-change' → temporary password: ask for a new one (changeOwnerPassword)
+ *   'wrong' / 'limited' → refuse the unlock
+ *   'local'       → sync not set up here: unlock as before, local only
+ * Offline, a device that signed in before checks its saved verifier.
+ */
+export async function ownerSignIn(password: string): Promise<OwnerSignInResult> {
+  const result = await ownerApi({ action: 'login', password });
+  switch (result.kind) {
+    case 'ok':
+      setSyncToken(result.credential);
+      await saveVerifier(password);
+      return 'ok';
+    case 'must-change':
+      return 'must-change';
+    case 'wrong':
+    case 'limited':
+      return result.kind;
+    case 'off':
+      // The server does not sync (any more): this device is local only.
+      forgetOwnerOnDevice();
+      return 'local';
+    default: {
+      const offline = await matchesVerifier(password);
+      if (offline === null) return 'local';
+      return offline ? 'ok' : 'wrong';
+    }
+  }
+}
+
+/** One line for a failed sign-in or password change. */
+export function describeOwnerError(result: ChangePasswordResult | OwnerSignInResult): string {
+  switch (result) {
+    case 'wrong':
+      return 'Wrong password';
+    case 'limited':
+      return 'Too many wrong tries. Wait 10 minutes.';
+    case 'weak':
+      return 'Use at least 8 characters.';
+    case 'same':
+      return 'Pick a password different from the current one.';
+    case 'off':
+      return 'Sync is not set up on this server.';
+    default:
+      return 'Could not reach the server. Try again in a moment.';
+  }
+}
+
+export type ChangePasswordResult = 'ok' | 'wrong' | 'weak' | 'same' | 'limited' | 'off' | 'unreachable';
+
+/** Replace the owner password (current one required); connects this device. */
+export async function changeOwnerPassword(current: string, next: string): Promise<ChangePasswordResult> {
+  const result = await ownerApi({ action: 'change', password: current, newPassword: next });
+  if (result.kind === 'ok') {
+    setSyncToken(result.credential);
+    await saveVerifier(next.trim());
+    return 'ok';
+  }
+  return result.kind === 'must-change' ? 'unreachable' : result.kind;
 }
 
 // ─── Local change tracking ───
@@ -282,6 +415,8 @@ export function syncNow(refresh: (keys: string[]) => Promise<void>): Promise<voi
     })
     .catch((err: unknown) => {
       const message = err instanceof Error ? err.message : 'unreachable';
+      // Password changed elsewhere: stop retrying until the next sign-in.
+      if (message === 'wrong_token') setSyncToken(null);
       setStatus({ state: 'error', error: message === 'Failed to fetch' ? 'unreachable' : message });
     })
     .finally(() => {

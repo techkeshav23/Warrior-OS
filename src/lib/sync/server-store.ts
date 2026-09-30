@@ -25,9 +25,13 @@ interface StoreFile {
 /** Hard cap on the file, so a runaway client cannot fill the disk. */
 const MAX_FILE_BYTES = 32 * 1024 * 1024;
 
+/** Folder for the owner's server-side files (sync.json, owner.json). */
+export function dataDir(): string {
+  return process.env.WARRIOR_DATA_DIR?.trim() || path.join(process.cwd(), '.data');
+}
+
 function dataFile(): string {
-  const dir = process.env.WARRIOR_DATA_DIR?.trim() || path.join(process.cwd(), '.data');
-  return path.join(dir, 'sync.json');
+  return path.join(dataDir(), 'sync.json');
 }
 
 let cache: StoreFile | null = null;

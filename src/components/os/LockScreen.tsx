@@ -3,7 +3,9 @@
 // FORGED ARMOR lock screen over the Forge Night wallpaper: display clock
 // and date, a status strip of cut steel tags (level, streak, weather),
 // and a riveted forged unlock plate with the owner's identity. Two ways in:
-//   • owner  — type a password + Enter (any password unlocks)
+//   • owner  — type a password + Enter. Any password unlocks, unless the
+//              server has owner sync on (OWNER_PASSWORD): then it must
+//              match, and a match connects this device to sync.
 //   • guest  — "Explore as Guest" for portfolio visitors
 // Both run the same scan → exit cinematic and record the visitor mode.
 //
@@ -26,6 +28,7 @@ import { getLocalWeather, type WeatherData } from '@/lib/weather';
 import { useLiteMode } from '@/lib/lite-mode';
 import { cn } from '@/lib/utils';
 import { OWNER } from '@/config/owner';
+import { changeOwnerPassword, describeOwnerError, ownerSignIn } from '@/lib/sync/client';
 import { Kbd } from '@/components/ui/Badge';
 import { BEVEL_PRESSED, BEVEL_SUNK, EMBER_PLATE, ENGRAVED_LABEL, FOCUS_EDGE, SLOT_FILL } from '@/components/ui/armor';
 import { setVisitorMode, type VisitorMode } from '@/lib/visitor';
@@ -206,10 +209,112 @@ function UnlockProgress({ mode }: { mode: VisitorMode }) {
   );
 }
 
+/** Replace the temporary password: new + confirm, inside the unlock plate. */
+function NewPasswordForm({
+  onSave,
+  onBack,
+}: {
+  onSave: (next: string) => Promise<string | null>;
+  onBack: () => void;
+}) {
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    if (next.trim().length < 8) return setProblem('Use at least 8 characters.');
+    if (next !== confirm) return setProblem('The two passwords do not match.');
+    setBusy(true);
+    setProblem(null);
+    const failed = await onSave(next);
+    setBusy(false);
+    if (failed) setProblem(failed);
+  };
+
+  const slot = cn(
+    'chamfer-sm group relative flex h-11 items-center',
+    SLOT_FILL,
+    BEVEL_SUNK,
+    'transition-[box-shadow] duration-120 ease-out-quint focus-within:ember-edge'
+  );
+  const field = 'h-full w-full min-w-0 bg-transparent pl-10 pr-3 text-sm text-fg placeholder:text-fg-subtle outline-none focus-visible:outline-none';
+  const icon = 'pointer-events-none absolute left-3.5 size-4 text-fg-subtle transition-colors duration-120 group-focus-within:text-accent';
+
+  return (
+    <motion.form
+      onSubmit={(e) => void submit(e)}
+      exit={{ opacity: 0, transition: { duration: 0.12 } }}
+      className="flex flex-col gap-2.5"
+      aria-label="Set your owner password"
+      data-testid="lock-new-password-form"
+    >
+      <p className="text-xs text-fg-muted">First sign-in: choose your own password. The temporary one stops working.</p>
+      <div className={slot}>
+        <Lock className={icon} strokeWidth={1.75} aria-hidden />
+        <input
+          type="password"
+          autoComplete="new-password"
+          placeholder="New password"
+          aria-label="New password"
+          data-testid="lock-new-password"
+          value={next}
+          onChange={(e) => setNext(e.target.value)}
+          className={field}
+          autoFocus
+        />
+      </div>
+      <div className={slot}>
+        <ShieldCheck className={icon} strokeWidth={1.75} aria-hidden />
+        <input
+          type="password"
+          autoComplete="new-password"
+          placeholder="Confirm new password"
+          aria-label="Confirm new password"
+          data-testid="lock-confirm-password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          className={field}
+        />
+      </div>
+      <p role={problem ? 'alert' : undefined} className={cn('text-xs', problem ? 'text-danger' : 'text-fg-subtle')}>
+        {problem ?? 'At least 8 characters.'}
+      </p>
+      <div className="flex items-center justify-between gap-3">
+        <button type="button" onClick={onBack} className={cn('text-xs text-fg-subtle hover:text-fg', FOCUS_EDGE)}>
+          Back
+        </button>
+        <button
+          type="submit"
+          disabled={busy}
+          data-testid="lock-save-password"
+          className={cn(
+            'chamfer-xs flex h-9 items-center gap-2 px-4 text-sm font-medium',
+            EMBER_PLATE,
+            BEVEL_PRESSED,
+            FOCUS_EDGE,
+            'transition-[filter] duration-120 ease-out-quint hover:brightness-110 disabled:opacity-60'
+          )}
+        >
+          {busy ? 'Saving…' : 'Save and unlock'}
+          <ArrowRight className="size-4" strokeWidth={2} aria-hidden />
+        </button>
+      </div>
+    </motion.form>
+  );
+}
+
 export function LockScreen({ onUnlock }: LockScreenProps) {
   const [password, setPassword] = useState('');
   const [unlockMode, setUnlockMode] = useState<VisitorMode | null>(null);
-  const [error, setError] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const error = errorText !== null;
+  const [checking, setChecking] = useState(false);
+  // Temporary password accepted: the owner picks their own before unlocking.
+  const [mustChange, setMustChange] = useState(false);
+  const tempPasswordRef = useRef('');
   const [shattered, setShattered] = useState(false);
   const isUnlocking = unlockMode !== null;
 
@@ -260,7 +365,7 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
       unlockStartedRef.current = true;
       setVisitorMode(mode);
       setUnlockMode(mode);
-      setError(false);
+      setErrorText(null);
 
       // Biometric scan simulation
       timersRef.current.push(
@@ -273,14 +378,32 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
     [onUnlock]
   );
 
-  // Owner path: any password unlocks.
-  const handleUnlock = useCallback(() => beginUnlock('owner'), [beginUnlock]);
+  // Owner path: the server decides when owner sync is on, else any password.
+  const handleUnlock = useCallback(async () => {
+    if (checking || unlockStartedRef.current) return;
+    setChecking(true);
+    const result = await ownerSignIn(password).catch(() => 'local' as const);
+    setChecking(false);
+    if (result === 'must-change') {
+      tempPasswordRef.current = password;
+      setPassword('');
+      setErrorText(null);
+      setMustChange(true);
+      return;
+    }
+    if (result === 'wrong' || result === 'limited') {
+      setErrorText(describeOwnerError(result));
+      setPassword('');
+      return;
+    }
+    beginUnlock('owner');
+  }, [beginUnlock, checking, password]);
   const handleGuest = useCallback(() => beginUnlock('guest'), [beginUnlock]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
-        handleUnlock();
+        void handleUnlock();
       }
     },
     [handleUnlock]
@@ -395,7 +518,22 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
               {/* Password / guest — or the scan while unlocking (same height: no jump) */}
               <div className="mt-5 min-h-[164px]">
                 <AnimatePresence mode="wait" initial={false}>
-                  {!isUnlocking ? (
+                  {!isUnlocking && mustChange ? (
+                    <NewPasswordForm
+                      key="new-password"
+                      onSave={async (next) => {
+                        const result = await changeOwnerPassword(tempPasswordRef.current, next);
+                        if (result !== 'ok') return describeOwnerError(result);
+                        tempPasswordRef.current = '';
+                        beginUnlock('owner');
+                        return null;
+                      }}
+                      onBack={() => {
+                        tempPasswordRef.current = '';
+                        setMustChange(false);
+                      }}
+                    />
+                  ) : !isUnlocking ? (
                     <motion.div
                       key="form"
                       exit={{ opacity: 0, transition: { duration: 0.12 } }}
@@ -420,7 +558,10 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
                         <input
                           type="password"
                           value={password}
-                          onChange={(e) => setPassword(e.target.value)}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            if (error) setErrorText(null);
+                          }}
                           onKeyDown={handleKeyDown}
                           placeholder="Password"
                           aria-label={`Password for ${OWNER.name}`}
@@ -434,7 +575,8 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
                         />
                         <button
                           type="button"
-                          onClick={handleUnlock}
+                          onClick={() => void handleUnlock()}
+                          disabled={checking}
                           data-testid="lock-unlock"
                           aria-label="Unlock"
                           title="Unlock (Enter)"
@@ -450,7 +592,9 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
                         </button>
                       </div>
                       <p className="mt-2 flex items-center justify-between text-xs text-fg-subtle">
-                        <span>Owner sign-in</span>
+                        <span role={error ? 'alert' : undefined} className={cn(error && 'text-danger')}>
+                          {errorText ?? (checking ? 'Checking…' : 'Owner sign-in')}
+                        </span>
                         <span className="flex items-center gap-1.5">
                           Press
                           <Kbd size="sm">Enter</Kbd>

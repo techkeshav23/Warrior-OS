@@ -2,8 +2,9 @@
 // WARRIOR OS — Account Tab
 // Who unlocked this browser, what it keeps, and owner sync: the owner's
 // saved data mirrored between their devices through this site's own
-// server (src/lib/sync, /api/sync). Sync needs OWNER_SYNC_TOKEN on the
-// server and the same token entered here; guest sessions never sync.
+// server (src/lib/sync, /api/sync). Sync needs OWNER_PASSWORD on the
+// server; unlocking with that password (or entering it here) connects a
+// device. Guest sessions never sync.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -13,12 +14,14 @@ import { CloudOff, HardDrive, KeyRound, Link2, RefreshCw, Unlink, UserRound } fr
 import { Badge, Button, Card, EmptyState, IconButton, Input } from '@/components/ui';
 import { getVisitorMode } from '@/lib/visitor';
 import {
-  checkSyncToken,
+  changeOwnerPassword,
+  describeOwnerError,
   fetchSyncConfigured,
   getServerSyncStatus,
   getSyncStatus,
   getSyncToken,
   resetSyncState,
+  ownerSignIn,
   setSyncToken,
   subscribeSyncStatus,
 } from '@/lib/sync/client';
@@ -53,7 +56,7 @@ function formatBytes(bytes: number): string {
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
 
 const SYNC_ERRORS: Record<string, string> = {
-  wrong_token: 'The server rejected the sync token. Disconnect and enter it again.',
+  wrong_token: 'The server rejected this device. Lock the screen and unlock with your owner password.',
   unreachable: 'Could not reach the server. Changes stay here and sync when it is back.',
 };
 
@@ -109,61 +112,128 @@ function SyncStatusCard({ onDisconnect }: { onDisconnect: () => void }) {
   );
 }
 
-/** Not connected yet: enter the server's OWNER_SYNC_TOKEN. */
-function ConnectCard({ onConnected }: { onConnected: () => void }) {
-  const [token, setToken] = useState('');
+/** A new password twice; returns the error line, or null when they are fine. */
+function checkNewPassword(next: string, confirm: string): string | null {
+  if (next.trim().length < 8) return 'Use at least 8 characters.';
+  if (next !== confirm) return 'The two new passwords do not match.';
+  return null;
+}
+
+/**
+ * Not connected: sign in with the owner password (a temporary one asks
+ * for a new password right here). Connected: change the password.
+ */
+function PasswordCard({ connected, onConnected }: { connected: boolean; onConnected: () => void }) {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  // Temporary password accepted: the new-password fields are required.
+  const [mustChange, setMustChange] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  const changing = connected || mustChange;
+
+  const finish = () => {
+    setCurrent('');
+    setNext('');
+    setConfirm('');
+    setMustChange(false);
+    setDone(true);
+    onConnected();
+    void runOwnerSync();
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const value = token.trim();
-    if (!value) {
-      setError('Enter the sync token set on the server.');
+    setDone(false);
+    if (!current) {
+      setError(connected ? 'Enter your current password.' : 'Enter your owner password.');
       return;
+    }
+    if (changing) {
+      const problem = checkNewPassword(next, confirm);
+      if (problem) {
+        setError(problem);
+        return;
+      }
     }
     setBusy(true);
     setError(null);
-    const result = await checkSyncToken(value);
-    setBusy(false);
-    if (result === 'ok') {
-      setSyncToken(value);
-      setToken('');
-      onConnected();
-      void runOwnerSync();
-    } else {
-      setError(
-        result === 'wrong'
-          ? 'That token does not match the server.'
-          : 'Could not reach the server. Try again in a moment.'
-      );
+    if (changing) {
+      const result = await changeOwnerPassword(current, next);
+      setBusy(false);
+      if (result === 'ok') finish();
+      else setError(describeOwnerError(result));
+      return;
     }
+    const result = await ownerSignIn(current);
+    setBusy(false);
+    if (result === 'ok') finish();
+    else if (result === 'must-change') setMustChange(true);
+    else if (result === 'local') setError(describeOwnerError('unreachable'));
+    else setError(describeOwnerError(result));
   };
 
   return (
     <SettingsCard>
-      <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-3 px-4 py-3.5" aria-label="Connect sync">
+      <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-3 px-4 py-3.5" aria-label={changing ? 'Change password' : 'Connect sync'}>
+        {mustChange && (
+          <p className="text-ui text-fg">That was the temporary password. Choose your own password to finish.</p>
+        )}
         <Input
-          label="Sync token"
+          label={connected ? 'Current password' : mustChange ? 'Temporary password' : 'Owner password'}
           type="password"
-          autoComplete="off"
+          autoComplete="current-password"
           leadingIcon={KeyRound}
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
           disabled={busy}
         />
-        <p className="text-ui text-fg-muted">
-          On the first connect, anything the server already holds replaces this device&apos;s copy; everything
-          else here is uploaded.
-        </p>
+        {changing && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="New password"
+              type="password"
+              autoComplete="new-password"
+              leadingIcon={KeyRound}
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+              disabled={busy}
+            />
+            <Input
+              label="Confirm new password"
+              type="password"
+              autoComplete="new-password"
+              leadingIcon={KeyRound}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              disabled={busy}
+            />
+          </div>
+        )}
+        {!connected && !mustChange && (
+          <p className="text-ui text-fg-muted">
+            On the first connect, anything the server already holds replaces this device&apos;s copy; everything
+            else here is uploaded.
+          </p>
+        )}
+        {connected && (
+          <p className="text-ui text-fg-muted">Your other devices ask for the new password at their next unlock.</p>
+        )}
         {error && (
           <p role="alert" className="text-ui text-danger">
             {error}
           </p>
         )}
+        {done && !error && connected && (
+          <p role="status" className="text-ui text-success">
+            Password saved.
+          </p>
+        )}
         <div className="flex justify-end">
-          <Button type="submit" variant="primary" leadingIcon={Link2} loading={busy}>
-            Connect this device
+          <Button type="submit" variant="primary" leadingIcon={changing ? KeyRound : Link2} loading={busy}>
+            {connected ? 'Change password' : mustChange ? 'Save password and connect' : 'Connect this device'}
           </Button>
         </div>
       </form>
@@ -208,7 +278,7 @@ function SyncSection({ mode }: { mode: ReturnType<typeof getVisitorMode> }) {
         <EmptyState
           icon={CloudOff}
           title="Sync is off on this server"
-          description="Everything stays in this browser. To sync between devices, set OWNER_SYNC_TOKEN (16+ characters) on the server and give it a persistent data folder (see DEPLOY.md)."
+          description="Everything stays in this browser. To sync between devices, set OWNER_PASSWORD (8+ characters) on the server and give it a persistent data folder (see DEPLOY.md)."
         />
       </Card>
     );
@@ -225,7 +295,8 @@ function SyncSection({ mode }: { mode: ReturnType<typeof getVisitorMode> }) {
       title="Sync"
       description="Your data, mirrored between your devices through this site's own server. No third-party account."
     >
-      {connected ? <SyncStatusCard onDisconnect={disconnect} /> : <ConnectCard onConnected={() => setConnected(true)} />}
+      {connected && <SyncStatusCard onDisconnect={disconnect} />}
+      <PasswordCard connected={connected} onConnected={() => setConnected(true)} />
     </SettingsSection>
   );
 }

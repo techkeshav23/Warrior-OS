@@ -2,9 +2,10 @@
 
 // ═══════════════════════════════════════════════════════════
 // WARRIOR OS — Owner Sync runner
-// Renders nothing. In an owner session with a saved sync token it keeps
-// this device in step with the owner's server copy (src/lib/sync): once
-// on unlock, every minute, and whenever the tab is shown or hidden.
+// Renders nothing. In an owner session on a connected device (unlocked
+// with the owner password the server checked) it keeps this device in
+// step with the owner's server copy (src/lib/sync): once on unlock,
+// every minute, and whenever the tab is shown or hidden.
 // Guest sessions never sync (they may hold demo data).
 // ═══════════════════════════════════════════════════════════
 

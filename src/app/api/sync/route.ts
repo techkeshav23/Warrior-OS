@@ -2,18 +2,18 @@
 // WARRIOR OS — Owner Sync Route
 //
 // Mirrors the owner's saved data between their devices through this
-// app's own server (no third-party service). Locked by one secret:
-// OWNER_SYNC_TOKEN (server-only env). Without it the route reports
-// { configured: false } and refuses everything else.
+// app's own server (no third-party service). Requests carry the device
+// credential that POST /api/owner hands out after the owner password
+// (src/lib/sync/owner-auth.ts). With no password configured the route
+// reports { configured: false } and refuses everything else.
 //
-//   GET  /api/sync?status=1         → { configured }            (public)
-//   GET  /api/sync?since=<rev>      → { rev, entries }          (Bearer token)
-//   POST /api/sync  { changes }     → { rev, applied, ignored } (Bearer token)
+//   GET  /api/sync?status=1       → { configured }             (public)
+//   GET  /api/sync?since=<rev>    → { rev, entries }           (Bearer)
+//   POST /api/sync  { changes }   → { rev, applied, ignored }  (Bearer)
 //
-// Wrong tokens are rate limited per client IP.
+// Wrong credentials count toward the owner sign-in rate limit.
 // ═══════════════════════════════════════════════════════════
 
-import { createHash, timingSafeEqual } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { clientIp } from '@/lib/client-ip';
 import {
@@ -23,15 +23,16 @@ import {
   type SyncEntry,
 } from '@/lib/sync/protocol';
 import { applyChanges, readSince } from '@/lib/sync/server-store';
+import {
+  isOwnerAuthConfigured,
+  isRateLimited,
+  isValidCredential,
+  recordFailure,
+} from '@/lib/sync/owner-auth';
 
 // Reads and writes the data file on the server's disk.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const FAIL_WINDOW_MS = 10 * 60 * 1000;
-const MAX_FAILS = 10;
-const MAX_TRACKED_IPS = 5000;
-const failures = new Map<string, number[]>();
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
@@ -39,47 +40,23 @@ function json(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: NO_STORE });
 }
 
-function configuredToken(): string | null {
-  const token = process.env.OWNER_SYNC_TOKEN?.trim();
-  return token && token.length >= 16 ? token : null;
-}
-
-function digest(value: string): Buffer {
-  return createHash('sha256').update(value).digest();
-}
-
-function recentFailures(ip: string, now: number): number[] {
-  const list = (failures.get(ip) ?? []).filter((at) => now - at < FAIL_WINDOW_MS);
-  if (list.length) failures.set(ip, list);
-  else failures.delete(ip);
-  return list;
-}
-
 /** null when the request may proceed, else the error response. */
-function authorize(req: NextRequest): NextResponse | null {
-  const token = configuredToken();
-  if (!token) return json({ error: 'not_configured' }, 404);
+async function authorize(req: NextRequest): Promise<NextResponse | null> {
+  if (!(await isOwnerAuthConfigured())) return json({ error: 'not_configured' }, 404);
   const ip = clientIp(req);
-  const now = Date.now();
-  if (recentFailures(ip, now).length >= MAX_FAILS) return json({ error: 'rate_limited' }, 429);
-
+  if (isRateLimited(ip)) return json({ error: 'rate_limited' }, 429);
   const header = req.headers.get('authorization') ?? '';
   const given = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-  if (given && timingSafeEqual(digest(given), digest(token))) return null;
-
-  if (failures.size >= MAX_TRACKED_IPS && !failures.has(ip)) {
-    const oldest = failures.keys().next().value;
-    if (oldest !== undefined) failures.delete(oldest);
-  }
-  failures.set(ip, [...recentFailures(ip, now), now]);
+  if (given && (await isValidCredential(given))) return null;
+  recordFailure(ip);
   return json({ error: 'unauthorized' }, 401);
 }
 
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
-  if (params.has('status')) return json({ configured: configuredToken() !== null });
+  if (params.has('status')) return json({ configured: await isOwnerAuthConfigured() });
 
-  const denied = authorize(req);
+  const denied = await authorize(req);
   if (denied) return denied;
   const since = Number(params.get('since') ?? 0);
   try {
@@ -90,7 +67,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const denied = authorize(req);
+  const denied = await authorize(req);
   if (denied) return denied;
 
   const raw = await req.text();
