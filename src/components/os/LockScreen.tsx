@@ -9,6 +9,10 @@
 //   • guest  — "Explore as Guest" for portfolio visitors
 // Both run the same scan → exit cinematic and record the visitor mode.
 //
+// The 3D warrior stands left of the plate on wide screens (lazy chunk,
+// mounted after first paint): it powers up on an owner unlock and
+// flinches at a wrong password.
+//
 // Test hooks: [data-lock-screen] (data-state="locked|unlocking",
 // data-visitor-mode once chosen), [data-testid="lock-password"],
 // [data-testid="lock-unlock"], [data-testid="lock-guest"].
@@ -36,6 +40,7 @@ import { OwnerAvatar } from '@/components/showcase/OwnerCard';
 import { BrandMark } from '@/components/showcase/BrandMark';
 import { useHabits } from '@/components/widgets/hooks';
 import { computeStreak, utcDayKey } from '@/components/widgets/widget-data';
+import { playWarriorAction } from '@/components/warrior3d/store';
 
 // The creature sprite (canvas painters) is a lazy client-only chunk; the
 // creature barrel would also drag the stats popup and recharts into the
@@ -44,6 +49,16 @@ const CreatureLockBadge = dynamic(
   () => import('@/components/creature/CreatureStatusBadges').then((m) => m.CreatureLockBadge),
   { ssr: false }
 );
+
+// The 3D warrior hero: its own client-only chunk (three.js never touches
+// the bundle that paints the lock screen); it also waits for idle itself.
+const LockWarriorHero = dynamic(() => import('./LockWarriorHero').then((m) => m.LockWarriorHero), {
+  ssr: false,
+  loading: () => null,
+});
+
+/** Right edge of the warrior column: half the unlock plate (380px) + a gap. */
+const HERO_CLEARANCE = 'calc(50% + 214px)';
 
 interface LockScreenProps {
   /** Called when the unlock cinematic ends, with the mode the visitor chose. */
@@ -316,6 +331,8 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
   const [mustChange, setMustChange] = useState(false);
   const tempPasswordRef = useRef('');
   const [shattered, setShattered] = useState(false);
+  // The warrior stops rendering before the exit (guests: right away).
+  const [heroPaused, setHeroPaused] = useState(false);
   const isUnlocking = unlockMode !== null;
 
   const lite = useLiteMode();
@@ -366,8 +383,12 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
       setVisitorMode(mode);
       setUnlockMode(mode);
       setErrorText(null);
+      // Owner: the warrior powers up through the scan (no added delay).
+      if (mode === 'owner') playWarriorAction('powerup');
+      else setHeroPaused(true);
 
       // Biometric scan simulation
+      timersRef.current.push(setTimeout(() => setHeroPaused(true), Math.max(0, SCAN_MS - 150)));
       timersRef.current.push(
         setTimeout(() => {
           setShattered(true);
@@ -394,6 +415,7 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
     if (result === 'wrong' || result === 'limited') {
       setErrorText(describeOwnerError(result));
       setPassword('');
+      playWarriorAction('hurt');
       return;
     }
     beginUnlock('owner');
@@ -447,6 +469,20 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
           {/* Legibility scrim: calm the centre column, deepen the edges */}
           <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: SCRIM }} />
           <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-linear-to-b from-ink-950/70 to-transparent" />
+
+          {/* ─── 3D warrior hero: left of the plate, wide screens only ─── */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 hidden min-[900px]:block"
+            style={{
+              right: HERO_CLEARANCE,
+              width: 'min(640px, calc(50% - 214px))',
+              transform: 'translate3d(calc(var(--lx, 0) * -10px), calc(var(--ly, 0) * -6px), 0)',
+            }}
+          >
+            {/* 5:7 keeps the full figure in frame when the column is narrow */}
+            <LockWarriorHero paused={heroPaused} className="absolute inset-x-0 bottom-[4%] max-h-[86%] w-full [aspect-ratio:5/7]" />
+          </div>
 
           {/* ─── Top bar: system mark + visitor note ─── */}
           <motion.header

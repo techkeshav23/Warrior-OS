@@ -151,6 +151,9 @@ export default function WarriorCanvas({ variant, look, baseAction, stageId, spea
   return (
     <Canvas
       frameloop={active ? 'always' : 'never'}
+      // Layout size, not the transformed box: windows open with a scale
+      // animation, and a transform change never re-fires the observer.
+      resize={{ offsetSize: true }}
       dpr={cfg.dpr}
       shadows={cfg.shadows ? 'percentage' : false}
       gl={{ antialias: true, powerPreference: variant === 'card' ? 'low-power' : 'high-performance', alpha: false }}

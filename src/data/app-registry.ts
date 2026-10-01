@@ -83,6 +83,10 @@ const ExpenseVaultApp = dynamic(
   () => import('@/components/apps/expense-vault/ExpenseVaultApp').then((m) => m.ExpenseVaultApp),
   { ssr: false, loading: AppLoading }
 );
+const WarriorHallApp = dynamic(
+  () => import('@/components/apps/warrior-hall/WarriorHallApp').then((m) => m.WarriorHallApp),
+  { ssr: false, loading: AppLoading }
+);
 const ResumeApp = dynamic(
   () => import('@/components/apps/resume-builder/ResumeApp').then((m) => m.ResumeApp),
   { ssr: false, loading: AppLoading }
@@ -312,6 +316,17 @@ export const APP_REGISTRY: AppDefinition[] = [
     minSize: { width: 400, height: 350 },
     category: 'chill',
     description: 'Warrior profile, stats, and achievements',
+    singleton: true,
+  },
+  {
+    id: 'warrior-hall',
+    name: 'Warrior Hall',
+    icon: '⚔️',
+    component: WarriorHallApp,
+    defaultSize: { width: 1040, height: 680 },
+    minSize: { width: 560, height: 460 },
+    category: 'chill',
+    description: 'Your 3D warrior: armor tiers, rank, streak aura and decay, action moves',
     singleton: true,
   },
 ];

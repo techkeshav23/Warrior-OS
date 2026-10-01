@@ -4,24 +4,84 @@
 // clips through an AnimationMixer with crossfades, returns one-shots to
 // the base loop, and fills gaps procedurally: a missing clip becomes a
 // whole-body move (lunge / recoil / rise / hop-spin) on a wrapper
-// group, and a model without an idle clip still breathes. Emissive
-// materials take the tier colour + decay flicker.
+// group, and a model without an idle clip still breathes. A model that
+// was rigged at load time (autorig.ts) skips the mixer: the procedural
+// animator's joint poses drive its bones instead (retarget.ts). Emissive
+// materials take the tier colour + decay flicker; seams found in the
+// colour map (model.ts) stay ember. A small glowing "W" emblem rides the
+// chest bone just above the arc reactor.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
 
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { actionFx } from './pose';
+import { actionFx, type WarriorFx } from './pose';
 import { flicker, glitchJolt } from './flicker';
-import { useWarriorActionStore } from './store';
+import { useWarriorActionStore, useWarriorDebugStore } from './store';
+import { AutoRigDriver } from './retarget';
 import { isOneShot, type WarriorAction, type WarriorBaseAction } from './types';
-import type { WarriorModelAsset } from './model';
+import { useWarriorModelStore, type WarriorModelAsset } from './model';
 import type { WarriorFigureProps } from './PlaceholderWarrior';
+import type { WarriorLook } from './types';
 
 const FADE = 0.28;
+/** Glowing "W" on the chest plate (GLB only). Flip off if it fights the model's own detail. */
+const GLB_CHEST_EMBLEM = true;
+/** Emblem plate size (model units; the warrior is ~1.8 tall). */
+const EMBLEM_W = 0.092;
+const EMBLEM_H = 0.068;
+/** Seam glow relative to the tier glow — subtle. */
+const SEAM_GLOW = 0.6;
+/** Seam masks carry their own colour (ember seams, plasma lights). */
+const MASK_WHITE = new THREE.Color('#ffffff');
+const HIT_RED = new THREE.Color('#ff3040');
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+
+/** White, soft-edged angular "W" on transparent (tinted by the material). */
+function emblemTexture(): THREE.CanvasTexture {
+  const w = 160;
+  const h = 120;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const glyph = () => {
+      ctx.beginPath();
+      ctx.moveTo(22, 26);
+      ctx.lineTo(50, 96);
+      ctx.lineTo(80, 48);
+      ctx.lineTo(110, 96);
+      ctx.lineTo(138, 26);
+    };
+    ctx.lineJoin = 'miter';
+    ctx.lineCap = 'square';
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.shadowColor = 'rgba(255,255,255,0.9)';
+    ctx.shadowBlur = 14;
+    ctx.lineWidth = 14;
+    glyph();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,1)';
+    ctx.lineWidth = 8;
+    glyph();
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+interface ChestEmblem {
+  mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  anchor: THREE.Object3D;
+  /** Chest-bone origin: the emblem faces away from it. */
+  center: THREE.Object3D;
+}
 /** Procedural one-shot lengths when the GLB lacks the clip. */
 const FALLBACK_DURATION: Record<WarriorAction, number> = {
   idle: 0,
@@ -45,6 +105,41 @@ interface GlbRuntime {
   procedural: boolean;
   shockFired: boolean;
   materials: THREE.Material[];
+  emblem: ChestEmblem | null;
+  /** Auto-rigged model: procedural poses drive the bones. */
+  driver: AutoRigDriver | null;
+  /** Dev overlay (SkeletonHelper + joint dots) while "Show skeleton" is on. */
+  debug: { helper: THREE.SkeletonHelper; dots: THREE.Mesh[]; geometry: THREE.BufferGeometry; material: THREE.Material } | null;
+}
+
+const DOT_COLOR = new THREE.Color('#ffe14d');
+
+function addSkeletonDebug(rt: GlbRuntime, group: THREE.Group): void {
+  const helper = new THREE.SkeletonHelper(rt.model);
+  helper.renderOrder = 998;
+  const geometry = new THREE.SphereGeometry(0.014, 10, 8);
+  const material = new THREE.MeshBasicMaterial({ color: DOT_COLOR, depthTest: false, depthWrite: false, toneMapped: false, transparent: true });
+  const dots: THREE.Mesh[] = [];
+  for (const bone of helper.bones) {
+    const dot = new THREE.Mesh(geometry, material);
+    dot.renderOrder = 999;
+    dot.frustumCulled = false;
+    bone.add(dot);
+    dots.push(dot);
+  }
+  group.add(helper);
+  rt.debug = { helper, dots, geometry, material };
+}
+
+function removeSkeletonDebug(rt: GlbRuntime): void {
+  const d = rt.debug;
+  if (!d) return;
+  d.helper.removeFromParent();
+  d.helper.dispose();
+  d.dots.forEach((m) => m.removeFromParent());
+  d.geometry.dispose();
+  d.material.dispose();
+  rt.debug = null;
 }
 
 function baseClip(rt: GlbRuntime, base: WarriorBaseAction): THREE.AnimationAction | null {
@@ -56,6 +151,7 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
   const rtRef = useRef<GlbRuntime | null>(null);
   const baseRef = useRef(baseAction);
   const report = useWarriorActionStore((s) => s.report);
+  const tmpV = useMemo(() => new THREE.Vector3(), []);
 
   useLayoutEffect(() => {
     const group = wrapper.current;
@@ -80,15 +176,8 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
 
     const mixer = new THREE.AnimationMixer(model);
     const actions: GlbRuntime['actions'] = {};
-    for (const [key, clip] of Object.entries(asset.clips)) {
-      if (!clip) continue;
-      const action = mixer.clipAction(clip);
-      if (isOneShot(key as WarriorAction)) {
-        action.setLoop(THREE.LoopOnce, 1);
-        action.clampWhenFinished = true;
-      }
-      actions[key as WarriorAction] = action;
-    }
+    const driver = asset.autoRig ? new AutoRigDriver(model, asset.autoRig, baseRef.current) : null;
+    if (!driver) syncActions(mixer, actions, asset);
     const rt: GlbRuntime = {
       model,
       mixer,
@@ -101,7 +190,17 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
       procedural: false,
       shockFired: false,
       materials,
+      emblem: null,
+      driver,
+      debug: null,
     };
+    if (driver) {
+      rt.action = driver.animator.current;
+      driver.animator.onActionChange = (a) => {
+        rt.action = a;
+        report(stageId, a);
+      };
+    }
     const start = baseClip(rt, rt.base);
     if (start) {
       start.play();
@@ -129,9 +228,33 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
       model.add(reactorAnchor, center);
     }
     anchorRef.current = { anchor: reactorAnchor, center };
+
+    // Chest emblem: follows its own anchor on the chest bone (see useFrame).
+    if (GLB_CHEST_EMBLEM && bone && asset.emblemLocal) {
+      const anchor = new THREE.Object3D();
+      anchor.position.copy(asset.emblemLocal);
+      bone.add(anchor);
+      const mat = new THREE.MeshBasicMaterial({
+        map: emblemTexture(),
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+      });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(EMBLEM_W, EMBLEM_H), mat);
+      mesh.name = 'WarriorChestEmblem';
+      mesh.renderOrder = 2;
+      mesh.frustumCulled = false;
+      group.add(mesh);
+      rt.emblem = { mesh, anchor, center };
+    }
     report(stageId, rt.action);
 
     return () => {
+      removeSkeletonDebug(rt);
+      if (driver) driver.animator.onActionChange = null;
       mixer.removeEventListener('finished', onFinished as never);
       mixer.stopAllAction();
       mixer.uncacheRoot(model);
@@ -139,6 +262,15 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
       materials.forEach((m) => m.dispose());
       reactorAnchor.removeFromParent();
       center.removeFromParent();
+      if (rt.emblem) {
+        const { mesh, anchor } = rt.emblem;
+        mesh.removeFromParent();
+        anchor.removeFromParent();
+        mesh.geometry.dispose();
+        mesh.material.map?.dispose();
+        mesh.material.dispose();
+        rt.emblem = null;
+      }
       anchorRef.current = null;
       if (rtRef.current === rt) rtRef.current = null;
     };
@@ -155,12 +287,26 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
     }
   }, [asset, stageId, report, anchorRef]);
 
+  // Clips from separate animation files arrive after the model: add them
+  // to the running mixer and move onto a better base loop if one came in.
+  const clipsVersion = useWarriorModelStore((s) => s.clipsVersion);
+  useEffect(() => {
+    const rt = rtRef.current;
+    if (!rt || rt.driver || clipsVersion === 0) return;
+    if (!syncActions(rt.mixer, rt.actions, asset)) return;
+    if (!isOneShot(rt.action)) {
+      const next = baseClip(rt, rt.base);
+      if (next && next !== rt.current) play(rt, rt.base, performance.now() / 1000);
+    }
+  }, [asset, clipsVersion]);
+
   useEffect(() => {
     baseRef.current = baseAction;
     const rt = rtRef.current;
     if (!rt) return;
     rt.base = baseAction;
-    if (!isOneShot(rt.action)) play(rt, baseAction, performance.now() / 1000);
+    if (rt.driver) rt.driver.animator.setBase(baseAction);
+    else if (!isOneShot(rt.action)) play(rt, baseAction, performance.now() / 1000);
     // play() is a stable module-level helper (below).
   }, [baseAction]);
 
@@ -178,6 +324,10 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
     });
   }, [stageId, report]);
 
+  const showSkeleton = useWarriorDebugStore((s) => s.showSkeleton);
+  const showSkeletonRef = useRef(showSkeleton);
+  showSkeletonRef.current = showSkeleton;
+
   useFrame((state, delta) => {
     const rt = rtRef.current;
     const f = fxRef.current;
@@ -185,6 +335,22 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
     if (!rt || !f || !group) return;
     const dt = Math.min(delta, 0.25);
     const now = performance.now() / 1000;
+    const t = state.clock.elapsedTime;
+    const jolt = glitchJolt(t, look.damage, look.critical);
+    if (showSkeletonRef.current !== !!rt.debug) {
+      if (rt.debug) removeSkeletonDebug(rt);
+      else addSkeletonDebug(rt, group);
+    }
+
+    if (rt.driver) {
+      // Auto rig: the animator owns the action state, FX envelopes and the limbs.
+      rt.driver.update(now, dt, f, motion);
+      group.position.set(jolt * 0.03, 0, 0);
+      group.rotation.set(0, 0, 0);
+      group.scale.setScalar(1);
+      updateGlow(rt, f, look, t, tmpV, group);
+      return;
+    }
     rt.mixer.update(dt);
 
     const local = now - rt.started;
@@ -207,7 +373,6 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
     }
 
     // Wrapper motion: procedural one-shots + breathing when no loop clip.
-    const t = state.clock.elapsedTime;
     const p = rt.procedural ? Math.min(1, local / Math.max(0.01, FALLBACK_DURATION[rt.action])) : 0;
     const bell = Math.sin(p * Math.PI);
     const px = 0;
@@ -238,25 +403,67 @@ export function GlbWarrior({ asset, look, baseAction, stageId, fxRef, anchorRef,
       }
     }
     const breathing = !baseClip(rt, rt.base) ? Math.sin(t * 1.7) * 0.008 * motion : 0;
-    const jolt = glitchJolt(t, look.damage, look.critical);
     group.position.set(px + jolt * 0.03, py, pz);
     group.rotation.set(rx, ry, 0);
     group.scale.set(s, s * (1 + breathing), s);
-
-    // Emissives: tier tint × glow × flicker × surge.
-    const fl = flicker(t, look.damage, look.critical, 2);
-    for (const m of rt.emissive) {
-      m.emissive.set(look.trim);
-      m.emissiveIntensity = look.glow * fl * (1 + f.surge * 1.5) * 1.5;
-      if (f.hit > 0) m.emissive.lerp(new THREE.Color('#ff3040'), f.hit * 0.8);
-    }
+    updateGlow(rt, f, look, t, tmpV, group);
   });
 
   return <group ref={wrapper} />;
 }
 
+/** Emissives (tier tint × glow × flicker × surge) + the chest emblem's placement. */
+function updateGlow(rt: GlbRuntime, f: WarriorFx, look: WarriorLook, t: number, tmpV: THREE.Vector3, group: THREE.Group): void {
+  // Emissives: tier tint × glow × flicker × surge.
+  const fl = flicker(t, look.damage, look.critical, 2);
+  for (const m of rt.emissive) {
+    const seam = m.userData.warriorSeam === true;
+    if (seam) m.emissive.copy(MASK_WHITE);
+    else m.emissive.set(look.trim);
+    m.emissiveIntensity = look.glow * fl * (1 + f.surge * 1.5) * (seam ? SEAM_GLOW : 1.5);
+    if (f.hit > 0) m.emissive.lerp(HIT_RED, f.hit * 0.8);
+  }
+
+  // Chest emblem: sit on the anchor (in the wrapper's space), face out of the chest.
+  const em = rt.emblem;
+  if (em) {
+    const pos = em.mesh.position;
+    em.anchor.getWorldPosition(pos);
+    group.worldToLocal(pos);
+    em.center.getWorldPosition(tmpV);
+    group.worldToLocal(tmpV);
+    tmpV.subVectors(pos, tmpV).setY(0);
+    if (tmpV.lengthSq() > 1e-8) em.mesh.quaternion.setFromUnitVectors(Z_AXIS, tmpV.normalize());
+    const mat = em.mesh.material;
+    mat.color.set(look.trim).multiplyScalar(1.5 * look.glow * fl * (1 + f.surge * 1.2));
+    if (f.hit > 0) mat.color.lerp(HIT_RED, f.hit * 0.7);
+  }
+}
+
+/** Create / refresh mixer actions for asset.clips. Returns true when anything changed. */
+function syncActions(mixer: THREE.AnimationMixer, actions: GlbRuntime['actions'], asset: WarriorModelAsset): boolean {
+  let changed = false;
+  for (const [key, clip] of Object.entries(asset.clips)) {
+    const name = key as WarriorAction;
+    if (!clip || actions[name]?.getClip() === clip) continue;
+    const action = mixer.clipAction(clip);
+    if (isOneShot(name)) {
+      action.setLoop(THREE.LoopOnce, 1);
+      action.clampWhenFinished = true;
+    }
+    actions[name] = action;
+    changed = true;
+  }
+  return changed;
+}
+
 function play(rt: GlbRuntime, action: WarriorAction, now: number): void {
   if (action === 'idle' || action === 'stance') rt.base = action;
+  if (rt.driver) {
+    rt.driver.animator.play(action, now);
+    rt.action = rt.driver.animator.current;
+    return;
+  }
   const clip = rt.actions[action] ?? (isOneShot(action) ? undefined : baseClip(rt, action as WarriorBaseAction) ?? undefined);
   rt.action = action;
   rt.started = now;

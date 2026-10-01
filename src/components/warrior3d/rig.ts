@@ -62,6 +62,9 @@ export interface WarriorRig {
   dispose: () => void;
 }
 
+/** What the ProceduralAnimator needs: a joint hierarchy + sole anchors. */
+export type AnimatableRig = Pick<WarriorRig, 'root' | 'joints' | 'soles' | 'hipsY' | 'halo'>;
+
 // ─── Geometry helpers ───
 
 const geometries: THREE.BufferGeometry[] = [];
