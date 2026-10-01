@@ -15,6 +15,7 @@ import {
   WARRIOR_TIERS,
   playWarriorAction,
   useWarriorActionStore,
+  useWarriorDebugStore,
   useWarriorModel,
   useWarriorProgress,
   type WarriorAction,
@@ -70,6 +71,8 @@ export function WarriorLab() {
   const lite = useLiteMode();
   const setPerformanceMode = useSettingsStore((s) => s.setPerformanceMode);
   const current = useWarriorActionStore((s) => s.current);
+  const showSkeleton = useWarriorDebugStore((s) => s.showSkeleton);
+  const setShowSkeleton = useWarriorDebugStore((s) => s.setShowSkeleton);
 
   const forceTier = tierSlider > 0 ? (tierSlider as WarriorTier) : undefined;
   const forceStreak = streakOn ? 7 : undefined;
@@ -208,6 +211,14 @@ export function WarriorLab() {
                 </div>
                 <Switch checked={streakOn} onCheckedChange={setStreakOn} label="Streak aura" description="Preview a 7-day streak" tone="ember" layout="row" />
                 <Switch checked={speaking} onCheckedChange={setSpeaking} label="NEXUS speaking" description="Arc reactor pulses with the voice" layout="row" />
+                <Switch
+                  checked={showSkeleton}
+                  onCheckedChange={setShowSkeleton}
+                  label="Show skeleton"
+                  description={model.status === 'glb' ? 'Bones + joints of the GLB rig' : 'Needs the GLB model'}
+                  disabled={model.status !== 'glb'}
+                  layout="row"
+                />
               </div>
             </div>
           </Card>

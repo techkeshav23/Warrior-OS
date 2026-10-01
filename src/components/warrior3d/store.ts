@@ -49,3 +49,16 @@ export const useWarriorActionStore = create<WarriorActionStore>()((set) => ({
 export function playWarriorAction(action: WarriorAction, target?: string): void {
   useWarriorActionStore.getState().play(action, target);
 }
+
+// ─── Dev overlay ───
+
+interface WarriorDebugStore {
+  /** Draw the GLB's skeleton (bones + joint dots) over the model. */
+  showSkeleton: boolean;
+  setShowSkeleton: (on: boolean) => void;
+}
+
+export const useWarriorDebugStore = create<WarriorDebugStore>()((set) => ({
+  showSkeleton: false,
+  setShowSkeleton: (on) => set({ showSkeleton: on }),
+}));

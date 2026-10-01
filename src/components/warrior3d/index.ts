@@ -9,7 +9,7 @@
 export { WarriorStage } from './WarriorStage';
 export type { WarriorStageProps } from './WarriorStage';
 export { WarriorFallback } from './WarriorFallback';
-export { playWarriorAction, useWarriorActionStore } from './store';
+export { playWarriorAction, useWarriorActionStore, useWarriorDebugStore } from './store';
 export type { WarriorActionRequest } from './store';
 export {
   useWarriorProgress,
@@ -29,6 +29,7 @@ export {
   WARRIOR_HEIGHT,
 } from './model';
 export type { WarriorModelStatus, WarriorModelAsset, WarriorModelInfo } from './model';
+export type { AutoRigInfo, AutoRigLandmarks } from './autorig';
 export { ACTION_DURATION } from './pose';
 export { WARRIOR_ACTIONS, WARRIOR_ONE_SHOTS, isOneShot } from './types';
 export type {

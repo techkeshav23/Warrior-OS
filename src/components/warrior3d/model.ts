@@ -9,8 +9,10 @@
 // (via /api/warrior-model, HEAD as fallback; cached for the session), loaded with GLTFLoader (+ Meshopt,
 // + Draco only when /draco/ decoder files are served locally), then
 // normalised: ~1.8 units tall, feet on y=0, centred, shadows on, and
-// materials upgraded to polished physical metal. Missing / broken →
-// status 'placeholder' and the procedural warrior takes over.
+// materials upgraded to polished physical metal. Meshes without normals
+// get smooth ones. A model with no skin at all is rigged at load time
+// (autorig.ts) so the procedural actions can move its limbs. Missing /
+// broken → status 'placeholder' and the procedural warrior takes over.
 // ═══════════════════════════════════════════════════════════
 
 'use client';
@@ -19,6 +21,7 @@ import { useEffect } from 'react';
 import * as THREE from 'three';
 import { create } from 'zustand';
 import type { WarriorAction } from './types';
+import { autoRigHumanoid, describeLandmarks, ensureSmoothNormals, type AutoRigInfo, type ColorSampler } from './autorig';
 
 export const WARRIOR_MODEL_URL = '/models/warrior.glb';
 const DRACO_PATH = '/draco/';
@@ -41,6 +44,8 @@ export interface WarriorModelAsset {
   chestPoint: THREE.Vector3;
   /** Chest emblem spot just above the reactor, in the chest bone's local space (when chestBone). */
   emblemLocal: THREE.Vector3 | null;
+  /** Skeleton built at load time for an unskinned model (null: the file had its own rig / none fit). */
+  autoRig: AutoRigInfo | null;
 }
 
 interface WarriorModelState {
@@ -101,11 +106,15 @@ export function mapClips(clips: THREE.AnimationClip[]): Partial<Record<WarriorAc
  * bright / silver bake reads as glossy gunmetal. One knob — lighten it
  * (towards #ffffff) if a future model comes out too dark.
  */
-export const GLB_ARMOR_TINT = '#6b7280';
+export const GLB_ARMOR_TINT = '#c2c9d3';
 /** Roughness for textured armor without its own roughness map. */
-const GLB_TEXTURED_ROUGHNESS = 0.3;
+const GLB_TEXTURED_ROUGHNESS = 0.32;
+/** Metalness for textured armor without its own metalness map (lower = the bake's panels read). */
+const GLB_TEXTURED_METALNESS = 0.45;
 /** Ember glow for seams found in the base-colour map (kept subtle). */
 export const GLB_SEAM_EMBER = '#ff6a1a';
+/** Plasma glow for cyan lights (reactor, visor) found in the base-colour map. */
+export const GLB_LIGHT_PLASMA = '#2fd6f5';
 
 function isPlainWhite(c: THREE.Color): boolean {
   return c.r > 0.75 && c.g > 0.75 && c.b > 0.75;
@@ -137,7 +146,8 @@ function upgradeMaterial(src: THREE.Material): THREE.Material {
   // Textured: darken the bake towards gunmetal (multiplies the map).
   if (src.map) m.color.multiply(new THREE.Color(GLB_ARMOR_TINT));
   // Polished armor: strongly metallic, glossy, lacquered.
-  m.metalness = src.metalnessMap ? Math.max(0.75, src.metalness) : Math.max(0.82, src.metalness);
+  // A textured bake keeps some diffuse so its painted panels still read.
+  m.metalness = src.metalnessMap ? Math.max(0.75, src.metalness) : src.map ? GLB_TEXTURED_METALNESS : Math.max(0.82, src.metalness);
   m.roughness = src.roughnessMap
     ? Math.min(0.6, src.roughness)
     : src.map
@@ -169,7 +179,8 @@ function isDrawable(img: unknown): img is DrawableImage {
 }
 
 /**
- * Orange texels of a base-colour map → a greyscale emissive mask, or null
+ * Orange texels (seams) and bright cyan texels (reactor, visor) of a
+ * base-colour map → a coloured emissive mask (ember / plasma), or null
  * when the map has no seams worth lighting (or can't be read).
  */
 function seamMaskFor(map: THREE.Texture): THREE.Texture | null {
@@ -186,6 +197,8 @@ function seamMaskFor(map: THREE.Texture): THREE.Texture | null {
   ctx.drawImage(img, 0, 0, w, h);
   const data = ctx.getImageData(0, 0, w, h);
   const px = data.data;
+  const ember = new THREE.Color(GLB_SEAM_EMBER);
+  const plasma = new THREE.Color(GLB_LIGHT_PLASMA);
   let hits = 0;
   for (let i = 0; i < px.length; i += 4) {
     const r = px[i];
@@ -193,9 +206,21 @@ function seamMaskFor(map: THREE.Texture): THREE.Texture | null {
     const b = px[i + 2];
     // Warm orange: red dominant, green between, blue low.
     const seam = r > 120 && r > g * 1.3 && g > b * 1.05 && r - b > 80;
-    const v = seam ? Math.min(255, 90 + (r - b)) : 0;
-    if (seam) hits++;
-    px[i] = px[i + 1] = px[i + 2] = v;
+    // Plasma light: bright, blue-green dominant.
+    const light = !seam && b > 150 && g > 120 && b - r > 70;
+    let c: THREE.Color | null = null;
+    let v = 0;
+    if (seam) {
+      hits++;
+      c = ember;
+      v = Math.min(1, (90 + (r - b)) / 255);
+    } else if (light) {
+      c = plasma;
+      v = Math.min(1, (g + b) / 440);
+    }
+    px[i] = c ? Math.round(c.r * v * 255) : 0;
+    px[i + 1] = c ? Math.round(c.g * v * 255) : 0;
+    px[i + 2] = c ? Math.round(c.b * v * 255) : 0;
     px[i + 3] = 255;
   }
   const fraction = hits / (w * h);
@@ -216,9 +241,10 @@ function seamMaskFor(map: THREE.Texture): THREE.Texture | null {
 }
 
 /**
- * Textured materials with no emissive of their own get a subtle ember
- * glow along the orange seams baked into their colour map. Tagged
- * userData.warriorSeam so the renderer keeps them ember, not tier-tinted.
+ * Textured materials with no emissive of their own get a subtle glow
+ * along the orange seams (and cyan lights) baked into their colour map;
+ * the mask carries the colour, so emissive is white. Tagged
+ * userData.warriorSeam so the renderer keeps them as painted, not tier-tinted.
  */
 function addSeamEmissive(materials: THREE.Material[]): void {
   const cache = new Map<THREE.Texture, THREE.Texture | null>();
@@ -236,7 +262,7 @@ function addSeamEmissive(materials: THREE.Material[]): void {
     }
     if (!mask) continue;
     m.emissiveMap = mask;
-    m.emissive.set(GLB_SEAM_EMBER);
+    m.emissive.set('#ffffff');
     m.emissiveIntensity = 1;
     m.userData.warriorSeam = true;
     m.needsUpdate = true;
@@ -274,13 +300,16 @@ function surfaceZAt(meshes: THREE.Mesh[], x: number, y: number, box: THREE.Box3)
 
 function computeChest(
   root: THREE.Object3D,
-  box: THREE.Box3
+  box: THREE.Box3,
+  /** Reactor spot already found on the model (auto-rig colour scan). */
+  hint: THREE.Vector3 | null = null
 ): Pick<WarriorModelAsset, 'chestBone' | 'chestLocal' | 'chestPoint' | 'emblemLocal'> {
   root.updateMatrixWorld(true);
   const bone = findChestBone(root);
   const height = box.max.y - box.min.y;
   const probe = new THREE.Vector3(0, box.min.y + height * 0.72, 0);
-  if (bone) {
+  if (hint) probe.set(hint.x, hint.y, 0);
+  else if (bone) {
     bone.getWorldPosition(probe);
     probe.y += height * 0.03; // reactor sits a touch above the bone pivot
   }
@@ -300,6 +329,68 @@ function computeChest(
     if (ez !== null) emblemLocal = bone.worldToLocal(new THREE.Vector3(probe.x, ey, ez + 0.006));
   }
   return { chestBone: bone?.name ?? null, chestLocal, chestPoint: point, emblemLocal };
+}
+
+// ─── Auto-rig hookup ───
+
+const SAMPLE_MAX_SIZE = 512;
+
+/** Read a material's base-colour map on the CPU (for the reactor scan). Null when unreadable. */
+function colorSamplerFor(material: THREE.Material | THREE.Material[]): ColorSampler | null {
+  const m = (Array.isArray(material) ? material[0] : material) as THREE.MeshStandardMaterial | undefined;
+  const map = m?.map;
+  if (!map) return null;
+  const img: unknown = map.image;
+  if (!isDrawable(img) || !img.width || !img.height) return null;
+  try {
+    const k = Math.min(1, SAMPLE_MAX_SIZE / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * k));
+    const h = Math.max(1, Math.round(img.height * k));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, w, h);
+    const px = ctx.getImageData(0, 0, w, h).data;
+    map.updateMatrix();
+    const uv = new THREE.Vector2();
+    return (u, v) => {
+      map.transformUv(uv.set(u, v));
+      const x = Math.min(w - 1, Math.max(0, Math.floor(uv.x * w)));
+      const y = Math.min(h - 1, Math.max(0, Math.floor(uv.y * h)));
+      const o = (y * w + x) * 4;
+      return [px[o] / 255, px[o + 1] / 255, px[o + 2] / 255];
+    };
+  } catch {
+    return null; // tainted / compressed image
+  }
+}
+
+/**
+ * No skin anywhere → build one (autorig.ts). Runs on the normalised
+ * scene; returns null when the figure doesn't read as a T / A pose.
+ */
+function rigIfStatic(scene: THREE.Group): AutoRigInfo | null {
+  let skinned = false;
+  const samplers = new Map<THREE.Mesh, ColorSampler | null>();
+  scene.traverse((o) => {
+    if ((o as THREE.SkinnedMesh).isSkinnedMesh || (o as THREE.Bone).isBone) skinned = true;
+    const mesh = o as THREE.Mesh;
+    if (mesh.isMesh) samplers.set(mesh, colorSamplerFor(mesh.material));
+  });
+  if (skinned || samplers.size === 0) return null;
+  let info: AutoRigInfo | null = null;
+  try {
+    info = autoRigHumanoid(scene, { samplers });
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') console.warn('[warrior3d] auto-rig failed:', err);
+    return null;
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    console.info(info ? `[warrior3d] auto-rig: ${describeLandmarks(info.landmarks)}` : '[warrior3d] auto-rig: no T / A-pose humanoid found — whole-body moves only');
+  }
+  return info;
 }
 
 // ─── Loading ───
@@ -417,6 +508,7 @@ async function loadAsset(loader: Loader): Promise<WarriorModelAsset> {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.frustumCulled = false; // skinned bounds lag behind animation
+    if (mesh.geometry) ensureSmoothNormals(mesh.geometry);
     mesh.material = Array.isArray(mesh.material) ? mesh.material.map(upgrade) : upgrade(mesh.material);
   });
   addSeamEmissive([...upgraded.values()]);
@@ -441,10 +533,11 @@ async function loadAsset(loader: Loader): Promise<WarriorModelAsset> {
   scene.name = 'WarriorGLB';
   scene.add(inner);
   scene.updateMatrixWorld(true);
+  const autoRig = rigIfStatic(scene);
 
   stripRootMotion(gltf.animations);
   const clips = mapClips(gltf.animations);
-  return { scene, animations: gltf.animations, clips, ...computeChest(scene, box) };
+  return { scene, animations: gltf.animations, clips, autoRig, ...computeChest(scene, box, autoRig?.landmarks.reactor ?? null) };
 }
 
 // ─── Separate animation files ───
@@ -555,7 +648,8 @@ function describeAsset(asset: WarriorModelAsset, extras: string[]): string {
   return (
     `${asset.animations.length} clip(s)${mapped ? ` · ${mapped}` : ''}` +
     (extras.length ? ` · files: ${extras.join(', ')}` : '') +
-    (asset.chestBone ? ` · chest: ${asset.chestBone}` : '')
+    (asset.chestBone ? ` · chest: ${asset.chestBone}` : '') +
+    (asset.autoRig ? ` · auto-rig: ${Object.keys(asset.autoRig.rest).length} bones, ${asset.autoRig.landmarks.armPose}-pose` : '')
   );
 }
 

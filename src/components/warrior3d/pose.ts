@@ -8,7 +8,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import * as THREE from 'three';
-import { JOINTS, type JointName, type WarriorRig } from './rig';
+import { JOINTS, type AnimatableRig, type JointName } from './rig';
 import { isOneShot, type WarriorAction, type WarriorBaseAction } from './types';
 
 type V3 = [number, number, number];
@@ -21,6 +21,8 @@ export interface Pose {
   shift?: [number, number];
   /** Airborne lift after planting (jumps). */
   lift?: number;
+  /** Hand grip, 0 open … 1 fist (rigs with finger bones; the placeholder's fists ignore it). */
+  grip?: number;
 }
 
 interface Key {
@@ -32,6 +34,7 @@ interface Key {
 
 const STANCE: Pose = {
   drop: 0.07,
+  grip: 1,
   shift: [0.01, 0],
   j: {
     hips: [0, -0.42, 0],
@@ -54,6 +57,7 @@ const STANCE: Pose = {
 
 const IDLE: Pose = {
   drop: 0.02,
+  grip: 0.35,
   j: {
     hips: [0, -0.18, 0],
     spine: [0.03, 0.03, 0],
@@ -78,6 +82,7 @@ function over(base: Pose, patch: Partial<Pose>): Pose {
     drop: patch.drop ?? base.drop,
     shift: patch.shift ?? base.shift,
     lift: patch.lift ?? 0,
+    grip: patch.grip ?? base.grip,
     j: { ...base.j, ...(patch.j ?? {}) },
   };
 }
@@ -116,6 +121,7 @@ const PUNCH_HIT = over(STANCE, {
 
 const POWER_GATHER: Pose = over(STANCE, {
   drop: 0.2,
+  grip: 1,
   shift: [0, 0],
   j: {
     hips: [0, 0, 0],
@@ -138,6 +144,7 @@ const POWER_GATHER: Pose = over(STANCE, {
 
 const POWER_BURST: Pose = over(STANCE, {
   drop: 0.06,
+  grip: 0,
   shift: [0, 0],
   j: {
     hips: [0, 0, 0],
@@ -160,6 +167,7 @@ const POWER_BURST: Pose = over(STANCE, {
 
 const VICTORY_UP: Pose = over(IDLE, {
   drop: 0.0,
+  grip: 1,
   j: {
     hips: [0, -0.1, 0],
     spine: [-0.08, 0, 0],
@@ -186,6 +194,7 @@ const VICTORY_CROUCH = over(VICTORY_UP, {
 
 const HURT_HIT = over(STANCE, {
   drop: 0.12,
+  grip: 0.2,
   shift: [0, -0.1],
   j: {
     hips: [0, -0.3, 0.05],
@@ -259,6 +268,7 @@ function blendPose(a: Pose, b: Pose, k: number, out: Pose): Pose {
   const bs = b.shift ?? [0, 0];
   out.shift = [as[0] + (bs[0] - as[0]) * k, as[1] + (bs[1] - as[1]) * k];
   out.lift = (a.lift ?? 0) + ((b.lift ?? 0) - (a.lift ?? 0)) * k;
+  out.grip = (a.grip ?? 0) + ((b.grip ?? 0) - (a.grip ?? 0)) * k;
   for (const name of JOINTS) {
     const va = a.j[name] ?? ZERO;
     const vb = b.j[name] ?? ZERO;
@@ -324,7 +334,7 @@ export function actionFx(action: WarriorAction, t: number): { surge: number; hit
 // ─── Animator ───
 
 export class ProceduralAnimator {
-  private rig: WarriorRig;
+  private rig: AnimatableRig;
   private action: WarriorAction;
   private base: WarriorBaseAction;
   private started = 0;
@@ -334,9 +344,10 @@ export class ProceduralAnimator {
   private dropNow = 0;
   private shiftNow: [number, number] = [0, 0];
   private liftNow = 0;
+  private gripNow = 0;
   onActionChange: ((action: WarriorAction) => void) | null = null;
 
-  constructor(rig: WarriorRig, base: WarriorBaseAction) {
+  constructor(rig: AnimatableRig, base: WarriorBaseAction) {
     this.rig = rig;
     this.base = base;
     this.action = base;
@@ -347,6 +358,12 @@ export class ProceduralAnimator {
       if (r) rig.joints[name].rotation.set(r[0], r[1], r[2]);
     }
     this.dropNow = pose.drop ?? 0;
+    this.gripNow = pose.grip ?? 0;
+  }
+
+  /** Current (damped) hand grip, 0 open … 1 fist. */
+  get grip(): number {
+    return this.gripNow;
   }
 
   get current(): WarriorAction {
@@ -472,6 +489,7 @@ export class ProceduralAnimator {
     this.shiftNow[0] += (sh[0] + sway * 0.02 - this.shiftNow[0]) * k;
     this.shiftNow[1] += (sh[1] - this.shiftNow[1]) * k;
     this.liftNow += ((pose.lift ?? 0) - this.liftNow) * Math.min(1, k * 1.4);
+    this.gripNow += ((pose.grip ?? 0) - this.gripNow) * k;
 
     const hips = joints.hips;
     hips.position.set(this.shiftNow[0], this.rig.hipsY - this.dropNow, this.shiftNow[1]);
